@@ -236,15 +236,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .informe-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
 
 .login-screen{position:fixed;inset:0;background:#0e0d0c;z-index:99999;display:flex;align-items:center;justify-content:center}
-.login-box{width:340px;background:#1a1917;border:1px solid rgba(29,158,117,.25);border-radius:14px;padding:32px;box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.login-box{width:340px;background:#1a1917;border:1px solid rgba(29,158,117,.3);border-radius:14px;padding:36px;box-shadow:0 24px 64px rgba(0,0,0,.7)}
 .login-logo{font-size:24px;font-weight:700;letter-spacing:-.5px;margin-bottom:6px}
 .login-logo .w{color:#f0ede8}.login-logo .g{color:#1D9E75}
 .login-sub{font-size:12px;color:#4a4a46;margin-bottom:28px}
-.login-field{margin-bottom:14px}
-.login-field label{font-size:10px;color:#5a5a56;display:block;margin-bottom:5px;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
-.login-field input{width:100%;background:#111210;border:1px solid rgba(29,158,117,.2);border-radius:7px;padding:10px 12px;font-size:13px;color:#e8e6e1;outline:none;font-family:inherit;transition:border-color .15s}
-.login-field input:focus{border-color:rgba(29,158,117,.5)}
-.login-btn{width:100%;padding:10px;background:#1D9E75;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:4px;transition:background .15s}
+.login-label{font-size:10px;color:#5a5a56;display:block;margin-bottom:5px;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.login-input{width:100%;background:#111210;border:1px solid rgba(29,158,117,.2);border-radius:7px;padding:10px 12px;font-size:13px;color:#e8e6e1;outline:none;font-family:inherit;margin-bottom:14px;transition:border-color .15s;box-sizing:border-box}
+.login-input:focus{border-color:rgba(29,158,117,.6)}
+.login-btn{width:100%;padding:11px;background:#1D9E75;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
 .login-btn:hover{background:#17865f}
 .login-btn:disabled{opacity:.5;cursor:default}
 .login-error{font-size:11px;color:#f07070;margin-top:10px;text-align:center;min-height:16px}
@@ -253,33 +252,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </head>
 <body>
 <div class="shell">
-<div id="login-screen" class="login-screen">
+<div id="login-screen" style="position:fixed;inset:0;background:#0e0d0c;z-index:99999;display:flex;align-items:center;justify-content:center">
   <div class="login-box">
     <div class="login-logo"><span class="w">Reha</span><span class="g">ctivaPro</span></div>
     <div class="login-sub">Gestión clínica · Acceso restringido</div>
-    <div class="login-field">
-      <label>Correo electrónico</label>
-      <input type="email" id="login-email" placeholder="tu@correo.com" autocomplete="email">
-    </div>
-    <div class="login-field">
-      <label>Contraseña</label>
-      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-    </div>
+    <label class="login-label">Correo electrónico</label>
+    <input class="login-input" type="email" id="login-email" placeholder="tu@correo.com" autocomplete="email">
+    <label class="login-label">Contraseña</label>
+    <input class="login-input" type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     <button class="login-btn" id="login-btn" onclick="doLogin()">Ingresar</button>
     <div class="login-error" id="login-error"></div>
   </div>
 </div>
-
-<div id="loading-overlay" style="position:fixed;inset:0;background:#0e0d0c;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+<div id="loading-overlay" style="position:fixed;inset:0;background:#0e0d0c;z-index:9998;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px">
   <div style="font-size:22px;font-weight:600;letter-spacing:-.3px"><span style="color:#f0ede8">Reha</span><span style="color:#1D9E75">ctivaPro</span></div>
   <div style="display:flex;gap:6px">
-    <div style="width:8px;height:8px;border-radius:50%;background:#1D9E75;animation:pulse 1s ease-in-out infinite"></div>
-    <div style="width:8px;height:8px;border-radius:50%;background:#1D9E75;animation:pulse 1s ease-in-out .2s infinite"></div>
-    <div style="width:8px;height:8px;border-radius:50%;background:#1D9E75;animation:pulse 1s ease-in-out .4s infinite"></div>
+    <div style="width:8px;height:8px;border-radius:50%;background:#1D9E75;animation:ldpulse 1s ease-in-out infinite"></div>
+    <div style="width:8px;height:8px;border-radius:50%;background:#1D9E75;animation:ldpulse 1s ease-in-out .2s infinite"></div>
+    <div style="width:8px;height:8px;border-radius:50%;background:#1D9E75;animation:ldpulse 1s ease-in-out .4s infinite"></div>
   </div>
   <div style="font-size:12px;color:#4a4a46">Cargando datos...</div>
 </div>
-<style>@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}</style>
+<style>@keyframes ldpulse{0%,100%{opacity:.3}50%{opacity:1}}</style>
 
 
 <!-- ===== SIDEBAR ===== -->
@@ -332,7 +326,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
   </nav>
   <div class="sidebar-footer">
-    <button class="nav-item" onclick="doLogout()" style="color:#6b6a64;cursor:pointer">
+    <button class="nav-item" onclick="doLogout()" style="cursor:pointer;color:#5a5a56">
       <span class="nav-icon">🚪</span>
       <span style="font-size:11px">Cerrar sesión</span>
     </button>
@@ -684,190 +678,101 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-// ============================================================
-// SUPABASE CONFIG
-// ============================================================
-const SUPA_URL = 'https://cgilpnjgrnxqmrkhaxkx.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnaWxwbmpncm54cW1ya2hheGt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyNjUzNDcsImV4cCI6MjA5MDg0MTM0N30.xuVP5uq5DxOoEX36HbdSASDkIwKs0dTd7xoQalc-CqI';
-const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+const _SURL='https://cgilpnjgrnxqmrkhaxkx.supabase.co';
+const _SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnaWxwbmpncm54cW1ya2hheGt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyNjUzNDcsImV4cCI6MjA5MDg0MTM0N30.xuVP5uq5DxOoEX36HbdSASDkIwKs0dTd7xoQalc-CqI';
+const supa=supabase.createClient(_SURL,_SKEY);
 
-// ============================================================
-// CAPA DE DATOS — lee y escribe en Supabase
-// Cuando algo falla cae de vuelta a los datos en memoria
-// ============================================================
+// ── AUTH ──
+async function doLogin(){
+  const email=document.getElementById('login-email').value.trim();
+  const pass=document.getElementById('login-pass').value;
+  const btn=document.getElementById('login-btn');
+  const err=document.getElementById('login-error');
+  if(!email||!pass){err.textContent='Ingresa tu correo y contraseña.';return;}
+  btn.disabled=true;btn.textContent='Ingresando...';err.textContent='';
+  const {error}=await supa.auth.signInWithPassword({email,password:pass});
+  if(error){
+    err.textContent='Correo o contraseña incorrectos.';
+    btn.disabled=false;btn.textContent='Ingresar';
+  } else {
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('loading-overlay').style.display='flex';
+    await loadAll();
+    document.getElementById('loading-overlay').style.display='none';
+    renderGrid();updateResumenBadge();updateFacturaBadge();
+  }
+}
+async function doLogout(){
+  await supa.auth.signOut();location.reload();
+}
 
-async function loadAll() {
-  try {
-    const [th, doc, pat, appt, prot, cob] = await Promise.all([
+// ── CARGAR DATOS ──
+async function loadAll(){
+  try{
+    const [th,doc,pat,appt,prot,cob]=await Promise.all([
       supa.from('therapists').select('*').order('created_at'),
       supa.from('doctors').select('*').order('created_at'),
-      supa.from('patients').select('*, session_log(*)').order('created_at'),
+      supa.from('patients').select('*,session_log(*)').order('created_at'),
       supa.from('appointments').select('*').order('date').order('hour'),
       supa.from('protocols').select('*').order('created_at'),
       supa.from('cobros').select('*').order('created_at'),
     ]);
-
-    if (th.error) throw th.error;
-
-    // Mapear al formato que espera el JS existente
-    therapists = th.data.map(r => ({
-      id: r.id, name: r.name, initials: r.initials||r.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),
-      spec: r.spec||'', startH: r.start_h, endH: r.end_h, colorId: r.color_id||'ca'
+    if(th.error)throw th.error;
+    therapists=(th.data||[]).map(r=>({id:r.id,name:r.name,initials:r.initials||r.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),spec:r.spec||'',startH:r.start_h,endH:r.end_h,colorId:r.color_id||'ca'}));
+    doctors=(doc.data||[]).map(r=>({id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'}));
+    const cobData=cob.data||[];
+    patients=(pat.data||[]).map(r=>({
+      id:r.id,name:r.name,age:r.age||35,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
+      diag:r.diag||'Sin diagnóstico',therapistId:r.therapist_id,doctorId:r.doctor_id,
+      sessions:r.sessions||12,done:r.done||0,status:r.status||'active',
+      log:(r.session_log||[]).map(s=>({date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[]})),
+      billing:{sesPerFactura:r.billing_ses_per_factura||5,pendientes:r.billing_pendientes||0,
+        facturas:cobData.filter(c=>c.patient_id===r.id).map(c=>({'id':c.cobro_ref,'n':c.n_sessions,'fecha':c.date,'estado':'cobrada'}))}
     }));
-
-    doctors = doc.data.map(r => ({
-      id: r.id, name: r.name, spec: r.spec||'', email: r.email||'', tel: r.tel||'', color: r.color||'#E24B4A'
-    }));
-
-    patients = pat.data.map(r => ({
-      id: r.id, name: r.name, age: r.age||35,
-      cedula: r.cedula||'', tel: r.tel||'', email: r.email||'', dir: r.dir||'',
-      diag: r.diag||'Sin diagnóstico',
-      therapistId: r.therapist_id, doctorId: r.doctor_id,
-      sessions: r.sessions||12, done: r.done||0, status: r.status||'active',
-      log: (r.session_log||[]).map(s => ({
-        date: s.date, type: s.type, hour: s.hour,
-        status: s.status, pb: s.pain_before, pa: s.pain_after,
-        note: s.note||'', tags: s.tags||[]
-      })),
-      billing: {
-        sesPerFactura: r.billing_ses_per_factura||5,
-        pendientes: r.billing_pendientes||0,
-        facturas: (cob.data||[]).filter(c=>c.patient_id===r.id).map(c=>({'id':c.cobro_ref,'n':c.n_sessions,'fecha':c.date,'estado':'cobrada'}))
-      }
-    }));
-
-    protocols = (prot.data||[]).map(r => ({
-      id: r.id, name: r.name, diag: r.diag_keywords||'',
-      sessions: r.sessions||20, freq: r.freq||3, alta: r.discharge_criteria||''
-    }));
-
-    appointments = (appt.data||[]).map(r => ({
-      id: r.id, date: r.date, therapistId: r.therapist_id,
-      patientId: r.patient_id, hour: r.hour,
-      type: r.type||'Fisioterapia', status: r.status||'pend', note: r.note||''
-    }));
-
-    console.log('✅ Datos cargados desde Supabase');
-  } catch(err) {
-    console.warn('⚠️ Supabase no disponible, usando datos demo:', err.message);
-  }
+    protocols=(prot.data||[]).map(r=>({id:r.id,name:r.name,diag:r.diag_keywords||'',sessions:r.sessions||20,freq:r.freq||3,alta:r.discharge_criteria||''}));
+    appointments=(appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,hour:r.hour,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''}));
+    console.log('Datos cargados desde Supabase');
+  }catch(e){console.warn('Error cargando datos:',e.message);}
 }
 
-// ---- GUARDAR cita ----
-async function dbSaveAppt(appt) {
-  const {error} = await supa.from('appointments').upsert({
-    id: typeof appt.id === 'number' ? undefined : appt.id,
-    date: appt.date, therapist_id: appt.therapistId,
-    patient_id: appt.patientId, hour: appt.hour,
-    type: appt.type, status: appt.status, note: appt.note||''
-  });
-  if (error) console.error('Error guardando cita:', error);
-  else await loadAll();
+// ── GUARDAR / BORRAR ──
+async function dbSaveAppt(a){
+  const payload={date:a.date,therapist_id:a.therapistId,patient_id:a.patientId,hour:a.hour,type:a.type,status:a.status,note:a.note||''};
+  if(typeof a.id==='string')payload.id=a.id;
+  await supa.from('appointments').upsert(payload);
 }
-
-// ---- BORRAR cita ----
-async function dbDeleteAppt(id) {
-  if (typeof id !== 'string') return; // id numérico = demo
-  await supa.from('appointments').delete().eq('id', id);
-  await loadAll();
+async function dbDeleteAppt(id){if(typeof id==='string')await supa.from('appointments').delete().eq('id',id);}
+async function dbUpdateApptStatus(id,status){if(typeof id==='string')await supa.from('appointments').update({status}).eq('id',id);}
+async function dbSavePatient(p){
+  await supa.from('patients').insert({name:p.name,age:p.age,cedula:p.cedula,tel:p.tel,email:p.email,dir:p.dir,diag:p.diag,therapist_id:p.therapistId||null,doctor_id:p.doctorId||null,sessions:p.sessions,done:0,status:p.status,billing_ses_per_factura:p.billing.sesPerFactura,billing_pendientes:p.billing.pendientes});
 }
-
-// ---- ACTUALIZAR estado cita ----
-async function dbUpdateApptStatus(id, status) {
-  if (typeof id !== 'string') return;
-  await supa.from('appointments').update({status}).eq('id', id);
+async function dbSaveTherapist(th){
+  const d={name:th.name,initials:th.initials,spec:th.spec,start_h:th.startH,end_h:th.endH,color_id:th.colorId};
+  if(typeof th.id==='string')d.id=th.id;
+  await supa.from('therapists').upsert(d);
 }
-
-// ---- GUARDAR paciente ----
-async function dbSavePatient(p) {
-  const {data, error} = await supa.from('patients').insert({
-    name: p.name, age: p.age, cedula: p.cedula, tel: p.tel,
-    email: p.email, dir: p.dir, diag: p.diag,
-    therapist_id: p.therapistId||null, doctor_id: p.doctorId||null,
-    sessions: p.sessions, done: 0, status: p.status,
-    billing_ses_per_factura: p.billing.sesPerFactura,
-    billing_pendientes: p.billing.pendientes
-  }).select().single();
-  if (error) console.error('Error guardando paciente:', error);
-  else await loadAll();
-  return data;
+async function dbDeleteTherapist(id){if(typeof id==='string')await supa.from('therapists').delete().eq('id',id);}
+async function dbSaveDoctor(d){
+  const p={name:d.name,spec:d.spec,email:d.email,tel:d.tel,color:d.color};
+  if(typeof d.id==='string')p.id=d.id;
+  await supa.from('doctors').upsert(p);
 }
-
-// ---- GUARDAR terapeuta ----
-async function dbSaveTherapist(th) {
-  const payload = {
-    name: th.name, initials: th.initials, spec: th.spec,
-    start_h: th.startH, end_h: th.endH, color_id: th.colorId
-  };
-  if (typeof th.id === 'string') payload.id = th.id;
-  await supa.from('therapists').upsert(payload);
-  await loadAll();
+async function dbDeleteDoctor(id){if(typeof id==='string')await supa.from('doctors').delete().eq('id',id);}
+async function dbSaveProtocol(p){
+  const d={name:p.name,diag_keywords:p.diag,sessions:p.sessions,freq:p.freq,discharge_criteria:p.alta};
+  if(typeof p.id==='string')d.id=p.id;
+  await supa.from('protocols').upsert(d);
 }
-
-// ---- BORRAR terapeuta ----
-async function dbDeleteTherapist(id) {
-  if (typeof id !== 'string') return;
-  await supa.from('therapists').delete().eq('id', id);
-  await loadAll();
+async function dbDeleteProtocol(id){if(typeof id==='string')await supa.from('protocols').delete().eq('id',id);}
+async function dbRegistrarCobro(patientId,nSessions,cobroRef){
+  await supa.from('cobros').insert({cobro_ref:cobroRef,patient_id:patientId,n_sessions:nSessions,date:fmtDate(new Date())});
+  await supa.from('patients').update({billing_pendientes:0}).eq('id',patientId);
 }
-
-// ---- GUARDAR doctor ----
-async function dbSaveDoctor(d) {
-  const payload = {name: d.name, spec: d.spec, email: d.email, tel: d.tel, color: d.color};
-  if (typeof d.id === 'string') payload.id = d.id;
-  await supa.from('doctors').upsert(payload);
-  await loadAll();
-}
-
-// ---- BORRAR doctor ----
-async function dbDeleteDoctor(id) {
-  if (typeof id !== 'string') return;
-  await supa.from('doctors').delete().eq('id', id);
-  await loadAll();
-}
-
-// ---- GUARDAR protocolo ----
-async function dbSaveProtocol(p) {
-  const payload = {name: p.name, diag_keywords: p.diag, sessions: p.sessions, freq: p.freq, discharge_criteria: p.alta};
-  if (typeof p.id === 'string') payload.id = p.id;
-  await supa.from('protocols').upsert(payload);
-  await loadAll();
-}
-
-// ---- BORRAR protocolo ----
-async function dbDeleteProtocol(id) {
-  if (typeof id !== 'string') return;
-  await supa.from('protocols').delete().eq('id', id);
-  await loadAll();
-}
-
-// ---- REGISTRAR cobro ----
-async function dbRegistrarCobro(patientId, nSessions, cobroRef) {
-  await supa.from('cobros').insert({
-    cobro_ref: cobroRef, patient_id: patientId,
-    n_sessions: nSessions, date: fmtDate(new Date())
-  });
-  await supa.from('patients').update({billing_pendientes: 0}).eq('id', patientId);
-  await loadAll();
-}
-
-// ---- ACTUALIZAR billing pendientes ----
-async function dbUpdateBillingPendientes(patientId, pendientes) {
-  if (typeof patientId !== 'string') return;
-  await supa.from('patients').update({billing_pendientes: pendientes}).eq('id', patientId);
-}
-
-// ---- INIT ----
-async function initApp() {
-  document.getElementById('loading-overlay').style.display = 'flex';
-  await loadAll();
-  document.getElementById('loading-overlay').style.display = 'none';
-  renderGrid();
-  updateResumenBadge();
-  updateFacturaBadge();
+async function dbUpdateBillingPendientes(patientId,pendientes){
+  if(typeof patientId==='string')await supa.from('patients').update({billing_pendientes:pendientes}).eq('id',patientId);
 }
 </script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 
@@ -942,11 +847,9 @@ function cycleStatus(id){
   const prevStatus=a.status;
   const c=['conf','pend','noas'];
   a.status=c[(c.indexOf(a.status)+1)%3];
-  // Si la cita pasa a 'conf' desde otro estado, o si se marca manualmente como completada
-  // Contamos citas 'conf' del día actual para el paciente y actualizamos billing
   checkBillingOnStatusChange(a,prevStatus);
   renderGrid();updateResumenBadge();updateFacturaBadge();
-  dbUpdateApptStatus(a.id, a.status);
+  dbUpdateApptStatus(a.id,a.status);
 }
 function checkBillingOnStatusChange(appt,prevStatus){
   const pt=getPatient(appt.patientId);if(!pt||!pt.billing)return;
@@ -1064,14 +967,10 @@ function saveAppt(){
   const hr=parseInt(document.getElementById('m-time').value);
   const ds=fmtDate(currentDate);
   if(appointments.find(a=>a.date===ds&&a.therapistId===thId&&a.hour===hr)){alert('Ese slot ya está ocupado.');return;}
-  const _newAppt={id:++apptCounter,date:ds,therapistId:thId,hour:hr,
-    patientId:parseInt(document.getElementById('m-patient').value),
-    type:document.getElementById('m-type').value,
-    status:document.getElementById('m-status').value,
-    note:document.getElementById('m-note').value};
-  appointments.push(_newAppt);
+  const _a={id:++apptCounter,date:ds,therapistId:thId,hour:hr,patientId:parseInt(document.getElementById('m-patient').value),type:document.getElementById('m-type').value,status:document.getElementById('m-status').value,note:document.getElementById('m-note').value};
+  appointments.push(_a);
   closeModal('appt-modal');renderGrid();
-  dbSaveAppt(_newAppt);updateFacturaBadge();
+  dbSaveAppt(_a);updateFacturaBadge();
 updateFacturaBadge();
 function updateGlobalSPF(v){
   const n=parseInt(v)||5;
@@ -1144,8 +1043,9 @@ function savePatient(){
     doctorId:parseInt(document.getElementById('pm-doctor').value)||null,
     sessions:parseInt(document.getElementById('pm-sessions').value)||12,
     done:0,status:document.getElementById('pm-status').value,log:[],billing:{sesPerFactura:parseInt(document.getElementById('global-spf').value)||5,facturas:[],pendientes:parseInt(document.getElementById('pm-billing-start').value)||0}});
+  const _p=patients[patients.length-1];
   closeModal('patient-modal');renderPatients();
-  dbSavePatient(patients[patients.length-1]);
+  dbSavePatient(_p);
   ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm-billing-start').value='0';
 }
@@ -1408,8 +1308,9 @@ function saveProtocol(){
   const d={diag,name,sessions:parseInt(document.getElementById('prot-sessions').value),freq:parseInt(document.getElementById('prot-freq').value),alta:document.getElementById('prot-alta').value};
   if(editingProtocolId)Object.assign(protocols.find(p=>p.id===editingProtocolId),d);
   else protocols.push({id:++protCounter,...d});
+  const _pr=editingProtocolId?protocols.find(p=>p.id===editingProtocolId):protocols[protocols.length-1];
   closeModal('protocol-modal');renderProtocols();
-  dbSaveProtocol(editingProtocolId?protocols.find(p=>p.id===editingProtocolId):protocols[protocols.length-1]);
+  dbSaveProtocol(_pr);
 }
 function renderProtocols(){
   const fl={7:'Diaria',5:'5×/sem',3:'3×/sem',2:'2×/sem',1:'1×/sem'};
@@ -1428,7 +1329,7 @@ function renderProtocols(){
     </div>`).join('');
   protCurrentPage=0;renderProtocolAdherence();
 }
-function deleteProtocol(id){if(!confirm('¿Eliminar?'))return;protocols=protocols.filter(p=>p.id!==id);renderProtocols();}
+function deleteProtocol(id){if(!confirm('¿Eliminar?'))return;protocols=protocols.filter(p=>p.id!==id);renderProtocols();dbDeleteProtocol(id);}
 
 function getProtocolRows(){
   const rows=[];const fl={7:'Diaria',5:'5×/sem',3:'3×/sem',2:'2×/sem',1:'1×/sem'};
@@ -1520,8 +1421,9 @@ function saveTherapist(){
   const init=name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
   if(editingTherapistId){const t=getTherapist(editingTherapistId);t.name=name;t.spec=document.getElementById('th-spec').value;t.startH=s;t.endH=e;t.colorId=selectedColor;t.initials=init;}
   else therapists.push({id:++thCounter,name,initials:init,spec:document.getElementById('th-spec').value,startH:s,endH:e,colorId:selectedColor});
+  const _th=editingTherapistId?getTherapist(editingTherapistId):therapists[therapists.length-1];
   closeModal('therapist-modal');renderTherapistList();renderGrid();
-  dbSaveTherapist(editingTherapistId?getTherapist(editingTherapistId):therapists[therapists.length-1]);
+  dbSaveTherapist(_th);
 updateFacturaBadge();
 
 }
@@ -1530,6 +1432,7 @@ function deleteTherapist(id){
   therapists=therapists.filter(t=>t.id!==id);
   appointments=appointments.filter(a=>a.therapistId!==id);
   renderTherapistList();renderGrid();
+  dbDeleteTherapist(id);
 updateFacturaBadge();
 
 }
@@ -1566,14 +1469,16 @@ function saveDoctor(){
   const d={name,spec:document.getElementById('doc-spec').value,email:document.getElementById('doc-email').value,tel:document.getElementById('doc-tel').value,color:selectedDocColor};
   if(editingDocId)Object.assign(getDoctor(editingDocId),d);
   else doctors.push({id:++docCounter,...d});
+  const _d=editingDocId?getDoctor(editingDocId):doctors[doctors.length-1];
   closeModal('doctor-modal');renderDoctorsList();renderRefLegend();
-  dbSaveDoctor(editingDocId?getDoctor(editingDocId):doctors[doctors.length-1]);
+  dbSaveDoctor(_d);
 }
 function deleteDoctor(id){
   if(!confirm('¿Eliminar este doctor?'))return;
   doctors=doctors.filter(d=>d.id!==id);
   patients.forEach(p=>{if(p.doctorId===id)p.doctorId=null;});
   renderDoctorsList();renderRefLegend();
+  dbDeleteDoctor(id);
 }
 function showDoctoresTab(n,btn){
   document.getElementById('config-doctores').style.display=n==='referentes'?'':'none';
@@ -1755,7 +1660,7 @@ function emitirFactura(patientId){
   p.billing.pendientes=0;
   updateFacturaBadge();
   renderFacturacion();
-  dbRegistrarCobro(p.id, n, fId);
+  dbRegistrarCobro(p.id,n,fId);
   simEmailFactura(p.name,p.email||'',fId,n);
 }
 function marcarTodosFacturados(){
@@ -1767,7 +1672,19 @@ function simEmailFactura(nombre,email,fId='',n=5){
   const correo=email?`📧 ${email}`:'📧 Sin correo registrado — agrégalo en el perfil';
   alert(`✅ ${nombre} marcado como cobrado\n\nFactura ${fId}  ·  ${n} sesiones\n${correo}\n\n💡 Con backend: genera XML/SRI y envía comprobante automáticamente.`);
 }
-
+async function initApp(){
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('loading-overlay').style.display='none';
+  const {data:{session}} = await supa.auth.getSession();
+  if(session){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('loading-overlay').style.display='flex';
+    await loadAll();
+    document.getElementById('loading-overlay').style.display='none';
+    renderGrid();updateResumenBadge();updateFacturaBadge();
+  }
+}
+initApp();
 
 </script>
 </body>
