@@ -234,10 +234,53 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .week-lbl{font-size:14px;font-weight:600;color:#f0ede8;letter-spacing:-.2px}
 .export-row{display:flex;gap:8px;margin-top:14px}
 .informe-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+
+.login-screen{position:fixed;inset:0;background:#0e0d0c;z-index:99999;display:flex;align-items:center;justify-content:center}
+.login-box{width:340px;background:#1a1917;border:1px solid rgba(29,158,117,.25);border-radius:14px;padding:32px;box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.login-logo{font-size:24px;font-weight:700;letter-spacing:-.5px;margin-bottom:6px}
+.login-logo .w{color:#f0ede8}.login-logo .g{color:#1D9E75}
+.login-sub{font-size:12px;color:#4a4a46;margin-bottom:28px}
+.login-field{margin-bottom:14px}
+.login-field label{font-size:10px;color:#5a5a56;display:block;margin-bottom:5px;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.login-field input{width:100%;background:#111210;border:1px solid rgba(29,158,117,.2);border-radius:7px;padding:10px 12px;font-size:13px;color:#e8e6e1;outline:none;font-family:inherit;transition:border-color .15s}
+.login-field input:focus{border-color:rgba(29,158,117,.5)}
+.login-btn{width:100%;padding:10px;background:#1D9E75;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:4px;transition:background .15s}
+.login-btn:hover{background:#17865f}
+.login-btn:disabled{opacity:.5;cursor:default}
+.login-error{font-size:11px;color:#f07070;margin-top:10px;text-align:center;min-height:16px}
+
 </style>
 </head>
 <body>
 <div class="shell">
+<div id="login-screen" class="login-screen">
+  <div class="login-box">
+    <div class="login-logo"><span class="w">Reha</span><span class="g">ctivaPro</span></div>
+    <div class="login-sub">Gestión clínica · Acceso restringido</div>
+    <div class="login-field">
+      <label>Correo electrónico</label>
+      <input type="email" id="login-email" placeholder="tu@correo.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>Contraseña</label>
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Ingresar</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<div id="loading-overlay" style="position:fixed;inset:0;background:#0e0d0c;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+  <div style="font-size:22px;font-weight:600;letter-spacing:-.3px"><span style="color:#f0ede8">Reha</span><span style="color:#1D9E75">ctivaPro</span></div>
+  <div style="display:flex;gap:6px">
+    <div style="width:8px;height:8px;border-radius:50%;background:#1D9E75;animation:pulse 1s ease-in-out infinite"></div>
+    <div style="width:8px;height:8px;border-radius:50%;background:#1D9E75;animation:pulse 1s ease-in-out .2s infinite"></div>
+    <div style="width:8px;height:8px;border-radius:50%;background:#1D9E75;animation:pulse 1s ease-in-out .4s infinite"></div>
+  </div>
+  <div style="font-size:12px;color:#4a4a46">Cargando datos...</div>
+</div>
+<style>@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}</style>
+
 
 <!-- ===== SIDEBAR ===== -->
 <aside class="sidebar">
@@ -289,10 +332,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
   </nav>
   <div class="sidebar-footer">
-    <div class="nav-item" style="cursor:default">
-      <span class="nav-icon" style="font-size:11px">●</span>
-      <span style="font-size:10px;color:#3a3a36">Demo · Sin backend</span>
-    </div>
+    <button class="nav-item" onclick="doLogout()" style="color:#6b6a64;cursor:pointer">
+      <span class="nav-icon">🚪</span>
+      <span style="font-size:11px">Cerrar sesión</span>
+    </button>
   </div>
 </aside>
 
@@ -638,6 +681,193 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div>
 </div>
 
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ============================================================
+// SUPABASE CONFIG
+// ============================================================
+const SUPA_URL = 'https://cgilpnjgrnxqmrkhaxkx.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnaWxwbmpncm54cW1ya2hheGt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyNjUzNDcsImV4cCI6MjA5MDg0MTM0N30.xuVP5uq5DxOoEX36HbdSASDkIwKs0dTd7xoQalc-CqI';
+const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+// ============================================================
+// CAPA DE DATOS — lee y escribe en Supabase
+// Cuando algo falla cae de vuelta a los datos en memoria
+// ============================================================
+
+async function loadAll() {
+  try {
+    const [th, doc, pat, appt, prot, cob] = await Promise.all([
+      supa.from('therapists').select('*').order('created_at'),
+      supa.from('doctors').select('*').order('created_at'),
+      supa.from('patients').select('*, session_log(*)').order('created_at'),
+      supa.from('appointments').select('*').order('date').order('hour'),
+      supa.from('protocols').select('*').order('created_at'),
+      supa.from('cobros').select('*').order('created_at'),
+    ]);
+
+    if (th.error) throw th.error;
+
+    // Mapear al formato que espera el JS existente
+    therapists = th.data.map(r => ({
+      id: r.id, name: r.name, initials: r.initials||r.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),
+      spec: r.spec||'', startH: r.start_h, endH: r.end_h, colorId: r.color_id||'ca'
+    }));
+
+    doctors = doc.data.map(r => ({
+      id: r.id, name: r.name, spec: r.spec||'', email: r.email||'', tel: r.tel||'', color: r.color||'#E24B4A'
+    }));
+
+    patients = pat.data.map(r => ({
+      id: r.id, name: r.name, age: r.age||35,
+      cedula: r.cedula||'', tel: r.tel||'', email: r.email||'', dir: r.dir||'',
+      diag: r.diag||'Sin diagnóstico',
+      therapistId: r.therapist_id, doctorId: r.doctor_id,
+      sessions: r.sessions||12, done: r.done||0, status: r.status||'active',
+      log: (r.session_log||[]).map(s => ({
+        date: s.date, type: s.type, hour: s.hour,
+        status: s.status, pb: s.pain_before, pa: s.pain_after,
+        note: s.note||'', tags: s.tags||[]
+      })),
+      billing: {
+        sesPerFactura: r.billing_ses_per_factura||5,
+        pendientes: r.billing_pendientes||0,
+        facturas: (cob.data||[]).filter(c=>c.patient_id===r.id).map(c=>({'id':c.cobro_ref,'n':c.n_sessions,'fecha':c.date,'estado':'cobrada'}))
+      }
+    }));
+
+    protocols = (prot.data||[]).map(r => ({
+      id: r.id, name: r.name, diag: r.diag_keywords||'',
+      sessions: r.sessions||20, freq: r.freq||3, alta: r.discharge_criteria||''
+    }));
+
+    appointments = (appt.data||[]).map(r => ({
+      id: r.id, date: r.date, therapistId: r.therapist_id,
+      patientId: r.patient_id, hour: r.hour,
+      type: r.type||'Fisioterapia', status: r.status||'pend', note: r.note||''
+    }));
+
+    console.log('✅ Datos cargados desde Supabase');
+  } catch(err) {
+    console.warn('⚠️ Supabase no disponible, usando datos demo:', err.message);
+  }
+}
+
+// ---- GUARDAR cita ----
+async function dbSaveAppt(appt) {
+  const {error} = await supa.from('appointments').upsert({
+    id: typeof appt.id === 'number' ? undefined : appt.id,
+    date: appt.date, therapist_id: appt.therapistId,
+    patient_id: appt.patientId, hour: appt.hour,
+    type: appt.type, status: appt.status, note: appt.note||''
+  });
+  if (error) console.error('Error guardando cita:', error);
+  else await loadAll();
+}
+
+// ---- BORRAR cita ----
+async function dbDeleteAppt(id) {
+  if (typeof id !== 'string') return; // id numérico = demo
+  await supa.from('appointments').delete().eq('id', id);
+  await loadAll();
+}
+
+// ---- ACTUALIZAR estado cita ----
+async function dbUpdateApptStatus(id, status) {
+  if (typeof id !== 'string') return;
+  await supa.from('appointments').update({status}).eq('id', id);
+}
+
+// ---- GUARDAR paciente ----
+async function dbSavePatient(p) {
+  const {data, error} = await supa.from('patients').insert({
+    name: p.name, age: p.age, cedula: p.cedula, tel: p.tel,
+    email: p.email, dir: p.dir, diag: p.diag,
+    therapist_id: p.therapistId||null, doctor_id: p.doctorId||null,
+    sessions: p.sessions, done: 0, status: p.status,
+    billing_ses_per_factura: p.billing.sesPerFactura,
+    billing_pendientes: p.billing.pendientes
+  }).select().single();
+  if (error) console.error('Error guardando paciente:', error);
+  else await loadAll();
+  return data;
+}
+
+// ---- GUARDAR terapeuta ----
+async function dbSaveTherapist(th) {
+  const payload = {
+    name: th.name, initials: th.initials, spec: th.spec,
+    start_h: th.startH, end_h: th.endH, color_id: th.colorId
+  };
+  if (typeof th.id === 'string') payload.id = th.id;
+  await supa.from('therapists').upsert(payload);
+  await loadAll();
+}
+
+// ---- BORRAR terapeuta ----
+async function dbDeleteTherapist(id) {
+  if (typeof id !== 'string') return;
+  await supa.from('therapists').delete().eq('id', id);
+  await loadAll();
+}
+
+// ---- GUARDAR doctor ----
+async function dbSaveDoctor(d) {
+  const payload = {name: d.name, spec: d.spec, email: d.email, tel: d.tel, color: d.color};
+  if (typeof d.id === 'string') payload.id = d.id;
+  await supa.from('doctors').upsert(payload);
+  await loadAll();
+}
+
+// ---- BORRAR doctor ----
+async function dbDeleteDoctor(id) {
+  if (typeof id !== 'string') return;
+  await supa.from('doctors').delete().eq('id', id);
+  await loadAll();
+}
+
+// ---- GUARDAR protocolo ----
+async function dbSaveProtocol(p) {
+  const payload = {name: p.name, diag_keywords: p.diag, sessions: p.sessions, freq: p.freq, discharge_criteria: p.alta};
+  if (typeof p.id === 'string') payload.id = p.id;
+  await supa.from('protocols').upsert(payload);
+  await loadAll();
+}
+
+// ---- BORRAR protocolo ----
+async function dbDeleteProtocol(id) {
+  if (typeof id !== 'string') return;
+  await supa.from('protocols').delete().eq('id', id);
+  await loadAll();
+}
+
+// ---- REGISTRAR cobro ----
+async function dbRegistrarCobro(patientId, nSessions, cobroRef) {
+  await supa.from('cobros').insert({
+    cobro_ref: cobroRef, patient_id: patientId,
+    n_sessions: nSessions, date: fmtDate(new Date())
+  });
+  await supa.from('patients').update({billing_pendientes: 0}).eq('id', patientId);
+  await loadAll();
+}
+
+// ---- ACTUALIZAR billing pendientes ----
+async function dbUpdateBillingPendientes(patientId, pendientes) {
+  if (typeof patientId !== 'string') return;
+  await supa.from('patients').update({billing_pendientes: pendientes}).eq('id', patientId);
+}
+
+// ---- INIT ----
+async function initApp() {
+  document.getElementById('loading-overlay').style.display = 'flex';
+  await loadAll();
+  document.getElementById('loading-overlay').style.display = 'none';
+  renderGrid();
+  updateResumenBadge();
+  updateFacturaBadge();
+}
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 
@@ -653,84 +883,23 @@ const COLOR_OPTIONS=[
 ];
 const DOC_COLORS=['#E24B4A','#378ADD','#7F77DD','#BA7517','#D4537E','#1D9E75','#D85A30','#639922'];
 
-let therapists=[
-  {id:1,name:'David Galarza',initials:'DG',spec:'Fisioterapia columna',startH:7,endH:13,colorId:'ca'},
-  {id:2,name:'Daniel Méndez',initials:'DM',spec:'Kinesioterapia deportiva',startH:10,endH:16,colorId:'cb'},
-  {id:3,name:'Dra. Vega',initials:'DV',spec:'Neurológica',startH:7,endH:14,colorId:'cc'},
-  {id:4,name:'Lic. Mora',initials:'LM',spec:'Pediátrica',startH:8,endH:13,colorId:'cd'},
-];
+let therapists=[];
 let thCounter=10;
 
-let doctors=[
-  {id:1,name:'Dr. Ramírez',spec:'Traumatología',email:'ramirez@clinica.com',tel:'0991111111',color:'#E24B4A'},
-  {id:2,name:'Dra. Torres',spec:'Neurología',email:'torres@clinica.com',tel:'0992222222',color:'#378ADD'},
-  {id:3,name:'Dr. Vásquez',spec:'Ortopedia',email:'vasquez@clinica.com',tel:'0993333333',color:'#7F77DD'},
-];
+let doctors=[];
 let docCounter=10;
 let selectedDocColor='#E24B4A';
 let editingDocId=null;
 
-let protocols=[
-  {id:1,name:'Fractura / lesión brazo o hombro',diag:'brazo,hombro,fractura,clavícula',sessions:20,freq:5,alta:'Rango articular completo, fuerza 90%'},
-  {id:2,name:'Lumbalgia crónica',diag:'lumbalgia,lumbar,lumbago',sessions:12,freq:3,alta:'EVA 0-1/10, retorno laboral'},
-  {id:3,name:'Lesión de rodilla / tendón',diag:'rodilla,rotuliana,ligamento,menisco',sessions:15,freq:3,alta:'Prueba funcional negativa'},
-];
+let protocols=[];
 let protCounter=10;
 let protCurrentPage=0;
 const PROT_PAGE_SIZE=3;
 
-let patients=[
-  {id:1,name:'Carlos Mendoza',age:42,diag:'Lumbalgia crónica L4-L5',therapistId:1,doctorId:1,sessions:12,done:7,status:'active',cedula:'1712345678',tel:'0991234567',email:'carlos@mail.com',dir:'Av. 10 de Agosto 123, Quito',billing:{sesPerFactura:5,facturas:[{id:'F001',n:5,fecha:'2026-03-17',monto:75,estado:'emitida'}],pendientes:2},
-   log:[
-    {date:'2026-03-24',type:'Fisioterapia',hour:'07:00',status:'asistió',pb:7,pa:4,note:'Mejora en flexión lumbar.',tags:['lumbar','core']},
-    {date:'2026-03-21',type:'Terapia manual',hour:'07:00',status:'asistió',pb:8,pa:5,note:'Liberación miofascial.',tags:['manual']},
-    {date:'2026-03-17',type:'Fisioterapia',hour:'07:00',status:'asistió',pb:8,pa:6,note:'Protocolo McKenzie.',tags:['McKenzie']},
-    {date:'2026-03-14',type:'Electroterapia',hour:'07:00',status:'no asistió',pb:null,pa:null,note:'Inasistencia sin aviso.',tags:['ausencia']},
-    {date:'2026-03-10',type:'Fisioterapia',hour:'07:00',status:'asistió',pb:9,pa:6,note:'Primera evaluación. EVA 9/10.',tags:['evaluación']},
-    {date:'2026-03-07',type:'Fisioterapia',hour:'07:00',status:'asistió',pb:9,pa:7,note:'Calor local.',tags:['calor']},
-    {date:'2026-03-03',type:'Fisioterapia',hour:'07:00',status:'asistió',pb:10,pa:8,note:'Anamnesis completa.',tags:['anamnesis']},
-   ]},
-  {id:2,name:'Ana Suárez',age:35,diag:'Cervicalgia crónica C5-C6',therapistId:1,doctorId:2,sessions:8,done:8,status:'alta',cedula:'1798765432',tel:'0992345678',email:'ana@mail.com',dir:'Calle Rocafuerte 45, Quito',billing:{sesPerFactura:5,facturas:[{id:'F002',n:5,fecha:'2026-03-06',monto:75,estado:'emitida'},{id:'F003',n:3,fecha:'2026-03-20',monto:45,estado:'emitida'}],pendientes:0},
-   log:[
-    {date:'2026-03-20',type:'Fisioterapia',hour:'08:00',status:'asistió',pb:2,pa:0,note:'Sesión de alta.',tags:['alta']},
-    {date:'2026-03-13',type:'Terapia manual',hour:'08:00',status:'asistió',pb:3,pa:1,note:'Liberación cervical.',tags:['cervical']},
-    {date:'2026-03-06',type:'Fisioterapia',hour:'08:00',status:'asistió',pb:4,pa:2,note:'Fortalecimiento escapulares.',tags:['escapular']},
-    {date:'2026-02-27',type:'Fisioterapia',hour:'08:00',status:'asistió',pb:5,pa:3,note:'Tracción cervical.',tags:['tracción']},
-   ]},
-  {id:3,name:'Pedro Ríos',age:28,diag:'Desgarro bíceps femoral grado II',therapistId:2,doctorId:1,sessions:10,done:3,status:'active',cedula:'0923456789',tel:'0993456789',email:'pedro@mail.com',dir:'Av. González Suárez 200, Quito',billing:{sesPerFactura:5,facturas:[],pendientes:3},
-   log:[
-    {date:'2026-03-25',type:'Kinesioterapia',hour:'10:00',status:'asistió',pb:5,pa:3,note:'Ejercicios excéntricos.',tags:['excéntrico']},
-    {date:'2026-03-18',type:'Fisioterapia',hour:'10:00',status:'asistió',pb:6,pa:4,note:'Crioterapia + ultrasonido.',tags:['crioterapia']},
-    {date:'2026-03-11',type:'Electroterapia',hour:'10:00',status:'asistió',pb:7,pa:5,note:'TENS + evaluación inicial.',tags:['TENS']},
-   ]},
-  {id:4,name:'Lucía Herrera',age:31,diag:'Tendinitis rotuliana crónica',therapistId:2,doctorId:3,sessions:15,done:6,status:'active',cedula:'1756789012',tel:'0994567890',email:'lucia@mail.com',dir:'Calle Madrid 300, Quito',billing:{sesPerFactura:5,facturas:[{id:'F004',n:5,fecha:'2026-02-26',monto:75,estado:'emitida'}],pendientes:1},
-   log:[
-    {date:'2026-03-26',type:'Fisioterapia',hour:'11:00',status:'asistió',pb:5,pa:3,note:'Isométricos de cuádriceps.',tags:['isométrico']},
-    {date:'2026-03-19',type:'Electroterapia',hour:'11:00',status:'asistió',pb:6,pa:4,note:'Iontoforesis.',tags:['iontoforesis']},
-    {date:'2026-03-12',type:'Terapia manual',hour:'11:00',status:'no asistió',pb:null,pa:null,note:'Canceló por trabajo.',tags:['ausencia']},
-    {date:'2026-02-26',type:'Kinesioterapia',hour:'11:00',status:'asistió',pb:7,pa:5,note:'Protocolo Alfredson.',tags:['Alfredson']},
-    {date:'2026-02-19',type:'Fisioterapia',hour:'11:00',status:'asistió',pb:8,pa:6,note:'Evaluación. Prueba Clarke positiva.',tags:['evaluación']},
-   ]},
-  {id:5,name:'Jorge Castro',age:8,diag:'Parálisis cerebral espástica',therapistId:4,doctorId:2,sessions:30,done:18,status:'active',cedula:'1789012345',tel:'0995678901',email:'jorge_padre@mail.com',dir:'Calle Olmedo 78, Quito',billing:{sesPerFactura:5,facturas:[{id:'F005',n:5,fecha:'2026-02-19',monto:75,estado:'emitida'},{id:'F006',n:5,fecha:'2026-03-05',monto:75,estado:'emitida'},{id:'F007',n:5,fecha:'2026-03-19',monto:75,estado:'emitida'}],pendientes:3},
-   log:[
-    {date:'2026-03-26',type:'Kinesioterapia',hour:'08:00',status:'asistió',pb:2,pa:1,note:'Marcha en paralelas.',tags:['marcha','logro']},
-    {date:'2026-03-19',type:'Fisioterapia',hour:'08:00',status:'asistió',pb:2,pa:1,note:'Técnica Bobath.',tags:['Bobath']},
-    {date:'2026-03-12',type:'Masoterapia',hour:'08:00',status:'asistió',pb:3,pa:2,note:'Masaje inhibitorio.',tags:['inhibición']},
-   ]},
-];
+let patients=[];
 let patCounter=10;
 
-let appointments=[
-  {id:1,date:'2026-03-28',therapistId:1,hour:7,patientId:1,type:'Fisioterapia',status:'conf',note:''},
-  {id:2,date:'2026-03-28',therapistId:1,hour:8,patientId:2,type:'Terapia manual',status:'conf',note:''},
-  {id:3,date:'2026-03-28',therapistId:1,hour:10,patientId:1,type:'Fisioterapia',status:'pend',note:''},
-  {id:4,date:'2026-03-28',therapistId:2,hour:10,patientId:3,type:'Kinesioterapia',status:'conf',note:''},
-  {id:5,date:'2026-03-28',therapistId:2,hour:11,patientId:4,type:'Electroterapia',status:'conf',note:''},
-  {id:6,date:'2026-03-28',therapistId:2,hour:13,patientId:3,type:'Fisioterapia',status:'pend',note:''},
-  {id:7,date:'2026-03-28',therapistId:3,hour:7,patientId:5,type:'Masoterapia',status:'conf',note:''},
-  {id:8,date:'2026-03-28',therapistId:3,hour:9,patientId:2,type:'Fisioterapia',status:'noas',note:''},
-  {id:9,date:'2026-03-28',therapistId:4,hour:8,patientId:5,type:'Kinesioterapia',status:'conf',note:''},
-];
+let appointments=[];
 let apptCounter=20;
 
 let notifSettings=[
@@ -777,6 +946,7 @@ function cycleStatus(id){
   // Contamos citas 'conf' del día actual para el paciente y actualizamos billing
   checkBillingOnStatusChange(a,prevStatus);
   renderGrid();updateResumenBadge();updateFacturaBadge();
+  dbUpdateApptStatus(a.id, a.status);
 }
 function checkBillingOnStatusChange(appt,prevStatus){
   const pt=getPatient(appt.patientId);if(!pt||!pt.billing)return;
@@ -894,12 +1064,14 @@ function saveAppt(){
   const hr=parseInt(document.getElementById('m-time').value);
   const ds=fmtDate(currentDate);
   if(appointments.find(a=>a.date===ds&&a.therapistId===thId&&a.hour===hr)){alert('Ese slot ya está ocupado.');return;}
-  appointments.push({id:++apptCounter,date:ds,therapistId:thId,hour:hr,
+  const _newAppt={id:++apptCounter,date:ds,therapistId:thId,hour:hr,
     patientId:parseInt(document.getElementById('m-patient').value),
     type:document.getElementById('m-type').value,
     status:document.getElementById('m-status').value,
-    note:document.getElementById('m-note').value});
-  closeModal('appt-modal');renderGrid();updateFacturaBadge();
+    note:document.getElementById('m-note').value};
+  appointments.push(_newAppt);
+  closeModal('appt-modal');renderGrid();
+  dbSaveAppt(_newAppt);updateFacturaBadge();
 updateFacturaBadge();
 function updateGlobalSPF(v){
   const n=parseInt(v)||5;
@@ -973,6 +1145,7 @@ function savePatient(){
     sessions:parseInt(document.getElementById('pm-sessions').value)||12,
     done:0,status:document.getElementById('pm-status').value,log:[],billing:{sesPerFactura:parseInt(document.getElementById('global-spf').value)||5,facturas:[],pendientes:parseInt(document.getElementById('pm-billing-start').value)||0}});
   closeModal('patient-modal');renderPatients();
+  dbSavePatient(patients[patients.length-1]);
   ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm-billing-start').value='0';
 }
@@ -1236,6 +1409,7 @@ function saveProtocol(){
   if(editingProtocolId)Object.assign(protocols.find(p=>p.id===editingProtocolId),d);
   else protocols.push({id:++protCounter,...d});
   closeModal('protocol-modal');renderProtocols();
+  dbSaveProtocol(editingProtocolId?protocols.find(p=>p.id===editingProtocolId):protocols[protocols.length-1]);
 }
 function renderProtocols(){
   const fl={7:'Diaria',5:'5×/sem',3:'3×/sem',2:'2×/sem',1:'1×/sem'};
@@ -1347,6 +1521,7 @@ function saveTherapist(){
   if(editingTherapistId){const t=getTherapist(editingTherapistId);t.name=name;t.spec=document.getElementById('th-spec').value;t.startH=s;t.endH=e;t.colorId=selectedColor;t.initials=init;}
   else therapists.push({id:++thCounter,name,initials:init,spec:document.getElementById('th-spec').value,startH:s,endH:e,colorId:selectedColor});
   closeModal('therapist-modal');renderTherapistList();renderGrid();
+  dbSaveTherapist(editingTherapistId?getTherapist(editingTherapistId):therapists[therapists.length-1]);
 updateFacturaBadge();
 
 }
@@ -1392,6 +1567,7 @@ function saveDoctor(){
   if(editingDocId)Object.assign(getDoctor(editingDocId),d);
   else doctors.push({id:++docCounter,...d});
   closeModal('doctor-modal');renderDoctorsList();renderRefLegend();
+  dbSaveDoctor(editingDocId?getDoctor(editingDocId):doctors[doctors.length-1]);
 }
 function deleteDoctor(id){
   if(!confirm('¿Eliminar este doctor?'))return;
@@ -1579,6 +1755,7 @@ function emitirFactura(patientId){
   p.billing.pendientes=0;
   updateFacturaBadge();
   renderFacturacion();
+  dbRegistrarCobro(p.id, n, fId);
   simEmailFactura(p.name,p.email||'',fId,n);
 }
 function marcarTodosFacturados(){
