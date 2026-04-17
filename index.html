@@ -1009,7 +1009,7 @@ async function cycleStatus(id){
       pt.done=(pt.done||0)+1;
     }
     // Abrir modal de sesión
-    setTimeout(()=>openSessionModal(a), 200);
+    setTimeout(function(){ if(document.getElementById('session-modal')) openSessionModal(a); }, 200);
   }
   // Si pasa de 'conf' a otro — revertir billing
   if(a.status!=='conf' && prevStatus==='conf'){
@@ -1509,77 +1509,110 @@ function updateEpisodes(){
   renderPatientReport();
 }
 function renderPatientReport(){
-  const id=parseInt(document.getElementById('patient-rpt-select').value);
-  const p=patients.find(x=>x.id===id);
-  if(!p){document.getElementById('patient-report-content').innerHTML='<div style="color:#6b6a64">Selecciona un paciente</div>';return;}
-  const ep=document.getElementById('patient-rpt-episode').value;
-  const log=ep==='recent'?p.log.slice(-4):p.log;
+  const id=document.getElementById('patient-rpt-select').value;
+  const p=patients.find(x=>String(x.id)===String(id));
+  const out=document.getElementById('patient-report-content');
+  if(!p){out.innerHTML='<div style="color:#6b6a64;padding:20px;text-align:center">Selecciona un paciente del buscador</div>';return;}
+  const log=p.log||[];
   const th=getTherapist(p.therapistId);
   const doc=p.doctorId?getDoctor(p.doctorId):null;
   const attended=log.filter(s=>s.status==='asistió');
   const adh=log.length>0?Math.round(attended.length/log.length*100):0;
-  const pct=Math.round(p.done/p.sessions*100);
-  const lp=attended.slice(-1)[0];const fp=attended[0];
-  const sp=p.status==='alta'?'<span class="pill pb">Alta médica</span>':p.status==='active'?'<span class="pill pg">En tratamiento</span>':'<span class="pill pa">Pendiente</span>';
-  const ac=adh>=85?'#1D9E75':adh>=70?'#BA7517':'#E24B4A';
+  const pct=p.sessions>0?Math.round((p.done||0)/p.sessions*100):0;
+  const lp=attended.slice(-1)[0];
+  const fp=attended[0];
   const thC=th?getColor(th.colorId):COLOR_OPTIONS[0];
+  const sp=p.status==='alta'?'<span class="pill pb">Alta médica</span>':p.status==='active'?'<span class="pill pg">En tratamiento</span>':'<span class="pill pa">Inactivo</span>';
+  const ac=adh>=85?'#1D9E75':adh>=70?'#BA7517':'#E24B4A';
 
+  // ── Header del paciente ──
   let html=`<div class="full-card" style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
-    <div class="avatar" style="background:${thC.border}22;color:${thC.text};width:44px;height:44px;font-size:15px;flex-shrink:0">${p.name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
+    <div class="avatar" style="background:${thC.border}22;color:${thC.text};width:48px;height:48px;font-size:16px;flex-shrink:0">${p.name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
     <div style="flex:1">
-      <div style="font-size:15px;font-weight:500;color:#f0ede8;margin-bottom:3px">${p.name} ${sp}</div>
-      <div style="font-size:12px;color:#9c9a92">${p.diag} · ${p.age} años · ${th?th.name:'Sin terapeuta'}</div>
-      ${doc?`<div style="font-size:11px;color:#6b6a64;margin-top:2px;display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:${doc.color};display:inline-block"></span>Referido por ${doc.name} (${doc.spec})</div>`:''}
+      <div style="font-size:15px;font-weight:600;color:#f0ede8;margin-bottom:3px">${p.name} ${sp}</div>
+      <div style="font-size:12px;color:#9c9a92">${p.diag||'Sin diagnóstico'} · ${p.age||'?'} años · ${th?th.name:'Sin terapeuta'}</div>
+      ${doc?`<div style="font-size:11px;color:#6b6a64;margin-top:2px">Ref: ${doc.name} (${doc.spec})</div>`:''}
       ${p.cedula?`<div style="font-size:11px;color:#6b6a64;margin-top:1px">CI: ${p.cedula}${p.tel?' · '+p.tel:''}${p.email?' · '+p.email:''}</div>`:''}
     </div>
-  </div>
-  <div class="three-col">
+    <button class="ai-btn" onclick="genPatientAI()" style="flex-shrink:0">Informe IA ↗</button>
+  </div>`;
+
+  // ── Stats cards ──
+  html+=`<div class="three-col" style="margin-bottom:14px">
     <div class="card"><div class="card-title">Progreso</div>
-      <div style="text-align:center"><div style="font-size:28px;font-weight:500;color:#1D9E75">${pct}%</div>
-        <div style="font-size:11px;color:#6b6a64;margin:3px 0 8px">${p.done} de ${p.sessions} sesiones</div>
+      <div style="text-align:center">
+        <div style="font-size:28px;font-weight:600;color:#1D9E75">${pct}%</div>
+        <div style="font-size:11px;color:#6b6a64;margin:3px 0 8px">${p.done||0} de ${p.sessions||0} sesiones</div>
         <div class="bar-wrap" style="height:6px"><div class="bar-fill" style="width:${pct}%;background:#1D9E75"></div></div>
       </div>
     </div>
     <div class="card"><div class="card-title">Continuidad</div>
-      <div style="text-align:center"><div style="font-size:28px;font-weight:500;color:${ac}">${adh}%</div>
+      <div style="text-align:center">
+        <div style="font-size:28px;font-weight:600;color:${ac}">${adh}%</div>
         <div style="font-size:11px;color:#6b6a64;margin:3px 0 8px">${attended.length} asist. / ${log.length} citas</div>
         <div style="display:flex;justify-content:center;gap:16px">
-          <div><div style="font-size:15px;font-weight:500;color:#1D9E75">${attended.length}</div><div style="font-size:10px;color:#6b6a64">Asistidas</div></div>
-          <div><div style="font-size:15px;font-weight:500;color:#E24B4A">${log.length-attended.length}</div><div style="font-size:10px;color:#6b6a64">Ausencias</div></div>
+          <div><div style="font-size:15px;font-weight:600;color:#1D9E75">${attended.length}</div><div style="font-size:10px;color:#6b6a64">Asistidas</div></div>
+          <div><div style="font-size:15px;font-weight:600;color:#E24B4A">${log.length-attended.length}</div><div style="font-size:10px;color:#6b6a64">Ausencias</div></div>
         </div>
       </div>
     </div>
     <div class="card"><div class="card-title">Evolución EVA</div>
-      <div style="text-align:center">${fp&&lp?`
+      <div style="text-align:center">${fp&&lp&&fp.pb!=null?`
         <div style="display:flex;justify-content:center;align-items:center;gap:14px">
-          <div><div style="font-size:26px;font-weight:500;color:#E24B4A">${fp.pb}</div><div style="font-size:10px;color:#6b6a64">Inicio</div></div>
-          <div style="color:#6b6a64">→</div>
-          <div><div style="font-size:26px;font-weight:500;color:#1D9E75">${lp.pa}</div><div style="font-size:10px;color:#6b6a64">Actual</div></div>
-        </div><div style="font-size:11px;color:#1D9E75;margin-top:8px">−${fp.pb-lp.pa} puntos</div>
-      `:'<div style="color:#6b6a64;font-size:12px;margin-top:12px">Sin datos</div>'}</div>
+          <div><div style="font-size:26px;font-weight:600;color:#E24B4A">${fp.pb}</div><div style="font-size:10px;color:#6b6a64">Inicio</div></div>
+          <div style="color:#6b6a64;font-size:18px">→</div>
+          <div><div style="font-size:26px;font-weight:600;color:#1D9E75">${lp.pa!=null?lp.pa:'?'}</div><div style="font-size:10px;color:#6b6a64">Última</div></div>
+        </div>
+        <div style="font-size:11px;color:${(fp.pb-(lp.pa||0))>0?'#1D9E75':'#E24B4A'};margin-top:6px">
+          ${(fp.pb-(lp.pa||0))>0?'↓ Mejoró':'↑ Sin mejora'} ${Math.abs(fp.pb-(lp.pa||0))} puntos
+        </div>`:'<div style="color:#6b6a64;font-size:12px;margin-top:12px">Sin datos EVA aún</div>'}</div>
     </div>
-  </div>
-  <div class="full-card"><div style="font-size:13px;font-weight:500;color:#e8e6e1;margin-bottom:14px">Historial de sesiones</div>`;
+  </div>`;
 
-  if(!log.length){html+=`<div style="color:#6b6a64;font-size:13px">Sin sesiones registradas.</div>`;}
-  else{
+  // ── Output IA ──
+  html+=`<div id="patient-rpt-ai-output" class="full-card" style="display:none;margin-bottom:14px"></div>`;
+
+  // ── Historial de sesiones ──
+  html+=`<div class="full-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:600;color:#e8e6e1">Historial de sesiones</div>
+      <div style="font-size:11px;color:#4a4a46">${log.length} registros</div>
+    </div>`;
+
+  if(!log.length){
+    html+=`<div style="color:#6b6a64;font-size:13px;padding:16px;text-align:center">
+      Sin sesiones registradas aún.<br>
+      <span style="font-size:11px;opacity:.7">Las sesiones se registran al confirmar una cita en la Agenda.</span>
+    </div>`;
+  } else {
     html+=`<div class="timeline">`;
     [...log].reverse().forEach(s=>{
       const dc=s.status==='asistió'?'#1D9E75':'#E24B4A';
-      const tags=(s.tags||[]).map(t=>`<span class="pill pgr" style="font-size:10px">${t}</span>`).join('');
-      const ps=s.pb!=null?`<span style="font-size:11px;color:#6b6a64;margin-left:6px">EVA ${s.pb}→${s.pa}</span>`:'';
-      const sp2=s.status==='asistió'?'<span class="pill pg">Asistió</span>':'<span class="pill pr">No asistió</span>';
-      html+=`<div class="tl-item"><div class="tl-dot" style="background:${dc}"></div>
-        <div class="tl-date">${s.date} · ${s.hour}</div>
-        <div class="tl-content"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${sp2}<span style="font-size:12px;font-weight:500;color:#e8e6e1">${s.type}</span>${ps}</div>
-          <div class="tl-note">${s.note}</div><div class="tl-tags">${tags}</div>
-        </div></div>`;
+      const sp2=s.status==='asistió'?'<span class="pill pg" style="font-size:10px">Asistió</span>':'<span class="pill pr" style="font-size:10px">No asistió</span>';
+      const evaStr=s.pb!=null?`<span style="font-size:11px;color:#6b6a64;background:rgba(255,255,255,.05);padding:2px 8px;border-radius:99px">EVA ${s.pb}→${s.pa!=null?s.pa:'?'}</span>`:'';
+      html+=`<div class="tl-item">
+        <div class="tl-dot" style="background:${dc}"></div>
+        <div class="tl-date">${s.date}${s.hour?' · '+s.hour:''}</div>
+        <div class="tl-content">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+            ${sp2}
+            <span style="font-size:12px;font-weight:500;color:#e8e6e1">${s.type||''}</span>
+            ${evaStr}
+          </div>
+          ${s.note?`<div class="tl-note" style="color:#9c9a92;font-size:12px">${s.note}</div>`:''}
+        </div>
+      </div>`;
     });
     html+=`</div>`;
   }
   html+=`</div>`;
-  document.getElementById('patient-report-content').innerHTML=html;
+  out.innerHTML=html;
+
+  // Reconectar botón IA (se crea dinámicamente)
+  const aiOut=document.getElementById('patient-rpt-ai-output');
+  if(aiOut) aiOut.style.display='none';
 }
+
 
 
 // ======= PROTOCOLOS =======
@@ -2287,20 +2320,6 @@ Redacta un informe clínico de evolución en español, formato profesional médi
   if (outputEl) {
     outputEl.style.display = 'block';
     callAI(prompt, 'patient-rpt-ai-output');
-  } else {
-    // Crear el elemento si no existe
-    const container = document.querySelector('#paciente_rpt-content, #informe-content, [id*="rpt"]');
-    if (container) {
-      let out = document.getElementById('patient-rpt-ai-output');
-      if (!out) {
-        out = document.createElement('div');
-        out.id = 'patient-rpt-ai-output';
-        out.className = 'full-card';
-        out.style.marginTop = '12px';
-        container.appendChild(out);
-      }
-      callAI(prompt, 'patient-rpt-ai-output');
-    }
   }
 }
 
