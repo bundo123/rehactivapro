@@ -2168,8 +2168,8 @@ function openSessionModal(appt) {
     (existing ? 'Editar sesión — ' : 'Registrar sesión — ') + (pt ? pt.name.split(' ').slice(0,2).join(' ') : 'Paciente');
   document.getElementById('session-modal-sub').textContent = 
     appt.type + ' · ' + appt.date + ' · ' + appt.hour + ':00';
-  const pb = existing ? (existing.pb || 5) : 5;
-  const pa = existing ? (existing.pa || 3) : 3;
+  const pb = existing ? (existing.pb != null ? existing.pb : 5) : 5;
+  const pa = existing ? (existing.pa != null ? existing.pa : 5) : 5;
   renderEvaButtons('eva-before-btns', 'sess-eva-before-val', pb, '#E24B4A');
   renderEvaButtons('eva-after-btns', 'sess-eva-after-val', pa, '#1D9E75');
   if (existing && existing.type) {
@@ -2188,41 +2188,62 @@ async function saveSession() {
   const pb = parseInt(document.getElementById('sess-eva-before-val').textContent) || 0;
   const pa = parseInt(document.getElementById('sess-eva-after-val').textContent) || 0;
   const type = document.getElementById('sess-type').value;
-  const note = document.getElementById('sess-note').value;
+  const note = document.getElementById('sess-note').value.trim();
+  if (!note) {
+    document.getElementById('sess-note').style.borderColor = 'rgba(224,80,80,.6)';
+    document.getElementById('sess-note').focus();
+    toastErr('Describe brevemente qué se realizó en la sesión');
+    return;
+  }
+  document.getElementById('sess-note').style.borderColor = '';
   
   if (appt.id && appt.patientId) {
-    const {error} = await supa.from('session_log').insert({
-      patient_id: appt.patientId,
-      date: appt.date,
-      type: type,
-      hour: appt.hour + ':00',
-      status: 'asistió',
-      pain_before: pb,
-      pain_after: pa,
-      note: note
-    });
-    if (error) toastErr('Error guardando sesión: ' + error.message);
-    else toastOk('Sesión registrada ✓');
+    // Buscar si ya existe sesión para este paciente en este día
+    const existingInDB = await supa.from('session_log')
+      .select('id')
+      .eq('patient_id', appt.patientId)
+      .eq('date', appt.date)
+      .maybeSingle();
+    
+    let dbError;
+    if (existingInDB.data) {
+      // Actualizar la existente
+      const {error} = await supa.from('session_log')
+        .update({type, hour: appt.hour+':00', pain_before:pb, pain_after:pa, note})
+        .eq('id', existingInDB.data.id);
+      dbError = error;
+    } else {
+      // Crear nueva
+      const {error} = await supa.from('session_log').insert({
+        patient_id: appt.patientId,
+        date: appt.date,
+        type: type,
+        hour: appt.hour + ':00',
+        status: 'asistió',
+        pain_before: pb,
+        pain_after: pa,
+        note: note
+      });
+      dbError = error;
+    }
+    if (dbError) toastErr('Error guardando sesión: ' + dbError.message);
+    else toastOk('Sesión guardada correctamente ✓');
   }
   
-  // Actualizar en memoria también
+  // Actualizar en memoria — sobreescribir si mismo día
   const a = appointments.find(x => x.id === appt.id);
   if (a) a.hasSession = true;
   
-  // Agregar al log del paciente en memoria
   const pt2 = getPatient(appt.patientId);
   if (pt2) {
     if (!pt2.log) pt2.log = [];
-    pt2.log.push({
-      date: appt.date,
-      type: type,
-      hour: appt.hour + ':00',
-      status: 'asistió',
-      pb: pb,
-      pa: pa,
-      note: note,
-      tags: []
-    });
+    const existIdx = pt2.log.findIndex(s => s.date === appt.date);
+    const newEntry = {date:appt.date, type:type, hour:appt.hour+':00', status:'asistió', pb:pb, pa:pa, note:note, tags:[]};
+    if (existIdx >= 0) {
+      pt2.log[existIdx] = newEntry; // sobreescribir
+    } else {
+      pt2.log.push(newEntry); // nueva entrada
+    }
   }
   
   closeModal('session-modal');
@@ -2243,27 +2264,15 @@ async function callAI(prompt, targetId) {
   const el = document.getElementById(targetId);
   if (!el) return;
   el.style.display = 'block';
-  el.innerHTML = '<div style="color:#4a4a46;font-size:12px;padding:16px;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px"><div style="width:16px;height:16px;border:2px solid #1D9E75;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></div> Generando análisis con IA...</div>';
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{role:'user', content: prompt}]
-      })
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-    const text = data.content && data.content[0] ? data.content[0].text : 'Sin respuesta';
-    el.innerHTML = '<div style="font-size:13px;color:#e8e6e1;line-height:1.8;white-space:pre-wrap;padding:4px 0">' + text + '</div>';
-  } catch(e) {
-    el.innerHTML = '<div style="color:#f07070;font-size:12px;padding:8px">⚠️ ' + (e.message || 'Error de conexión') + '</div>';
-  }
+  // Abrir Claude.ai con el prompt — gratis, sin API key
+  const encoded = encodeURIComponent(prompt);
+  const url = 'https://claude.ai/new?q=' + encoded;
+  window.open(url, '_blank');
+  el.innerHTML = '<div style="background:rgba(29,158,117,.08);border:1px solid rgba(29,158,117,.2);border-radius:8px;padding:14px;font-size:12px;color:#9c9a92;line-height:1.6">'
+    + '<div style="font-weight:600;color:#1D9E75;margin-bottom:6px">✓ Claude.ai abierto en nueva pestaña</div>'
+    + 'El informe se está generando en Claude.ai. Copia el resultado y pégalo aquí si lo necesitas.<br><br>'
+    + '<textarea style="width:100%;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:6px;padding:8px;font-size:12px;color:#e8e6e1;font-family:inherit;resize:vertical;min-height:80px" placeholder="Pega aquí el informe generado por Claude..."></textarea>'
+    + '</div>';
 }
 
 function genSemanalAI() {
@@ -2418,8 +2427,8 @@ initApp();
   </div>
 
   <div class="field" style="margin-bottom:4px">
-    <label>Observaciones <span style="color:#4a4a46;font-weight:400">(opcional)</span></label>
-    <textarea id="sess-note" rows="2" placeholder="Evolución, ejercicios indicados, próxima sesión..." style="width:100%;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:8px 11px;font-size:13px;color:#e8e6e1;font-family:inherit;resize:vertical"></textarea>
+    <label>¿Qué se realizó en la sesión? <span style="color:#E24B4A">*</span></label>
+    <textarea id="sess-note" rows="2" placeholder="Ej: Se aplicó masaje descontracturante en zona lumbar, electroterapia 10min, ejercicios de estabilización core..." style="width:100%;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:8px 11px;font-size:13px;color:#e8e6e1;font-family:inherit;resize:vertical"></textarea>
   </div>
 
   <div class="modal-actions">
