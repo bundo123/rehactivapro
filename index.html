@@ -765,6 +765,16 @@ async function loadAll(){
     protocols=(prot.data||[]).map(r=>({id:r.id,name:r.name,diag:r.diag_keywords||'',sessions:r.sessions||20,freq:r.freq||3,alta:r.discharge_criteria||''}));
     appointments=(appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:(r.patients&&r.patients.name)||null,hour:r.hour,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''}));
     if(!protocols.length) protocols=[...DEFAULT_PROTOCOLS];
+    // Marcar citas que ya tienen sesión registrada
+    const sessionDates=new Set();
+    patients.forEach(p=>{
+      (p.log||[]).forEach(s=>{
+        sessionDates.add(p.id+'|'+s.date+'|'+(s.hour||'').split(':')[0]);
+      });
+    });
+    appointments.forEach(a=>{
+      a.hasSession=sessionDates.has(String(a.patientId)+'|'+a.date+'|'+String(a.hour));
+    });
     console.log('Datos cargados desde Supabase');
   }catch(e){console.warn('Error cargando datos:',e.message);toastErr('Error de conexión con la base de datos. Verifica tu internet.');}
 }
@@ -1008,8 +1018,7 @@ async function cycleStatus(id){
       await supa.from('patients').update({done:(pt.done||0)+1}).eq('id',a.patientId);
       pt.done=(pt.done||0)+1;
     }
-    // Abrir modal de sesión
-    setTimeout(function(){ if(document.getElementById('session-modal')) openSessionModal(a); }, 200);
+    // El modal de sesión se abre desde Resumen del día
   }
   // Si pasa de 'conf' a otro — revertir billing
   if(a.status!=='conf' && prevStatus==='conf'){
@@ -1203,15 +1212,17 @@ function renderResumen(){
     const pt=getPatient(a.patientId);const th=getTherapist(a.therapistId);const doc=pt&&pt.doctorId?getDoctor(pt.doctorId):null;
     const col=kind==='noas'?'#E24B4A':kind==='pend'?'#BA7517':'#1D9E75';
     const hasSession=a.hasSession||false;
-    const confBtns=kind==='conf'?`<div class="resumen-actions" style="display:flex;align-items:center;gap:6px">
-      ${!hasSession?`<button onclick="openSessionModal(appointments.find(x=>x.id==='${a.id}'))" style="font-size:10px;padding:3px 10px;background:#BA7517;color:#fff;border:none;border-radius:99px;cursor:pointer;font-family:inherit">📋 Sesión</button>`:'<span style="font-size:10px;color:#5a5a56">📋 ok</span>'}
-      <span style="font-size:10px;color:#1D9E75;font-weight:500">✓ Asistió</span>
-    </div>`:'';
+    const sessBtn=`<button onclick="openSessionModal(appointments.find(x=>x.id==='${a.id}'))" 
+      style="font-size:10px;padding:4px 12px;border:none;border-radius:99px;cursor:pointer;font-family:inherit;font-weight:600;
+      background:${hasSession?'rgba(29,158,117,.15)':'rgba(224,168,80,.2)'};
+      color:${hasSession?'#1D9E75':'#e0a850'}">
+      ${hasSession?'✓ Sesión ok':'📋 Completar sesión'}
+    </button>`;
     const btns=kind!=='conf'?`<div class="resumen-actions">
       <button class="resumen-btn wa" onclick="simWA('${pt?pt.name:''}','${pt?pt.tel||'':''}'" style='white-space:nowrap'>WA</button>
       <button class="resumen-btn em" onclick="simEmail('${pt?pt.name:''}','${pt?pt.email||'':''}')">Email</button>
       <button class="resumen-btn rep" onclick="openApptModal()">Reagendar</button>
-    </div>`:confBtns;
+    </div>`:`<div class="resumen-actions" style="display:flex;align-items:center;gap:6px">${sessBtn}<span style="font-size:10px;color:#1D9E75;font-weight:500">✓ Asistió</span></div>`;
     return`<div class="resumen-row">
       <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0;margin-top:3px"></div>
       <div style="flex:1">
@@ -1502,7 +1513,7 @@ function updateEpisodes(){
   const id=document.getElementById('patient-rpt-select').value;
   const p=patients.find(x=>String(x.id)===String(id));
   const ep=document.getElementById('patient-rpt-episode');
-  if(!p||!p.log.length){ep.innerHTML='<option value="0">Episodio actual</option>';renderPatientReport();return;}
+  if(!p||!(p.log&&p.log.length)){ep.innerHTML='<option value="0">Episodio actual</option>';renderPatientReport();return;}
   // Agrupa log en episodios por diagnóstico (simplificado: 1 episodio actual + histórico si hay)
   ep.innerHTML=`<option value="all">Episodio actual (${p.log.length} sesiones)</option>`;
   if(p.log.length>4)ep.innerHTML+=`<option value="recent">Últimas 4 sesiones</option>`;
@@ -1513,7 +1524,7 @@ function renderPatientReport(){
   const p=patients.find(x=>String(x.id)===String(id));
   const out=document.getElementById('patient-report-content');
   if(!p){out.innerHTML='<div style="color:#6b6a64;padding:20px;text-align:center">Selecciona un paciente del buscador</div>';return;}
-  const log=p.log||[];
+  const log=(p.log||[]).filter(s=>s&&s.date);
   const th=getTherapist(p.therapistId);
   const doc=p.doctorId?getDoctor(p.doctorId):null;
   const attended=log.filter(s=>s.status==='asistió');
@@ -2179,7 +2190,7 @@ async function saveSession() {
   const type = document.getElementById('sess-type').value;
   const note = document.getElementById('sess-note').value;
   
-  if (typeof appt.id === 'string') {
+  if (appt.id && appt.patientId) {
     const {error} = await supa.from('session_log').insert({
       patient_id: appt.patientId,
       date: appt.date,
