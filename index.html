@@ -814,6 +814,7 @@ async function dbUpdateBillingPendientes(patientId,pendientes){
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 
+
 const ALL_HOURS=[6,7,8,9,10,11,12,13,14,15,16,17];
 const DAYS=['Lun','Mar','Mié','Jue','Vie'];
 const COLOR_OPTIONS=[
@@ -1498,8 +1499,8 @@ function renderPatientReportSelect(){
   updateEpisodes();
 }
 function updateEpisodes(){
-  const id=parseInt(document.getElementById('patient-rpt-select').value);
-  const p=patients.find(x=>x.id===id);
+  const id=document.getElementById('patient-rpt-select').value;
+  const p=patients.find(x=>String(x.id)===String(id));
   const ep=document.getElementById('patient-rpt-episode');
   if(!p||!p.log.length){ep.innerHTML='<option value="0">Episodio actual</option>';renderPatientReport();return;}
   // Agrupa log en episodios por diagnóstico (simplificado: 1 episodio actual + histórico si hay)
@@ -2074,26 +2075,74 @@ function filterPatientRptSelect(){
 // ── SESIÓN CLÍNICA ──────────────────────────────────────────
 let _pendingSessionAppt = null;
 
+function renderEvaButtons(cId, vId, cur, col) {
+  var c = document.getElementById(cId);
+  if (!c) return;
+  c.innerHTML = '';
+  for (var i = 0; i <= 10; i++) {
+    var b = document.createElement('button');
+    b.textContent = i;
+    b.setAttribute('data-c', cId);
+    b.setAttribute('data-v', vId);
+    b.setAttribute('data-n', i);
+    b.setAttribute('data-col', col);
+    var active = (i === cur);
+    b.style.flex = '1';
+    b.style.padding = '8px 2px';
+    b.style.borderRadius = '6px';
+    b.style.border = 'none';
+    b.style.cursor = 'pointer';
+    b.style.fontSize = '13px';
+    b.style.minWidth = '0';
+    b.style.fontWeight = active ? '700' : '400';
+    b.style.background = active ? col : 'rgba(255,255,255,0.06)';
+    b.style.color = active ? '#fff' : '#6b6a64';
+    b.style.transition = 'all .1s';
+    b.onclick = function() {
+      renderEvaButtons(
+        this.getAttribute('data-c'),
+        this.getAttribute('data-v'),
+        parseInt(this.getAttribute('data-n')),
+        this.getAttribute('data-col')
+      );
+    };
+    c.appendChild(b);
+  }
+  document.getElementById(vId).textContent = cur;
+}
+function setEva(cId, vId, val, col) {
+  renderEvaButtons(cId, vId, val, col);
+}
+
 function openSessionModal(appt) {
+  if (!appt) return;
   _pendingSessionAppt = appt;
   const pt = getPatient(appt.patientId);
+  // Buscar si ya existe sesión guardada para esta cita (para editar)
+  const existing = pt && pt.log ? pt.log.find(s => s.date === appt.date && s.hour === appt.hour + ':00') : null;
   document.getElementById('session-modal-title').textContent = 
-    'Sesión — ' + (pt ? pt.name.split(' ').slice(0,2).join(' ') : 'Paciente');
+    (existing ? 'Editar sesión — ' : 'Registrar sesión — ') + (pt ? pt.name.split(' ').slice(0,2).join(' ') : 'Paciente');
   document.getElementById('session-modal-sub').textContent = 
     appt.type + ' · ' + appt.date + ' · ' + appt.hour + ':00';
-  document.getElementById('sess-eva-before').value = 5;
-  document.getElementById('sess-eva-before-val').textContent = '5';
-  document.getElementById('sess-eva-after').value = 3;
-  document.getElementById('sess-eva-after-val').textContent = '3';
-  document.getElementById('sess-note').value = '';
+  const pb = existing ? (existing.pb || 5) : 5;
+  const pa = existing ? (existing.pa || 3) : 3;
+  renderEvaButtons('eva-before-btns', 'sess-eva-before-val', pb, '#E24B4A');
+  renderEvaButtons('eva-after-btns', 'sess-eva-after-val', pa, '#1D9E75');
+  if (existing && existing.type) {
+    const sel = document.getElementById('sess-type');
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === existing.type) { sel.selectedIndex = i; break; }
+    }
+  }
+  document.getElementById('sess-note').value = existing ? (existing.note || '') : '';
   document.getElementById('session-modal').classList.add('open');
 }
 
 async function saveSession() {
   const appt = _pendingSessionAppt;
   if (!appt) return;
-  const pb = parseInt(document.getElementById('sess-eva-before').value);
-  const pa = parseInt(document.getElementById('sess-eva-after').value);
+  const pb = parseInt(document.getElementById('sess-eva-before-val').textContent) || 0;
+  const pa = parseInt(document.getElementById('sess-eva-after-val').textContent) || 0;
   const type = document.getElementById('sess-type').value;
   const note = document.getElementById('sess-note').value;
   
@@ -2149,11 +2198,15 @@ function skipSession() {
 async function callAI(prompt, targetId) {
   const el = document.getElementById(targetId);
   if (!el) return;
-  el.innerHTML = '<div style="color:#4a4a46;font-size:12px;padding:16px;text-align:center">🤖 Generando análisis...</div>';
+  el.style.display = 'block';
+  el.innerHTML = '<div style="color:#4a4a46;font-size:12px;padding:16px;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px"><div style="width:16px;height:16px;border:2px solid #1D9E75;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></div> Generando análisis con IA...</div>';
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
@@ -2161,10 +2214,11 @@ async function callAI(prompt, targetId) {
       })
     });
     const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
     const text = data.content && data.content[0] ? data.content[0].text : 'Sin respuesta';
-    el.innerHTML = '<div style="font-size:13px;color:#e8e6e1;line-height:1.7;white-space:pre-wrap">' + text + '</div>';
+    el.innerHTML = '<div style="font-size:13px;color:#e8e6e1;line-height:1.8;white-space:pre-wrap;padding:4px 0">' + text + '</div>';
   } catch(e) {
-    el.innerHTML = '<div style="color:#f07070;font-size:12px;padding:8px">Error al conectar con IA. Verifica tu conexión.</div>';
+    el.innerHTML = '<div style="color:#f07070;font-size:12px;padding:8px">⚠️ ' + (e.message || 'Error de conexión') + '</div>';
   }
 }
 
@@ -2282,31 +2336,37 @@ function toastInfo(msg){showToast(msg,'info',3000);}
 
 initApp();
 
+
 </script>
 
 <div id="toast-container"></div>
 
 <!-- MODAL SESIÓN CLÍNICA -->
 <div class="modal-bg" id="session-modal">
-<div class="modal" style="max-width:440px">
+<div class="modal" style="max-width:460px">
   <h3 id="session-modal-title">Registrar sesión</h3>
-  <div style="font-size:12px;color:#5a5a56;margin-bottom:16px" id="session-modal-sub">Completa los datos de esta sesión</div>
+  <div style="font-size:12px;color:#5a5a56;margin-bottom:20px" id="session-modal-sub">Completa los datos de esta sesión</div>
   
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-    <div class="field">
-      <label>EVA antes (dolor)</label>
-      <div style="display:flex;align-items:center;gap:8px">
-        <input type="range" id="sess-eva-before" min="0" max="10" value="5" oninput="document.getElementById('sess-eva-before-val').textContent=this.value" style="flex:1;accent-color:#1D9E75">
-        <span id="sess-eva-before-val" style="font-size:18px;font-weight:700;color:#e0a850;min-width:20px">5</span>
-      </div>
+  <!-- EVA ANTES -->
+  <div class="field" style="margin-bottom:20px">
+    <label style="display:flex;justify-content:space-between;align-items:center">
+      <span>Dolor ANTES de la sesión</span>
+      <span id="sess-eva-before-val" style="font-size:22px;font-weight:800;color:#E24B4A;min-width:28px;text-align:right">5</span>
+    </label>
+    <div style="display:flex;gap:4px;margin-top:8px" id="eva-before-btns">
     </div>
-    <div class="field">
-      <label>EVA después (dolor)</label>
-      <div style="display:flex;align-items:center;gap:8px">
-        <input type="range" id="sess-eva-after" min="0" max="10" value="3" oninput="document.getElementById('sess-eva-after-val').textContent=this.value" style="flex:1;accent-color:#1D9E75">
-        <span id="sess-eva-after-val" style="font-size:18px;font-weight:700;color:#1D9E75;min-width:20px">3</span>
-      </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#4a4a46;margin-top:4px"><span>Sin dolor</span><span>Máximo dolor</span></div>
+  </div>
+
+  <!-- EVA DESPUÉS -->
+  <div class="field" style="margin-bottom:20px">
+    <label style="display:flex;justify-content:space-between;align-items:center">
+      <span>Dolor DESPUÉS de la sesión</span>
+      <span id="sess-eva-after-val" style="font-size:22px;font-weight:800;color:#1D9E75;min-width:28px;text-align:right">3</span>
+    </label>
+    <div style="display:flex;gap:4px;margin-top:8px" id="eva-after-btns">
     </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#4a4a46;margin-top:4px"><span>Sin dolor</span><span>Máximo dolor</span></div>
   </div>
 
   <div class="field" style="margin-bottom:12px">
@@ -2329,7 +2389,7 @@ initApp();
 
   <div class="field" style="margin-bottom:4px">
     <label>Observaciones <span style="color:#4a4a46;font-weight:400">(opcional)</span></label>
-    <textarea id="sess-note" rows="3" placeholder="Evolución del paciente, ejercicios indicados, próxima sesión..." style="width:100%;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:8px 11px;font-size:13px;color:#e8e6e1;font-family:inherit;resize:vertical"></textarea>
+    <textarea id="sess-note" rows="2" placeholder="Evolución, ejercicios indicados, próxima sesión..." style="width:100%;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:8px 11px;font-size:13px;color:#e8e6e1;font-family:inherit;resize:vertical"></textarea>
   </div>
 
   <div class="modal-actions">
