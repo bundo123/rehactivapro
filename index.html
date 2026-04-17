@@ -745,7 +745,7 @@ async function loadAll(){
       supa.from('therapists').select('*').order('created_at'),
       supa.from('doctors').select('*').order('created_at'),
       supa.from('patients').select('*,session_log(*)').order('created_at'),
-      supa.from('appointments').select('*').order('date').order('hour'),
+      supa.from('appointments').select('*,patients(name)').order('date').order('hour'),
       supa.from('protocols').select('*').order('created_at'),
       supa.from('cobros').select('*').order('created_at'),
     ]);
@@ -756,13 +756,13 @@ async function loadAll(){
     patients=(pat.data||[]).map(r=>({
       id:r.id,name:r.name,age:r.age||35,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
       diag:r.diag||'Sin diagnóstico',therapistId:r.therapist_id,doctorId:r.doctor_id,
-      sessions:r.sessions||12,done:r.done||0,status:r.status||'active',
+      sessions:r.sessions||10,done:r.done||0,status:r.status||'active',
       log:(r.session_log||[]).map(s=>({date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[]})),
       billing:{sesPerFactura:r.billing_ses_per_factura||5,pendientes:r.billing_pendientes||0,
         facturas:cobData.filter(c=>c.patient_id===r.id).map(c=>({'id':c.cobro_ref,'n':c.n_sessions,'fecha':c.date,'estado':'cobrada'}))}
     }));
     protocols=(prot.data||[]).map(r=>({id:r.id,name:r.name,diag:r.diag_keywords||'',sessions:r.sessions||20,freq:r.freq||3,alta:r.discharge_criteria||''}));
-    appointments=(appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,hour:r.hour,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''}));
+    appointments=(appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:(r.patients&&r.patients.name)||null,hour:r.hour,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''}));
     if(!protocols.length) protocols=[...DEFAULT_PROTOCOLS];
     console.log('Datos cargados desde Supabase');
   }catch(e){console.warn('Error cargando datos:',e.message);toastErr('Error de conexión con la base de datos. Verifica tu internet.');}
@@ -802,7 +802,6 @@ async function dbSaveProtocol(p){
 }
 async function dbDeleteProtocol(id){if(typeof id==='string')await supa.from('protocols').delete().eq('id',id);}
 async function dbRegistrarCobro(patientId,nSessions,cobroRef){
-  // toast de éxito al cobrar
   await supa.from('cobros').insert({cobro_ref:cobroRef,patient_id:patientId,n_sessions:nSessions,date:fmtDate(new Date())});
   await supa.from('patients').update({billing_pendientes:0}).eq('id',patientId);
 }
@@ -990,7 +989,7 @@ function renderRefLegend(){
 }
 
 // ======= CICLO ESTADO =======
-function cycleStatus(id){
+async function cycleStatus(id){
   const a=appointments.find(x=>x.id===id);if(!a)return;
   const prevStatus=a.status;
   const c=['conf','pend','noas'];
@@ -998,6 +997,31 @@ function cycleStatus(id){
   checkBillingOnStatusChange(a,prevStatus);
   renderGrid();updateResumenBadge();updateFacturaBadge();
   dbUpdateApptStatus(a.id,a.status);
+  
+  // Si pasa a 'conf' — guardar en session_log y actualizar billing
+  if(a.status==='conf' && prevStatus!=='conf'){
+    const pt=getPatient(a.patientId);
+    if(pt && typeof a.id==='string'){
+      // Guardar en session_log
+      await supa.from('session_log').insert({
+        patient_id:a.patientId,
+        date:a.date,
+        type:a.type,
+        hour:a.hour+':00',
+        status:'asistió'
+      });
+      // Actualizar billing_pendientes en Supabase
+      if(pt.billing) dbUpdateBillingPendientes(a.patientId, pt.billing.pendientes);
+      // Incrementar done en patients
+      await supa.from('patients').update({done:(pt.done||0)+1}).eq('id',a.patientId);
+      pt.done=(pt.done||0)+1;
+    }
+  }
+  // Si pasa de 'conf' a otro — revertir billing
+  if(a.status!=='conf' && prevStatus==='conf'){
+    const pt=getPatient(a.patientId);
+    if(pt && pt.billing) dbUpdateBillingPendientes(a.patientId, pt.billing.pendientes);
+  }
 }
 function checkBillingOnStatusChange(appt,prevStatus){
   const pt=getPatient(appt.patientId);if(!pt||!pt.billing)return;
@@ -1087,7 +1111,7 @@ function renderGrid(){
         const docTag=doc?`<span style="font-size:9px;opacity:.7">${doc.name.split(' ').slice(-1)[0]}</span>`:'';
         // Borde izquierdo = color del doctor referente (si existe), si no = color del terapeuta
         if(doc){card.style.borderLeftColor=doc.color;card.title=`Ref: ${doc.name} (${doc.spec})`;}
-        card.innerHTML=`<div class="appt-name">${pt?pt.name:'Paciente'}</div><div class="appt-sub">${appt.type}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${appt.status} — click para cambiar"></div><div class="appt-del" onclick="delAppt(${appt.id},event)">×</div>`;
+        card.innerHTML=`<div class="appt-name">${pt?pt.name:(appt.patientName||'Sin paciente')}</div><div class="appt-sub">${appt.type}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${appt.status} — click para cambiar"></div><div class="appt-del" onclick="delAppt(${appt.id},event)">×</div>`;
         card.querySelector('.appt-dot').addEventListener('click',e=>{e.stopPropagation();cycleStatus(appt.id);});
         card.addEventListener('dragstart',()=>{dragData=appt.id});
         slot.appendChild(card);
@@ -1098,7 +1122,17 @@ function renderGrid(){
   renderRefLegend();updateResumenBadge();
 }
 
-function delAppt(id,e){if(e)e.stopPropagation();appointments=appointments.filter(a=>a.id!==id);renderGrid();}
+async function delAppt(id,e){
+  if(e)e.stopPropagation();
+  if(!confirm('¿Eliminar esta cita?'))return;
+  appointments=appointments.filter(a=>a.id!==id);
+  renderGrid();
+  if(typeof id==='string'){
+    const {error}=await supa.from('appointments').delete().eq('id',id);
+    if(error)toastErr('Error al eliminar cita: '+error.message);
+    else toastOk('Cita eliminada');
+  }
+}
 function changeDay(d){currentDate.setDate(currentDate.getDate()+d);renderGrid();}
 
 function openApptModal(){
