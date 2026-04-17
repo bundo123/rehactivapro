@@ -574,7 +574,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="modal-bg" id="appt-modal">
 <div class="modal">
   <h3>Nueva cita</h3>
-  <div class="field"><label>Paciente</label><select id="m-patient"></select></div>
+  <div class="field"><label>Paciente</label>
+    <input type="text" id="m-patient-search" placeholder="Buscar paciente por nombre o cédula..." 
+      list="m-patient-list" oninput="filterApptPatient()" autocomplete="off"
+      style="width:100%;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:8px 11px;font-size:13px;color:#e8e6e1;outline:none;font-family:inherit">
+    <datalist id="m-patient-list"></datalist>
+    <input type="hidden" id="m-patient">
+  </div>
   <div class="field-row two">
     <div class="field"><label>Terapeuta</label><select id="m-therapist" onchange="updateTimeSlots()"></select></div>
     <div class="field"><label>Hora</label><select id="m-time"></select></div>
@@ -608,10 +614,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
   <div class="field-row two">
     <div class="field"><label>Correo</label><input type="email" id="pm-email" placeholder="paciente@correo.com"></div>
-    <div class="field"><label>Estado</label><select id="pm-status"><option value="active">En tratamiento</option><option value="pending">Pendiente</option></select></div>
+    <div class="field"><label>Estado</label><select id="pm-status">
+          <option value="active">Activo</option>
+          <option value="alta">Alta médica</option>
+          <option value="inactive">Inactivo</option>
+        </select></div>
   </div>
   <div class="field"><label>Dirección</label><input type="text" id="pm-dir" placeholder="Calle y número, ciudad"></div>
-  <div class="field"><label>Diagnóstico</label><input type="text" id="pm-diag" placeholder="Ej: Lumbalgia crónica L4-L5"></div>
+  <div class="field"><label>Diagnóstico</label>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input type="text" id="pm-diag" list="diag-list" placeholder="Buscar o escribir diagnóstico..." 
+        style="flex:1;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:8px 11px;font-size:13px;color:#e8e6e1;outline:none;font-family:inherit">
+      <datalist id="diag-list"></datalist>
+    </div>
+    <div style="font-size:10px;color:#4a4a46;margin-top:4px">Escribe para buscar entre diagnósticos existentes o ingresa uno nuevo</div>
+  </div>
   <div class="field-row two">
     <div class="field"><label>Terapeuta asignado</label><select id="pm-therapist"></select></div>
     <div class="field"><label>Doctor referente</label><select id="pm-doctor"><option value="">Independiente</option></select></div>
@@ -1085,21 +1102,19 @@ function delAppt(id,e){if(e)e.stopPropagation();appointments=appointments.filter
 function changeDay(d){currentDate.setDate(currentDate.getDate()+d);renderGrid();}
 
 function openApptModal(){
-  if(!therapists.length){
-    alert('Primero agrega al menos un terapeuta antes de crear citas.');
-    showTab('terapeutas');return;
-  }
-  if(!patients.length){
-    alert('Primero agrega al menos un paciente antes de crear citas.');
-    showTab('pacientes');return;
-  }
-  document.getElementById('m-patient').innerHTML=patients.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  if(!therapists.length){toastErr('Primero agrega al menos un terapeuta.');showTab('terapeutas');return;}
+  if(!patients.length){toastErr('Primero agrega al menos un paciente.');showTab('pacientes');return;}
+  // Limpiar buscador
+  document.getElementById('m-patient-search').value='';
+  document.getElementById('m-patient').value='';
+  filterApptPatient();
+  // Poblar terapeutas
   document.getElementById('m-therapist').innerHTML=therapists.map(t=>`<option value="${t.id}">${t.name} (${t.startH}:00-${t.endH}:00)</option>`).join('');
   updateTimeSlots();
   document.getElementById('appt-modal').classList.add('open');
 }
 function updateTimeSlots(){
-  const th=getTherapist(parseInt(document.getElementById('m-therapist').value));
+  const th=getTherapist(document.getElementById('m-therapist').value);
   if(!th)return;
   document.getElementById('m-time').innerHTML=therapistHours(th).map(h=>`<option value="${h}">${h}:00</option>`).join('');
 }
@@ -1108,7 +1123,13 @@ async function saveAppt(){
   const hr=parseInt(document.getElementById('m-time').value);
   const patId=document.getElementById('m-patient').value;
   if(!thId){alert('Selecciona un terapeuta.');return;}
-  if(!patId){alert('Selecciona un paciente.');return;}
+  // Si escribieron en el buscador pero no seleccionaron de la lista, buscar por nombre exacto
+  if(!patId){
+    const searchVal=document.getElementById('m-patient-search').value.trim().toLowerCase();
+    const found=patients.find(p=>p.name.toLowerCase()===searchVal);
+    if(found){patId=found.id;document.getElementById('m-patient').value=found.id;}
+    else{toastErr('Selecciona un paciente de la lista.');return;}
+  }
   if(isNaN(hr)){alert('Selecciona una hora válida.');return;}
   const ds=fmtDate(currentDate);
   if(appointments.find(a=>a.date===ds&&a.therapistId===thId&&a.hour===hr)){alert('Ese slot ya está ocupado.');return;}
@@ -1662,9 +1683,11 @@ function renderTherapistList(){
   }).join('')||'<div style="color:#6b6a64;font-size:13px">Sin terapeutas registrados.</div>';
 }
 function openTherapistModal(ed=null){
-  editingTherapistId=ed;
+  editingTherapistId=ed||null;
   document.getElementById('th-modal-title').textContent=ed?'Editar terapeuta':'Agregar terapeuta';
-  if(ed){const th=getTherapist(ed);document.getElementById('th-name').value=th.name;document.getElementById('th-spec').value=th.spec;document.getElementById('th-start').value=th.startH;document.getElementById('th-end').value=th.endH;selectedColor=th.colorId;}
+  if(ed){
+    const th=getTherapist(ed);
+    if(!th){toastErr('No se encontró el terapeuta.');return;}document.getElementById('th-name').value=th.name;document.getElementById('th-spec').value=th.spec;document.getElementById('th-start').value=th.startH;document.getElementById('th-end').value=th.endH;selectedColor=th.colorId;}
   else{document.getElementById('th-name').value='';document.getElementById('th-spec').value='';document.getElementById('th-start').value=7;document.getElementById('th-end').value=13;selectedColor='ca';}
   renderColorPicker();document.getElementById('therapist-modal').classList.add('open');
 }
@@ -1979,8 +2002,33 @@ function openEditPatient(id){
   document.getElementById('pm-status').value=p.status||'active';
   document.getElementById('pm-billing-start').value=p.billing?.pendientes||0;
   editingPatientId=id;
+  populateDiagList();
   document.querySelector('#patient-modal h3').textContent='Editar paciente';
   document.getElementById('patient-modal').classList.add('open');
+}
+
+function filterApptPatient(){
+  const q=(document.getElementById('m-patient-search').value||'').toLowerCase();
+  const dl=document.getElementById('m-patient-list');
+  const match=patients.filter(p=>p.name.toLowerCase().includes(q)||(p.cedula&&p.cedula.includes(q)));
+  dl.innerHTML=match.slice(0,10).map(p=>`<option value="${p.name}" data-id="${p.id}">${p.name}${p.cedula?' · '+p.cedula:''}</option>`).join('');
+  // Buscar si el texto ingresado coincide exactamente con algún paciente
+  const exact=patients.find(p=>p.name.toLowerCase()===q);
+  if(exact) document.getElementById('m-patient').value=exact.id;
+  else{
+    // También buscar si seleccionó de la lista
+    const opt=[...dl.options].find(o=>o.value===document.getElementById('m-patient-search').value);
+    if(opt) document.getElementById('m-patient').value=opt.getAttribute('data-id')||'';
+  }
+}
+
+function populateDiagList(){
+  const diags=[...new Set(patients.filter(p=>p.diag&&p.diag!=='Sin diagnóstico').map(p=>p.diag))];
+  // También agregar los diagnósticos de los protocolos
+  protocols.forEach(p=>p.name&&diags.push(p.name));
+  const unique=[...new Set(diags)].sort();
+  const dl=document.getElementById('diag-list');
+  if(dl) dl.innerHTML=unique.map(d=>`<option value="${d}">`).join('');
 }
 
 function filterPatientRptSelect(){
