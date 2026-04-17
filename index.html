@@ -248,6 +248,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .login-btn:disabled{opacity:.5;cursor:default}
 .login-error{font-size:11px;color:#f07070;margin-top:10px;text-align:center;min-height:16px}
 
+
+/* ===== TOAST NOTIFICACIONES ===== */
+#toast-container{position:fixed;bottom:24px;right:24px;z-index:99998;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{padding:10px 16px;border-radius:8px;font-size:12px;font-weight:500;max-width:320px;display:flex;align-items:center;gap:10px;pointer-events:all;animation:toastIn .2s ease;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.toast.success{background:#0a2018;border:1px solid rgba(29,158,117,.4);color:#5ecfa0}
+.toast.error{background:#200e0e;border:1px solid rgba(240,112,112,.4);color:#f07070}
+.toast.info{background:#1a1917;border:1px solid rgba(29,158,117,.2);color:#9c9a92}
+.toast-icon{font-size:14px;flex-shrink:0}
+.toast-msg{flex:1;line-height:1.4}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
 </style>
 </head>
 <body>
@@ -446,7 +457,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
   <div class="main-body">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap">
-      <select id="patient-rpt-select" onchange="updateEpisodes()" style="background:#1a1917;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:7px 12px;font-size:13px;color:#e8e6e1;min-width:220px;font-family:inherit"></select>
+      <input type="text" id="patient-rpt-search" placeholder="Buscar paciente..." oninput="filterPatientRptSelect()" style="background:#1a1917;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:7px 12px;font-size:13px;color:#e8e6e1;min-width:220px;font-family:inherit;outline:none">
+    <select id="patient-rpt-select" onchange="updateEpisodes()" style="background:#1a1917;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:7px 12px;font-size:13px;color:#e8e6e1;min-width:220px;font-family:inherit"></select>
       <select id="patient-rpt-episode" onchange="renderPatientReport()" style="background:#1a1917;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:7px 12px;font-size:13px;color:#e8e6e1;min-width:180px;font-family:inherit"></select>
       <button class="ai-btn" onclick="genPatientAI()">Informe clínico con IA ↗</button>
     </div>
@@ -461,7 +473,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="page-sub">Planes estándar por diagnóstico y comparación de continuidad</div>
   </div>
   <div class="main-body">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px">
+      <input type="text" id="protocol-search" placeholder="Buscar protocolo o diagnóstico..." oninput="renderProtocols()" style="background:#1a1917;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:7px 12px;font-size:13px;color:#e8e6e1;min-width:260px;font-family:inherit;outline:none">
       <button class="add-btn" onclick="openProtocolModal()">+ Nuevo protocolo</button>
     </div>
     <div id="protocols-list"></div>
@@ -500,7 +513,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="page-sub">Gestiona el equipo, horarios y especialidades</div>
   </div>
   <div class="main-body">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px">
+      <input type="text" id="therapist-search" placeholder="Buscar terapeuta..." oninput="renderTherapistList()" style="background:#1a1917;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:7px 12px;font-size:13px;color:#e8e6e1;min-width:220px;font-family:inherit;outline:none">
       <button class="add-btn" onclick="openTherapistModal()">+ Agregar terapeuta</button>
     </div>
     <div class="full-card" id="therapist-list"></div>
@@ -519,7 +533,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <button class="sub-tab" onclick="showDoctoresTab('notificaciones',this)">Notificaciones</button>
     </div>
     <div id="config-doctores">
-      <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px">
+        <input type="text" id="doctor-search" placeholder="Buscar doctor..." oninput="renderDoctorsList()" style="background:#1a1917;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:7px 12px;font-size:13px;color:#e8e6e1;min-width:220px;font-family:inherit;outline:none">
         <button class="add-btn" onclick="openDoctorModal()">+ Agregar doctor</button>
       </div>
       <div id="doctors-list"></div>
@@ -733,7 +748,7 @@ async function loadAll(){
     appointments=(appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,hour:r.hour,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''}));
     if(!protocols.length) protocols=[...DEFAULT_PROTOCOLS];
     console.log('Datos cargados desde Supabase');
-  }catch(e){console.warn('Error cargando datos:',e.message);}
+  }catch(e){console.warn('Error cargando datos:',e.message);toastErr('Error de conexión con la base de datos. Verifica tu internet.');}
 }
 
 // ── GUARDAR / BORRAR ──
@@ -743,7 +758,11 @@ async function dbSaveAppt(a){
   await supa.from('appointments').upsert(payload);
 }
 async function dbDeleteAppt(id){if(typeof id==='string')await supa.from('appointments').delete().eq('id',id);}
-async function dbUpdateApptStatus(id,status){if(typeof id==='string')await supa.from('appointments').update({status}).eq('id',id);}
+async function dbUpdateApptStatus(id,status){
+  if(typeof id!=='string')return;
+  const {error}=await supa.from('appointments').update({status}).eq('id',id);
+  if(error)toastErr('No se pudo guardar el estado de la cita.');
+}
 async function dbSavePatient(p){
   await supa.from('patients').insert({name:p.name,age:p.age,cedula:p.cedula,tel:p.tel,email:p.email,dir:p.dir,diag:p.diag,therapist_id:p.therapistId||null,doctor_id:p.doctorId||null,sessions:p.sessions,done:0,status:p.status,billing_ses_per_factura:p.billing.sesPerFactura,billing_pendientes:p.billing.pendientes});
 }
@@ -766,6 +785,7 @@ async function dbSaveProtocol(p){
 }
 async function dbDeleteProtocol(id){if(typeof id==='string')await supa.from('protocols').delete().eq('id',id);}
 async function dbRegistrarCobro(patientId,nSessions,cobroRef){
+  // toast de éxito al cobrar
   await supa.from('cobros').insert({cobro_ref:cobroRef,patient_id:patientId,n_sessions:nSessions,date:fmtDate(new Date())});
   await supa.from('patients').update({billing_pendientes:0}).eq('id',patientId);
 }
@@ -931,6 +951,7 @@ let dragData=null;
 let editingTherapistId=null;
 let selectedColor='ca';
 let editingProtocolId=null;
+let editingPatientId=null;
 const allTabs=['agenda','pacientes','informes','paciente_rpt','protocolos','resumen','terapeutas','doctores','facturacion'];
 let facturaCounter=10;
 
@@ -985,6 +1006,7 @@ function updateFacturaBadge(){
 
 // ======= AGENDA =======
 function renderGrid(){
+  checkAutoNoas();
   const ds=fmtDate(currentDate);
   const dn=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
   const mn=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -1081,7 +1103,7 @@ function updateTimeSlots(){
   if(!th)return;
   document.getElementById('m-time').innerHTML=therapistHours(th).map(h=>`<option value="${h}">${h}:00</option>`).join('');
 }
-function saveAppt(){
+async function saveAppt(){
   const thId=document.getElementById('m-therapist').value;
   const hr=parseInt(document.getElementById('m-time').value);
   const patId=document.getElementById('m-patient').value;
@@ -1093,8 +1115,16 @@ function saveAppt(){
   const _a={id:++apptCounter,date:ds,therapistId:thId,hour:hr,patientId:document.getElementById('m-patient').value,type:document.getElementById('m-type').value,status:document.getElementById('m-status').value,note:document.getElementById('m-note').value};
   appointments.push(_a);
   closeModal('appt-modal');renderGrid();
-  dbSaveAppt(_a);updateFacturaBadge();
-updateFacturaBadge();
+  try{
+    const {data,error}=await supa.from('appointments').insert({
+      date:_a.date, therapist_id:_a.therapistId,
+      patient_id:_a.patientId, hour:_a.hour,
+      type:_a.type, status:_a.status, note:_a.note||''
+    }).select().single();
+    if(error){toastErr('Error al guardar cita: '+error.message);}
+    else{_a.id=data.id;renderGrid();toastOk('Cita guardada correctamente');}
+  }catch(e){toastErr('Error de conexión al guardar cita.');}
+  updateFacturaBadge();
 function updateGlobalSPF(v){
   const n=parseInt(v)||5;
   patients.forEach(p=>{if(p.billing)p.billing.sesPerFactura=n;});
@@ -1124,8 +1154,8 @@ function renderResumen(){
     const pt=getPatient(a.patientId);const th=getTherapist(a.therapistId);const doc=pt&&pt.doctorId?getDoctor(pt.doctorId):null;
     const col=kind==='noas'?'#E24B4A':kind==='pend'?'#BA7517':'#1D9E75';
     const btns=kind!=='conf'?`<div class="resumen-actions">
-      <button class="resumen-btn wa" onclick="simWA('${pt?pt.name:''}')">WA</button>
-      <button class="resumen-btn em" onclick="simEmail('${pt?pt.name:''}')">Email</button>
+      <button class="resumen-btn wa" onclick="simWA('${pt?pt.name:''}','${pt?pt.tel||'':''}')" style='white-space:nowrap'>WA</button>
+      <button class="resumen-btn em" onclick="simEmail('${pt?pt.name:''}','${pt?pt.email||'':''}')">Email</button>
       <button class="resumen-btn rep" onclick="openApptModal()">Reagendar</button>
     </div>`:`<div class="resumen-actions"><span style="font-size:10px;color:#1D9E75">✓ Asistió</span></div>`;
     return`<div class="resumen-row">
@@ -1143,8 +1173,18 @@ function renderResumen(){
   if(!ta.length)html='<div style="color:#6b6a64;font-size:13px;padding:20px 0">No hay citas registradas para hoy.</div>';
   document.getElementById('resumen-content').innerHTML=html;
 }
-function simWA(n){alert(`WhatsApp a ${n}:\n"Hola ${n}, vimos que no pudiste asistir hoy. ¿Te ayudamos a reagendar?"`)}
-function simEmail(n){alert(`Correo a ${n}: ausencia en cita de rehabilitación de hoy. ¿Deseas reprogramar?`)}
+function simWA(nombre,tel){
+  const msg=encodeURIComponent('Hola '+nombre+', le contactamos desde Rehactiva Rehabilitación. Notamos que no pudo asistir a su cita de hoy. ¿Le ayudamos a reagendar?');
+  const num=(tel?tel.replace(/[^0-9]/g,''):'593999211258');
+  window.open('https://wa.me/'+num+'?text='+msg,'_blank');
+}
+function simEmail(nombre,email){
+  if(email){
+    window.location.href=`mailto:${email}?subject=Ausencia en cita - Rehactiva&body=Hola ${nombre},%0A%0ANotamos que no pudo asistir a su cita de hoy en Rehactiva Rehabilitación y Fisioterapia.%0A%0A¿Le podemos ayudar a reagendar? Responda este correo o llámenos.%0A%0ASaludos,%0AEquipo Rehactiva`;
+  } else {
+    alert(`${nombre} no tiene correo registrado. Agrégalo en su perfil.`);
+  }
+}
 
 // ======= PACIENTES =======
 function openPatientModal(){
@@ -1152,7 +1192,40 @@ function openPatientModal(){
   document.getElementById('pm-doctor').innerHTML='<option value="">Sin doctor referente</option>'+doctors.map(d=>`<option value="${d.id}">${d.name} (${d.spec})</option>`).join('');
   document.getElementById('patient-modal').classList.add('open');
 }
-function savePatient(){
+async function savePatient(){
+  if(editingPatientId){
+    // EDITAR paciente existente
+    const p=getPatient(editingPatientId);
+    if(!p)return;
+    p.name=document.getElementById('pm-name').value.trim();
+    p.age=parseInt(document.getElementById('pm-age').value)||35;
+    p.cedula=document.getElementById('pm-cedula').value||'';
+    p.tel=document.getElementById('pm-tel').value||'';
+    p.email=document.getElementById('pm-email').value||'';
+    p.dir=document.getElementById('pm-dir').value||'';
+    p.diag=document.getElementById('pm-diag').value||'';
+    p.therapistId=document.getElementById('pm-therapist').value||null;
+    p.doctorId=document.getElementById('pm-doctor').value||null;
+    p.sessions=parseInt(document.getElementById('pm-sessions').value)||10;
+    p.status=document.getElementById('pm-status').value;
+    closeModal('patient-modal');
+    renderPatients();
+    document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
+    editingPatientId=null;
+    if(typeof p.id==='string'){
+      const {error}=await supa.from('patients').update({
+        name:p.name,age:p.age,cedula:p.cedula,tel:p.tel,email:p.email,
+        dir:p.dir,diag:p.diag,therapist_id:p.therapistId||null,
+        doctor_id:p.doctorId||null,sessions:p.sessions,status:p.status
+      }).eq('id',p.id);
+      if(error){toastErr('Error al actualizar paciente: '+error.message);}
+      else{toastOk('Paciente actualizado correctamente');}
+    }
+    return;
+  }
+  // CREAR nuevo paciente — continúa abajo
+  const _dummy=null;
+  if(_dummy)return;
   const name=document.getElementById('pm-name').value.trim();
   if(!name){alert('Ingresa el nombre.');return;}
   patients.push({id:++patCounter,name,
@@ -1162,15 +1235,29 @@ function savePatient(){
     email:document.getElementById('pm-email').value||'',
     dir:document.getElementById('pm-dir').value||'',
     diag:document.getElementById('pm-diag').value||'Sin diagnóstico',
-    therapistId:parseInt(document.getElementById('pm-therapist').value),
-    doctorId:parseInt(document.getElementById('pm-doctor').value)||null,
+    therapistId:document.getElementById('pm-therapist').value||null,
+    doctorId:document.getElementById('pm-doctor').value||null,
     sessions:parseInt(document.getElementById('pm-sessions').value)||12,
     done:0,status:document.getElementById('pm-status').value,log:[],billing:{sesPerFactura:parseInt(document.getElementById('global-spf').value)||5,facturas:[],pendientes:parseInt(document.getElementById('pm-billing-start').value)||0}});
   const _p=patients[patients.length-1];
   closeModal('patient-modal');renderPatients();
-  dbSavePatient(_p);
+  try{
+    const {data,error}=await supa.from('patients').insert({
+      name:_p.name, age:_p.age, cedula:_p.cedula, tel:_p.tel,
+      email:_p.email, dir:_p.dir, diag:_p.diag,
+      therapist_id:_p.therapistId||null,
+      doctor_id:_p.doctorId||null,
+      sessions:_p.sessions, done:0, status:_p.status,
+      billing_ses_per_factura:_p.billing.sesPerFactura,
+      billing_pendientes:_p.billing.pendientes
+    }).select().single();
+    if(error){toastErr('Error al guardar paciente: '+error.message);}
+    else{await loadAll();renderPatients();toastOk('Paciente guardado correctamente');}
+  }catch(e){toastErr('Error de conexión al guardar paciente.');}
   ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm-billing-start').value='0';
+  editingPatientId=null;
+  document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
 }
 function renderPatients(){
   const q=(document.getElementById('patient-search').value||'').toLowerCase();
@@ -1187,7 +1274,12 @@ function renderPatients(){
       ?`<span style="display:inline-flex;align-items:center;gap:5px;background:${doc.color}18;border:1px solid ${doc.color}44;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:500;color:${doc.color};white-space:nowrap">${doc.name}</span>`
       :'<span style="font-size:10px;color:#6b6a64;font-style:italic">Independiente</span>';
     return`<tr>
-      <td style="font-weight:500;color:#e8e6e1">${p.name}<br><button class='th-btn del' style='margin-top:4px;font-size:9px;padding:2px 6px' onclick='deletePatient("${p.id}")'>Eliminar</button></td>
+      <td style="font-weight:500;color:#e8e6e1">${p.name}
+        <div style="display:flex;gap:4px;margin-top:4px">
+          <button class='th-btn' style='font-size:9px;padding:2px 6px' onclick='openEditPatient("${p.id}")'>Editar</button>
+          <button class='th-btn del' style='font-size:9px;padding:2px 6px' onclick='deletePatient("${p.id}")'>Eliminar</button>
+        </div>
+      </td>
       <td style="color:#6b6a64;font-size:11px">${p.diag}</td>
       <td style="font-size:11px">${th?th.name:'-'}</td>
       <td style="font-size:11px">${dc}</td>
@@ -1208,7 +1300,9 @@ async function deletePatient(id){
     await supa.from('session_log').delete().eq('patient_id',id);
     await supa.from('cobros').delete().eq('patient_id',id);
     await supa.from('appointments').delete().eq('patient_id',id);
-    await supa.from('patients').delete().eq('id',id);
+    const {error}=await supa.from('patients').delete().eq('id',id);
+    if(error){toastErr('Error al eliminar paciente: '+error.message);}
+    else{toastOk('Paciente eliminado correctamente');}
   }
 }
 
@@ -1463,10 +1557,12 @@ function renderProtocols(){
     knee:'<svg viewBox="0 0 80 80" width="72" height="72"><rect x="32" y="8" width="16" height="26" rx="5" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><ellipse cx="40" cy="40" rx="18" ry="14" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><ellipse cx="40" cy="38" rx="8" ry="6" fill="none" stroke="#1D9E75" stroke-width="1" stroke-dasharray="3,2"/><circle cx="40" cy="38" r="3" fill="#1D9E75" opacity=".7"/><rect x="32" y="52" width="16" height="22" rx="5" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/></svg>',
     ankle:'<svg viewBox="0 0 80 80" width="72" height="72"><rect x="34" y="8" width="12" height="36" rx="5" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><ellipse cx="40" cy="50" rx="16" ry="12" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><rect x="20" y="60" width="40" height="12" rx="5" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><line x1="34" y1="44" x2="46" y2="44" stroke="#E24B4A" stroke-width="2" stroke-linecap="round"/></svg>',
   };
-  if(!protocols.length){
+  const qp=(document.getElementById('protocol-search')?.value||'').toLowerCase();
+  const filtProts=qp?protocols.filter(p=>p.name.toLowerCase().includes(qp)||p.diag.toLowerCase().includes(qp)):protocols;
+  if(!filtProts.length){
     document.getElementById('protocols-list').innerHTML=`<div style="color:#5a5a56;font-size:13px;padding:20px 0;text-align:center">No hay protocolos. Carga los predefinidos o crea uno nuevo.</div>`;
   } else {
-    document.getElementById('protocols-list').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;margin-bottom:14px">`+protocols.map(p=>{
+    document.getElementById('protocols-list').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;margin-bottom:14px">`+filtProts.map(p=>{
       const svg=svgs[p.img]||svgs.knee;
       return`<div class="protocol-card" style="display:flex;gap:14px;align-items:flex-start">
         <div style="flex-shrink:0;background:#111210;border-radius:8px;padding:8px;border:1px solid rgba(29,158,117,.12)">${svg}</div>
@@ -1544,7 +1640,9 @@ function renderProtocolAdherence(){
 
 // ======= TERAPEUTAS =======
 function renderTherapistList(){
-  document.getElementById('therapist-list').innerHTML=therapists.map(th=>{
+  const q=(document.getElementById('therapist-search')?.value||'').toLowerCase();
+  const filtered=therapists.filter(t=>!q||t.name.toLowerCase().includes(q)||t.spec.toLowerCase().includes(q));
+  document.getElementById('therapist-list').innerHTML=filtered.map(th=>{
     const c=getColor(th.colorId);
     return`<div class="th-manage-row">
       <div class="avatar" style="background:${c.border}22;color:${c.text};width:36px;height:36px;font-size:12px">${th.initials}</div>
@@ -1572,7 +1670,7 @@ function renderColorPicker(){
   document.getElementById('color-picker').innerHTML=COLOR_OPTIONS.map(c=>`<div class="color-swatch${c.id===selectedColor?' selected':''}" style="background:${c.border}" onclick="selectColor('${c.id}')"></div>`).join('');
 }
 function selectColor(id){selectedColor=id;renderColorPicker();}
-function saveTherapist(){
+async function saveTherapist(){
   const name=document.getElementById('th-name').value.trim();if(!name){alert('Ingresa el nombre.');return;}
   const s=parseInt(document.getElementById('th-start').value),e=parseInt(document.getElementById('th-end').value);
   if(e<=s){alert('La hora de fin debe ser mayor.');return;}
@@ -1581,7 +1679,13 @@ function saveTherapist(){
   else therapists.push({id:++thCounter,name,initials:init,spec:document.getElementById('th-spec').value,startH:s,endH:e,colorId:selectedColor});
   const _th=editingTherapistId?getTherapist(editingTherapistId):therapists[therapists.length-1];
   closeModal('therapist-modal');renderTherapistList();renderGrid();
-  dbSaveTherapist(_th);
+  try{
+    const payload={name:_th.name,initials:_th.initials,spec:_th.spec,start_h:_th.startH,end_h:_th.endH,color_id:_th.colorId};
+    if(typeof _th.id==='string')payload.id=_th.id;
+    const {data,error}=await supa.from('therapists').upsert(payload).select().single();
+    if(error){toastErr('Error al guardar terapeuta: '+error.message);}
+    else{if(!editingTherapistId)_th.id=data.id;renderTherapistList();renderGrid();toastOk((editingTherapistId?'Terapeuta actualizado':'Terapeuta guardado')+' correctamente');}
+  }catch(e){toastErr('Error de conexión al guardar terapeuta.');}
 updateFacturaBadge();
 
 }
@@ -1597,7 +1701,9 @@ updateFacturaBadge();
 
 // ======= DOCTORES =======
 function renderDoctorsList(){
-  document.getElementById('doctors-list').innerHTML=`<div class="full-card">${doctors.map(d=>`
+  const q=(document.getElementById('doctor-search')?.value||'').toLowerCase();
+  const filtDocs=doctors.filter(d=>!q||d.name.toLowerCase().includes(q)||d.spec.toLowerCase().includes(q));
+  document.getElementById('doctors-list').innerHTML=`<div class="full-card">${filtDocs.map(d=>`
     <div class="th-manage-row">
       <div style="width:36px;height:36px;border-radius:50%;background:${d.color}22;border:1px solid ${d.color}44;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:${d.color};flex-shrink:0">${d.name.split(' ').pop()[0]}</div>
       <div style="flex:1">
@@ -1622,14 +1728,20 @@ function renderDocColorPicker(){
   document.getElementById('doc-color-picker').innerHTML=DOC_COLORS.map(c=>`<div class="color-swatch${c===selectedDocColor?' selected':''}" style="background:${c}" onclick="selectDocColor('${c}')"></div>`).join('');
 }
 function selectDocColor(c){selectedDocColor=c;renderDocColorPicker();}
-function saveDoctor(){
+async function saveDoctor(){
   const name=document.getElementById('doc-name').value.trim();if(!name){alert('Ingresa el nombre.');return;}
   const d={name,spec:document.getElementById('doc-spec').value,email:document.getElementById('doc-email').value,tel:document.getElementById('doc-tel').value,color:selectedDocColor};
   if(editingDocId)Object.assign(getDoctor(editingDocId),d);
   else doctors.push({id:++docCounter,...d});
   const _d=editingDocId?getDoctor(editingDocId):doctors[doctors.length-1];
   closeModal('doctor-modal');renderDoctorsList();renderRefLegend();
-  dbSaveDoctor(_d);
+  try{
+    const payload={name:_d.name,spec:_d.spec,email:_d.email,tel:_d.tel,color:_d.color};
+    if(typeof _d.id==='string')payload.id=_d.id;
+    const {data,error}=await supa.from('doctors').upsert(payload).select().single();
+    if(error){toastErr('Error al guardar doctor: '+error.message);}
+    else{if(!editingDocId)_d.id=data.id;renderDoctorsList();renderRefLegend();toastOk((editingDocId?'Doctor actualizado':'Doctor guardado')+' correctamente');}
+  }catch(e){toastErr('Error de conexión al guardar doctor.');}
 }
 function deleteDoctor(id){
   if(!confirm('¿Eliminar este doctor?'))return;
@@ -1819,6 +1931,7 @@ function emitirFactura(patientId){
   updateFacturaBadge();
   renderFacturacion();
   dbRegistrarCobro(p.id,n,fId);
+  toastOk(`Cobro ${fId} registrado — ${n} sesiones de ${p.name}`);
   simEmailFactura(p.name,p.email||'',fId,n);
 }
 function marcarTodosFacturados(){
@@ -1830,6 +1943,51 @@ function simEmailFactura(nombre,email,fId='',n=5){
   const correo=email?`📧 ${email}`:'📧 Sin correo registrado — agrégalo en el perfil';
   alert(`✅ ${nombre} marcado como cobrado\n\nFactura ${fId}  ·  ${n} sesiones\n${correo}\n\n💡 Con backend: genera XML/SRI y envía comprobante automáticamente.`);
 }
+function checkAutoNoas(){
+  const ds=fmtDate(currentDate);
+  const now=new Date();
+  const isToday=ds===fmtDate(now);
+  if(!isToday)return; // Solo auto-rojo para el día actual
+  const currentHour=now.getHours();
+  const currentMin=now.getMinutes();
+  appointments.forEach(a=>{
+    if(a.date===ds && a.status==='pend'){
+      // Si la hora de la cita + 30 min ya pasó, marcar como no asistió
+      if(a.hour < currentHour || (a.hour===currentHour && currentMin>=30)){
+        a.status='noas';
+        dbUpdateApptStatus(a.id,'noas');
+      }
+    }
+  });
+}
+
+function openEditPatient(id){
+  const p=getPatient(id);if(!p)return;
+  document.getElementById('pm-therapist').innerHTML=therapists.map(t=>`<option value="${t.id}" ${t.id===p.therapistId?'selected':''} >${t.name}</option>`).join('');
+  document.getElementById('pm-doctor').innerHTML='<option value="">Independiente</option>'+doctors.map(d=>`<option value="${d.id}" ${d.id===p.doctorId?'selected':''}>${d.name} (${d.spec})</option>`).join('');
+  document.getElementById('pm-name').value=p.name;
+  document.getElementById('pm-age').value=p.age||'';
+  document.getElementById('pm-cedula').value=p.cedula||'';
+  document.getElementById('pm-tel').value=p.tel||'';
+  document.getElementById('pm-email').value=p.email||'';
+  document.getElementById('pm-dir').value=p.dir||'';
+  document.getElementById('pm-diag').value=p.diag||'';
+  document.getElementById('pm-sessions').value=p.sessions||10;
+  document.getElementById('pm-status').value=p.status||'active';
+  document.getElementById('pm-billing-start').value=p.billing?.pendientes||0;
+  editingPatientId=id;
+  document.querySelector('#patient-modal h3').textContent='Editar paciente';
+  document.getElementById('patient-modal').classList.add('open');
+}
+
+function filterPatientRptSelect(){
+  const q=(document.getElementById('patient-rpt-search').value||'').toLowerCase();
+  const sel=document.getElementById('patient-rpt-select');
+  sel.innerHTML=patients.filter(p=>p.name.toLowerCase().includes(q)||p.diag.toLowerCase().includes(q))
+    .map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  if(sel.options.length>0)updateEpisodes();
+}
+
 async function initApp(){
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('loading-overlay').style.display='none';
@@ -1839,11 +1997,31 @@ async function initApp(){
     document.getElementById('loading-overlay').style.display='flex';
     await loadAll();
     document.getElementById('loading-overlay').style.display='none';
-    renderGrid();updateResumenBadge();updateFacturaBadge();
+    checkAutoNoas();renderGrid();updateResumenBadge();updateFacturaBadge();
   }
 }
+// ============================================================
+// SISTEMA DE NOTIFICACIONES (toasts)
+// ============================================================
+function showToast(msg,type,duration){
+  type=type||'success';duration=duration||3500;
+  const c=document.getElementById('toast-container');
+  if(!c)return;
+  const t=document.createElement('div');
+  t.className='toast '+type;
+  const icons={success:'✓',error:'✕',info:'ℹ'};
+  t.innerHTML='<span class="toast-icon">'+(icons[type]||'ℹ')+'</span><span class="toast-msg">'+msg+'</span>';
+  c.appendChild(t);
+  setTimeout(function(){t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(function(){t.remove();},300);},duration);
+}
+function toastOk(msg){showToast(msg,'success',3500);}
+function toastErr(msg){showToast(msg,'error',5000);}
+function toastInfo(msg){showToast(msg,'info',3000);}
+
 initApp();
 
 </script>
+
+<div id="toast-container"></div>
 </body>
 </html>
