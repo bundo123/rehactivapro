@@ -962,7 +962,7 @@ let notifSettings=[
   {id:'email_doc',label:'Notificar al doctor referente en alta',desc:'Al dar de alta a un paciente, notifica al médico que lo refirió.',icon:'✉️',on:false},
 ];
 
-let currentDate=new Date('2026-03-28');
+let currentDate=new Date();
 let currentWeek=0;
 let dragData=null;
 let editingTherapistId=null;
@@ -973,7 +973,7 @@ const allTabs=['agenda','pacientes','informes','paciente_rpt','protocolos','resu
 let facturaCounter=10;
 
 // ======= HELPERS =======
-function fmtDate(d){return d.toISOString().split('T')[0]}
+function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function getColor(id){return COLOR_OPTIONS.find(c=>c.id===id)||COLOR_OPTIONS[0]}
 function getTherapist(id){return therapists.find(t=>t.id===id)}
 function getPatient(id){return patients.find(p=>p.id===id)}
