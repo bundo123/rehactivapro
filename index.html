@@ -1240,7 +1240,7 @@ async function savePatient(){
     sessions:parseInt(document.getElementById('pm-sessions').value)||12,
     done:0,status:document.getElementById('pm-status').value,log:[],billing:{sesPerFactura:parseInt(document.getElementById('global-spf').value)||5,facturas:[],pendientes:parseInt(document.getElementById('pm-billing-start').value)||0}});
   const _p=patients[patients.length-1];
-  closeModal('patient-modal');renderPatients();
+  closeModal('patient-modal');
   try{
     const {data,error}=await supa.from('patients').insert({
       name:_p.name, age:_p.age, cedula:_p.cedula, tel:_p.tel,
@@ -1297,12 +1297,15 @@ async function deletePatient(id){
   appointments=appointments.filter(a=>a.patientId!==id);
   renderPatients();renderGrid();
   if(typeof id==='string'){
+    toastInfo('Eliminando...');
     await supa.from('session_log').delete().eq('patient_id',id);
     await supa.from('cobros').delete().eq('patient_id',id);
     await supa.from('appointments').delete().eq('patient_id',id);
     const {error}=await supa.from('patients').delete().eq('id',id);
     if(error){toastErr('Error al eliminar paciente: '+error.message);}
     else{toastOk('Paciente eliminado correctamente');}
+  } else {
+    toastInfo('Paciente eliminado de la sesión (no estaba guardado en la base de datos).');
   }
 }
 
