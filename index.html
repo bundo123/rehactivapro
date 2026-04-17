@@ -731,6 +731,7 @@ async function loadAll(){
     }));
     protocols=(prot.data||[]).map(r=>({id:r.id,name:r.name,diag:r.diag_keywords||'',sessions:r.sessions||20,freq:r.freq||3,alta:r.discharge_criteria||''}));
     appointments=(appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,hour:r.hour,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''}));
+    if(!protocols.length) protocols=[...DEFAULT_PROTOCOLS];
     console.log('Datos cargados desde Supabase');
   }catch(e){console.warn('Error cargando datos:',e.message);}
 }
@@ -797,6 +798,115 @@ let selectedDocColor='#E24B4A';
 let editingDocId=null;
 
 let protocols=[];
+
+const DEFAULT_PROTOCOLS = [
+  {
+    id:'p1', name:'POP Manguito de los Rotadores Hombro Derecho',
+    diag:'manguito,rotadores,hombro derecho,POP hombro derecho',
+    sessions:20, freq:5, alta:'Rango articular completo, fuerza 80% lado contralateral, EVA 0-1',
+    def:'Postoperatorio de reparación quirúrgica del manguito rotador. Requiere rehabilitación intensiva para recuperar movilidad y fuerza del hombro.',
+    img:'shoulder'
+  },
+  {
+    id:'p2', name:'Coxartrosis Derecha',
+    diag:'coxartrosis,artrosis cadera,cadera derecha',
+    sessions:15, freq:3, alta:'Marcha sin dolor, mejora de rangos articulares, funcionalidad en AVD',
+    def:'Desgaste del cartílago de la articulación coxofemoral derecha. Objetivos: alivio del dolor, mejora de movilidad y fortalecimiento muscular periarticular.',
+    img:'hip'
+  },
+  {
+    id:'p3', name:'Tendinitis de Quervain Bilateral',
+    diag:'quervain,tendinitis quervain,bilateral quervain',
+    sessions:12, freq:3, alta:'Sin dolor en maniobra de Finkelstein, retorno a actividades manuales',
+    def:'Inflamación de los tendones abductores del pulgar. Tratamiento: reposo relativo, ultrasonido, iontoforesis y ejercicios de deslizamiento tendinoso.',
+    img:'hand'
+  },
+  {
+    id:'p4', name:'Tendinitis Bíceps Izquierdo',
+    diag:'tendinitis biceps,biceps izquierdo,bicipital',
+    sessions:10, freq:3, alta:'EVA 0-1, fuerza simétrica, retorno deportivo o laboral',
+    def:'Inflamación del tendón del bíceps braquial. Protocolo con electroterapia, técnica de Cyriax y fortalecimiento excéntrico progresivo.',
+    img:'arm'
+  },
+  {
+    id:'p5', name:'Cefalea Tensional',
+    diag:'cefalea,tensional,cefalea tensional,cervicogénica',
+    sessions:8, freq:2, alta:'Reducción de frecuencia e intensidad de episodios en 70%, control postural',
+    def:'Dolor de cabeza de origen muscular y postural. Tratamiento: liberación suboccipital, corrección postural cervical y técnicas de relajación.',
+    img:'head'
+  },
+  {
+    id:'p6', name:'Epicondilitis Lateral Izquierda',
+    diag:'epicondilitis,codo de tenista,epicóndilo,lateral izquierda',
+    sessions:12, freq:3, alta:'Sin dolor en prueba de Cozen, fuerza de agarre simétrica',
+    def:'Inflamación de los extensores del carpo en su inserción epicondílea. Protocolo: ultrasonido, masaje transverso profundo y ejercicios excéntricos de Tyler.',
+    img:'elbow'
+  },
+  {
+    id:'p7', name:'Lesión Manguito Rotadores Hombro Izquierdo',
+    diag:'manguito rotadores,hombro izquierdo,lesión manguito',
+    sessions:18, freq:4, alta:'Arco de movimiento completo sin dolor, fuerza 85% contralateral',
+    def:'Desgarro parcial o total de los tendones del manguito rotador. Tratamiento conservador con fortalecimiento progresivo del complejo escapulohumeral.',
+    img:'shoulder'
+  },
+  {
+    id:'p8', name:'Discopatía L4-S1',
+    diag:'discopatía,L4,S1,lumbar,disco lumbar',
+    sessions:15, freq:3, alta:'EVA 0-2, retorno laboral, control motor lumbo-pélvico',
+    def:'Degeneración o herniación discal en segmento lumbar bajo. Protocolo McKenzie, estabilización lumbar y reeducación postural global.',
+    img:'spine'
+  },
+  {
+    id:'p9', name:'Artrosis de Cadera Derecha',
+    diag:'artrosis cadera,coxartrosis derecha,osteoartritis cadera',
+    sessions:15, freq:3, alta:'Mejora funcional en escaleras y marcha, dolor controlado',
+    def:'Degeneración articular de la cadera derecha. Hidroterapia cuando disponible, fortalecimiento de glúteos y cuádriceps, corrección de la marcha.',
+    img:'hip'
+  },
+  {
+    id:'p10', name:'Rotura Tendón de Aquiles Derecho',
+    diag:'aquiles,tendón aquiles,rotura aquiles',
+    sessions:25, freq:5, alta:'Marcha simétrica, fuerza gemelar 90%, retorno deportivo gradual',
+    def:'Ruptura total o parcial del tendón de Aquiles. Rehabilitación por fases: inmovilización, movilización progresiva, fortalecimiento excéntrico y propiocepción.',
+    img:'ankle'
+  },
+  {
+    id:'p11', name:'Prótesis Hombro Izquierdo',
+    diag:'prótesis hombro,artroplastia hombro,hombro izquierdo prótesis',
+    sessions:24, freq:5, alta:'Movilidad funcional, independencia en AVD, fuerza progresiva',
+    def:'Rehabilitación post-artroplastia de hombro. Fases: péndulos y movilidad pasiva, activo-asistido, fortalecimiento y funcional.',
+    img:'shoulder'
+  },
+  {
+    id:'p12', name:'Radiculopatía + Ciática Izquierda',
+    diag:'radiculopatía,ciática,ciática izquierda,radicular',
+    sessions:12, freq:3, alta:'Abolición de dolor irradiado, test neurológicos negativos',
+    def:'Compresión o irritación de raíces nerviosas lumbares con irradiación al miembro inferior. Tracción lumbar, neurodinámia y estabilización core.',
+    img:'spine'
+  },
+  {
+    id:'p13', name:'Meniscectomía Rodilla Derecha',
+    diag:'meniscectomía,menisco derecho,rodilla derecha menisco',
+    sessions:20, freq:5, alta:'Cuádriceps simétrico, propiocepción completa, retorno deportivo',
+    def:'Post-quirúrgico de extracción meniscal. Protocolo acelerado: crioterapia, movilización temprana, fortalecimiento isométrico e isotónico progresivo.',
+    img:'knee'
+  },
+  {
+    id:'p14', name:'POP Menisco Derecho',
+    diag:'POP menisco,postoperatorio menisco,menisco derecho POP',
+    sessions:18, freq:4, alta:'ROM completo, sin derrame, funcionalidad deportiva',
+    def:'Postoperatorio de reparación meniscal. Rehabilitación más conservadora que meniscectomía, con carga progresiva y fortalecimiento en cadena cinética cerrada.',
+    img:'knee'
+  },
+  {
+    id:'p15', name:'Condromalacia Rotuliana Bilateral',
+    diag:'condromalacia,rotuliana,bilateral,condromalacia rotuliana',
+    sessions:14, freq:3, alta:'Sin dolor en escaleras, cuádriceps simétrico, retorno deportivo',
+    def:'Degeneración del cartílago rotuliano. VMO, vendaje rotuliano, fortalecimiento excéntrico de cuádriceps y corrección biomecánica de la marcha.',
+    img:'knee'
+  }
+];
+
 let protCounter=10;
 let protCurrentPage=0;
 const PROT_PAGE_SIZE=3;
@@ -953,9 +1063,18 @@ function delAppt(id,e){if(e)e.stopPropagation();appointments=appointments.filter
 function changeDay(d){currentDate.setDate(currentDate.getDate()+d);renderGrid();}
 
 function openApptModal(){
+  if(!therapists.length){
+    alert('Primero agrega al menos un terapeuta antes de crear citas.');
+    showTab('terapeutas');return;
+  }
+  if(!patients.length){
+    alert('Primero agrega al menos un paciente antes de crear citas.');
+    showTab('pacientes');return;
+  }
   document.getElementById('m-patient').innerHTML=patients.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
-  document.getElementById('m-therapist').innerHTML=therapists.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
-  updateTimeSlots();document.getElementById('appt-modal').classList.add('open');
+  document.getElementById('m-therapist').innerHTML=therapists.map(t=>`<option value="${t.id}">${t.name} (${t.startH}:00-${t.endH}:00)</option>`).join('');
+  updateTimeSlots();
+  document.getElementById('appt-modal').classList.add('open');
 }
 function updateTimeSlots(){
   const th=getTherapist(parseInt(document.getElementById('m-therapist').value));
@@ -963,11 +1082,15 @@ function updateTimeSlots(){
   document.getElementById('m-time').innerHTML=therapistHours(th).map(h=>`<option value="${h}">${h}:00</option>`).join('');
 }
 function saveAppt(){
-  const thId=parseInt(document.getElementById('m-therapist').value);
+  const thId=document.getElementById('m-therapist').value;
   const hr=parseInt(document.getElementById('m-time').value);
+  const patId=document.getElementById('m-patient').value;
+  if(!thId){alert('Selecciona un terapeuta.');return;}
+  if(!patId){alert('Selecciona un paciente.');return;}
+  if(isNaN(hr)){alert('Selecciona una hora válida.');return;}
   const ds=fmtDate(currentDate);
   if(appointments.find(a=>a.date===ds&&a.therapistId===thId&&a.hour===hr)){alert('Ese slot ya está ocupado.');return;}
-  const _a={id:++apptCounter,date:ds,therapistId:thId,hour:hr,patientId:parseInt(document.getElementById('m-patient').value),type:document.getElementById('m-type').value,status:document.getElementById('m-status').value,note:document.getElementById('m-note').value};
+  const _a={id:++apptCounter,date:ds,therapistId:thId,hour:hr,patientId:document.getElementById('m-patient').value,type:document.getElementById('m-type').value,status:document.getElementById('m-status').value,note:document.getElementById('m-note').value};
   appointments.push(_a);
   closeModal('appt-modal');renderGrid();
   dbSaveAppt(_a);updateFacturaBadge();
@@ -1064,7 +1187,7 @@ function renderPatients(){
       ?`<span style="display:inline-flex;align-items:center;gap:5px;background:${doc.color}18;border:1px solid ${doc.color}44;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:500;color:${doc.color};white-space:nowrap">${doc.name}</span>`
       :'<span style="font-size:10px;color:#6b6a64;font-style:italic">Independiente</span>';
     return`<tr>
-      <td style="font-weight:500;color:#e8e6e1">${p.name}</td>
+      <td style="font-weight:500;color:#e8e6e1">${p.name}<br><button class='th-btn del' style='margin-top:4px;font-size:9px;padding:2px 6px' onclick='deletePatient("${p.id}")'>Eliminar</button></td>
       <td style="color:#6b6a64;font-size:11px">${p.diag}</td>
       <td style="font-size:11px">${th?th.name:'-'}</td>
       <td style="font-size:11px">${dc}</td>
@@ -1073,6 +1196,20 @@ function renderPatients(){
       <td><span class="pill ${bc}">${bt}</span></td>
     </tr>`;
   }).join('');
+}
+
+
+async function deletePatient(id){
+  if(!confirm('¿Eliminar este paciente? Se eliminarán también sus citas y cobros.'))return;
+  patients=patients.filter(p=>p.id!==id);
+  appointments=appointments.filter(a=>a.patientId!==id);
+  renderPatients();renderGrid();
+  if(typeof id==='string'){
+    await supa.from('session_log').delete().eq('patient_id',id);
+    await supa.from('cobros').delete().eq('patient_id',id);
+    await supa.from('appointments').delete().eq('patient_id',id);
+    await supa.from('patients').delete().eq('id',id);
+  }
 }
 
 // ======= INFORMES =======
@@ -1312,23 +1449,44 @@ function saveProtocol(){
   closeModal('protocol-modal');renderProtocols();
   dbSaveProtocol(_pr);
 }
+
 function renderProtocols(){
   const fl={7:'Diaria',5:'5×/sem',3:'3×/sem',2:'2×/sem',1:'1×/sem'};
-  document.getElementById('protocols-list').innerHTML=protocols.map(p=>`
-    <div class="protocol-card">
-      <div style="display:flex;align-items:flex-start;gap:10px">
-        <div style="flex:1"><div class="protocol-diag">${p.name}</div>
-          <div class="protocol-meta">Diagnóstico: ${p.diag} · ${p.sessions} sesiones · ${fl[p.freq]||p.freq+'×/sem'}</div>
-          ${p.alta?`<div style="font-size:11px;color:#6b6a64;margin-top:2px">Alta: ${p.alta}</div>`:''}
+  const svgs={
+    shoulder:'<svg viewBox="0 0 80 80" width="72" height="72"><circle cx="40" cy="32" r="18" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><ellipse cx="40" cy="32" rx="8" ry="8" fill="none" stroke="#1D9E75" stroke-width="1" stroke-dasharray="3,2"/><rect x="28" y="48" width="24" height="20" rx="4" fill="#0d2a21" stroke="#1D9E75" stroke-width="1"/><circle cx="40" cy="32" r="4" fill="#1D9E75" opacity=".7"/></svg>',
+    hip:'<svg viewBox="0 0 80 80" width="72" height="72"><ellipse cx="40" cy="30" rx="22" ry="16" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><circle cx="40" cy="38" r="9" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><circle cx="40" cy="38" r="4" fill="#1D9E75" opacity=".7"/><line x1="32" y1="47" x2="26" y2="72" stroke="#1D9E75" stroke-width="2" stroke-linecap="round"/><line x1="48" y1="47" x2="54" y2="72" stroke="#1D9E75" stroke-width="2" stroke-linecap="round"/></svg>',
+    hand:'<svg viewBox="0 0 80 80" width="72" height="72"><rect x="28" y="40" width="24" height="28" rx="6" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><rect x="22" y="26" width="7" height="18" rx="3" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><rect x="31" y="20" width="7" height="22" rx="3" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><rect x="40" y="22" width="7" height="20" rx="3" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><rect x="49" y="26" width="7" height="16" rx="3" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><circle cx="25" cy="22" r="3" fill="#1D9E75" opacity=".8"/></svg>',
+    arm:'<svg viewBox="0 0 80 80" width="72" height="72"><rect x="32" y="10" width="16" height="60" rx="8" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><ellipse cx="40" cy="38" rx="12" ry="8" fill="none" stroke="#1D9E75" stroke-width="1" stroke-dasharray="3,2"/><circle cx="40" cy="38" r="4" fill="#1D9E75" opacity=".7"/></svg>',
+    head:'<svg viewBox="0 0 80 80" width="72" height="72"><ellipse cx="40" cy="32" rx="22" ry="26" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><ellipse cx="40" cy="60" rx="10" ry="6" fill="#0d2a21" stroke="#1D9E75" stroke-width="1"/><line x1="22" y1="28" x2="58" y2="28" stroke="#1D9E75" stroke-width="1" stroke-dasharray="4,3" opacity=".6"/><circle cx="32" cy="36" r="3" fill="none" stroke="#1D9E75" stroke-width="1.5"/><circle cx="48" cy="36" r="3" fill="none" stroke="#1D9E75" stroke-width="1.5"/></svg>',
+    elbow:'<svg viewBox="0 0 80 80" width="72" height="72"><rect x="34" y="8" width="12" height="28" rx="6" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><circle cx="40" cy="40" r="14" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><circle cx="40" cy="40" r="5" fill="#1D9E75" opacity=".7"/><rect x="34" y="46" width="12" height="26" rx="6" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/></svg>',
+    spine:'<svg viewBox="0 0 80 80" width="72" height="72"><rect x="34" y="8" width="12" height="64" rx="3" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><rect x="26" y="12" width="28" height="8" rx="2" fill="#0d2a21" stroke="#1D9E75" stroke-width="1"/><rect x="26" y="24" width="28" height="8" rx="2" fill="#0d2a21" stroke="#1D9E75" stroke-width="1"/><rect x="26" y="36" width="28" height="8" rx="2" fill="#0d2a21" stroke="#1D9E75" stroke-width="1"/><rect x="26" y="48" width="28" height="8" rx="2" fill="#0d2a21" stroke="#1D9E75" stroke-width="1"/><rect x="26" y="60" width="28" height="8" rx="2" fill="#0d2a21" stroke="#E24B4A" stroke-width="1.5"/></svg>',
+    knee:'<svg viewBox="0 0 80 80" width="72" height="72"><rect x="32" y="8" width="16" height="26" rx="5" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><ellipse cx="40" cy="40" rx="18" ry="14" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><ellipse cx="40" cy="38" rx="8" ry="6" fill="none" stroke="#1D9E75" stroke-width="1" stroke-dasharray="3,2"/><circle cx="40" cy="38" r="3" fill="#1D9E75" opacity=".7"/><rect x="32" y="52" width="16" height="22" rx="5" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/></svg>',
+    ankle:'<svg viewBox="0 0 80 80" width="72" height="72"><rect x="34" y="8" width="12" height="36" rx="5" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><ellipse cx="40" cy="50" rx="16" ry="12" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><rect x="20" y="60" width="40" height="12" rx="5" fill="#0d2a21" stroke="#1D9E75" stroke-width="1.5"/><line x1="34" y1="44" x2="46" y2="44" stroke="#E24B4A" stroke-width="2" stroke-linecap="round"/></svg>',
+  };
+  if(!protocols.length){
+    document.getElementById('protocols-list').innerHTML=`<div style="color:#5a5a56;font-size:13px;padding:20px 0;text-align:center">No hay protocolos. Carga los predefinidos o crea uno nuevo.</div>`;
+  } else {
+    document.getElementById('protocols-list').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;margin-bottom:14px">`+protocols.map(p=>{
+      const svg=svgs[p.img]||svgs.knee;
+      return`<div class="protocol-card" style="display:flex;gap:14px;align-items:flex-start">
+        <div style="flex-shrink:0;background:#111210;border-radius:8px;padding:8px;border:1px solid rgba(29,158,117,.12)">${svg}</div>
+        <div style="flex:1;min-width:0">
+          <div class="protocol-diag">${p.name}</div>
+          ${p.def?`<div style="font-size:11px;color:#6b6a64;margin-top:4px;line-height:1.5">${p.def}</div>`:''}
+          <div class="protocol-meta" style="margin-top:6px">${p.sessions} sesiones · ${fl[p.freq]||p.freq+'×/sem'}</div>
+          ${p.alta?`<div style="font-size:10px;color:#4a4a46;margin-top:3px">Alta: ${p.alta}</div>`:''}
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <button class="th-btn" onclick="openProtocolModal('${p.id}')">Editar</button>
+            <button class="th-btn del" onclick="deleteProtocol('${p.id}')">Eliminar</button>
+          </div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
-          <button class="th-btn" onclick="openProtocolModal(${p.id})">Editar</button>
-          <button class="th-btn del" onclick="deleteProtocol(${p.id})">Eliminar</button>
-        </div>
-      </div>
-    </div>`).join('');
+      </div>`;
+    }).join('')+`</div>`;
+  }
   protCurrentPage=0;renderProtocolAdherence();
 }
+
+
 function deleteProtocol(id){if(!confirm('¿Eliminar?'))return;protocols=protocols.filter(p=>p.id!==id);renderProtocols();dbDeleteProtocol(id);}
 
 function getProtocolRows(){
