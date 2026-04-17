@@ -440,7 +440,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="card"><div class="card-title">Insights automáticos</div><div id="insights"></div></div>
       </div>
       <div class="export-row">
-        <button class="ai-btn" onclick="sendPrompt&&sendPrompt('Genera análisis ejecutivo del informe semanal incluyendo optimización de horas muertas y recomendaciones de horario')">Análisis con IA ↗</button>
+        <button class="ai-btn" onclick="genSemanalAI()">Análisis con IA ↗</button>
         <button class="exp-btn">Exportar PDF</button>
       </div>
     </div>
@@ -500,9 +500,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
   <div class="main-body">
     <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-      <button class="ai-btn" onclick="sendPrompt&&sendPrompt('Genera resumen ejecutivo del día con análisis de inasistencias y recomendaciones de seguimiento')">Análisis con IA ↗</button>
+      <button class="ai-btn" onclick="document.getElementById('resumen-ai-output').style.display='block';genResumenDiaAI()">Análisis con IA ↗</button>
     </div>
-    <div id="resumen-content"></div>
+    <div id="resumen-ai-output" class="full-card" style="display:none;margin-top:8px"></div>
+  <div id="resumen-content"></div>
   </div>
 </div>
 
@@ -998,24 +999,16 @@ async function cycleStatus(id){
   renderGrid();updateResumenBadge();updateFacturaBadge();
   dbUpdateApptStatus(a.id,a.status);
   
-  // Si pasa a 'conf' — guardar en session_log y actualizar billing
+  // Si pasa a 'conf' — abrir modal de sesión clínica + actualizar billing
   if(a.status==='conf' && prevStatus!=='conf'){
     const pt=getPatient(a.patientId);
-    if(pt && typeof a.id==='string'){
-      // Guardar en session_log
-      await supa.from('session_log').insert({
-        patient_id:a.patientId,
-        date:a.date,
-        type:a.type,
-        hour:a.hour+':00',
-        status:'asistió'
-      });
-      // Actualizar billing_pendientes en Supabase
+    if(pt){
       if(pt.billing) dbUpdateBillingPendientes(a.patientId, pt.billing.pendientes);
-      // Incrementar done en patients
       await supa.from('patients').update({done:(pt.done||0)+1}).eq('id',a.patientId);
       pt.done=(pt.done||0)+1;
     }
+    // Abrir modal de sesión
+    setTimeout(()=>openSessionModal(a), 200);
   }
   // Si pasa de 'conf' a otro — revertir billing
   if(a.status!=='conf' && prevStatus==='conf'){
@@ -1208,11 +1201,16 @@ function renderResumen(){
   function row(a,kind){
     const pt=getPatient(a.patientId);const th=getTherapist(a.therapistId);const doc=pt&&pt.doctorId?getDoctor(pt.doctorId):null;
     const col=kind==='noas'?'#E24B4A':kind==='pend'?'#BA7517':'#1D9E75';
+    const hasSession=a.hasSession||false;
+    const confBtns=kind==='conf'?`<div class="resumen-actions" style="display:flex;align-items:center;gap:6px">
+      ${!hasSession?`<button onclick="openSessionModal(appointments.find(x=>x.id==='${a.id}'))" style="font-size:10px;padding:3px 10px;background:#BA7517;color:#fff;border:none;border-radius:99px;cursor:pointer;font-family:inherit">📋 Sesión</button>`:'<span style="font-size:10px;color:#5a5a56">📋 ok</span>'}
+      <span style="font-size:10px;color:#1D9E75;font-weight:500">✓ Asistió</span>
+    </div>`:'';
     const btns=kind!=='conf'?`<div class="resumen-actions">
-      <button class="resumen-btn wa" onclick="simWA('${pt?pt.name:''}','${pt?pt.tel||'':''}')" style='white-space:nowrap'>WA</button>
+      <button class="resumen-btn wa" onclick="simWA('${pt?pt.name:''}','${pt?pt.tel||'':''}'" style='white-space:nowrap'>WA</button>
       <button class="resumen-btn em" onclick="simEmail('${pt?pt.name:''}','${pt?pt.email||'':''}')">Email</button>
       <button class="resumen-btn rep" onclick="openApptModal()">Reagendar</button>
-    </div>`:`<div class="resumen-actions"><span style="font-size:10px;color:#1D9E75">✓ Asistió</span></div>`;
+    </div>`:confBtns;
     return`<div class="resumen-row">
       <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0;margin-top:3px"></div>
       <div style="flex:1">
@@ -1395,10 +1393,15 @@ function renderHeatmap(){
   html+='</div>';document.getElementById('heatmap-container').innerHTML=html;
 }
 function renderTherapistUtil(){
+  // Calcular utilización real desde appointments
+  const semStart=new Date(currentDate);
+  semStart.setDate(semStart.getDate()-semStart.getDay()+1);
+  const semDates=[];
+  for(let i=0;i<5;i++){const d=new Date(semStart);d.setDate(semStart.getDate()+i);semDates.push(fmtDate(d));}
   document.getElementById('th-util-report').innerHTML=therapists.map(th=>{
-    const ts=therapistHours(th).length*5;
-    const us=Math.min(ts,Math.round(ts*(0.6+Math.random()*0.35)));
-    const u=Math.round(us/ts*100);
+    const ts=therapistHours(th).length*5; // slots totales semana
+    const us=appointments.filter(a=>a.therapistId===th.id&&semDates.includes(a.date)).length;
+    const u=ts>0?Math.round(us/ts*100):0;
     const c=getColor(th.colorId);const uc=u>=80?'#1D9E75':u>=60?'#BA7517':'#E24B4A';
     return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(29,158,117,.1)">
       <div class="avatar" style="background:${c.border}22;color:${c.text};width:30px;height:30px">${th.initials}</div>
@@ -1435,7 +1438,7 @@ function showSubTab(n,btn){
 function renderMensual(){
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
     <select style="background:#1a1917;border:1px solid rgba(29,158,117,.2);border-radius:6px;padding:7px 12px;font-size:13px;color:#e8e6e1"><option>Marzo 2026</option><option>Febrero 2026</option><option>Enero 2026</option></select>
-    <button class="ai-btn" onclick="sendPrompt('Genera un informe mensual ejecutivo de la clínica de rehabilitación para marzo 2026 con métricas de sesiones, continuidad, inasistencias y recomendaciones')">Análisis con IA ↗</button>
+    <button class="ai-btn" onclick="genSemanalAI()">Análisis con IA ↗</button>
   </div>`;
   html+=`<div class="informe-stat-grid">
     <div class="stat"><div class="stat-lbl">Sesiones del mes</div><div class="stat-val">38</div><div class="stat-chg down">-12% vs feb</div></div>
@@ -1467,7 +1470,7 @@ function renderAnual(){
   const s=[30,42,38,0,0,0,0,0,0,0,0,0];
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
     <div style="font-size:14px;font-weight:500;color:#f0ede8">Informe anual 2026</div>
-    <button class="ai-btn" onclick="sendPrompt('Genera un informe anual ejecutivo de la clínica de rehabilitación para 2026 con proyecciones y recomendaciones estratégicas')">Análisis anual con IA ↗</button>
+    <button class="ai-btn" onclick="genSemanalAI()">Análisis anual con IA ↗</button>
   </div>`;
   html+=`<div class="informe-stat-grid">
     <div class="stat"><div class="stat-lbl">Sesiones acumuladas</div><div class="stat-val">110</div><div class="stat-chg neu">Ene-Mar 2026</div></div>
@@ -1576,12 +1579,7 @@ function renderPatientReport(){
   html+=`</div>`;
   document.getElementById('patient-report-content').innerHTML=html;
 }
-function genPatientAI(){
-  const id=parseInt(document.getElementById('patient-rpt-select').value);
-  const p=patients.find(x=>x.id===id);if(!p)return;
-  const th=getTherapist(p.therapistId);const doc=p.doctorId?getDoctor(p.doctorId):null;
-  sendPrompt(`Genera un informe clínico profesional para ${p.name}, ${p.age} años, diagnóstico: ${p.diag}. Terapeuta: ${th?th.name:'No asignado'}. ${doc?'Doctor referente: '+doc.name+' ('+doc.spec+').':''} Completó ${p.done} de ${p.sessions} sesiones. Continuidad: ${p.log.length>0?Math.round(p.log.filter(s=>s.status==='asistió').length/p.log.length*100):0}%. Incluye: resumen del proceso, análisis de continuidad, evolución clínica y recomendaciones.`);
-}
+
 
 // ======= PROTOCOLOS =======
 function openProtocolModal(eid=null){
@@ -2073,6 +2071,185 @@ function filterPatientRptSelect(){
   if(sel.options.length>0)updateEpisodes();
 }
 
+// ── SESIÓN CLÍNICA ──────────────────────────────────────────
+let _pendingSessionAppt = null;
+
+function openSessionModal(appt) {
+  _pendingSessionAppt = appt;
+  const pt = getPatient(appt.patientId);
+  document.getElementById('session-modal-title').textContent = 
+    'Sesión — ' + (pt ? pt.name.split(' ').slice(0,2).join(' ') : 'Paciente');
+  document.getElementById('session-modal-sub').textContent = 
+    appt.type + ' · ' + appt.date + ' · ' + appt.hour + ':00';
+  document.getElementById('sess-eva-before').value = 5;
+  document.getElementById('sess-eva-before-val').textContent = '5';
+  document.getElementById('sess-eva-after').value = 3;
+  document.getElementById('sess-eva-after-val').textContent = '3';
+  document.getElementById('sess-note').value = '';
+  document.getElementById('session-modal').classList.add('open');
+}
+
+async function saveSession() {
+  const appt = _pendingSessionAppt;
+  if (!appt) return;
+  const pb = parseInt(document.getElementById('sess-eva-before').value);
+  const pa = parseInt(document.getElementById('sess-eva-after').value);
+  const type = document.getElementById('sess-type').value;
+  const note = document.getElementById('sess-note').value;
+  
+  if (typeof appt.id === 'string') {
+    const {error} = await supa.from('session_log').insert({
+      patient_id: appt.patientId,
+      date: appt.date,
+      type: type,
+      hour: appt.hour + ':00',
+      status: 'asistió',
+      pain_before: pb,
+      pain_after: pa,
+      note: note
+    });
+    if (error) toastErr('Error guardando sesión: ' + error.message);
+    else toastOk('Sesión registrada ✓');
+  }
+  
+  // Actualizar en memoria también
+  const a = appointments.find(x => x.id === appt.id);
+  if (a) a.hasSession = true;
+  
+  // Agregar al log del paciente en memoria
+  const pt2 = getPatient(appt.patientId);
+  if (pt2) {
+    if (!pt2.log) pt2.log = [];
+    pt2.log.push({
+      date: appt.date,
+      type: type,
+      hour: appt.hour + ':00',
+      status: 'asistió',
+      pb: pb,
+      pa: pa,
+      note: note,
+      tags: []
+    });
+  }
+  
+  closeModal('session-modal');
+  _pendingSessionAppt = null;
+  renderGrid();
+  updateResumenBadge();
+  toastOk('Sesión guardada en historial clínico ✓');
+}
+
+function skipSession() {
+  closeModal('session-modal');
+  _pendingSessionAppt = null;
+  toastInfo('Sesión omitida — puedes registrarla desde Informe paciente');
+}
+
+// ── IA CON ANTHROPIC API ────────────────────────────────────
+async function callAI(prompt, targetId) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  el.innerHTML = '<div style="color:#4a4a46;font-size:12px;padding:16px;text-align:center">🤖 Generando análisis...</div>';
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{role:'user', content: prompt}]
+      })
+    });
+    const data = await res.json();
+    const text = data.content && data.content[0] ? data.content[0].text : 'Sin respuesta';
+    el.innerHTML = '<div style="font-size:13px;color:#e8e6e1;line-height:1.7;white-space:pre-wrap">' + text + '</div>';
+  } catch(e) {
+    el.innerHTML = '<div style="color:#f07070;font-size:12px;padding:8px">Error al conectar con IA. Verifica tu conexión.</div>';
+  }
+}
+
+function genSemanalAI() {
+  const conf = appointments.filter(a=>a.status==='conf').length;
+  const noas = appointments.filter(a=>a.status==='noas').length;
+  const total = appointments.length;
+  const prompt = `Eres el asistente de gestión de Rehactiva, centro de rehabilitación y fisioterapia en Quito, Ecuador. 
+Analiza estos datos de la semana:
+- Total de citas: ${total}
+- Confirmadas/asistidas: ${conf}
+- No asistieron: ${noas}
+- Terapeutas activos: ${therapists.length}
+- Tasa de asistencia: ${total>0?Math.round(conf/total*100):0}%
+
+Genera un análisis ejecutivo breve (máximo 200 palabras) con: resumen del desempeño, puntos de atención y 2-3 recomendaciones concretas. Responde en español, tono profesional y directo.`;
+  callAI(prompt, 'insights');
+}
+
+function genResumenDiaAI() {
+  const ds = fmtDate(currentDate);
+  const hoy = appointments.filter(a=>a.date===ds);
+  const conf = hoy.filter(a=>a.status==='conf').length;
+  const noas = hoy.filter(a=>a.status==='noas').length;
+  const pend = hoy.filter(a=>a.status==='pend').length;
+  const prompt = `Eres el asistente de Rehactiva, centro de rehabilitación en Quito. 
+Datos del día ${ds}:
+- Citas totales: ${hoy.length}
+- Asistieron: ${conf}
+- No asistieron: ${noas}  
+- Pendientes: ${pend}
+
+Genera un resumen del día en máximo 150 palabras con acciones de seguimiento para los no asistidos. Español, directo y profesional.`;
+  callAI(prompt, 'resumen-ai-output');
+}
+
+function genPatientAI() {
+  const selEl = document.getElementById('patient-rpt-select');
+  if (!selEl) return;
+  const id = selEl.value;
+  const p = patients.find(x=>x.id===id || String(x.id)===id);
+  if (!p) { toastErr('Selecciona un paciente primero'); return; }
+  const th = getTherapist(p.therapistId);
+  const doc = p.doctorId ? getDoctor(p.doctorId) : null;
+  const sesiones = p.log && p.log.length > 0 ? p.log.map(s=>
+    `- ${s.date}: EVA ${s.pb||'?'}→${s.pa||'?'}, ${s.type||s.status||''}, ${s.note||''}`.trim()
+  ).join('\n') : 'Sin sesiones registradas aún';
+  const prompt = `Eres un fisioterapeuta redactando un informe clínico profesional para Ecuador.
+
+DATOS DEL PACIENTE:
+- Nombre: ${p.name}
+- Edad: ${p.age||'No registrada'} años
+- Diagnóstico: ${p.diag||'No especificado'}
+- Terapeuta: ${th?th.name:'No asignado'}
+- Doctor referente: ${doc?doc.name+' ('+doc.spec+')':'Independiente'}
+- Sesiones prescritas: ${p.sessions||0}
+- Sesiones realizadas: ${p.done||0}
+- Estado: ${p.status==='active'?'En tratamiento':p.status==='alta'?'Alta médica':'Inactivo'}
+
+HISTORIAL DE SESIONES:
+${sesiones}
+
+Redacta un informe clínico de evolución en español, formato profesional médico, máximo 300 palabras. Incluye: estado actual, evolución del dolor (EVA), respuesta al tratamiento y recomendaciones.`;
+  
+  const outputEl = document.getElementById('patient-rpt-ai-output');
+  if (outputEl) {
+    outputEl.style.display = 'block';
+    callAI(prompt, 'patient-rpt-ai-output');
+  } else {
+    // Crear el elemento si no existe
+    const container = document.querySelector('#paciente_rpt-content, #informe-content, [id*="rpt"]');
+    if (container) {
+      let out = document.getElementById('patient-rpt-ai-output');
+      if (!out) {
+        out = document.createElement('div');
+        out.id = 'patient-rpt-ai-output';
+        out.className = 'full-card';
+        out.style.marginTop = '12px';
+        container.appendChild(out);
+      }
+      callAI(prompt, 'patient-rpt-ai-output');
+    }
+  }
+}
+
 async function initApp(){
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('loading-overlay').style.display='none';
@@ -2108,5 +2285,58 @@ initApp();
 </script>
 
 <div id="toast-container"></div>
+
+<!-- MODAL SESIÓN CLÍNICA -->
+<div class="modal-bg" id="session-modal">
+<div class="modal" style="max-width:440px">
+  <h3 id="session-modal-title">Registrar sesión</h3>
+  <div style="font-size:12px;color:#5a5a56;margin-bottom:16px" id="session-modal-sub">Completa los datos de esta sesión</div>
+  
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+    <div class="field">
+      <label>EVA antes (dolor)</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="range" id="sess-eva-before" min="0" max="10" value="5" oninput="document.getElementById('sess-eva-before-val').textContent=this.value" style="flex:1;accent-color:#1D9E75">
+        <span id="sess-eva-before-val" style="font-size:18px;font-weight:700;color:#e0a850;min-width:20px">5</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>EVA después (dolor)</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="range" id="sess-eva-after" min="0" max="10" value="3" oninput="document.getElementById('sess-eva-after-val').textContent=this.value" style="flex:1;accent-color:#1D9E75">
+        <span id="sess-eva-after-val" style="font-size:18px;font-weight:700;color:#1D9E75;min-width:20px">3</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="field" style="margin-bottom:12px">
+    <label>Técnicas utilizadas</label>
+    <select id="sess-type" style="width:100%;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:8px 11px;font-size:13px;color:#e8e6e1;font-family:inherit">
+      <option>Fisioterapia general</option>
+      <option>Kinesioterapia</option>
+      <option>Terapia manual</option>
+      <option>Electroterapia</option>
+      <option>Ultrasonido terapéutico</option>
+      <option>Masoterapia</option>
+      <option>Ejercicio terapéutico</option>
+      <option>Tracción lumbar/cervical</option>
+      <option>Vendaje funcional</option>
+      <option>Punción seca</option>
+      <option>Crioterapia</option>
+      <option>Termoterapia</option>
+    </select>
+  </div>
+
+  <div class="field" style="margin-bottom:4px">
+    <label>Observaciones <span style="color:#4a4a46;font-weight:400">(opcional)</span></label>
+    <textarea id="sess-note" rows="3" placeholder="Evolución del paciente, ejercicios indicados, próxima sesión..." style="width:100%;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:8px 11px;font-size:13px;color:#e8e6e1;font-family:inherit;resize:vertical"></textarea>
+  </div>
+
+  <div class="modal-actions">
+    <button class="btn-cancel" onclick="skipSession()">Omitir</button>
+    <button class="add-btn" onclick="saveSession()">Guardar sesión</button>
+  </div>
+</div>
+</div>
 </body>
 </html>
