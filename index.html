@@ -41,7 +41,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* ===== STATS ===== */
 .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
-.stat{background:#ffffff;border:1px solid rgba(29,158,117,.14);border-radius:10px;padding:13px 15px}
+.stat{background:#ffffff;border:1px solid rgba(29,158,117,.14);border-radius:10px;padding:10px 12px;min-width:0}
 .stat-lbl{font-size:10px;color:#5a5a56;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;font-weight:500}
 .stat-val{font-size:24px;font-weight:600;color:#1a1917;letter-spacing:-.5px}
 .stat-chg{font-size:11px;margin-top:3px}
@@ -292,17 +292,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <!-- ===== SIDEBAR ===== -->
 <aside class="sidebar">
-  <div class="sidebar-logo" style="border-bottom:1px solid rgba(29,158,117,.1)">
-    <div class="logo-text"><span class="w">Reha</span><span class="g">ctivaPro</span></div>
-<div style="padding:8px 16px 10px;border-bottom:1px solid rgba(0,0,0,.06)">
-  <div style="position:relative">
-    <svg style="position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    <input type="text" id="global-search" placeholder="Buscar paciente..." 
-      oninput="globalSearch(this.value)"
-      style="width:100%;background:#f5f5f0;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:7px 10px 7px 28px;font-size:12px;color:#1a1917;outline:none;font-family:inherit;box-sizing:border-box">
-  </div>
-  <div id="global-search-results" style="display:none;position:absolute;left:12px;right:12px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:1000;max-height:300px;overflow-y:auto;margin-top:4px"></div>
-</div>
+  <div class="sidebar-logo" style="border-bottom:1px solid rgba(0,0,0,.08);padding:14px 16px 12px">
+    <div class="logo-text" style="margin-bottom:10px"><span class="w">Reha</span><span class="g">ctivaPro</span></div>
+    <div style="position:relative">
+      <svg style="position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="global-search" placeholder="Buscar paciente..."
+        oninput="globalSearch(this.value)"
+        style="width:100%;background:#f5f5f0;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:7px 10px 7px 28px;font-size:12px;color:#1a1917;outline:none;font-family:inherit;box-sizing:border-box">
+      <div id="global-search-results" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:1000;max-height:300px;overflow-y:auto"></div>
+    </div>
     <div class="logo-sub">Gestión clínica</div>
   </div>
   <nav class="sidebar-nav">
@@ -1715,7 +1713,7 @@ function renderSemanal(){
   </div>
 
   <!-- KPIs principales -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;min-width:0">
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px">
     <div class="stat">
       <div class="stat-lbl">Citas totales</div>
       <div class="stat-val">${total}</div>
@@ -2328,7 +2326,7 @@ function toggleNotif(id,v){const n=notifSettings.find(x=>x.id===id);if(n){n.on=v
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 function showTab(tab){
   allTabs.forEach(t=>document.getElementById('tab-'+t).style.display=t===tab?'':'none');
-  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));const navMap={'agenda':0,'resumen':1,'pacientes':2,'paciente_rpt':3,'protocolos':4,'informes':5,'terapeutas':6,'doctores':7,'facturacion':8};const navItems=document.querySelectorAll('.nav-item');if(navItems[navMap[tab]])navItems[navMap[tab]].classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));const navMap={'agenda':-1,'resumen':0,'pacientes':1,'paciente_rpt':2,'protocolos':3,'informes':4,'facturacion':5,'terapeutas':6,'doctores':7};const navItems=document.querySelectorAll('.nav-item');if(navItems[navMap[tab]])navItems[navMap[tab]].classList.add('active');
   if(tab==='pacientes')renderPatients();
   if(tab==='informes')renderSemanal();
   if(tab==='paciente_rpt')renderPatientReportSelect();
