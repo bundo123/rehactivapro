@@ -576,13 +576,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="page-sub">Control de sesiones acumuladas y emisión de comprobantes</div>
   </div>
   <div class="main-body">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:8px;background:#ffffff;border:1px solid rgba(29,158,117,.2);border-radius:8px;padding:8px 14px">
-        <span style="font-size:11px;color:#5a5a56">Citas por factura:</span>
-        <input type="number" id="global-spf" value="5" min="1" max="20" style="width:50px;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:5px;padding:3px 7px;font-size:14px;color:#1a1917;text-align:center;font-weight:600" onchange="updateGlobalSPF(this.value)">
-      </div>
-      <div style="font-size:11px;color:#7a7a76">Cuando un paciente llega al número de citas configurado, el sistema te avisa automáticamente para facturar.</div>
-    </div>
+    <!-- SPF oculto, valor fijo en 5 -->
+    <input type="hidden" id="global-spf" value="5">
     <div id="facturacion-content"></div>
   </div>
 </div>
@@ -710,10 +705,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="field"><label>Especialidad</label><input type="text" id="th-spec"></div>
   <div class="field-row two">
     <div class="field"><label>Hora inicio</label>
-      <select id="th-start"><option value="6">06:00</option><option value="7" selected>07:00</option><option value="8">08:00</option><option value="9">09:00</option><option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option></select>
+      <select id="th-start">
+  <option value="6">06:00</option><option value="7" selected>07:00</option>
+  <option value="8">08:00</option><option value="9">09:00</option>
+  <option value="10">10:00</option><option value="11">11:00</option>
+  <option value="12">12:00</option><option value="13">13:00</option>
+  <option value="14">14:00</option><option value="15">15:00</option>
+  <option value="16">16:00</option><option value="17">17:00</option>
+  <option value="18">18:00</option><option value="19">19:00</option>
+</select>
     </div>
     <div class="field"><label>Hora fin</label>
-      <select id="th-end"><option value="12">12:00</option><option value="13" selected>13:00</option><option value="14">14:00</option><option value="15">15:00</option><option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option></select>
+      <select id="th-end">
+  <option value="7">07:00</option><option value="8">08:00</option>
+  <option value="9">09:00</option><option value="10">10:00</option>
+  <option value="11">11:00</option><option value="12">12:00</option>
+  <option value="13" selected>13:00</option><option value="14">14:00</option>
+  <option value="15">15:00</option><option value="16">16:00</option>
+  <option value="17">17:00</option><option value="18">18:00</option>
+  <option value="19">19:00</option><option value="20">20:00</option>
+</select>
     </div>
   </div>
   <div class="field"><label>Color en agenda</label><div class="color-picker-row" id="color-picker"></div></div>
@@ -1345,7 +1356,7 @@ function updateTimeSlots(){
   const th=getTherapist(document.getElementById('m-therapist').value);
   if(!th)return;
   const allH=[];
-  for(let h=6;h<=20;h++) allH.push(h);
+  for(let h=7;h<=20;h++) allH.push(h);
   document.getElementById('m-time').innerHTML=allH.map(h=>`<option value="${h}">${h}:00</option>`).join('');
   // Seleccionar la primera hora del horario oficial por defecto
   document.getElementById('m-time').value=th.startH||7;
