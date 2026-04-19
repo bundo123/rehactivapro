@@ -114,7 +114,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* ===== MODALES ===== */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;align-items:center;justify-content:center}
 .modal-bg.open{display:flex}
-.modal{background:#1c1b19;border-radius:12px;padding:24px;width:420px;border:1px solid rgba(29,158,117,.25);max-height:88vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.5)}
+.modal{background:#ffffff;border-radius:12px;padding:24px;width:420px;border:1px solid rgba(29,158,117,.25);max-height:88vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.5)}
 .modal h3{font-size:15px;font-weight:600;margin-bottom:18px;color:#1a1917;letter-spacing:-.2px}
 .field{margin-bottom:12px}
 .field label{font-size:10px;color:#5a5a56;display:block;margin-bottom:5px;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
@@ -294,7 +294,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <aside class="sidebar">
   <div class="sidebar-logo" style="border-bottom:1px solid rgba(29,158,117,.1)">
     <div class="logo-text"><span class="w">Reha</span><span class="g">ctivaPro</span></div>
-<div style="padding:8px 12px;border-bottom:1px solid rgba(0,0,0,.06)">
+<div style="padding:8px 16px 10px;border-bottom:1px solid rgba(0,0,0,.06)">
   <div style="position:relative">
     <svg style="position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     <input type="text" id="global-search" placeholder="Buscar paciente..." 
@@ -1309,6 +1309,21 @@ function goToDate(ds) {
   renderGrid();
 }
 
+function agendarCitaParaPaciente(patientId) {
+  showTab('agenda');
+  setTimeout(() => {
+    openApptModal();
+    // Pre-seleccionar el paciente
+    const p = getPatient(patientId);
+    if (p) {
+      const searchEl = document.getElementById('m-patient-search');
+      const hiddenEl = document.getElementById('m-patient');
+      if (searchEl) searchEl.value = p.name;
+      if (hiddenEl) hiddenEl.value = p.id;
+    }
+  }, 200);
+}
+
 function changeDay(d){currentDate.setDate(currentDate.getDate()+d);renderGrid();}
 
 function openApptModal(){
@@ -1326,7 +1341,11 @@ function openApptModal(){
 function updateTimeSlots(){
   const th=getTherapist(document.getElementById('m-therapist').value);
   if(!th)return;
-  document.getElementById('m-time').innerHTML=therapistHours(th).map(h=>`<option value="${h}">${h}:00</option>`).join('');
+  const allH=[];
+  for(let h=6;h<=20;h++) allH.push(h);
+  document.getElementById('m-time').innerHTML=allH.map(h=>`<option value="${h}">${h}:00</option>`).join('');
+  // Seleccionar la primera hora del horario oficial por defecto
+  document.getElementById('m-time').value=th.startH||7;
 }
 async function saveAppt(){
   const thId=document.getElementById('m-therapist').value;
@@ -1647,7 +1666,7 @@ function renderSemanal(){
   
   // Filtrar citas de la semana
   const semAppts = appointments.filter(a=>semDates.includes(a.date));
-  const conf = semAppts.filter(a=>a.status==='conf');
+  const conf = semAppts.filter(a=>a.status==='conf'); // incluye citas fuera de horario oficial
   const noas = semAppts.filter(a=>a.status==='noas');
   const pend = semAppts.filter(a=>a.status==='pend');
   const total = semAppts.length;
@@ -1825,9 +1844,9 @@ function renderTherapistUtil(){
   const semDates=[];
   for(let i=0;i<5;i++){const d=new Date(semStart);d.setDate(semStart.getDate()+i);semDates.push(fmtDate(d));}
   document.getElementById('th-util-report').innerHTML=therapists.map(th=>{
-    const ts=therapistHours(th).length*5; // slots totales semana
-    const us=appointments.filter(a=>a.therapistId===th.id&&semDates.includes(a.date)).length;
-    const u=ts>0?Math.round(us/ts*100):0;
+    const ts=therapistHours(th).length*5; // slots del horario oficial (base de comparación)
+    const us=appointments.filter(a=>a.therapistId===th.id&&semDates.includes(a.date)&&a.status==='conf').length;
+    const u=ts>0?Math.round(us/ts*100):0; // puede superar 100% si hay citas extra
     const c=getColor(th.colorId);const uc=u>=80?'#1D9E75':u>=60?'#BA7517':'#E24B4A';
     return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(29,158,117,.1)">
       <div class="avatar" style="background:${c.border}22;color:${c.text};width:30px;height:30px">${th.initials}</div>
@@ -1948,7 +1967,16 @@ function renderPatientReport(){
   const lp=attended.slice(-1)[0];
   const fp=attended[0];
   const thC=th?getColor(th.colorId):COLOR_OPTIONS[0];
-  const sp=p.status==='alta'?'<span class="pill pb">Alta médica</span>':p.status==='active'?'<span class="pill pg">En tratamiento</span>':'<span class="pill pa">Inactivo</span>';
+  // Badge dinámico: depende de sesiones reales, no solo del campo status
+  const citasConf = appointments.filter(a => String(a.patientId)===String(p.id) && a.status==='conf').length;
+  const sesCompletas = (p.done||0) >= (p.sessions||1) && p.sessions > 0;
+  let sp = '';
+  if (p.status === 'alta' || sesCompletas) {
+    sp = '<span class="pill pb">Alta médica</span>';
+  } else if (citasConf >= 1 || (p.done||0) >= 1) {
+    sp = '<span class="pill pg">En tratamiento</span>';
+  }
+  // Si tiene 0 citas confirmadas y 0 sesiones — sin badge
   const ac=adh>=85?'#1D9E75':adh>=70?'#BA7517':'#E24B4A';
 
   // ── Header del paciente ──
@@ -1960,7 +1988,10 @@ function renderPatientReport(){
       ${doc?`<div style="font-size:11px;color:#5a5a56;margin-top:2px">Ref: ${doc.name} (${doc.spec})</div>`:''}
       ${p.cedula?`<div style="font-size:11px;color:#6b6a64;margin-top:1px">CI: ${p.cedula}${p.tel?' · '+p.tel:''}${p.email?' · '+p.email:''}</div>`:''}
     </div>
-    <button class="ai-btn" onclick="genPatientAI()" style="flex-shrink:0">Informe IA ↗</button>
+    <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+      <button class="ai-btn" onclick="genPatientAI()">Informe IA ↗</button>
+      <button onclick="agendarCitaParaPaciente('${p.id}')" style="padding:6px 14px;background:rgba(29,158,117,.12);color:#1D9E75;border:1px solid rgba(29,158,117,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">+ Agendar cita</button>
+    </div>
   </div>`;
 
   // ── Stats cards ──
