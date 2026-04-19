@@ -406,13 +406,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div style="border:1px solid rgba(29,158,117,.15);border-radius:10px;overflow:hidden;background:#ffffff">
       <table class="patient-table" style="width:100%;table-layout:fixed">
         <thead><tr>
-          <th style="width:18%">Paciente</th>
-          <th style="width:22%">Diagnóstico</th>
-          <th style="width:12%">Terapeuta</th>
-          <th style="width:15%">Doctor ref.</th>
+          <th style="width:22%">Paciente</th>
+          <th style="width:25%">Diagnóstico</th>
+          <th style="width:18%">Doctor ref.</th>
           <th style="width:13%">Progreso</th>
-          <th style="width:9%">Continuidad</th>
-          <th style="width:7%">Cédula</th>
+          <th style="width:10%">Continuidad</th>
+          <th style="width:8%">Cédula</th>
           <th style="width:4%">Estado</th>
         </tr></thead>
         <tbody id="patient-tbody"></tbody>
@@ -459,7 +458,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div class="export-row">
         <button class="ai-btn" onclick="genSemanalAI()">Análisis con IA ↗</button>
-        <button class="exp-btn">Exportar PDF</button>
+        <button class="exp-btn" onclick="exportarPDF()">Exportar PDF</button>
       </div>
     </div>
     <div id="subtab-mensual" style="display:none"><div id="mensual-content"></div></div>
@@ -588,6 +587,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="modal-bg" id="appt-modal">
 <div class="modal">
   <h3>Nueva cita</h3>
+  <div class="field-row two">
+    <div class="field"><label>Fecha</label>
+      <input type="date" id="m-date" style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;font-size:13px;color:#1a1917;font-family:inherit;outline:none">
+    </div>
+    <div class="field"><label>Tipo de sesión</label>
+      <select id="m-type"><option>Fisioterapia</option><option>Kinesioterapia</option><option>Terapia manual</option><option>Electroterapia</option><option>Masoterapia</option></select>
+    </div>
+  </div>
   <div class="field"><label>Paciente</label>
     <input type="text" id="m-patient-search" placeholder="Buscar paciente por nombre o cédula..." 
       list="m-patient-list" oninput="filterApptPatient()" autocomplete="off"
@@ -599,13 +606,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="field"><label>Terapeuta</label><select id="m-therapist" onchange="updateTimeSlots()"></select></div>
     <div class="field"><label>Hora</label><select id="m-time"></select></div>
   </div>
-  <div class="field-row two">
-    <div class="field"><label>Tipo de sesión</label>
-      <select id="m-type"><option>Fisioterapia</option><option>Kinesioterapia</option><option>Terapia manual</option><option>Electroterapia</option><option>Masoterapia</option></select>
-    </div>
-    <div class="field"><label>Estado</label>
-      <select id="m-status"><option value="conf">Confirmada</option><option value="pend">Pendiente</option></select>
-    </div>
+  <div class="field">
+    <label>Estado</label>
+    <select id="m-status"><option value="conf">Confirmada</option><option value="pend">Pendiente</option></select>
   </div>
   <div class="field"><label>Nota rápida</label><textarea id="m-note" rows="2" placeholder="Observaciones..."></textarea></div>
   
@@ -679,8 +682,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
     <div style="font-size:10px;color:#7a7a76;margin-top:4px">Escribe para buscar entre diagnósticos existentes o ingresa uno nuevo</div>
   </div>
-  <div class="field-row two">
-    <div class="field"><label>Terapeuta asignado</label><select id="pm-therapist"></select></div>
+  <div class="field">
     <div class="field"><label>Doctor referente</label><select id="pm-doctor"><option value="">Independiente</option></select></div>
   </div>
   <div class="field-row two">
@@ -1344,6 +1346,7 @@ function openApptModal(){
   if(!therapists.length){toastErr('Primero agrega al menos un terapeuta.');showTab('terapeutas');return;}
   if(!patients.length){toastErr('Primero agrega al menos un paciente.');showTab('pacientes');return;}
   // Limpiar buscador
+  document.getElementById('m-date').value = fmtDate(currentDate);
   document.getElementById('m-patient-search').value='';
   document.getElementById('m-patient').value='';
   filterApptPatient();
@@ -1366,12 +1369,7 @@ async function saveAppt(){
   const hr=parseInt(document.getElementById('m-time').value);
   const patId=document.getElementById('m-patient').value;
   if(!thId){alert('Selecciona un terapeuta.');return;}
-  // Bloquear citas en días pasados
-  const apptDateVal = document.getElementById('m-date').value;
-  if(apptDateVal){
-    const today = fmtDate(new Date());
-    if(apptDateVal < today){ toastErr('No se pueden agendar citas en días pasados.'); return; }
-  }
+
   // Si escribieron en el buscador pero no seleccionaron de la lista, buscar por nombre exacto
   if(!patId){
     const searchVal=document.getElementById('m-patient-search').value.trim().toLowerCase();
@@ -1380,7 +1378,11 @@ async function saveAppt(){
     else{toastErr('Selecciona un paciente de la lista.');return;}
   }
   if(isNaN(hr)){alert('Selecciona una hora válida.');return;}
-  const ds=fmtDate(currentDate);
+  // Usar la fecha del modal, o currentDate si no hay fecha seleccionada
+  const dateVal = document.getElementById('m-date').value;
+  const ds = dateVal || fmtDate(currentDate);
+  const today = fmtDate(new Date());
+  if(ds < today){ toastErr('No se pueden agendar citas en días pasados.'); return; }
   if(appointments.find(a=>a.date===ds&&a.therapistId===thId&&a.hour===hr)){alert('Ese slot ya está ocupado.');return;}
   const _a={id:++apptCounter,date:ds,therapistId:thId,hour:hr,patientId:document.getElementById('m-patient').value,type:document.getElementById('m-type').value,status:document.getElementById('m-status').value,note:document.getElementById('m-note').value};
   appointments.push(_a);
@@ -1508,7 +1510,6 @@ function simEmail(nombre,email){
 
 // ======= PACIENTES =======
 function openPatientModal(){
-  document.getElementById('pm-therapist').innerHTML=therapists.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
   document.getElementById('pm-doctor').innerHTML='<option value="">Sin doctor referente</option>'+doctors.map(d=>`<option value="${d.id}">${d.name} (${d.spec})</option>`).join('');
   document.getElementById('patient-modal').classList.add('open');
 }
@@ -1524,7 +1525,6 @@ async function savePatient(){
     p.email=document.getElementById('pm-email').value||'';
     p.dir=document.getElementById('pm-dir').value||'';
     p.diag=document.getElementById('pm-diag').value||'';
-    p.therapistId=document.getElementById('pm-therapist').value||null;
     p.doctorId=document.getElementById('pm-doctor').value||null;
     p.sessions=parseInt(document.getElementById('pm-sessions').value)||10;
     p.status=document.getElementById('pm-status').value;
@@ -1535,7 +1535,7 @@ async function savePatient(){
     if(typeof p.id==='string'){
       const {error}=await supa.from('patients').update({
         name:p.name,age:p.age,cedula:p.cedula,tel:p.tel,email:p.email,
-        dir:p.dir,diag:p.diag,therapist_id:p.therapistId||null,
+        dir:p.dir,diag:p.diag,
         doctor_id:p.doctorId||null,sessions:p.sessions,status:p.status
       }).eq('id',p.id);
       if(error){toastErr('Error al actualizar paciente: '+error.message);}
@@ -1555,7 +1555,7 @@ async function savePatient(){
     email:document.getElementById('pm-email').value||'',
     dir:document.getElementById('pm-dir').value||'',
     diag:document.getElementById('pm-diag').value||'Sin diagnóstico',
-    therapistId:document.getElementById('pm-therapist').value||null,
+    therapistId:null,
     doctorId:document.getElementById('pm-doctor').value||null,
     sessions:parseInt(document.getElementById('pm-sessions').value)||12,
     done:0,status:document.getElementById('pm-status').value,log:[],billing:{sesPerFactura:parseInt(document.getElementById('global-spf').value)||5,facturas:[],pendientes:parseInt(document.getElementById('pm-billing-start').value)||0}});
@@ -1565,7 +1565,6 @@ async function savePatient(){
     const {data,error}=await supa.from('patients').insert({
       name:_p.name, age:_p.age, cedula:_p.cedula, tel:_p.tel,
       email:_p.email, dir:_p.dir, diag:_p.diag,
-      therapist_id:_p.therapistId||null,
       doctor_id:_p.doctorId||null,
       sessions:_p.sessions, done:0, status:_p.status,
       billing_ses_per_factura:_p.billing.sesPerFactura,
@@ -1644,7 +1643,6 @@ function renderPatients(){
         </div>
       </td>
       <td style="color:#6b6a64;font-size:11px">${p.diag}</td>
-      <td style="font-size:11px">${th?th.name:'-'}</td>
       <td style="font-size:11px">${dc}</td>
       <td><div style="font-size:11px;margin-bottom:3px;color:#6b6a64">${p.done}/${p.sessions} (${pct}%)</div><div class="bar-wrap prog-mini"><div class="bar-fill" style="width:${pct}%;background:#1D9E75"></div></div></td>
       <td><span style="font-size:13px;font-weight:500;color:${ac}">${adh}%</span></td>
@@ -1822,9 +1820,10 @@ function renderInsights(){
 }
 function changeWeek(d){currentWeek+=d;updateWeekLabel();renderHeatmap();renderTherapistUtil();}
 function updateWeekLabel(){
-  const n=new Date('2026-03-28');const s=new Date(n);
-  s.setDate(s.getDate()+currentWeek*7-(s.getDay()||7)+1);
-  const e=new Date(s);e.setDate(e.getDate()+4);
+  const base=new Date();
+  const s=new Date(base);
+  s.setDate(base.getDate()+currentWeek*7-(base.getDay()||7)+1);
+  const e=new Date(s);e.setDate(s.getDate()+4);
   const f=x=>`${x.getDate()}/${x.getMonth()+1}`;
   document.getElementById('week-lbl').textContent=`Semana ${f(s)} – ${f(e)} ${e.getFullYear()}`;
 }
@@ -1900,10 +1899,27 @@ function updateEpisodes(){
   const id=document.getElementById('patient-rpt-select').value;
   const p=patients.find(x=>String(x.id)===String(id));
   const ep=document.getElementById('patient-rpt-episode');
-  if(!p||!(p.log&&p.log.length)){ep.innerHTML='<option value="0">Episodio actual</option>';renderPatientReport();return;}
-  // Agrupa log en episodios por diagnóstico (simplificado: 1 episodio actual + histórico si hay)
-  ep.innerHTML=`<option value="all">Episodio actual (${p.log.length} sesiones)</option>`;
-  if(p.log.length>4)ep.innerHTML+=`<option value="recent">Últimas 4 sesiones</option>`;
+  if(!p){ep.innerHTML='<option value="0">Episodio actual</option>';renderPatientReport();return;}
+
+  // Detectar episodios por marcadores "Fin de episodio" en el log
+  const log = p.log || [];
+  const finEpisodios = log.filter(s => s.type === 'Fin de episodio').sort((a,b) => a.date > b.date ? 1 : -1);
+
+  let options = '';
+  if(finEpisodios.length === 0){
+    // Solo un episodio
+    options = `<option value="current">Episodio actual — ${p.diag||'Sin diagnóstico'}</option>`;
+  } else {
+    // Episodio actual
+    options = `<option value="current">Episodio actual — ${p.diag||'Sin diagnóstico'}</option>`;
+    // Episodios anteriores
+    finEpisodios.forEach((fin, i) => {
+      const diagAnterior = fin.note ? fin.note.split('Episodio anterior: ')[1]?.split(' · ')[0] || 'Tratamiento anterior' : 'Tratamiento anterior';
+      const sesiones = fin.note ? fin.note.split('·')[1]?.trim() || '' : '';
+      options += `<option value="ep_${i}">Episodio ${i+1} — ${diagAnterior} (${fin.date})</option>`;
+    });
+  }
+  ep.innerHTML = options;
   renderPatientReport();
 }
 function renderPatientReport(){
@@ -1911,12 +1927,41 @@ function renderPatientReport(){
   const p=patients.find(x=>String(x.id)===String(id));
   const out=document.getElementById('patient-report-content');
   if(!p){out.innerHTML='<div style="color:#6b6a64;padding:20px;text-align:center">Selecciona un paciente del buscador</div>';return;}
-  const log=(p.log||[]).filter(s=>s&&s.date);
+  // Filtrar log según episodio seleccionado
+  const epVal = document.getElementById('patient-rpt-episode')?.value || 'current';
+  const fullLog = (p.log||[]).filter(s=>s&&s.date);
+  const finMarkers = fullLog.filter(s=>s.type==='Fin de episodio').sort((a,b)=>a.date>b.date?1:-1);
+  let log, epDiag = p.diag, epSessions = p.sessions, epDone = p.done;
+  
+  if(epVal === 'current' || finMarkers.length === 0){
+    // Episodio actual: desde el último fin de episodio hasta hoy
+    const lastFin = finMarkers.slice(-1)[0];
+    log = lastFin ? fullLog.filter(s => s.date > lastFin.date && s.type !== 'Fin de episodio') : fullLog.filter(s => s.type !== 'Fin de episodio');
+  } else {
+    // Episodio anterior: entre marcadores
+    const epIdx = parseInt(epVal.replace('ep_',''));
+    const finStart = epIdx > 0 ? finMarkers[epIdx-1] : null;
+    const finEnd = finMarkers[epIdx];
+    log = fullLog.filter(s => {
+      if(s.type === 'Fin de episodio') return false;
+      if(finStart && s.date <= finStart.date) return false;
+      if(finEnd && s.date > finEnd.date) return false;
+      return true;
+    });
+    // Recuperar diagnóstico del episodio anterior del marcador
+    if(finEnd && finEnd.note){
+      epDiag = finEnd.note.split('Episodio anterior: ')[1]?.split(' ·')[0] || p.diag;
+      const sesStr = finEnd.note.match(/(\d+) sesiones/);
+      epSessions = sesStr ? parseInt(sesStr[1]) : p.sessions;
+      epDone = log.filter(s=>s.status==='asistió').length;
+    }
+  }
+  const isCurrentEpisode = epVal === 'current';
   const th=getTherapist(p.therapistId);
   const doc=p.doctorId?getDoctor(p.doctorId):null;
   const attended=log.filter(s=>s.status==='asistió');
   const adh=log.length>0?Math.round(attended.length/log.length*100):0;
-  const pct=p.sessions>0?Math.round((p.done||0)/p.sessions*100):0;
+  const pct=epSessions>0?Math.round(epDone/epSessions*100):0;
   const lp=attended.slice(-1)[0];
   const fp=attended[0];
   const thC=th?getColor(th.colorId):COLOR_OPTIONS[0];
@@ -1931,19 +1976,29 @@ function renderPatientReport(){
   }
   // Si tiene 0 citas confirmadas y 0 sesiones — sin badge
   const ac=adh>=85?'#1D9E75':adh>=70?'#BA7517':'#E24B4A';
+  // Aviso de episodio completo
+  const avisoEpisodio = sesCompletas && p.status !== 'alta'
+    ? `<div style="background:#fef3c7;border:1px solid rgba(186,117,23,.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div>
+          <div style="font-size:12px;font-weight:600;color:#BA7517">✓ Tratamiento completado</div>
+          <div style="font-size:11px;color:#6b6a64;margin-top:2px">${p.name} completó sus ${p.sessions} sesiones. ¿Viene por algo nuevo?</div>
+        </div>
+        <button onclick="nuevoEpisodio('${p.id}')" style="padding:6px 12px;background:#BA7517;color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">Nuevo episodio</button>
+      </div>` : '';
 
   // ── Header del paciente ──
-  let html=`<div class="full-card" style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+  let html=avisoEpisodio+`<div class="full-card" style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
     <div class="avatar" style="background:${thC.border}22;color:${thC.text};width:48px;height:48px;font-size:16px;flex-shrink:0">${p.name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
     <div style="flex:1">
       <div style="font-size:15px;font-weight:600;color:#1a1917;margin-bottom:3px">${p.name} ${sp}</div>
-      <div style="font-size:12px;color:#6b6a64">${p.diag||'Sin diagnóstico'} · ${p.age||'?'} años · ${th?th.name:'Sin terapeuta'}</div>
+      <div style="font-size:12px;color:#6b6a64">${epDiag||p.diag||'Sin diagnóstico'} · ${p.age||'?'} años${!isCurrentEpisode?' <span style="font-size:10px;background:#fef3c7;color:#BA7517;padding:1px 7px;border-radius:99px;margin-left:4px">Episodio anterior</span>':''}</div>
       ${doc?`<div style="font-size:11px;color:#5a5a56;margin-top:2px">Ref: ${doc.name} (${doc.spec})</div>`:''}
       ${p.cedula?`<div style="font-size:11px;color:#6b6a64;margin-top:1px">CI: ${p.cedula}${p.tel?' · '+p.tel:''}${p.email?' · '+p.email:''}</div>`:''}
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
       <button class="ai-btn" onclick="genPatientAI()">Informe IA ↗</button>
       <button onclick="agendarCitaParaPaciente('${p.id}')" style="padding:6px 14px;background:rgba(29,158,117,.12);color:#1D9E75;border:1px solid rgba(29,158,117,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">+ Agendar cita</button>
+      ${isCurrentEpisode ? '<button onclick="nuevoEpisodio(\'${p.id}\')" style="padding:6px 14px;background:rgba(186,117,23,.1);color:#BA7517;border:1px solid rgba(186,117,23,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">🔄 Nuevo episodio</button>' : ''}
     </div>
   </div>`;
 
@@ -1952,7 +2007,7 @@ function renderPatientReport(){
     <div class="card"><div class="card-title">Progreso</div>
       <div style="text-align:center">
         <div style="font-size:28px;font-weight:600;color:#1D9E75">${pct}%</div>
-        <div style="font-size:11px;color:#6b6a64;margin:3px 0 8px">${p.done||0} de ${p.sessions||0} sesiones</div>
+        <div style="font-size:11px;color:#6b6a64;margin:3px 0 8px">${epDone} de ${epSessions} sesiones</div>
         <div class="bar-wrap" style="height:6px"><div class="bar-fill" style="width:${pct}%;background:#1D9E75"></div></div>
       </div>
     </div>
@@ -2465,7 +2520,6 @@ function checkAutoNoas(){
 
 function openEditPatient(id){
   const p=getPatient(id);if(!p)return;
-  document.getElementById('pm-therapist').innerHTML=therapists.map(t=>`<option value="${t.id}" ${t.id===p.therapistId?'selected':''} >${t.name}</option>`).join('');
   document.getElementById('pm-doctor').innerHTML='<option value="">Independiente</option>'+doctors.map(d=>`<option value="${d.id}" ${d.id===p.doctorId?'selected':''}>${d.name} (${d.spec})</option>`).join('');
   document.getElementById('pm-name').value=p.name;
   document.getElementById('pm-age').value=p.age||'';
@@ -2889,8 +2943,8 @@ function toggleRecurrencia() {
 function updateRecPreview() {
   const dias = [...document.querySelectorAll('.rec-day:checked')].map(c => parseInt(c.value));
   const semanas = parseInt(document.getElementById('m-rec-semanas').value);
-  const dateVal = document.getElementById('m-date').value;
-  if (!dateVal || !dias.length) {
+  const dateVal = document.getElementById('m-date').value || fmtDate(currentDate);
+  if (!dias.length) {
     document.getElementById('rec-preview').textContent = 'Selecciona al menos un día';
     return;
   }
@@ -2995,6 +3049,173 @@ function checkCitasPendientes() {
   if (hoyPend.length > 0) {
     setTimeout(() => toastErr(`📋 ${hoyPend.length} cita${hoyPend.length>1?'s':''} de hoy sin registrar`), 2000);
   }
+}
+
+// ── NUEVO EPISODIO ───────────────────────────────────────────
+let _nePatientId = null;
+
+function nuevoEpisodio(patientId) {
+  _nePatientId = patientId;
+  const p = getPatient(patientId);
+  if (!p) return;
+  document.getElementById('ne-patient-name').textContent = p.name + ' · Episodio anterior: ' + (p.diag || 'Sin diagnóstico');
+  document.getElementById('ne-diag').value = '';
+  document.getElementById('ne-sessions').value = 12;
+  document.querySelector('input[name="ne-eval"][value="si"]').checked = true;
+  populateDiagList();
+  document.getElementById('nuevo-episodio-modal').classList.add('open');
+}
+
+async function guardarNuevoEpisodio() {
+  if (!_nePatientId) return;
+  const p = getPatient(_nePatientId);
+  if (!p) return;
+  const newDiag = document.getElementById('ne-diag').value.trim();
+  const newSessions = parseInt(document.getElementById('ne-sessions').value) || 12;
+  const abrirEval = document.querySelector('input[name="ne-eval"]:checked').value === 'si';
+
+  if (!newDiag) { toastErr('Ingresa el nuevo diagnóstico'); return; }
+
+  // Guardar marcador de fin de episodio en session_log
+  const oldDiag = p.diag;
+  await supa.from('session_log').insert({
+    patient_id: _nePatientId,
+    date: fmtDate(new Date()),
+    type: 'Fin de episodio',
+    hour: '00:00',
+    status: 'asistió',
+    pain_before: 0, pain_after: 0,
+    note: `Episodio anterior: ${oldDiag} · ${p.done||0} sesiones completadas`
+  });
+
+  // Actualizar paciente en Supabase
+  const { error } = await supa.from('patients').update({
+    diag: newDiag,
+    sessions: newSessions,
+    done: 0,
+    status: 'active',
+    billing_pendientes: 0
+  }).eq('id', _nePatientId);
+
+  if (error) { toastErr('Error: ' + error.message); return; }
+
+  // Actualizar en memoria
+  p.diag = newDiag;
+  p.sessions = newSessions;
+  p.done = 0;
+  p.status = 'active';
+  if (p.billing) p.billing.pendientes = 0;
+
+  closeModal('nuevo-episodio-modal');
+  toastOk('✓ Nuevo episodio iniciado — ' + newDiag);
+
+  // Actualizar vistas
+  renderPatients();
+  renderPatientReportSelect();
+  setTimeout(() => {
+    const sel = document.getElementById('patient-rpt-select');
+    if (sel) { sel.value = String(_nePatientId); updateEpisodes(); }
+  }, 100);
+
+  // Abrir evaluación inicial si eligió sí
+  if (abrirEval) {
+    setTimeout(() => openEvalInicial(_nePatientId), 400);
+  }
+}
+
+// ── EXPORTAR PDF ─────────────────────────────────────
+function exportarPDF() {
+  const id = document.getElementById('patient-rpt-select')?.value;
+  const p = id ? patients.find(x => String(x.id) === String(id)) : null;
+
+  // Abrir ventana con el informe formateado para imprimir
+  const win = window.open('', '_blank');
+  if (!win) { toastErr('Permite ventanas emergentes para exportar PDF'); return; }
+
+  const log = (p?.log || []).filter(s => s && s.date && s.type !== 'Fin de episodio');
+  const attended = log.filter(s => s.status === 'asistió');
+  const pct = p && p.sessions > 0 ? Math.round((p.done||0)/p.sessions*100) : 0;
+  const adh = log.length > 0 ? Math.round(attended.length/log.length*100) : 0;
+  const fp = attended[0], lp = attended.slice(-1)[0];
+  const th = p ? getTherapist(p.therapistId) : null;
+  const doc = p && p.doctorId ? getDoctor(p.doctorId) : null;
+  const today = new Date().toLocaleDateString('es-EC', {day:'2-digit',month:'long',year:'numeric'});
+
+  win.document.write(`<!DOCTYPE html><html lang="es"><head>
+  <meta charset="UTF-8">
+  <title>Informe — ${p ? p.name : 'Paciente'}</title>
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family: Arial, sans-serif; font-size:12px; color:#1a1917; padding:30px; max-width:800px; margin:0 auto; }
+    h1 { font-size:20px; color:#1D9E75; margin-bottom:4px; }
+    h2 { font-size:13px; font-weight:600; color:#1D9E75; margin:18px 0 8px; border-bottom:1px solid #e0efe8; padding-bottom:4px; }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
+    .logo { font-size:18px; font-weight:700; }
+    .logo span { color:#1D9E75; }
+    .fecha { font-size:10px; color:#6b6a64; }
+    .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px; }
+    .stat-box { background:#f5f5f0; border-radius:8px; padding:10px 12px; text-align:center; }
+    .stat-num { font-size:24px; font-weight:700; color:#1D9E75; }
+    .stat-lbl { font-size:10px; color:#6b6a64; text-transform:uppercase; letter-spacing:.05em; }
+    .info-row { display:flex; gap:6px; margin-bottom:4px; }
+    .info-lbl { font-size:10px; font-weight:600; color:#6b6a64; text-transform:uppercase; min-width:100px; }
+    .info-val { font-size:12px; color:#1a1917; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th { background:#f0f0e8; padding:7px 10px; font-size:10px; text-align:left; text-transform:uppercase; letter-spacing:.05em; color:#6b6a64; }
+    td { padding:7px 10px; border-bottom:1px solid #f0efe8; font-size:11px; color:#1a1917; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:99px; font-size:10px; font-weight:600; }
+    .pg { background:#dcfce7; color:#166534; }
+    .pr { background:#fee2e2; color:#991b1b; }
+    @media print { body { padding:15px; } button { display:none; } }
+  </style>
+  </head><body>
+  <div class="header">
+    <div>
+      <div class="logo">Reha<span>activa</span></div>
+      <div style="font-size:10px;color:#6b6a64">Centro de Rehabilitación y Fisioterapia</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:14px;font-weight:700">INFORME CLÍNICO</div>
+      <div class="fecha">${today}</div>
+      <button onclick="window.print()" style="margin-top:8px;padding:6px 14px;background:#1D9E75;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px">🖨️ Imprimir / Guardar PDF</button>
+    </div>
+  </div>
+
+  <h2>Datos del paciente</h2>
+  <div class="info-row"><span class="info-lbl">Nombre</span><span class="info-val">${p?.name || '—'}</span></div>
+  <div class="info-row"><span class="info-lbl">Cédula</span><span class="info-val">${p?.cedula || '—'}</span></div>
+  <div class="info-row"><span class="info-lbl">Edad</span><span class="info-val">${p?.age || '—'} años</span></div>
+  <div class="info-row"><span class="info-lbl">Teléfono</span><span class="info-val">${p?.tel || '—'}</span></div>
+  <div class="info-row"><span class="info-lbl">Correo</span><span class="info-val">${p?.email || '—'}</span></div>
+  <div class="info-row"><span class="info-lbl">Diagnóstico</span><span class="info-val">${p?.diag || '—'}</span></div>
+  <div class="info-row"><span class="info-lbl">Doctor ref.</span><span class="info-val">${doc ? doc.name + ' (' + doc.spec + ')' : 'Independiente'}</span></div>
+
+  <h2>Resumen de evolución</h2>
+  <div class="grid3">
+    <div class="stat-box"><div class="stat-num">${pct}%</div><div class="stat-lbl">Progreso</div><div style="font-size:10px;color:#6b6a64">${p?.done||0} de ${p?.sessions||0} sesiones</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:${adh>=85?'#1D9E75':adh>=70?'#BA7517':'#E24B4A'}">${adh}%</div><div class="stat-lbl">Continuidad</div><div style="font-size:10px;color:#6b6a64">${attended.length} asist. / ${log.length} citas</div></div>
+    <div class="stat-box"><div class="stat-num">${fp&&lp&&fp.pb!=null?(fp.pb+'→'+(lp.pa!=null?lp.pa:'?')):'—'}</div><div class="stat-lbl">Evolución EVA</div><div style="font-size:10px;color:${fp&&lp&&(fp.pb-(lp.pa||0))>0?'#1D9E75':'#6b6a64'}">${fp&&lp&&fp.pb!=null?((fp.pb-(lp.pa||0))>0?'↓ Mejoró':'Sin cambio EVA'):'Sin datos'}</div></div>
+  </div>
+
+  <h2>Historial de sesiones (${log.length} registros)</h2>
+  ${log.length ? `<table>
+    <thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>EVA antes/después</th><th>Estado</th><th>Nota clínica</th></tr></thead>
+    <tbody>${[...log].reverse().map(s=>`<tr>
+      <td>${s.date}</td>
+      <td>${s.hour||'—'}</td>
+      <td>${s.type||'—'}</td>
+      <td style="text-align:center">${s.pb!=null?s.pb+'→'+(s.pa!=null?s.pa:'?'):'—'}</td>
+      <td><span class="pill ${s.status==='asistió'?'pg':'pr'}">${s.status||'—'}</span></td>
+      <td style="font-size:10px;color:#6b6a64">${s.note||'—'}</td>
+    </tr>`).join('')}</tbody>
+  </table>` : '<div style="color:#6b6a64;padding:12px 0">Sin sesiones registradas.</div>'}
+
+  <div style="margin-top:30px;padding-top:16px;border-top:1px solid #e0efe8;display:flex;justify-content:space-between;font-size:10px;color:#9c9a92">
+    <span>Rehactiva Rehabilitación y Fisioterapia · Quito, Ecuador</span>
+    <span>Generado el ${today}</span>
+  </div>
+  </body></html>`);
+  win.document.close();
 }
 
 async function initApp(){
@@ -3170,6 +3391,36 @@ initApp();
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal('eval-modal')">Cancelar</button>
     <button class="add-btn" onclick="saveEvalInicial()">Guardar evaluación</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL NUEVO EPISODIO -->
+<div class="modal-bg" id="nuevo-episodio-modal">
+<div class="modal" style="max-width:420px">
+  <h3>🔄 Nuevo episodio de tratamiento</h3>
+  <div id="ne-patient-name" style="font-size:13px;color:#6b6a64;margin-bottom:16px"></div>
+  <div style="background:#f8f8f4;border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:11px;color:#6b6a64;line-height:1.6">
+    El historial del episodio anterior quedará guardado. Se resetearán las sesiones y el diagnóstico para el nuevo tratamiento.
+  </div>
+  <div class="field">
+    <label>Nuevo diagnóstico</label>
+    <input type="text" id="ne-diag" list="diag-list" placeholder="Ej: Lumbalgia crónica, Fractura radio...">
+  </div>
+  <div class="field">
+    <label>Sesiones prescritas</label>
+    <input type="number" id="ne-sessions" value="12" min="1" max="100">
+  </div>
+  <div class="field">
+    <label>¿Abrir evaluación inicial al guardar?</label>
+    <div style="display:flex;gap:12px;margin-top:6px">
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="ne-eval" value="si" checked> Sí</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="ne-eval" value="no"> No por ahora</label>
+    </div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn-cancel" onclick="closeModal('nuevo-episodio-modal')">Cancelar</button>
+    <button class="btn-save" onclick="guardarNuevoEpisodio()">Iniciar episodio</button>
   </div>
 </div>
 </div>
