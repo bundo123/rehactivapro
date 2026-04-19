@@ -1,29 +1,117 @@
+function protocolSVG(img) {
+  const svgs = {
+    shoulder: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="60" cy="30" r="18" fill="none" stroke="#1D9E75" stroke-width="2.5"/>
+      <circle cx="60" cy="30" r="8" fill="#1D9E75" opacity=".25"/>
+      <line x1="60" y1="48" x2="60" y2="80" stroke="#9c9a92" stroke-width="3" stroke-linecap="round"/>
+      <line x1="60" y1="55" x2="38" y2="72" stroke="#9c9a92" stroke-width="3" stroke-linecap="round"/>
+      <line x1="60" y1="55" x2="82" y2="72" stroke="#9c9a92" stroke-width="3" stroke-linecap="round"/>
+      <line x1="60" y1="80" x2="50" y2="105" stroke="#9c9a92" stroke-width="3" stroke-linecap="round"/>
+      <line x1="60" y1="80" x2="70" y2="105" stroke="#9c9a92" stroke-width="3" stroke-linecap="round"/>
+      <path d="M42 30 Q30 30 28 45 Q40 50 60 48" fill="none" stroke="#E24B4A" stroke-width="2" stroke-dasharray="3,2"/>
+      <text x="60" y="118" text-anchor="middle" font-size="9" fill="#6b6a64" font-family="sans-serif">Hombro</text>
+    </svg>`,
+    hip: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <rect x="30" y="20" width="60" height="30" rx="8" fill="none" stroke="#9c9a92" stroke-width="2.5"/>
+      <circle cx="42" cy="60" r="12" fill="none" stroke="#1D9E75" stroke-width="2.5"/>
+      <circle cx="42" cy="60" r="5" fill="#1D9E75" opacity=".3"/>
+      <circle cx="78" cy="60" r="12" fill="none" stroke="#6b6a64" stroke-width="1.5" stroke-dasharray="3,2"/>
+      <line x1="42" y1="72" x2="38" y2="105" stroke="#9c9a92" stroke-width="3" stroke-linecap="round"/>
+      <line x1="78" y1="72" x2="82" y2="105" stroke="#9c9a92" stroke-width="3" stroke-linecap="round"/>
+      <text x="60" y="118" text-anchor="middle" font-size="9" fill="#6b6a64" font-family="sans-serif">Cadera</text>
+    </svg>`,
+    hand: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <rect x="40" y="60" width="40" height="45" rx="6" fill="none" stroke="#9c9a92" stroke-width="2"/>
+      <rect x="48" y="35" width="8" height="28" rx="4" fill="none" stroke="#9c9a92" stroke-width="2"/>
+      <rect x="58" y="30" width="8" height="32" rx="4" fill="none" stroke="#9c9a92" stroke-width="2"/>
+      <rect x="68" y="33" width="8" height="29" rx="4" fill="none" stroke="#9c9a92" stroke-width="2"/>
+      <rect x="78" y="38" width="7" height="25" rx="3.5" fill="none" stroke="#9c9a92" stroke-width="2"/>
+      <rect x="28" y="55" width="16" height="10" rx="5" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <path d="M28 55 Q20 52 22 45 Q30 43 44 55" fill="#E24B4A" opacity=".15"/>
+      <text x="60" y="118" text-anchor="middle" font-size="9" fill="#6b6a64" font-family="sans-serif">Muñeca/Mano</text>
+    </svg>`,
+    arm: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="60" cy="22" r="14" fill="none" stroke="#9c9a92" stroke-width="2"/>
+      <rect x="48" y="35" width="24" height="38" rx="12" fill="none" stroke="#9c9a92" stroke-width="2.5"/>
+      <circle cx="60" cy="73" r="10" fill="none" stroke="#1D9E75" stroke-width="2.5"/>
+      <circle cx="60" cy="73" r="4" fill="#1D9E75" opacity=".3"/>
+      <rect x="50" y="82" width="20" height="30" rx="10" fill="none" stroke="#9c9a92" stroke-width="2"/>
+      <path d="M48 50 Q35 55 38 70 Q50 75 60 73" fill="#E24B4A" opacity=".15"/>
+      <text x="60" y="118" text-anchor="middle" font-size="9" fill="#6b6a64" font-family="sans-serif">Brazo/Bíceps</text>
+    </svg>`,
+    head: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="60" cy="48" rx="32" ry="36" fill="none" stroke="#9c9a92" stroke-width="2.5"/>
+      <ellipse cx="60" cy="90" rx="16" ry="8" fill="none" stroke="#9c9a92" stroke-width="2"/>
+      <line x1="60" y1="82" x2="60" y2="98" stroke="#9c9a92" stroke-width="2.5"/>
+      <path d="M30 40 Q28 25 40 20 Q60 14 80 20 Q92 25 90 40" fill="#E24B4A" opacity=".15" stroke="#E24B4A" stroke-width="1.5"/>
+      <circle cx="48" cy="44" r="3" fill="#9c9a92"/>
+      <circle cx="72" cy="44" r="3" fill="#9c9a92"/>
+      <path d="M50 58 Q60 64 70 58" fill="none" stroke="#9c9a92" stroke-width="1.5"/>
+      <text x="60" y="118" text-anchor="middle" font-size="9" fill="#6b6a64" font-family="sans-serif">Cabeza/Cuello</text>
+    </svg>`,
+    elbow: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <rect x="48" y="10" width="24" height="38" rx="12" fill="none" stroke="#9c9a92" stroke-width="2.5"/>
+      <circle cx="60" cy="58" r="16" fill="none" stroke="#1D9E75" stroke-width="2.5"/>
+      <circle cx="60" cy="58" r="6" fill="#1D9E75" opacity=".25"/>
+      <path d="M76 52 Q88 48 88 42" fill="none" stroke="#E24B4A" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M76 52 Q90 55 88 65" fill="none" stroke="#E24B4A" stroke-width="1.5" stroke-dasharray="3,2"/>
+      <rect x="48" y="74" width="24" height="36" rx="12" fill="none" stroke="#9c9a92" stroke-width="2.5"/>
+      <text x="60" y="118" text-anchor="middle" font-size="9" fill="#6b6a64" font-family="sans-serif">Codo</text>
+    </svg>`,
+    spine: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <line x1="60" y1="10" x2="60" y2="108" stroke="#9c9a92" stroke-width="2"/>
+      ${Array.from({length:8}, (_,i) => {
+        const y = 15 + i*13;
+        const highlight = i >= 5 ? 'stroke="#E24B4A" stroke-width="2.5"' : 'stroke="#9c9a92" stroke-width="2"';
+        const fill = i >= 5 ? 'fill="#E24B4A" opacity=".2"' : 'fill="none"';
+        return '<rect x="44" y="'+y+'" width="32" height="10" rx="3" '+fill+' '+highlight+'/>';
+      }).join('')}
+      <text x="60" y="118" text-anchor="middle" font-size="9" fill="#6b6a64" font-family="sans-serif">Columna</text>
+    </svg>`,
+    knee: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <rect x="46" y="8" width="28" height="42" rx="14" fill="none" stroke="#9c9a92" stroke-width="2.5"/>
+      <circle cx="60" cy="62" r="20" fill="none" stroke="#1D9E75" stroke-width="2.5"/>
+      <circle cx="60" cy="62" r="10" fill="none" stroke="#6b6a64" stroke-width="1.5" stroke-dasharray="4,2"/>
+      <circle cx="60" cy="56" r="7" fill="#1D9E75" opacity=".2" stroke="#1D9E75" stroke-width="1.5"/>
+      <rect x="46" y="82" width="28" height="32" rx="14" fill="none" stroke="#9c9a92" stroke-width="2.5"/>
+      <text x="60" y="118" text-anchor="middle" font-size="9" fill="#6b6a64" font-family="sans-serif">Rodilla</text>
+    </svg>`,
+    ankle: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <rect x="46" y="8" width="28" height="50" rx="14" fill="none" stroke="#9c9a92" stroke-width="2.5"/>
+      <ellipse cx="60" cy="70" rx="22" ry="16" fill="none" stroke="#1D9E75" stroke-width="2.5"/>
+      <path d="M38 80 Q30 90 35 100 Q55 112 85 108 Q95 105 90 95 Q82 85 60 86" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M42 74 Q38 90 40 98" fill="none" stroke="#E24B4A" stroke-width="2.5" stroke-linecap="round"/>
+      <text x="60" y="118" text-anchor="middle" font-size="9" fill="#6b6a64" font-family="sans-serif">Tobillo</text>
+    </svg>`
+  };
+  return svgs[img] || svgs['shoulder'];
+}
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RehactivaPro</title>
+
 <style>
 /* ===== RESET & BASE ===== */
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0e0d0c;color:#e8e6e1;font-size:13px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;color:#1a1917;font-size:13px}
 
 /* ===== LAYOUT: sidebar fijo + main scrollable ===== */
 .shell{display:flex;height:100vh;width:100vw}
 
 /* ===== SIDEBAR ===== */
-.sidebar{width:200px;flex-shrink:0;background:#141412;border-right:1px solid rgba(29,158,117,.18);display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.sidebar{width:200px;flex-shrink:0;background:#f0efe8;border-right:1px solid rgba(29,158,117,.25);display:flex;flex-direction:column;height:100vh;overflow:hidden}
 .sidebar-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(29,158,117,.14)}
 .logo-text{font-size:16px;font-weight:600;letter-spacing:-.3px}
-.logo-text .w{color:#f0ede8}
+.logo-text .w{color:#1a1917}
 .logo-text .g{color:#1D9E75}
-.logo-sub{font-size:10px;color:#4a4a46;margin-top:2px;letter-spacing:.05em;text-transform:uppercase}
+.logo-sub{font-size:10px;color:#7a7a76;margin-top:2px;letter-spacing:.05em;text-transform:uppercase}
 .sidebar-nav{flex:1;overflow-y:auto;padding:8px 8px}
 .nav-section{margin-bottom:4px}
 .nav-label{font-size:9px;font-weight:600;color:#3a3a36;text-transform:uppercase;letter-spacing:.08em;padding:8px 8px 4px}
-.nav-item{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:6px;cursor:pointer;color:#9c9a92;font-size:12px;font-weight:400;transition:all .12s;position:relative;user-select:none;border:none;background:none;width:100%;text-align:left}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:6px;cursor:pointer;color:#6b6a64;font-size:12px;font-weight:400;transition:all .12s;position:relative;user-select:none;border:none;background:none;width:100%;text-align:left}
 .nav-item:hover{background:rgba(255,255,255,0.05);color:#d0cdc8}
 .nav-item.active{background:rgba(29,158,117,0.12);color:#1D9E75;font-weight:500}
 .nav-item.active .nav-icon{opacity:1}
@@ -35,43 +123,43 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* ===== MAIN AREA ===== */
 .main{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-width:0}
 .main-header{padding:14px 22px 0;flex-shrink:0}
-.page-title{font-size:18px;font-weight:600;color:#f0ede8;letter-spacing:-.3px}
+.page-title{font-size:18px;font-weight:600;color:#1a1917;letter-spacing:-.3px}
 .page-sub{font-size:12px;color:#5a5a56;margin-top:2px}
 .main-body{padding:16px 22px 24px;flex:1}
 
 /* ===== STATS ===== */
 .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
-.stat{background:#1a1917;border:1px solid rgba(29,158,117,.14);border-radius:10px;padding:13px 15px}
+.stat{background:#ffffff;border:1px solid rgba(29,158,117,.14);border-radius:10px;padding:13px 15px}
 .stat-lbl{font-size:10px;color:#5a5a56;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;font-weight:500}
-.stat-val{font-size:24px;font-weight:600;color:#f0ede8;letter-spacing:-.5px}
+.stat-val{font-size:24px;font-weight:600;color:#1a1917;letter-spacing:-.5px}
 .stat-chg{font-size:11px;margin-top:3px}
 .up{color:#1D9E75}.down{color:#E24B4A}.neu{color:#5a5a56}
 
 /* ===== CARDS ===== */
-.card{background:#1a1917;border:1px solid rgba(29,158,117,.14);border-radius:10px;padding:16px}
+.card{background:#ffffff;border:1px solid rgba(29,158,117,.14);border-radius:10px;padding:16px}
 .card-title{font-size:10px;font-weight:600;color:#5a5a56;margin-bottom:14px;text-transform:uppercase;letter-spacing:.06em}
-.full-card{background:#1a1917;border:1px solid rgba(29,158,117,.14);border-radius:10px;padding:16px;margin-bottom:14px}
+.full-card{background:#ffffff;border:1px solid rgba(29,158,117,.14);border-radius:10px;padding:16px;margin-bottom:14px}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
 .three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
 
 /* ===== AGENDA ===== */
 .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
-.day-nav{display:flex;align-items:center;gap:8px}
-.day-nav button{width:28px;height:28px;border-radius:50%;border:1px solid rgba(29,158,117,.2);background:transparent;cursor:pointer;color:#9c9a92;display:flex;align-items:center;justify-content:center;font-size:13px}
+.day-nav{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.day-nav button{width:28px;height:28px;border-radius:50%;border:1px solid rgba(29,158,117,.2);background:transparent;cursor:pointer;color:#6b6a64;display:flex;align-items:center;justify-content:center;font-size:13px}
 .day-nav button:hover{background:rgba(255,255,255,0.08)}
-.day-lbl{font-size:14px;font-weight:600;color:#f0ede8;letter-spacing:-.2px}
+.day-lbl{font-size:14px;font-weight:600;color:#1a1917;letter-spacing:-.2px}
 .add-btn{padding:6px 14px;background:#1D9E75;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;letter-spacing:-.1px}
 .add-btn:hover{background:#17865f}
-.grid-wrap{overflow-x:auto;border:1px solid rgba(29,158,117,.18);border-radius:10px}
+.grid-wrap{overflow-x:auto;border:1px solid rgba(29,158,117,.25);border-radius:10px}
 .schedule-grid{display:grid;min-width:500px}
-.grid-header{background:#111210;border-bottom:1px solid rgba(29,158,117,.14);padding:8px 10px;font-size:10px;font-weight:600;color:#4a4a46;text-transform:uppercase;letter-spacing:.05em}
-.th-header{display:flex;align-items:center;gap:8px;padding:9px 10px;background:#111210;border-bottom:1px solid rgba(29,158,117,.14)}
+.grid-header{background:#f0efe8;border-bottom:1px solid rgba(29,158,117,.14);padding:8px 10px;font-size:10px;font-weight:600;color:#7a7a76;text-transform:uppercase;letter-spacing:.05em}
+.th-header{display:flex;align-items:center;gap:8px;padding:9px 10px;background:#f8f8f4;border-bottom:1px solid rgba(29,158,117,.14)}
 .avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
 .th-nm{font-size:11px;font-weight:500;color:#d0cdc8;line-height:1.2}
-.th-sp{font-size:10px;color:#4a4a46}
-.time-cell{border-right:1px solid rgba(29,158,117,.09);border-bottom:1px solid rgba(29,158,117,.09);padding:0 8px;height:58px;display:flex;align-items:center;font-size:10px;color:#4a4a46;background:#0e0d0c;flex-shrink:0;font-weight:500}
-.slot{border-right:1px solid rgba(29,158,117,.09);border-bottom:1px solid rgba(29,158,117,.09);height:58px;padding:3px;position:relative;min-width:0;background:#0e0d0c}
-.slot.blocked{background:#111210;opacity:.4}
+.th-sp{font-size:10px;color:#7a7a76}
+.time-cell{border-right:1px solid rgba(29,158,117,.09);border-bottom:1px solid rgba(29,158,117,.09);padding:0 8px;height:58px;display:flex;align-items:center;font-size:10px;color:#7a7a76;background:#f5f5f0;flex-shrink:0;font-weight:500}
+.slot{border-right:1px solid rgba(29,158,117,.12);border-bottom:1px solid rgba(29,158,117,.12);height:58px;padding:3px;background:#fafaf6;position:relative;min-width:0;background:#f5f5f0}
+.slot.blocked{background:#f8f8f4;opacity:.4}
 .slot.drag-over{background:#0b2a1c}
 
 /* CITA — diseño limpio: borde izquierdo = doctor, punto derecha = estado */
@@ -96,48 +184,48 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* Leyenda doctores — discreta, horizontal */
 .ref-legend{display:flex;align-items:center;gap:14px;padding:5px 0;flex-wrap:wrap;margin-bottom:10px}
-.ref-legend-lbl{font-size:10px;color:#4a4a46;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
-.ref-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#9c9a92}
+.ref-legend-lbl{font-size:10px;color:#7a7a76;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.ref-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#6b6a64}
 .ref-stripe{width:12px;height:3px;border-radius:99px;flex-shrink:0}
 /* Indicador de estado */
-.status-guide{display:flex;align-items:center;gap:14px;margin-bottom:12px;font-size:10px;color:#4a4a46}
+.status-guide{display:flex;align-items:center;gap:14px;margin-bottom:12px;font-size:10px;color:#7a7a76}
 .status-guide span{display:flex;align-items:center;gap:5px}
 
 /* ===== PILLS ===== */
 .pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:500}
 .pg{background:#0a2018;color:#5ecfa0;border:1px solid rgba(94,207,160,.25)}
 .pa{background:#1e1508;color:#e0a850;border:1px solid rgba(224,168,80,.25)}
-.pr{background:#200e0e;color:#f07070;border:1px solid rgba(240,112,112,.25)}
-.pb{background:#08172a;color:#7ab8e8;border:1px solid rgba(122,184,232,.25)}
-.pgr{background:#141412;color:#6b6a64;border:1px solid rgba(29,158,117,.14)}
+.pr{background:#fef5f5;color:#f07070;border:1px solid rgba(240,112,112,.25)}
+.pb{background:#f0f6fe;color:#7ab8e8;border:1px solid rgba(122,184,232,.25)}
+.pgr{background:#f0efe8;color:#6b6a64;border:1px solid rgba(29,158,117,.14)}
 
 /* ===== MODALES ===== */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;align-items:center;justify-content:center}
 .modal-bg.open{display:flex}
 .modal{background:#1c1b19;border-radius:12px;padding:24px;width:420px;border:1px solid rgba(29,158,117,.25);max-height:88vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.5)}
-.modal h3{font-size:15px;font-weight:600;margin-bottom:18px;color:#f0ede8;letter-spacing:-.2px}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:18px;color:#1a1917;letter-spacing:-.2px}
 .field{margin-bottom:12px}
 .field label{font-size:10px;color:#5a5a56;display:block;margin-bottom:5px;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
-.field input,.field select,.field textarea{width:100%;font-size:13px;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:8px 11px;color:#e8e6e1;outline:none;transition:border-color .12s;font-family:inherit}
+.field input,.field select,.field textarea{width:100%;font-size:13px;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;color:#1a1917;outline:none;transition:border-color .12s;font-family:inherit}
 .field input:focus,.field textarea:focus{border-color:rgba(29,158,117,0.5)}
 .field select{cursor:pointer}
 .field-row{display:grid;gap:10px;margin-bottom:12px}
 .field-row.two{grid-template-columns:1fr 1fr}
 .field-row.two .field{margin-bottom:0}
 .modal-actions{display:flex;gap:8px;margin-top:18px;justify-content:flex-end;border-top:1px solid rgba(29,158,117,.12);padding-top:16px}
-.btn-cancel{padding:7px 16px;border:1px solid rgba(29,158,117,.2);background:transparent;border-radius:7px;font-size:12px;cursor:pointer;color:#9c9a92;font-family:inherit}
+.btn-cancel{padding:7px 16px;border:1px solid rgba(29,158,117,.2);background:transparent;border-radius:7px;font-size:12px;cursor:pointer;color:#6b6a64;font-family:inherit}
 .btn-cancel:hover{background:rgba(255,255,255,0.05)}
 .btn-save{padding:7px 18px;background:#1D9E75;color:#fff;border:none;border-radius:7px;font-size:12px;cursor:pointer;font-weight:500;font-family:inherit}
 .btn-save:hover{background:#17865f}
 
 /* ===== TABLA PACIENTES ===== */
 .patient-table{width:100%;border-collapse:collapse}
-.patient-table th{background:#111210;padding:9px 12px;font-size:10px;font-weight:600;color:#4a4a46;text-align:left;border-bottom:1px solid rgba(29,158,117,.14);text-transform:uppercase;letter-spacing:.05em}
-.patient-table td{padding:10px 12px;font-size:12px;color:#c8c6c0;border-bottom:1px solid rgba(29,158,117,.08);vertical-align:middle}
+.patient-table th{background:#f0efe8;padding:9px 12px;font-size:10px;font-weight:600;color:#7a7a76;text-align:left;border-bottom:1px solid rgba(29,158,117,.14);text-transform:uppercase;letter-spacing:.05em}
+.patient-table td{padding:10px 12px;font-size:12px;color:#c8c6c0;border-bottom:1px solid rgba(0,0,0,.06);vertical-align:middle;background:#ffffff}
 .patient-table tr:last-child td{border-bottom:none}
 .patient-table tr:hover td{background:rgba(255,255,255,0.02)}
 .search-row{display:flex;gap:10px;margin-bottom:14px;align-items:center}
-.search-input{background:#1a1917;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:7px 12px;font-size:12px;color:#e8e6e1;outline:none;width:260px}
+.search-input{background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:7px 12px;font-size:12px;color:#1a1917;outline:none;width:260px}
 .prog-mini{width:72px}
 
 /* Pastilla doctor en tabla */
@@ -148,9 +236,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .bar-fill{height:100%;border-radius:99px}
 .heatmap-grid{display:grid;gap:2px}
 .hm-cell{height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;cursor:default;position:relative}
-.hm-lbl{font-size:10px;color:#4a4a46;display:flex;align-items:center;justify-content:flex-end;padding-right:7px}
-.hm-hdr{font-size:10px;color:#4a4a46;text-align:center;padding-bottom:4px;font-weight:500}
-.tooltip-val{display:none;position:absolute;background:#2a2926;border:1px solid rgba(29,158,117,.2);border-radius:6px;padding:3px 8px;font-size:10px;white-space:nowrap;z-index:10;top:-28px;left:50%;transform:translateX(-50%);color:#e8e6e1;pointer-events:none}
+.hm-lbl{font-size:10px;color:#7a7a76;display:flex;align-items:center;justify-content:flex-end;padding-right:7px}
+.hm-hdr{font-size:10px;color:#7a7a76;text-align:center;padding-bottom:4px;font-weight:500}
+.tooltip-val{display:none;position:absolute;background:#2a2926;border:1px solid rgba(29,158,117,.2);border-radius:6px;padding:3px 8px;font-size:10px;white-space:nowrap;z-index:10;top:-28px;left:50%;transform:translateX(-50%);color:#1a1917;pointer-events:none}
 .hm-cell:hover .tooltip-val{display:block}
 
 /* ===== INSIGHTS ===== */
@@ -164,21 +252,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .timeline{border-left:2px solid rgba(29,158,117,.2);margin-left:14px;padding-left:18px}
 .tl-item{position:relative;margin-bottom:12px}
 .tl-dot{position:absolute;left:-25px;top:4px;width:9px;height:9px;border-radius:50%;border:2px solid #0e0d0c}
-.tl-date{font-size:10px;color:#4a4a46;margin-bottom:3px}
-.tl-content{background:#111210;border-radius:8px;padding:9px 11px}
+.tl-date{font-size:10px;color:#7a7a76;margin-bottom:3px}
+.tl-content{background:#f8f8f4;border-radius:8px;padding:9px 11px}
 .tl-note{font-size:11px;color:#6b6a64;margin-top:3px;line-height:1.5}
 .tl-tags{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
 
 /* ===== COLOR SWATCHES ===== */
 .color-picker-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
 .color-swatch{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .12s}
-.color-swatch.selected{border-color:#f0ede8;box-shadow:0 0 0 1px rgba(255,255,255,.25)}
+.color-swatch.selected{border-color:#1a1917;box-shadow:0 0 0 1px rgba(255,255,255,.25)}
 
 /* ===== SUBTABS ===== */
-.sub-tabs{display:flex;gap:2px;margin-bottom:18px;background:#111210;border:1px solid rgba(29,158,117,.12);border-radius:8px;padding:3px;width:fit-content}
+.sub-tabs{display:flex;gap:2px;margin-bottom:18px;background:#f8f8f4;border:1px solid rgba(29,158,117,.12);border-radius:8px;padding:3px;width:fit-content}
 .sub-tab{padding:5px 14px;font-size:12px;border-radius:6px;cursor:pointer;border:none;background:transparent;color:#6b6a64;transition:all .12s;font-family:inherit}
-.sub-tab.active{background:#1a1917;color:#e8e6e1;font-weight:500}
-.sub-tab:hover:not(.active){color:#9c9a92}
+.sub-tab.active{background:#ffffff;color:#1a1917;font-weight:500}
+.sub-tab:hover:not(.active){color:#6b6a64}
 
 /* ===== UTIL BARS ===== */
 .util-bar{height:6px;border-radius:99px;overflow:hidden;background:rgba(255,255,255,0.07);margin-top:5px}
@@ -188,28 +276,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .th-manage-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid rgba(29,158,117,.1)}
 .th-manage-row:last-child{border-bottom:none}
 .th-actions{display:flex;gap:6px;margin-left:auto}
-.th-btn{padding:4px 11px;font-size:11px;border:1px solid rgba(29,158,117,.18);background:transparent;border-radius:6px;cursor:pointer;color:#9c9a92;font-family:inherit}
+.th-btn{padding:4px 11px;font-size:11px;border:1px solid rgba(29,158,117,.25);background:transparent;border-radius:6px;cursor:pointer;color:#6b6a64;font-family:inherit}
 .th-btn:hover{background:rgba(255,255,255,0.05)}
 .th-btn.del{color:#f07070;border-color:rgba(240,112,112,.25)}
 .th-btn.del:hover{background:rgba(240,112,112,.08)}
 
 /* ===== RESUMEN ===== */
 .resumen-section{margin-bottom:18px}
-.resumen-section-title{font-size:11px;font-weight:600;color:#9c9a92;margin-bottom:8px;display:flex;align-items:center;gap:7px;text-transform:uppercase;letter-spacing:.05em}
-.resumen-row{display:flex;align-items:center;gap:10px;padding:10px 13px;background:#1a1917;border:1px solid rgba(29,158,117,.15);border-radius:8px;margin-bottom:6px}
+.resumen-section-title{font-size:11px;font-weight:600;color:#6b6a64;margin-bottom:8px;display:flex;align-items:center;gap:7px;text-transform:uppercase;letter-spacing:.05em}
+.resumen-row{display:flex;align-items:center;gap:10px;padding:10px 13px;background:#ffffff;border:1px solid rgba(29,158,117,.15);border-radius:8px;margin-bottom:6px}
 .resumen-actions{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
-.resumen-btn{padding:3px 10px;font-size:10px;border:1px solid rgba(29,158,117,.18);background:transparent;border-radius:5px;cursor:pointer;color:#9c9a92;font-family:inherit}
+.resumen-btn{padding:3px 10px;font-size:10px;border:1px solid rgba(29,158,117,.25);background:transparent;border-radius:5px;cursor:pointer;color:#6b6a64;font-family:inherit}
 .resumen-btn:hover{background:rgba(255,255,255,0.05)}
 .resumen-btn.wa{border-color:rgba(37,211,102,.3);color:#25d366}
 .resumen-btn.em{border-color:rgba(122,184,232,.3);color:#7ab8e8}
 .resumen-btn.rep{border-color:rgba(94,207,160,.3);color:#5ecfa0}
 
 /* ===== PROTOCOLOS ===== */
-.protocol-card{background:#1a1917;border:1px solid rgba(29,158,117,.14);border-radius:10px;padding:14px;margin-bottom:8px}
-.protocol-diag{font-size:13px;font-weight:500;color:#e8e6e1}
+.protocol-card{background:#ffffff;border:1px solid rgba(29,158,117,.14);border-radius:10px;padding:14px;margin-bottom:8px}
+.protocol-diag{font-size:13px;font-weight:500;color:#1a1917}
 .protocol-meta{font-size:11px;color:#5a5a56;margin-top:3px}
 .prot-pager{display:flex;align-items:center;gap:8px}
-.prot-pager button{padding:3px 10px;font-size:11px;border:1px solid rgba(29,158,117,.18);background:transparent;border-radius:5px;cursor:pointer;color:#9c9a92;font-family:inherit}
+.prot-pager button{padding:3px 10px;font-size:11px;border:1px solid rgba(29,158,117,.25);background:transparent;border-radius:5px;cursor:pointer;color:#6b6a64;font-family:inherit}
 .prot-pager button:hover{background:rgba(255,255,255,0.05)}
 .prot-pager button:disabled{opacity:.3;cursor:default}
 
@@ -226,22 +314,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* ===== AI BTN ===== */
 .ai-btn{padding:6px 14px;background:#1D9E75;color:#fff;border:none;border-radius:7px;font-size:12px;cursor:pointer;font-weight:500;font-family:inherit}
 .ai-btn:hover{background:#17865f}
-.exp-btn{padding:6px 12px;border:1px solid rgba(29,158,117,.18);background:transparent;border-radius:7px;font-size:11px;cursor:pointer;color:#9c9a92;font-family:inherit}
+.exp-btn{padding:6px 12px;border:1px solid rgba(29,158,117,.25);background:transparent;border-radius:7px;font-size:11px;cursor:pointer;color:#6b6a64;font-family:inherit}
 .exp-btn:hover{background:rgba(255,255,255,0.05)}
 .week-nav{display:flex;align-items:center;gap:8px;margin-bottom:16px}
-.week-nav button{width:28px;height:28px;border-radius:50%;border:1px solid rgba(29,158,117,.2);background:transparent;cursor:pointer;color:#9c9a92;display:flex;align-items:center;justify-content:center}
+.week-nav button{width:28px;height:28px;border-radius:50%;border:1px solid rgba(29,158,117,.2);background:transparent;cursor:pointer;color:#6b6a64;display:flex;align-items:center;justify-content:center}
 .week-nav button:hover{background:rgba(255,255,255,0.07)}
-.week-lbl{font-size:14px;font-weight:600;color:#f0ede8;letter-spacing:-.2px}
+.week-lbl{font-size:14px;font-weight:600;color:#1a1917;letter-spacing:-.2px}
 .export-row{display:flex;gap:8px;margin-top:14px}
 .informe-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
 
-.login-screen{position:fixed;inset:0;background:#0e0d0c;z-index:99999;display:flex;align-items:center;justify-content:center}
-.login-box{width:340px;background:#1a1917;border:1px solid rgba(29,158,117,.3);border-radius:14px;padding:36px;box-shadow:0 24px 64px rgba(0,0,0,.7)}
+.login-screen{position:fixed;inset:0;background:#f5f5f0;z-index:99999;display:flex;align-items:center;justify-content:center}
+.login-box{width:340px;background:#ffffff;border:1px solid rgba(29,158,117,.3);border-radius:14px;padding:36px;box-shadow:0 24px 64px rgba(0,0,0,.7)}
 .login-logo{font-size:24px;font-weight:700;letter-spacing:-.5px;margin-bottom:6px}
-.login-logo .w{color:#f0ede8}.login-logo .g{color:#1D9E75}
-.login-sub{font-size:12px;color:#4a4a46;margin-bottom:28px}
+.login-logo .w{color:#1a1917}.login-logo .g{color:#1D9E75}
+.login-sub{font-size:12px;color:#7a7a76;margin-bottom:28px}
 .login-label{font-size:10px;color:#5a5a56;display:block;margin-bottom:5px;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
-.login-input{width:100%;background:#111210;border:1px solid rgba(29,158,117,.2);border-radius:7px;padding:10px 12px;font-size:13px;color:#e8e6e1;outline:none;font-family:inherit;margin-bottom:14px;transition:border-color .15s;box-sizing:border-box}
+.login-input{width:100%;background:#f5f5f0;border:1px solid rgba(29,158,117,.2);border-radius:7px;padding:10px 12px;font-size:13px;color:#1a1917;outline:none;font-family:inherit;margin-bottom:14px;transition:border-color .15s;box-sizing:border-box}
 .login-input:focus{border-color:rgba(29,158,117,.6)}
 .login-btn{width:100%;padding:11px;background:#1D9E75;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
 .login-btn:hover{background:#17865f}
@@ -253,17 +341,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #toast-container{position:fixed;bottom:24px;right:24px;z-index:99998;display:flex;flex-direction:column;gap:8px;pointer-events:none}
 .toast{padding:10px 16px;border-radius:8px;font-size:12px;font-weight:500;max-width:320px;display:flex;align-items:center;gap:10px;pointer-events:all;animation:toastIn .2s ease;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .toast.success{background:#0a2018;border:1px solid rgba(29,158,117,.4);color:#5ecfa0}
-.toast.error{background:#200e0e;border:1px solid rgba(240,112,112,.4);color:#f07070}
-.toast.info{background:#1a1917;border:1px solid rgba(29,158,117,.2);color:#9c9a92}
+.toast.error{background:#fef5f5;border:1px solid rgba(240,112,112,.4);color:#f07070}
+.toast.info{background:#ffffff;border:1px solid rgba(29,158,117,.2);color:#6b6a64}
 .toast-icon{font-size:14px;flex-shrink:0}
 .toast-msg{flex:1;line-height:1.4}
 @keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
 </style>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231D9E75'/><text y='72' x='50' text-anchor='middle' font-size='60' font-family='Arial' fill='white'>⚕</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231D9E75'/><text y='72' x='50' text-anchor='middle' font-size='60' font-family='Arial' fill='white'>⚕</text></svg>">
+<title>RehactivaPro — Gestión Clínica</title>
 </head>
 <body>
-<div class="shell">
-<div id="login-screen" style="position:fixed;inset:0;background:#0e0d0c;z-index:99999;display:flex;align-items:center;justify-content:center">
+<div class="shell" style="background:#f0efe8">
+<div id="login-screen" style="position:fixed;inset:0;background:#f5f5f0;z-index:99999;display:flex;align-items:center;justify-content:center">
   <div class="login-box">
     <div class="login-logo"><span class="w">Reha</span><span class="g">ctivaPro</span></div>
     <div class="login-sub">Gestión clínica · Acceso restringido</div>
@@ -275,22 +366,31 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="login-error" id="login-error"></div>
   </div>
 </div>
-<div id="loading-overlay" style="position:fixed;inset:0;background:#0e0d0c;z-index:9998;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px">
-  <div style="font-size:22px;font-weight:600;letter-spacing:-.3px"><span style="color:#f0ede8">Reha</span><span style="color:#1D9E75">ctivaPro</span></div>
+<div id="loading-overlay" style="position:fixed;inset:0;background:#f5f5f0;z-index:9998;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+  <div style="font-size:22px;font-weight:600;letter-spacing:-.3px"><span style="color:#1a1917">Reha</span><span style="color:#1D9E75">ctivaPro</span></div>
   <div style="display:flex;gap:6px">
     <div style="width:8px;height:8px;border-radius:50%;background:#1D9E75;animation:ldpulse 1s ease-in-out infinite"></div>
     <div style="width:8px;height:8px;border-radius:50%;background:#1D9E75;animation:ldpulse 1s ease-in-out .2s infinite"></div>
     <div style="width:8px;height:8px;border-radius:50%;background:#1D9E75;animation:ldpulse 1s ease-in-out .4s infinite"></div>
   </div>
-  <div style="font-size:12px;color:#4a4a46">Cargando datos...</div>
+  <div style="font-size:12px;color:#7a7a76">Cargando datos...</div>
 </div>
 <style>@keyframes ldpulse{0%,100%{opacity:.3}50%{opacity:1}}</style>
 
 
 <!-- ===== SIDEBAR ===== -->
 <aside class="sidebar">
-  <div class="sidebar-logo">
+  <div class="sidebar-logo" style="border-bottom:1px solid rgba(29,158,117,.1)">
     <div class="logo-text"><span class="w">Reha</span><span class="g">ctivaPro</span></div>
+<div style="padding:8px 12px;border-bottom:1px solid rgba(0,0,0,.06)">
+  <div style="position:relative">
+    <svg style="position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="global-search" placeholder="Buscar paciente..." 
+      oninput="globalSearch(this.value)"
+      style="width:100%;background:#f5f5f0;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:7px 10px 7px 28px;font-size:12px;color:#1a1917;outline:none;font-family:inherit;box-sizing:border-box">
+  </div>
+  <div id="global-search-results" style="display:none;position:absolute;left:12px;right:12px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:1000;max-height:300px;overflow-y:auto;margin-top:4px"></div>
+</div>
     <div class="logo-sub">Gestión clínica</div>
   </div>
   <nav class="sidebar-nav">
@@ -356,10 +456,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="main-body">
     <div class="stats-row" id="agenda-stats"></div>
     <div class="toolbar">
-      <div class="day-nav">
-        <button onclick="changeDay(-1)">&#8592;</button>
-        <div class="day-lbl" id="day-lbl"></div>
-        <button onclick="changeDay(1)">&#8594;</button>
+      <div class="day-nav" style="display:flex;align-items:center;gap:6px;min-width:0">
+        <button onclick="changeDay(-1)" style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(29,158,117,.2);background:#fff;cursor:pointer;color:#1D9E75;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;line-height:1">‹</button>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <div class="day-lbl" id="day-lbl" style="min-width:160px;text-align:center"></div>
+          <button onclick="openDatePicker()" title="Ir a fecha..." style="width:30px;height:30px;border-radius:8px;border:1px solid rgba(29,158,117,.2);background:#fff;cursor:pointer;color:#1D9E75;display:flex;align-items:center;justify-content:center;flex-shrink:0" id="cal-btn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+          </button>
+          <input type="date" id="date-picker-input" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" onchange="goToDate(this.value)">
+        </div>
+        <button onclick="changeDay(1)" style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(29,158,117,.2);background:#fff;cursor:pointer;color:#1D9E75;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;line-height:1">›</button>
       </div>
       <button class="add-btn" onclick="openApptModal()">+ Nueva cita</button>
     </div>
@@ -385,7 +493,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <input class="search-input" type="text" id="patient-search" placeholder="Buscar por nombre o diagnóstico..." oninput="renderPatients()">
       <button class="add-btn" onclick="openPatientModal()">+ Nuevo paciente</button>
     </div>
-    <div style="border:1px solid rgba(29,158,117,.18);border-radius:10px;overflow:hidden">
+    <div style="border:1px solid rgba(29,158,117,.15);border-radius:10px;overflow:hidden;background:#ffffff">
       <table class="patient-table" style="width:100%;table-layout:fixed">
         <thead><tr>
           <th style="width:18%">Paciente</th>
@@ -425,7 +533,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="full-card">
         <div class="card-title">Mapa de calor — utilización por hora y día</div>
         <div id="heatmap-container"></div>
-        <div style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:10px;color:#4a4a46">
+        <div style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:10px;color:#7a7a76">
           <span>0%</span>
           <div style="width:10px;height:10px;border-radius:2px;background:#091f17"></div>
           <div style="width:10px;height:10px;border-radius:2px;background:#0d3321"></div>
@@ -457,9 +565,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
   <div class="main-body">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap">
-      <input type="text" id="patient-rpt-search" placeholder="Buscar paciente..." oninput="filterPatientRptSelect()" style="background:#1a1917;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:7px 12px;font-size:13px;color:#e8e6e1;min-width:220px;font-family:inherit;outline:none">
-    <select id="patient-rpt-select" onchange="updateEpisodes()" style="background:#1a1917;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:7px 12px;font-size:13px;color:#e8e6e1;min-width:220px;font-family:inherit"></select>
-      <select id="patient-rpt-episode" onchange="renderPatientReport()" style="background:#1a1917;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:7px 12px;font-size:13px;color:#e8e6e1;min-width:180px;font-family:inherit"></select>
+      <input type="text" id="patient-rpt-search" placeholder="Buscar paciente..." oninput="filterPatientRptSelect()" style="background:#ffffff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:7px 12px;font-size:13px;color:#1a1917;min-width:220px;font-family:inherit;outline:none">
+    <select id="patient-rpt-select" onchange="updateEpisodes()" style="background:#ffffff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:7px 12px;font-size:13px;color:#1a1917;min-width:220px;font-family:inherit"></select>
+      <select id="patient-rpt-episode" onchange="renderPatientReport()" style="background:#ffffff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:7px 12px;font-size:13px;color:#1a1917;min-width:180px;font-family:inherit"></select>
       <button class="ai-btn" onclick="genPatientAI()">Informe clínico con IA ↗</button>
     </div>
     <div id="patient-report-content"></div>
@@ -474,7 +582,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
   <div class="main-body">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px">
-      <input type="text" id="protocol-search" placeholder="Buscar protocolo o diagnóstico..." oninput="renderProtocols()" style="background:#1a1917;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:7px 12px;font-size:13px;color:#e8e6e1;min-width:260px;font-family:inherit;outline:none">
+      <input type="text" id="protocol-search" placeholder="Buscar protocolo o diagnóstico..." oninput="renderProtocols()" style="background:#ffffff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:7px 12px;font-size:13px;color:#1a1917;min-width:260px;font-family:inherit;outline:none">
       <button class="add-btn" onclick="openProtocolModal()">+ Nuevo protocolo</button>
     </div>
     <div id="protocols-list"></div>
@@ -515,7 +623,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
   <div class="main-body">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px">
-      <input type="text" id="therapist-search" placeholder="Buscar terapeuta..." oninput="renderTherapistList()" style="background:#1a1917;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:7px 12px;font-size:13px;color:#e8e6e1;min-width:220px;font-family:inherit;outline:none">
+      <input type="text" id="therapist-search" placeholder="Buscar terapeuta..." oninput="renderTherapistList()" style="background:#ffffff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:7px 12px;font-size:13px;color:#1a1917;min-width:220px;font-family:inherit;outline:none">
       <button class="add-btn" onclick="openTherapistModal()">+ Agregar terapeuta</button>
     </div>
     <div class="full-card" id="therapist-list"></div>
@@ -535,7 +643,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
     <div id="config-doctores">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px">
-        <input type="text" id="doctor-search" placeholder="Buscar doctor..." oninput="renderDoctorsList()" style="background:#1a1917;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:7px 12px;font-size:13px;color:#e8e6e1;min-width:220px;font-family:inherit;outline:none">
+        <input type="text" id="doctor-search" placeholder="Buscar doctor..." oninput="renderDoctorsList()" style="background:#ffffff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:7px 12px;font-size:13px;color:#1a1917;min-width:220px;font-family:inherit;outline:none">
         <button class="add-btn" onclick="openDoctorModal()">+ Agregar doctor</button>
       </div>
       <div id="doctors-list"></div>
@@ -543,7 +651,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div id="config-notificaciones" style="display:none">
       <div class="full-card">
         <div class="card-title">Automatizaciones</div>
-        <div style="font-size:11px;color:#4a4a46;margin-bottom:14px">Con backend se conectarían a WhatsApp (Twilio) y correo (Resend).</div>
+        <div style="font-size:11px;color:#7a7a76;margin-bottom:14px">Con backend se conectarían a WhatsApp (Twilio) y correo (Resend).</div>
         <div id="notif-list"></div>
       </div>
     </div>
@@ -559,11 +667,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
   <div class="main-body">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:8px;background:#1a1917;border:1px solid rgba(29,158,117,.2);border-radius:8px;padding:8px 14px">
+      <div style="display:flex;align-items:center;gap:8px;background:#ffffff;border:1px solid rgba(29,158,117,.2);border-radius:8px;padding:8px 14px">
         <span style="font-size:11px;color:#5a5a56">Citas por factura:</span>
-        <input type="number" id="global-spf" value="5" min="1" max="20" style="width:50px;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:5px;padding:3px 7px;font-size:14px;color:#e8e6e1;text-align:center;font-weight:600" onchange="updateGlobalSPF(this.value)">
+        <input type="number" id="global-spf" value="5" min="1" max="20" style="width:50px;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:5px;padding:3px 7px;font-size:14px;color:#1a1917;text-align:center;font-weight:600" onchange="updateGlobalSPF(this.value)">
       </div>
-      <div style="font-size:11px;color:#4a4a46">Cuando un paciente llega al número de citas configurado, el sistema te avisa automáticamente para facturar.</div>
+      <div style="font-size:11px;color:#7a7a76">Cuando un paciente llega al número de citas configurado, el sistema te avisa automáticamente para facturar.</div>
     </div>
     <div id="facturacion-content"></div>
   </div>
@@ -578,7 +686,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="field"><label>Paciente</label>
     <input type="text" id="m-patient-search" placeholder="Buscar paciente por nombre o cédula..." 
       list="m-patient-list" oninput="filterApptPatient()" autocomplete="off"
-      style="width:100%;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:8px 11px;font-size:13px;color:#e8e6e1;outline:none;font-family:inherit">
+      style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;font-size:13px;color:#1a1a1a;outline:none;font-family:inherit">
     <datalist id="m-patient-list"></datalist>
     <input type="hidden" id="m-patient">
   </div>
@@ -595,6 +703,42 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
   </div>
   <div class="field"><label>Nota rápida</label><textarea id="m-note" rows="2" placeholder="Observaciones..."></textarea></div>
+  
+  <!-- CITAS RECURRENTES -->
+  <div style="border-top:1px solid rgba(29,158,117,.15);margin-top:14px;padding-top:14px">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:#1a1917">
+      <input type="checkbox" id="m-recurrente" onchange="toggleRecurrencia()">
+      🔁 Repetir esta cita
+    </label>
+    <div id="recurrencia-panel" style="display:none;margin-top:12px">
+      <div class="field-row two">
+        <div class="field">
+          <label>Días de la semana</label>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+            <label style="display:flex;align-items:center;gap:3px;font-size:12px;cursor:pointer"><input type="checkbox" class="rec-day" value="1"> Lun</label>
+            <label style="display:flex;align-items:center;gap:3px;font-size:12px;cursor:pointer"><input type="checkbox" class="rec-day" value="2"> Mar</label>
+            <label style="display:flex;align-items:center;gap:3px;font-size:12px;cursor:pointer"><input type="checkbox" class="rec-day" value="3"> Mié</label>
+            <label style="display:flex;align-items:center;gap:3px;font-size:12px;cursor:pointer"><input type="checkbox" class="rec-day" value="4"> Jue</label>
+            <label style="display:flex;align-items:center;gap:3px;font-size:12px;cursor:pointer"><input type="checkbox" class="rec-day" value="5"> Vie</label>
+            <label style="display:flex;align-items:center;gap:3px;font-size:12px;cursor:pointer"><input type="checkbox" class="rec-day" value="6"> Sáb</label>
+          </div>
+        </div>
+        <div class="field">
+          <label>Repetir durante</label>
+          <select id="m-rec-semanas" style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;font-size:13px;color:#1a1917;font-family:inherit">
+            <option value="2">2 semanas</option>
+            <option value="3">3 semanas</option>
+            <option value="4" selected>4 semanas</option>
+            <option value="6">6 semanas</option>
+            <option value="8">8 semanas</option>
+            <option value="12">12 semanas</option>
+          </select>
+        </div>
+      </div>
+      <div id="rec-preview" style="font-size:11px;color:#6b6a64;margin-top:6px;padding:8px;background:#f8f8f4;border-radius:7px"></div>
+    </div>
+  </div>
+
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal('appt-modal')">Cancelar</button>
     <button class="btn-save" onclick="saveAppt()">Guardar cita</button>
@@ -625,10 +769,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="field"><label>Diagnóstico</label>
     <div style="display:flex;gap:6px;align-items:center">
       <input type="text" id="pm-diag" list="diag-list" placeholder="Buscar o escribir diagnóstico..." 
-        style="flex:1;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:8px 11px;font-size:13px;color:#e8e6e1;outline:none;font-family:inherit">
+        style="flex:1;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;font-size:13px;color:#1a1a1a;outline:none;font-family:inherit">
       <datalist id="diag-list"></datalist>
     </div>
-    <div style="font-size:10px;color:#4a4a46;margin-top:4px">Escribe para buscar entre diagnósticos existentes o ingresa uno nuevo</div>
+    <div style="font-size:10px;color:#7a7a76;margin-top:4px">Escribe para buscar entre diagnósticos existentes o ingresa uno nuevo</div>
   </div>
   <div class="field-row two">
     <div class="field"><label>Terapeuta asignado</label><select id="pm-therapist"></select></div>
@@ -639,7 +783,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="field">
       <label>Citas ya acumuladas</label>
       <input type="number" id="pm-billing-start" value="0" min="0" max="100" style="font-weight:500">
-      <div style="font-size:10px;color:#4a4a46;margin-top:4px">Si ya viene con citas previas, indícalo aquí</div>
+      <div style="font-size:10px;color:#7a7a76;margin-top:4px">Si ya viene con citas previas, indícalo aquí</div>
     </div>
   </div>
   <div class="modal-actions">
@@ -996,7 +1140,7 @@ function dotColor(s){return s==='conf'?'#1D9E75':s==='pend'?'#BA7517':'#E24B4A';
 // ======= LEYENDA DOCTORES =======
 function renderRefLegend(){
   if(!doctors.length){document.getElementById('ref-legend-bar').innerHTML='';return;}
-  const items=doctors.map(d=>`<span class="ref-legend-item"><span class="ref-stripe" style="background:${d.color}"></span>${d.name}<span style="color:#4a4a46;font-size:10px;margin-left:3px">(${d.spec})</span></span>`).join('');
+  const items=doctors.map(d=>`<span class="ref-legend-item"><span class="ref-stripe" style="background:${d.color}"></span>${d.name}<span style="color:#7a7a76;font-size:10px;margin-left:3px">(${d.spec})</span></span>`).join('');
   document.getElementById('ref-legend-bar').innerHTML=`<div class="ref-legend"><span class="ref-legend-lbl">Borde = doctor ref.:</span>${items}</div>`;
 }
 
@@ -1113,10 +1257,21 @@ function renderGrid(){
         const doc=pt&&pt.doctorId?getDoctor(pt.doctorId):null;
         const docTag=doc?`<span style="font-size:9px;opacity:.7">${doc.name.split(' ').slice(-1)[0]}</span>`:'';
         // Borde izquierdo = color del doctor referente (si existe), si no = color del terapeuta
-        if(doc){card.style.borderLeftColor=doc.color;card.title=`Ref: ${doc.name} (${doc.spec})`;}
-        card.innerHTML=`<div class="appt-name">${pt?pt.name:(appt.patientName||'Sin paciente')}</div><div class="appt-sub">${appt.type}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${appt.status} — click para cambiar"></div><div class="appt-del" onclick="delAppt(${appt.id},event)">×</div>`;
+        if(doc){card.style.borderLeftColor=doc.color;card.title=`Ref: ${doc.name} (${doc.spec})${appt.status==='conf'?' · Doble click para registrar sesión':''}`;}
+        card.innerHTML=`<div class="appt-name" onclick="event.stopPropagation();openEditPatient('${appt.patientId}')" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Ver/editar paciente">${pt?pt.name:(appt.patientName||'Sin paciente')}</div><div class="appt-sub">${appt.type}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${appt.status} — click para cambiar"></div><div class="appt-del" onclick="delAppt(${appt.id},event)">×</div>`;
         card.querySelector('.appt-dot').addEventListener('click',e=>{e.stopPropagation();cycleStatus(appt.id);});
         card.addEventListener('dragstart',()=>{dragData=appt.id});
+        card.addEventListener('dblclick',e=>{
+          e.stopPropagation();
+          if(appt.status==='conf') openSessionModal(appt);
+          else if(appt.patientId) {
+            showTab('paciente_rpt');
+            setTimeout(()=>{
+              const sel=document.getElementById('patient-rpt-select');
+              if(sel){sel.value=String(appt.patientId);updateEpisodes();}
+            },100);
+          }
+        });
         slot.appendChild(card);
       }
       g.appendChild(slot);
@@ -1136,6 +1291,21 @@ async function delAppt(id,e){
     else toastOk('Cita eliminada');
   }
 }
+function openDatePicker() {
+  const inp = document.getElementById('date-picker-input');
+  inp.value = fmtDate(currentDate);
+  inp.style.pointerEvents = 'auto';
+  inp.showPicker ? inp.showPicker() : inp.click();
+  setTimeout(() => inp.style.pointerEvents = 'none', 500);
+}
+
+function goToDate(ds) {
+  if (!ds) return;
+  const parts = ds.split('-');
+  currentDate = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  renderGrid();
+}
+
 function changeDay(d){currentDate.setDate(currentDate.getDate()+d);renderGrid();}
 
 function openApptModal(){
@@ -1160,6 +1330,12 @@ async function saveAppt(){
   const hr=parseInt(document.getElementById('m-time').value);
   const patId=document.getElementById('m-patient').value;
   if(!thId){alert('Selecciona un terapeuta.');return;}
+  // Bloquear citas en días pasados
+  const apptDateVal = document.getElementById('m-date').value;
+  if(apptDateVal){
+    const today = fmtDate(new Date());
+    if(apptDateVal < today){ toastErr('No se pueden agendar citas en días pasados.'); return; }
+  }
   // Si escribieron en el buscador pero no seleccionaron de la lista, buscar por nombre exacto
   if(!patId){
     const searchVal=document.getElementById('m-patient-search').value.trim().toLowerCase();
@@ -1180,7 +1356,26 @@ async function saveAppt(){
       type:_a.type, status:_a.status, note:_a.note||''
     }).select().single();
     if(error){toastErr('Error al guardar cita: '+error.message);}
-    else{_a.id=data.id;renderGrid();toastOk('Cita guardada correctamente');}
+    else{
+      _a.id=data.id;
+      // Citas recurrentes
+      if(document.getElementById('m-recurrente')?.checked){
+        const dias=[...document.querySelectorAll('.rec-day:checked')].map(c=>parseInt(c.value));
+        const semanas=parseInt(document.getElementById('m-rec-semanas')?.value||'4');
+        if(dias.length){
+          const fechas=getRecDates(_a.date,dias,semanas);
+          let creadas=0;
+          for(const fecha of fechas){
+            const {error:re}=await supa.from('appointments').insert({
+              date:fecha,therapist_id:_a.therapistId,
+              patient_id:_a.patientId,hour:_a.hour,
+              type:_a.type,status:'pend',note:_a.note||''
+            });
+            if(!re){appointments.push({..._a,id:'rec-'+fecha+'-'+Math.random(),date:fecha,status:'pend'});creadas++;}
+          }
+          if(creadas>0)toastOk('✓ '+(creadas+1)+' citas creadas (recurrentes)');
+        }
+      }renderGrid();toastOk('Cita guardada correctamente');}
   }catch(e){toastErr('Error de conexión al guardar cita.');}
   updateFacturaBadge();
 function updateGlobalSPF(v){
@@ -1212,12 +1407,19 @@ function renderResumen(){
     const pt=getPatient(a.patientId);const th=getTherapist(a.therapistId);const doc=pt&&pt.doctorId?getDoctor(pt.doctorId):null;
     const col=kind==='noas'?'#E24B4A':kind==='pend'?'#BA7517':'#1D9E75';
     const hasSession=a.hasSession||false;
+    const pt_check = getPatient(a.patientId);
+    const tieneEval = pt_check ? hasEvalInicial(pt_check) : true;
+    const evalInicialBtn = (kind==='conf' && !tieneEval)
+      ? `<button onclick="openEvalInicial('${a.patientId}')"
+          style="font-size:10px;padding:4px 10px;border:1px solid rgba(224,80,80,.4);border-radius:99px;cursor:pointer;font-family:inherit;font-weight:600;background:rgba(224,80,80,.08);color:#E24B4A">
+          ⚠️ Eval. inicial
+        </button>` : '';
     const sessBtn=`<button onclick="openSessionModal(appointments.find(x=>x.id==='${a.id}'))" 
       style="font-size:10px;padding:4px 12px;border:none;border-radius:99px;cursor:pointer;font-family:inherit;font-weight:600;
       background:${hasSession?'rgba(29,158,117,.15)':'rgba(224,168,80,.2)'};
       color:${hasSession?'#1D9E75':'#e0a850'}">
       ${hasSession?'✓ Sesión ok':'📋 Completar sesión'}
-    </button>`;
+    </button>${evalInicialBtn}`;
     const btns=kind!=='conf'?`<div class="resumen-actions">
       <button class="resumen-btn wa" onclick="simWA('${pt?pt.name:''}','${pt?pt.tel||'':''}'" style='white-space:nowrap'>WA</button>
       <button class="resumen-btn em" onclick="simEmail('${pt?pt.name:''}','${pt?pt.email||'':''}')">Email</button>
@@ -1226,7 +1428,7 @@ function renderResumen(){
     return`<div class="resumen-row">
       <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0;margin-top:3px"></div>
       <div style="flex:1">
-        <div style="font-size:12px;font-weight:500;color:#e8e6e1">${pt?pt.name:'Paciente'}</div>
+        <div style="font-size:12px;font-weight:500;color:#1a1917">${pt?pt.name:'Paciente'}</div>
         <div style="font-size:11px;color:#6b6a64">${a.hour}:00 · ${a.type} · ${th?th.name:''}${doc?' · Ref: '+doc.name:''}</div>
       </div>${btns}</div>`;
   }
@@ -1238,6 +1440,16 @@ function renderResumen(){
   if(!ta.length)html='<div style="color:#6b6a64;font-size:13px;padding:20px 0">No hay citas registradas para hoy.</div>';
   document.getElementById('resumen-content').innerHTML=html;
 }
+function waPatient(encodedName) {
+  const name = decodeURIComponent(encodedName);
+  const pt = patients.find(p => p.name === name);
+  if (pt) simWA(pt.name, pt.tel || '');
+}
+
+function hasEvalInicial(p) {
+  return (p.log||[]).some(s => s.type === 'Evaluación inicial');
+}
+
 function simWA(nombre,tel){
   const msg=encodeURIComponent('Hola '+nombre+', le contactamos desde Rehactiva Rehabilitación. Notamos que no pudo asistir a su cita de hoy. ¿Le ayudamos a reagendar?');
   const num=(tel?tel.replace(/[^0-9]/g,''):'593999211258');
@@ -1317,7 +1529,38 @@ async function savePatient(){
       billing_pendientes:_p.billing.pendientes
     }).select().single();
     if(error){toastErr('Error al guardar paciente: '+error.message);}
-    else{await loadAll();renderPatients();toastOk('Paciente guardado correctamente');}
+    else{
+      const newId = data ? data.id : null;
+      await loadAll();renderPatients();
+      // Guardar evaluación inicial si se llenó
+      const evalData = getEvalData();
+      if(evalData && newId && (evalData.anamnesis||evalData.ant_per||evalData.notas)) {
+        const evalNote = [
+          evalData.ant_fam ? 'Ant. familiares: '+evalData.ant_fam : '',
+          evalData.ant_per ? 'Ant. personales: '+evalData.ant_per : '',
+          evalData.zonas ? 'Zonas: '+evalData.zonas : '',
+          evalData.obs ? 'Observación: '+evalData.obs : '',
+          evalData.insp ? 'Inspección: '+evalData.insp : '',
+          evalData.palp ? 'Palpación: '+evalData.palp : '',
+          evalData.movilidad ? 'Movilidad: '+evalData.movilidad : '',
+          evalData.fuerza ? 'Fuerza: '+evalData.fuerza : '',
+          evalData.pedido_medico ? 'Pedido médico: SÍ' : '',
+          evalData.notas ? evalData.notas : ''
+        ].filter(Boolean).join(' | ');
+        await supa.from('session_log').insert({
+          patient_id: newId,
+          date: fmtDate(new Date()),
+          type: 'Evaluación inicial',
+          hour: '00:00',
+          status: 'asistió',
+          pain_before: evalData.eva_inicial,
+          pain_after: evalData.eva_inicial,
+          note: evalData.anamnesis ? evalData.anamnesis + ' | ' + evalNote : evalNote
+        });
+      }
+      resetEvalForm();
+      toastOk('Paciente guardado correctamente');
+    }
   }catch(e){toastErr('Error de conexión al guardar paciente.');}
   ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm-billing-start').value='0';
@@ -1326,7 +1569,14 @@ async function savePatient(){
 }
 function renderPatients(){
   const q=(document.getElementById('patient-search').value||'').toLowerCase();
-  const f=patients.filter(p=>p.name.toLowerCase().includes(q)||p.diag.toLowerCase().includes(q));
+  let f=patients.filter(p=>p.name.toLowerCase().includes(q)||p.diag.toLowerCase().includes(q));
+  // Ordenar: sin evaluación inicial primero
+  f.sort((a,b)=>{
+    const aEval=hasEvalInicial(a), bEval=hasEvalInicial(b);
+    if(!aEval && bEval) return -1;
+    if(aEval && !bEval) return 1;
+    return a.name.localeCompare(b.name);
+  });
   document.getElementById('patient-tbody').innerHTML=f.map(p=>{
     const th=getTherapist(p.therapistId);
     const doc=p.doctorId?getDoctor(p.doctorId):null;
@@ -1339,16 +1589,21 @@ function renderPatients(){
       ?`<span style="display:inline-flex;align-items:center;gap:5px;background:${doc.color}18;border:1px solid ${doc.color}44;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:500;color:${doc.color};white-space:nowrap">${doc.name}</span>`
       :'<span style="font-size:10px;color:#6b6a64;font-style:italic">Independiente</span>';
     return`<tr>
-      <td style="font-weight:500;color:#e8e6e1">${p.name}
+      <td style="font-weight:500;color:#1a1917">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          ${p.name}
+          ${!hasEvalInicial(p)?'<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:#fee2e2;color:#991b1b">⚠️ Sin eval.</span>':'<span style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:99px;background:#dcfce7;color:#166534">✓ Eval. ok</span>'}
+        </div>
         <div style="display:flex;gap:4px;margin-top:4px">
           <button class='th-btn' style='font-size:9px;padding:2px 6px' onclick='openEditPatient("${p.id}")'>Editar</button>
           <button class='th-btn del' style='font-size:9px;padding:2px 6px' onclick='deletePatient("${p.id}")'>Eliminar</button>
+          ${!hasEvalInicial(p)?'<button class=\'th-btn\' style=\'font-size:9px;padding:2px 6px;background:rgba(224,80,80,.1);color:#E24B4A;border-color:rgba(224,80,80,.3)\' onclick=\'openEvalInicial("'+p.id+'")\'> Eval. inicial</button>':''}
         </div>
       </td>
       <td style="color:#6b6a64;font-size:11px">${p.diag}</td>
       <td style="font-size:11px">${th?th.name:'-'}</td>
       <td style="font-size:11px">${dc}</td>
-      <td><div style="font-size:11px;margin-bottom:3px;color:#9c9a92">${p.done}/${p.sessions} (${pct}%)</div><div class="bar-wrap prog-mini"><div class="bar-fill" style="width:${pct}%;background:#1D9E75"></div></div></td>
+      <td><div style="font-size:11px;margin-bottom:3px;color:#6b6a64">${p.done}/${p.sessions} (${pct}%)</div><div class="bar-wrap prog-mini"><div class="bar-fill" style="width:${pct}%;background:#1D9E75"></div></div></td>
       <td><span style="font-size:13px;font-weight:500;color:${ac}">${adh}%</span></td>
       <td><span class="pill ${bc}">${bt}</span></td>
     </tr>`;
@@ -1377,16 +1632,172 @@ async function deletePatient(id){
 // ======= INFORMES =======
 function renderSemanal(){
   updateWeekLabel();
-  const ts=therapists.reduce((s,t)=>s+therapistHours(t).length*5,0);
-  const ta=appointments.length;const conf=appointments.filter(a=>a.status==='conf').length;
-  const u=ts>0?Math.round(ta/ts*100):0;
+  const _n=new Date();
+  const todayStr=fmtDate(_n);
+  
+  // Calcular inicio y fin de semana
+  const semStart=new Date(currentDate);
+  semStart.setDate(semStart.getDate()-semStart.getDay()+1);
+  const semEnd=new Date(semStart); semEnd.setDate(semStart.getDate()+4);
+  const semDates=[];
+  for(let i=0;i<5;i++){const d=new Date(semStart);d.setDate(semStart.getDate()+i);semDates.push(fmtDate(d));}
+  
+  // Filtrar citas de la semana
+  const semAppts = appointments.filter(a=>semDates.includes(a.date));
+  const conf = semAppts.filter(a=>a.status==='conf');
+  const noas = semAppts.filter(a=>a.status==='noas');
+  const pend = semAppts.filter(a=>a.status==='pend');
+  const total = semAppts.length;
+  const tasaAsist = total>0 ? Math.round(conf.length/total*100) : 0;
+  
+  // Pacientes únicos atendidos
+  const patsAtendidos = new Set(conf.map(a=>a.patientId)).size;
+  const patsNoas = new Set(noas.map(a=>a.patientId)).size;
+  
+  // Ingresos estimados (sesiones × tarifa base $25)
+  const tarifaBase = 25;
+  const ingresosEst = conf.length * tarifaBase;
+  
+  // Por terapeuta
+  const porTerapeuta = therapists.map(th=>{
+    const thAppts = semAppts.filter(a=>a.therapistId===th.id);
+    const thConf = thAppts.filter(a=>a.status==='conf').length;
+    const thTotal = thAppts.length;
+    const slots = therapistHours(th).length * 5;
+    const util = slots>0 ? Math.round(thTotal/slots*100) : 0;
+    return {th, thConf, thTotal, thNoas: thAppts.filter(a=>a.status==='noas').length, slots, util};
+  });
+  
+  // Top diagnósticos
+  const diagCount = {};
+  conf.forEach(a=>{
+    const pt = getPatient(a.patientId);
+    if(pt&&pt.diag){const d=pt.diag.split(/[,;]/)[0].trim();diagCount[d]=(diagCount[d]||0)+1;}
+  });
+  const topDiag = Object.entries(diagCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  
+  // Pacientes que cumplen hoy (alta o 100% sesiones)
+  const proxAlta = patients.filter(p=>p.status==='active'&&p.sessions>0&&Math.round((p.done/p.sessions)*100)>=80).slice(0,5);
+  
+  const semLabel = fmtDate(semStart)+' al '+fmtDate(semEnd);
+  const c=getColor(therapists[0]?therapists[0].colorId:0);
+  
   document.getElementById('semanal-stats').innerHTML=`
-    <div class="stat"><div class="stat-lbl">Sesiones semana</div><div class="stat-val">${ta}</div><div class="stat-chg up">+8% vs anterior</div></div>
-    <div class="stat"><div class="stat-lbl">Slots disponibles</div><div class="stat-val">${ts}</div><div class="stat-chg neu">Slots reales</div></div>
-    <div class="stat"><div class="stat-lbl">Utilización real</div><div class="stat-val" style="color:${u>=75?'#1D9E75':u>=50?'#BA7517':'#E24B4A'}">${u}%</div><div class="stat-chg neu">Sobre horarios</div></div>
-    <div class="stat"><div class="stat-lbl">Confirmación</div><div class="stat-val" style="color:#1D9E75">${ta>0?Math.round(conf/ta*100):0}%</div><div class="stat-chg up">De las citas</div></div>`;
-  renderHeatmap();renderTherapistUtil();renderInsights();
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+    <div>
+      <div style="font-size:11px;color:#6b6a64;text-transform:uppercase;letter-spacing:.05em">Semana del</div>
+      <div style="font-size:14px;font-weight:600;color:#1a1917">${semLabel}</div>
+    </div>
+    <button class="ai-btn" onclick="genSemanalAI()">Análisis con IA ↗</button>
+  </div>
+
+  <!-- KPIs principales -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+    <div class="stat">
+      <div class="stat-lbl">Citas totales</div>
+      <div class="stat-val">${total}</div>
+      <div style="font-size:10px;color:#6b6a64;margin-top:2px">${semDates.length} días hábiles</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Asistencia</div>
+      <div class="stat-val" style="color:${tasaAsist>=80?'#1D9E75':tasaAsist>=60?'#BA7517':'#E24B4A'}">${tasaAsist}%</div>
+      <div style="font-size:10px;color:#6b6a64;margin-top:2px">${conf.length} confirmadas</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">No asistieron</div>
+      <div class="stat-val" style="color:#E24B4A">${noas.length}</div>
+      <div style="font-size:10px;color:#6b6a64;margin-top:2px">${patsNoas} pacientes</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Ingreso est.</div>
+      <div class="stat-val" style="color:#1D9E75">$${ingresosEst}</div>
+      <div style="font-size:10px;color:#6b6a64;margin-top:2px">a $${tarifaBase}/sesión</div>
+    </div>
+  </div>
+
+  <!-- Segunda fila de KPIs -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+    <div class="stat">
+      <div class="stat-lbl">Pacientes atendidos</div>
+      <div class="stat-val">${patsAtendidos}</div>
+      <div style="font-size:10px;color:#6b6a64;margin-top:2px">pacientes únicos</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Pendientes hoy</div>
+      <div class="stat-val" style="color:#BA7517">${pend.length}</div>
+      <div style="font-size:10px;color:#6b6a64;margin-top:2px">sin confirmar</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Total pacientes activos</div>
+      <div class="stat-val">${patients.filter(p=>p.status==='active').length}</div>
+      <div style="font-size:10px;color:#6b6a64;margin-top:2px">en tratamiento</div>
+    </div>
+  </div>
+
+  <!-- Por terapeuta -->
+  <div class="full-card" style="margin-bottom:14px">
+    <div class="card-title" style="margin-bottom:12px">Desempeño por terapeuta</div>
+    ${porTerapeuta.map(({th,thConf,thTotal,thNoas,slots,util})=>{
+      const thC=getColor(th.colorId);
+      const uColor=util>=80?'#1D9E75':util>=60?'#BA7517':'#E24B4A';
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(29,158,117,.08)">'
+        +'<div class="avatar" style="background:'+thC.border+'22;color:'+thC.text+';width:36px;height:36px;font-size:12px;flex-shrink:0">'+th.initials+'</div>'
+        +'<div style="flex:1">'
+        +'<div style="font-size:13px;font-weight:600;color:#1a1917">'+th.name+'</div>'
+        +'<div style="display:flex;gap:12px;margin-top:4px">'
+        +'<span style="font-size:11px;color:#1D9E75">✓ '+thConf+' confirmadas</span>'
+        +'<span style="font-size:11px;color:#E24B4A">✗ '+thNoas+' no asistió</span>'
+        +'<span style="font-size:11px;color:#6b6a64">'+thTotal+'/'+slots+' slots</span>'
+        +'</div>'
+        +'<div style="margin-top:6px;height:4px;background:rgba(255,255,255,.08);border-radius:2px">'
+        +'<div style="height:4px;width:'+Math.min(util,100)+'%;background:'+uColor+';border-radius:2px;transition:width .4s"></div>'
+        +'</div>'
+        +'</div>'
+        +'<div style="font-size:16px;font-weight:700;color:'+uColor+'">'+util+'%</div>'
+        +'</div>';
+    }).join('')}
+  </div>
+
+  <!-- Top diagnósticos + Pacientes próximos a alta -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+    <div class="card">
+      <div class="card-title" style="margin-bottom:10px">Top diagnósticos semana</div>
+      ${topDiag.length ? topDiag.map(([d,n])=>
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(29,158,117,.06)">'
+        +'<span style="font-size:11px;color:#1a1917">'+d+'</span>'
+        +'<span style="font-size:11px;font-weight:700;color:#1D9E75;background:rgba(29,158,117,.12);padding:2px 8px;border-radius:99px">'+n+'</span>'
+        +'</div>'
+      ).join('') : '<div style="font-size:12px;color:#4a4a46;padding:8px 0">Sin datos esta semana</div>'}
+    </div>
+    <div class="card">
+      <div class="card-title" style="margin-bottom:10px">Próximos a alta (≥80%)</div>
+      ${proxAlta.length ? proxAlta.map(p=>{
+        const pct=Math.round(p.done/p.sessions*100);
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(29,158,117,.06)">'
+          +'<span style="font-size:11px;color:#1a1917">'+p.name.split(' ').slice(0,2).join(' ')+'</span>'
+          +'<span style="font-size:11px;font-weight:700;color:#BA7517;background:rgba(186,117,23,.12);padding:2px 8px;border-radius:99px">'+pct+'%</span>'
+          +'</div>';
+      }).join('') : '<div style="font-size:12px;color:#4a4a46;padding:8px 0">Ninguno cerca de alta</div>'}
+    </div>
+  </div>
+
+  <!-- Pacientes que no asistieron esta semana -->
+  ${noas.length ? '<div class="full-card"><div class="card-title" style="margin-bottom:10px">No asistieron esta semana — requieren seguimiento</div>'
+  + noas.slice(0,8).map(a=>{
+    const pt=getPatient(a.patientId); const th=getTherapist(a.therapistId);
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(224,80,80,.08)">'
+      +'<div><div style="font-size:12px;font-weight:500;color:#1a1917">'+(pt?pt.name:'Paciente')+'</div>'
+      +'<div style="font-size:10px;color:#6b6a64">'+a.date+' · '+(th?th.name:'')+'</div></div>'
+      +'<button onclick="waPatient(\''+encodeURIComponent(pt?pt.name:'')+'\')" style="font-size:10px;padding:3px 10px;background:rgba(37,211,102,.15);color:#25d366;border:none;border-radius:99px;cursor:pointer;font-weight:600">WA</button>'
+      +'</div>';
+  }).join('')+'</div>' : ''}
+
+  <div id="insights" style="margin-top:12px"></div>
+  `;
 }
+
+
 function hmCol(p){if(p===null)return'#1a1917';if(p===0)return'#141412';if(p<25)return'#0d2a21';if(p<50)return'#0f4030';if(p<75)return'#145c44';if(p<90)return'#1D9E75';return'#0F6E56';}
 function renderHeatmap(){
   let html=`<div class="heatmap-grid" style="grid-template-columns:50px repeat(5,1fr)"><div class="hm-hdr"></div>`;
@@ -1395,7 +1806,7 @@ function renderHeatmap(){
     html+=`<div class="hm-lbl">${hr}:00</div>`;
     DAYS.forEach(d=>{
       const av=therapists.filter(t=>hr>=t.startH&&hr<t.endH).length;
-      if(!av){html+=`<div class="hm-cell" style="background:#141412"><span style="font-size:9px;color:#444">—</span></div>`;return;}
+      if(!av){html+=`<div class="hm-cell" style="background:#f0efe8"><span style="font-size:9px;color:#444">—</span></div>`;return;}
       const occ=Math.min(av,Math.floor(hr>=9&&hr<=11?av*0.9:hr>=7&&hr<=8?av*0.75:hr===12||hr===13?av*0.4:av*0.55));
       const p=Math.round(occ/av*100);
       const tc=p>=75?'#e8e6e1':'#5ecfa0';
@@ -1417,7 +1828,7 @@ function renderTherapistUtil(){
     const c=getColor(th.colorId);const uc=u>=80?'#1D9E75':u>=60?'#BA7517':'#E24B4A';
     return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(29,158,117,.1)">
       <div class="avatar" style="background:${c.border}22;color:${c.text};width:30px;height:30px">${th.initials}</div>
-      <div style="flex:1"><div style="font-size:12px;font-weight:500;color:#e8e6e1">${th.name}</div>
+      <div style="flex:1"><div style="font-size:12px;font-weight:500;color:#1a1917">${th.name}</div>
         <div style="font-size:10px;color:#6b6a64">${th.startH}:00–${th.endH}:00</div>
         <div class="util-bar"><div class="util-fill" style="width:${u}%;background:${uc}"></div></div>
       </div>
@@ -1449,7 +1860,7 @@ function showSubTab(n,btn){
 }
 function renderMensual(){
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-    <select style="background:#1a1917;border:1px solid rgba(29,158,117,.2);border-radius:6px;padding:7px 12px;font-size:13px;color:#e8e6e1"><option>Marzo 2026</option><option>Febrero 2026</option><option>Enero 2026</option></select>
+    <select style="background:#ffffff;border:1px solid rgba(29,158,117,.2);border-radius:6px;padding:7px 12px;font-size:13px;color:#1a1917"><option>Marzo 2026</option><option>Febrero 2026</option><option>Enero 2026</option></select>
     <button class="ai-btn" onclick="genSemanalAI()">Análisis con IA ↗</button>
   </div>`;
   html+=`<div class="informe-stat-grid">
@@ -1463,7 +1874,7 @@ function renderMensual(){
   html+=`<div class="full-card"><div class="card-title">Pacientes por doctor referente</div>`;
   doctors.forEach(d=>{
     const n=patients.filter(p=>p.doctorId===d.id).length;
-    html+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(29,158,117,.1)"><span style="width:10px;height:10px;border-radius:50%;background:${d.color};display:inline-block;flex-shrink:0"></span><div style="flex:1;font-size:12px;color:#c8c6c0">${d.name} <span style="color:#6b6a64">(${d.spec})</span></div><div style="font-size:13px;font-weight:500;color:#e8e6e1">${n}</div></div>`;
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(29,158,117,.1)"><span style="width:10px;height:10px;border-radius:50%;background:${d.color};display:inline-block;flex-shrink:0"></span><div style="flex:1;font-size:12px;color:#c8c6c0">${d.name} <span style="color:#6b6a64">(${d.spec})</span></div><div style="font-size:13px;font-weight:500;color:#1a1917">${n}</div></div>`;
   });
   html+=`</div><div class="full-card"><div class="card-title">Tendencia — últimos 3 meses</div><canvas id="monthly-chart" height="80"></canvas></div>`;
   document.getElementById('mensual-content').innerHTML=html;
@@ -1481,7 +1892,7 @@ function renderAnual(){
   const mn=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const s=[30,42,38,0,0,0,0,0,0,0,0,0];
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-    <div style="font-size:14px;font-weight:500;color:#f0ede8">Informe anual 2026</div>
+    <div style="font-size:14px;font-weight:500;color:#1a1917">Informe anual 2026</div>
     <button class="ai-btn" onclick="genSemanalAI()">Análisis anual con IA ↗</button>
   </div>`;
   html+=`<div class="informe-stat-grid">
@@ -1507,6 +1918,7 @@ function renderAnual(){
 function renderPatientReportSelect(){
   const sel=document.getElementById('patient-rpt-select');
   sel.innerHTML=patients.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  if(patients.length>0) sel.value=String(patients[0].id);
   updateEpisodes();
 }
 function updateEpisodes(){
@@ -1540,9 +1952,9 @@ function renderPatientReport(){
   let html=`<div class="full-card" style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
     <div class="avatar" style="background:${thC.border}22;color:${thC.text};width:48px;height:48px;font-size:16px;flex-shrink:0">${p.name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
     <div style="flex:1">
-      <div style="font-size:15px;font-weight:600;color:#f0ede8;margin-bottom:3px">${p.name} ${sp}</div>
-      <div style="font-size:12px;color:#9c9a92">${p.diag||'Sin diagnóstico'} · ${p.age||'?'} años · ${th?th.name:'Sin terapeuta'}</div>
-      ${doc?`<div style="font-size:11px;color:#6b6a64;margin-top:2px">Ref: ${doc.name} (${doc.spec})</div>`:''}
+      <div style="font-size:15px;font-weight:600;color:#1a1917;margin-bottom:3px">${p.name} ${sp}</div>
+      <div style="font-size:12px;color:#6b6a64">${p.diag||'Sin diagnóstico'} · ${p.age||'?'} años · ${th?th.name:'Sin terapeuta'}</div>
+      ${doc?`<div style="font-size:11px;color:#5a5a56;margin-top:2px">Ref: ${doc.name} (${doc.spec})</div>`:''}
       ${p.cedula?`<div style="font-size:11px;color:#6b6a64;margin-top:1px">CI: ${p.cedula}${p.tel?' · '+p.tel:''}${p.email?' · '+p.email:''}</div>`:''}
     </div>
     <button class="ai-btn" onclick="genPatientAI()" style="flex-shrink:0">Informe IA ↗</button>
@@ -1586,8 +1998,8 @@ function renderPatientReport(){
   // ── Historial de sesiones ──
   html+=`<div class="full-card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div style="font-size:13px;font-weight:600;color:#e8e6e1">Historial de sesiones</div>
-      <div style="font-size:11px;color:#4a4a46">${log.length} registros</div>
+      <div style="font-size:13px;font-weight:600;color:#1a1917">Historial de sesiones</div>
+      <div style="font-size:11px;color:#7a7a76">${log.length} registros</div>
     </div>`;
 
   if(!log.length){
@@ -1607,10 +2019,10 @@ function renderPatientReport(){
         <div class="tl-content">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
             ${sp2}
-            <span style="font-size:12px;font-weight:500;color:#e8e6e1">${s.type||''}</span>
+            <span style="font-size:12px;font-weight:500;color:#1a1917">${s.type||''}</span>
             ${evaStr}
           </div>
-          ${s.note?`<div class="tl-note" style="color:#9c9a92;font-size:12px">${s.note}</div>`:''}
+          ${s.note?`<div class="tl-note" style="color:#6b6a64;font-size:12px">${s.note}</div>`:''}
         </div>
       </div>`;
     });
@@ -1666,12 +2078,12 @@ function renderProtocols(){
     document.getElementById('protocols-list').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;margin-bottom:14px">`+filtProts.map(p=>{
       const svg=svgs[p.img]||svgs.knee;
       return`<div class="protocol-card" style="display:flex;gap:14px;align-items:flex-start">
-        <div style="flex-shrink:0;background:#111210;border-radius:8px;padding:8px;border:1px solid rgba(29,158,117,.12)">${svg}</div>
+        <div style="flex-shrink:0;background:#f8f8f4;border-radius:8px;padding:8px;border:1px solid rgba(29,158,117,.12)">${svg}</div>
         <div style="flex:1;min-width:0">
           <div class="protocol-diag">${p.name}</div>
           ${p.def?`<div style="font-size:11px;color:#6b6a64;margin-top:4px;line-height:1.5">${p.def}</div>`:''}
           <div class="protocol-meta" style="margin-top:6px">${p.sessions} sesiones · ${fl[p.freq]||p.freq+'×/sem'}</div>
-          ${p.alta?`<div style="font-size:10px;color:#4a4a46;margin-top:3px">Alta: ${p.alta}</div>`:''}
+          ${p.alta?`<div style="font-size:10px;color:#7a7a76;margin-top:3px">Alta: ${p.alta}</div>`:''}
           <div style="display:flex;gap:6px;margin-top:8px">
             <button class="th-btn" onclick="openProtocolModal('${p.id}')">Editar</button>
             <button class="th-btn del" onclick="deleteProtocol('${p.id}')">Eliminar</button>
@@ -1722,7 +2134,7 @@ function renderProtocolAdherence(){
     return`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(29,158,117,.1)">
       <span style="font-size:14px;flex-shrink:0">${alrt?'⚠':'✓'}</span>
       <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:500;color:#e8e6e1">${p.name}</div>
+        <div style="font-size:12px;font-weight:500;color:#1a1917">${p.name}</div>
         <div style="font-size:11px;color:#6b6a64">${p.diag} — ${prot.name}</div>
         <div style="font-size:10px;color:#6b6a64;margin-top:1px">Esperado: ${fl[prot.freq]||prot.freq+'×/sem'} · ${prot.sessions} sesiones</div>
         <div style="margin-top:5px;position:relative">
@@ -1748,9 +2160,9 @@ function renderTherapistList(){
     return`<div class="th-manage-row">
       <div class="avatar" style="background:${c.border}22;color:${c.text};width:36px;height:36px;font-size:12px">${th.initials}</div>
       <div style="flex:1">
-        <div style="font-size:13px;font-weight:500;color:#e8e6e1">${th.name}</div>
+        <div style="font-size:13px;font-weight:500;color:#1a1917">${th.name}</div>
         <div style="font-size:11px;color:#6b6a64">${th.spec}</div>
-        <div style="font-size:11px;color:#6b6a64;margin-top:2px">Turno: ${th.startH}:00–${th.endH}:00 · ${therapistHours(th).length} h/día</div>
+        <div style="font-size:11px;color:#5a5a56;margin-top:2px">Turno: ${th.startH}:00–${th.endH}:00 · ${therapistHours(th).length} h/día</div>
       </div>
       <div class="th-actions">
         <button class="th-btn" onclick="openEditTherapist(${th.id})">Editar</button>
@@ -1810,9 +2222,9 @@ function renderDoctorsList(){
     <div class="th-manage-row">
       <div style="width:36px;height:36px;border-radius:50%;background:${d.color}22;border:1px solid ${d.color}44;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:${d.color};flex-shrink:0">${d.name.split(' ').pop()[0]}</div>
       <div style="flex:1">
-        <div style="font-size:13px;font-weight:500;color:#e8e6e1">${d.name}</div>
+        <div style="font-size:13px;font-weight:500;color:#1a1917">${d.name}</div>
         <div style="font-size:11px;color:#6b6a64">${d.spec}</div>
-        <div style="font-size:11px;color:#6b6a64;margin-top:2px">${d.email||''}${d.tel?' · '+d.tel:''}</div>
+        <div style="font-size:11px;color:#5a5a56;margin-top:2px">${d.email||''}${d.tel?' · '+d.tel:''}</div>
       </div>
       <div class="th-actions">
         <button class="th-btn" onclick="openDoctorModal(${d.id})">Editar</button>
@@ -1870,8 +2282,8 @@ function renderNotifList(){
         <div class="toggle-thumb"></div>
       </label>
       <div style="flex:1">
-        <div style="font-size:12px;font-weight:500;color:#e8e6e1">${n.icon} ${n.label}</div>
-        <div style="font-size:11px;color:#6b6a64;margin-top:2px">${n.desc}</div>
+        <div style="font-size:12px;font-weight:500;color:#1a1917">${n.icon} ${n.label}</div>
+        <div style="font-size:11px;color:#5a5a56;margin-top:2px">${n.desc}</div>
         <span class="pill ${n.on?'pg':'pgr'}" style="margin-top:5px">${n.on?'Activo':'Inactivo'}</span>
       </div>
     </div>`).join('');
@@ -1941,12 +2353,12 @@ function renderFacturacion(){
   // ---- LISTOS PARA COBRAR (completos + cierre) ----
   const paracobrar = [...listos, ...cierre];
   if(paracobrar.length){
-    html+=`<div class="full-card" style="border:1px solid rgba(224,168,80,.25);background:#1a170a">
+    html+=`<div class="full-card" style="border:1px solid rgba(224,168,80,.25);background:#fdf8ed">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
         <div style="font-size:20px">🧾</div>
         <div>
           <div style="font-size:13px;font-weight:600;color:#e0a850">${paracobrar.length} paciente${paracobrar.length>1?'s':''} listo${paracobrar.length>1?'s':''} para cobrar</div>
-          <div style="font-size:11px;color:#6b6a64;margin-top:2px">Márcalos como cobrados una vez recibido el pago.</div>
+          <div style="font-size:11px;color:#5a5a56;margin-top:2px">Márcalos como cobrados una vez recibido el pago.</div>
         </div>
         <button class="add-btn" style="margin-left:auto;background:#e0a850;color:#111;font-weight:600" onclick="marcarTodosFacturados()">Cobrar todos</button>
       </div>`;
@@ -1959,13 +2371,13 @@ function renderFacturacion(){
       // Cajitas: verdes = acumuladas en este cobro
       const cajitas=Array.from({length:nCita},(_,i)=>`<div style="width:22px;height:22px;border-radius:5px;background:${esFinal?'#378ADD':'#1D9E75'};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">${info.sesYaCobradas+i+1}</div>`).join('');
       const tagLabel=esFinal
-        ? `<span style="font-size:10px;font-weight:600;color:#7ab8e8;background:#0d1e2e;border:1px solid rgba(55,138,221,.3);border-radius:99px;padding:1px 8px;margin-left:6px">Cobro final</span>`
-        : `<span style="font-size:10px;font-weight:600;color:#e0a850;background:#201c0d;border:1px solid rgba(224,168,80,.3);border-radius:99px;padding:1px 8px;margin-left:6px">Cobro ${info.cobrosRealizados+1} de ${info.totalCobros}</span>`;
-      html+=`<div class="resumen-row" style="border-color:rgba(224,168,80,.2);background:#201c0d;margin-bottom:6px;align-items:flex-start">
+        ? `<span style="font-size:10px;font-weight:600;color:#7ab8e8;background:#e8f2fc;border:1px solid rgba(55,138,221,.3);border-radius:99px;padding:1px 8px;margin-left:6px">Cobro final</span>`
+        : `<span style="font-size:10px;font-weight:600;color:#e0a850;background:#fefaf0;border:1px solid rgba(224,168,80,.3);border-radius:99px;padding:1px 8px;margin-left:6px">Cobro ${info.cobrosRealizados+1} de ${info.totalCobros}</span>`;
+      html+=`<div class="resumen-row" style="border-color:rgba(224,168,80,.2);background:#fefaf0;margin-bottom:6px;align-items:flex-start">
         <div style="width:9px;height:9px;border-radius:50%;background:${esFinal?'#378ADD':'#e0a850'};flex-shrink:0;margin-top:5px"></div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
-            <span style="font-size:13px;font-weight:600;color:#e8e6e1">${p.name}</span>
+            <span style="font-size:13px;font-weight:600;color:#1a1917">${p.name}</span>
             ${tagLabel}
           </div>
           <div style="font-size:11px;color:#6b6a64;margin-top:3px">
@@ -1995,7 +2407,7 @@ function renderFacturacion(){
       const cajitas=Array.from({length:spf},(_,i)=>`<div style="width:18px;height:18px;border-radius:4px;background:${i<pend?'#1D9E75':'rgba(255,255,255,0.06)'};border:1px solid ${i<pend?'rgba(29,158,117,.4)':'rgba(255,255,255,.06)'};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:${i<pend?'#fff':'#333'}">${info.sesYaCobradas+i+1}</div>`).join('');
       html+=`<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid rgba(29,158,117,.1)">
         <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600;color:#e8e6e1">${p.name}
+          <div style="font-size:12px;font-weight:600;color:#1a1917">${p.name}
             <span style="font-size:10px;font-weight:400;color:#5a5a56;margin-left:6px">cobro ${info.cobrosRealizados+1} de ${info.totalCobros}</span>
           </div>
           <div style="font-size:10px;color:#5a5a56;margin-top:2px">CI: ${p.cedula||'—'} · ${p.email||'sin correo'}</div>
@@ -2006,7 +2418,7 @@ function renderFacturacion(){
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div style="font-size:22px;font-weight:700;color:${pend>=spf*0.8?'#e0a850':'#5a5a56'}">${pend}/${spf}</div>
-          <div style="font-size:10px;color:#4a4a46">${info.sesTotal} prescritas</div>
+          <div style="font-size:10px;color:#7a7a76">${info.sesTotal} prescritas</div>
         </div>
       </div>`;
     });
@@ -2179,6 +2591,7 @@ function openSessionModal(appt) {
     }
   }
   document.getElementById('sess-note').value = existing ? (existing.note || '') : '';
+  renderProTecnicas();
   document.getElementById('session-modal').classList.add('open');
 }
 
@@ -2222,7 +2635,8 @@ async function saveSession() {
         status: 'asistió',
         pain_before: pb,
         pain_after: pa,
-        note: note
+        note: note,
+      next_plan: document.getElementById('sess-next')?.value||''
       });
       dbError = error;
     }
@@ -2268,10 +2682,10 @@ async function callAI(prompt, targetId) {
   const encoded = encodeURIComponent(prompt);
   const url = 'https://claude.ai/new?q=' + encoded;
   window.open(url, '_blank');
-  el.innerHTML = '<div style="background:rgba(29,158,117,.08);border:1px solid rgba(29,158,117,.2);border-radius:8px;padding:14px;font-size:12px;color:#9c9a92;line-height:1.6">'
+  el.innerHTML = '<div style="background:rgba(29,158,117,.08);border:1px solid rgba(29,158,117,.2);border-radius:8px;padding:14px;font-size:12px;color:#6b6a64;line-height:1.6">'
     + '<div style="font-weight:600;color:#1D9E75;margin-bottom:6px">✓ Claude.ai abierto en nueva pestaña</div>'
     + 'El informe se está generando en Claude.ai. Copia el resultado y pégalo aquí si lo necesitas.<br><br>'
-    + '<textarea style="width:100%;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:6px;padding:8px;font-size:12px;color:#e8e6e1;font-family:inherit;resize:vertical;min-height:80px" placeholder="Pega aquí el informe generado por Claude..."></textarea>'
+    + '<textarea style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:6px;padding:8px;font-size:12px;color:#1a1917;font-family:inherit;resize:vertical;min-height:80px" placeholder="Pega aquí el informe generado por Claude..."></textarea>'
     + '</div>';
 }
 
@@ -2343,6 +2757,226 @@ Redacta un informe clínico de evolución en español, formato profesional médi
   }
 }
 
+// ── EVALUACIÓN INICIAL MODAL ────────────────────────────────
+let _evalPatientId = null;
+let _evEvaVal = 5;
+
+function openEvalInicial(patientId) {
+  _evalPatientId = patientId;
+  const p = getPatient(patientId);
+  document.getElementById('eval-modal-patient-name').textContent =
+    p ? p.name + ' · ' + (p.diag || 'Sin diagnóstico') : '';
+  // Limpiar campos
+  ['ev-ant-fam','ev-ant-per','ev-anamnesis','ev-obs','ev-insp','ev-palp','ev-movilidad','ev-fuerza','ev-notas'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  ['ev-cervical','ev-dorsal','ev-lumbar','ev-sup','ev-inf'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.checked = false;
+  });
+  document.getElementById('ev-pedido-no').checked = true;
+  _evEvaVal = 5;
+  renderEvEva();
+  document.getElementById('eval-modal').classList.add('open');
+}
+
+function renderEvEva() {
+  const container = document.getElementById('ev-eva-btns');
+  if (!container) return;
+  const colors = ['#22c55e','#4ade80','#86efac','#a3e635','#facc15','#fb923c','#f97316','#ef4444','#dc2626','#b91c1c','#991b1b'];
+  container.innerHTML = '';
+  for (let i = 0; i <= 10; i++) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = i;
+    const active = i === _evEvaVal;
+    btn.style.cssText = 'flex:1;padding:8px 2px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .1s;'
+      + 'border:2px solid ' + (active ? colors[i] : 'transparent') + ';'
+      + 'background:' + (active ? colors[i] + '33' : '#1a1917') + ';'
+      + 'color:' + (active ? colors[i] : '#6b6a64');
+    btn.onclick = () => { _evEvaVal = i; document.getElementById('ev-eva-val').value = i; renderEvEva(); };
+    container.appendChild(btn);
+  }
+}
+
+async function saveEvalInicial() {
+  if (!_evalPatientId) return;
+  const anamnesis = document.getElementById('ev-anamnesis').value.trim();
+  if (!anamnesis) {
+    document.getElementById('ev-anamnesis').style.borderColor = 'rgba(224,80,80,.6)';
+    toastErr('La anamnesis es obligatoria');
+    return;
+  }
+  document.getElementById('ev-anamnesis').style.borderColor = '';
+
+  const zonas = ['ev-cervical','ev-dorsal','ev-lumbar','ev-sup','ev-inf']
+    .filter(id => document.getElementById(id)?.checked)
+    .map(id => ({
+      'ev-cervical':'Columna cervical','ev-dorsal':'Columna dorsal',
+      'ev-lumbar':'Columna lumbar','ev-sup':'Miembro superior','ev-inf':'Miembro inferior'
+    })[id]).join(', ');
+
+  const nota = [
+    document.getElementById('ev-ant-fam').value ? 'Ant. familiares: ' + document.getElementById('ev-ant-fam').value : '',
+    document.getElementById('ev-ant-per').value ? 'Ant. personales: ' + document.getElementById('ev-ant-per').value : '',
+    zonas ? 'Zonas: ' + zonas : '',
+    document.getElementById('ev-obs').value ? 'Observación: ' + document.getElementById('ev-obs').value : '',
+    document.getElementById('ev-insp').value ? 'Inspección: ' + document.getElementById('ev-insp').value : '',
+    document.getElementById('ev-palp').value ? 'Palpación: ' + document.getElementById('ev-palp').value : '',
+    document.getElementById('ev-movilidad').value ? 'Movilidad: ' + document.getElementById('ev-movilidad').value : '',
+    document.getElementById('ev-fuerza').value ? 'Fuerza: ' + document.getElementById('ev-fuerza').value : '',
+    document.querySelector('input[name="ev-pedido"]:checked')?.value === 'si' ? 'Pedido médico: SÍ' : '',
+    document.getElementById('ev-notas').value || ''
+  ].filter(Boolean).join(' | ');
+
+  const eva = _evEvaVal;
+  const { error } = await supa.from('session_log').insert({
+    patient_id: _evalPatientId,
+    date: fmtDate(new Date()),
+    type: 'Evaluación inicial',
+    hour: '00:00',
+    status: 'asistió',
+    pain_before: eva,
+    pain_after: eva,
+    note: anamnesis + (nota ? ' | ' + nota : '')
+  });
+
+  if (error) { toastErr('Error al guardar: ' + error.message); return; }
+
+  // Actualizar en memoria
+  const p = getPatient(_evalPatientId);
+  if (p) {
+    if (!p.log) p.log = [];
+    p.log.unshift({
+      date: fmtDate(new Date()), type: 'Evaluación inicial',
+      hour: '00:00', status: 'asistió',
+      pb: eva, pa: eva, note: anamnesis + (nota ? ' | ' + nota : '')
+    });
+  }
+
+  closeModal('eval-modal');
+  renderPatients();
+  renderResumen();
+  toastOk('✓ Evaluación inicial guardada');
+}
+
+// ── CITAS RECURRENTES ────────────────────────────────────────
+function toggleRecurrencia() {
+  const on = document.getElementById('m-recurrente').checked;
+  document.getElementById('recurrencia-panel').style.display = on ? 'block' : 'none';
+  if (on) updateRecPreview();
+}
+
+function updateRecPreview() {
+  const dias = [...document.querySelectorAll('.rec-day:checked')].map(c => parseInt(c.value));
+  const semanas = parseInt(document.getElementById('m-rec-semanas').value);
+  const dateVal = document.getElementById('m-date').value;
+  if (!dateVal || !dias.length) {
+    document.getElementById('rec-preview').textContent = 'Selecciona al menos un día';
+    return;
+  }
+  const fechas = getRecDates(dateVal, dias, semanas);
+  document.getElementById('rec-preview').textContent =
+    `Se crearán ${fechas.length} citas: ${fechas.slice(0,3).join(', ')}${fechas.length > 3 ? '... y ' + (fechas.length-3) + ' más' : ''}`;
+}
+
+function getRecDates(baseDate, dias, semanas) {
+  const fechas = [];
+  const start = new Date(baseDate + 'T12:00:00');
+  for (let w = 0; w < semanas; w++) {
+    for (let d = 0; d < 7; d++) {
+      const fecha = new Date(start);
+      fecha.setDate(start.getDate() + w * 7 + d);
+      if (dias.includes(fecha.getDay())) {
+        const ds = fmtDate(fecha);
+        if (ds > baseDate) fechas.push(ds);
+      }
+    }
+  }
+  return [...new Set(fechas)].sort();
+}
+
+// Listener para actualizar preview
+document.addEventListener('change', function(e) {
+  if (e.target.classList.contains('rec-day') || e.target.id === 'm-rec-semanas') {
+    updateRecPreview();
+  }
+});
+
+// ── BUSCADOR GLOBAL ──────────────────────────────────────────
+function globalSearch(q) {
+  const res = document.getElementById('global-search-results');
+  if (!q || q.length < 2) { res.style.display = 'none'; return; }
+  q = q.toLowerCase();
+  const matches = patients.filter(p =>
+    p.name.toLowerCase().includes(q) ||
+    (p.cedula && p.cedula.includes(q)) ||
+    (p.diag && p.diag.toLowerCase().includes(q)) ||
+    (p.tel && p.tel.includes(q))
+  ).slice(0, 8);
+
+  if (!matches.length) {
+    res.style.display = 'block';
+    res.innerHTML = '<div style="padding:12px;font-size:12px;color:#9c9a92;text-align:center">Sin resultados</div>';
+    return;
+  }
+
+  res.style.display = 'block';
+  res.innerHTML = '';
+  matches.forEach(p => {
+    const th = getTherapist(p.therapistId);
+    const evalOk = hasEvalInicial(p);
+    const div = document.createElement('div');
+    div.style.cssText = 'padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(0,0,0,.06);display:flex;align-items:center;gap:10px';
+    div.onmouseover = () => div.style.background = '#f5f5f0';
+    div.onmouseout = () => div.style.background = '';
+    div.onclick = () => selectGlobalResult(p.id);
+    div.innerHTML = '<div style="width:32px;height:32px;border-radius:50%;background:#e8f5f0;color:#1D9E75;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0">'
+      + p.name.split(' ').map(n=>n[0]).join('').slice(0,2) + '</div>'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:12px;font-weight:600;color:#1a1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.name + (evalOk ? '' : ' ⚠️') + '</div>'
+      + '<div style="font-size:10px;color:#9c9a92">' + (p.diag||'Sin diagnóstico') + (th?' · '+th.name:'') + '</div>'
+      + '</div>';
+    res.appendChild(div);
+  });
+}
+
+function selectGlobalResult(patientId) {
+  document.getElementById('global-search').value = '';
+  document.getElementById('global-search-results').style.display = 'none';
+  // Ir a informe del paciente
+  showTab('paciente_rpt');
+  setTimeout(() => {
+    const sel = document.getElementById('patient-rpt-select');
+    if (sel) { sel.value = String(patientId); updateEpisodes(); }
+  }, 100);
+}
+
+// Cerrar resultados al clickear fuera
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#global-search') && !e.target.closest('#global-search-results')) {
+    const res = document.getElementById('global-search-results');
+    if (res) res.style.display = 'none';
+  }
+});
+
+// ── ALERTA CITAS SIN CONFIRMAR ───────────────────────────────
+function checkCitasPendientes() {
+  const n = new Date();
+  const todayStr = fmtDate(n);
+  // Citas de ayer sin confirmar
+  const ayer = new Date(n); ayer.setDate(n.getDate()-1);
+  const ayerStr = fmtDate(ayer);
+  const sinConf = appointments.filter(a => a.date === ayerStr && a.status === 'pend');
+  if (sinConf.length > 0) {
+    toastErr(`⚠️ ${sinConf.length} cita${sinConf.length>1?'s':''} de ayer sin confirmar`);
+  }
+  // Citas de hoy pendientes que ya pasaron
+  const hoyPend = appointments.filter(a => a.date === todayStr && a.status === 'pend' && a.hour < n.getHours());
+  if (hoyPend.length > 0) {
+    setTimeout(() => toastErr(`📋 ${hoyPend.length} cita${hoyPend.length>1?'s':''} de hoy sin registrar`), 2000);
+  }
+}
+
 async function initApp(){
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('loading-overlay').style.display='none';
@@ -2353,6 +2987,7 @@ async function initApp(){
     await loadAll();
     document.getElementById('loading-overlay').style.display='none';
     checkAutoNoas();renderGrid();updateResumenBadge();updateFacturaBadge();
+    checkCitasPendientes();
   }
 }
 // ============================================================
@@ -2394,7 +3029,7 @@ initApp();
     </label>
     <div style="display:flex;gap:4px;margin-top:8px" id="eva-before-btns">
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:10px;color:#4a4a46;margin-top:4px"><span>Sin dolor</span><span>Máximo dolor</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#7a7a76;margin-top:4px"><span>Sin dolor</span><span>Máximo dolor</span></div>
   </div>
 
   <!-- EVA DESPUÉS -->
@@ -2405,35 +3040,116 @@ initApp();
     </label>
     <div style="display:flex;gap:4px;margin-top:8px" id="eva-after-btns">
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:10px;color:#4a4a46;margin-top:4px"><span>Sin dolor</span><span>Máximo dolor</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#7a7a76;margin-top:4px"><span>Sin dolor</span><span>Máximo dolor</span></div>
   </div>
 
   <div class="field" style="margin-bottom:12px">
-    <label>Técnicas utilizadas</label>
-    <select id="sess-type" style="width:100%;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:8px 11px;font-size:13px;color:#e8e6e1;font-family:inherit">
-      <option>Fisioterapia general</option>
-      <option>Kinesioterapia</option>
-      <option>Terapia manual</option>
-      <option>Electroterapia</option>
-      <option>Ultrasonido terapéutico</option>
-      <option>Masoterapia</option>
-      <option>Ejercicio terapéutico</option>
-      <option>Tracción lumbar/cervical</option>
-      <option>Vendaje funcional</option>
-      <option>Punción seca</option>
-      <option>Crioterapia</option>
-      <option>Termoterapia</option>
-    </select>
+    <label>Técnicas utilizadas <span style="color:#E24B4A">*</span></label>
+    <div id="pro-tecnicas-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:6px"></div>
+    <input type="hidden" id="sess-type" value="">
+  </div>
+
+  <div class="field" style="margin-bottom:12px">
+    <label>¿Qué se realizó en la sesión? <span style="color:#E24B4A">*</span></label>
+    <textarea id="sess-note" rows="2" placeholder="Ej: Se aplicó masaje descontracturante en zona lumbar, electroterapia 10min, ejercicios de estabilización core..." style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;font-size:13px;color:#1a1a1a;font-family:inherit;resize:vertical"></textarea>
   </div>
 
   <div class="field" style="margin-bottom:4px">
-    <label>¿Qué se realizó en la sesión? <span style="color:#E24B4A">*</span></label>
-    <textarea id="sess-note" rows="2" placeholder="Ej: Se aplicó masaje descontracturante en zona lumbar, electroterapia 10min, ejercicios de estabilización core..." style="width:100%;background:#111210;border:1px solid rgba(29,158,117,.18);border-radius:7px;padding:8px 11px;font-size:13px;color:#e8e6e1;font-family:inherit;resize:vertical"></textarea>
+    <label>Próxima sesión — plan</label>
+    <input type="text" id="sess-next" placeholder="Ej: Continuar con ejercicios excéntricos, agregar propiocepción..." style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;font-size:13px;color:#1a1a1a;font-family:inherit">
   </div>
 
   <div class="modal-actions">
     <button class="btn-cancel" onclick="skipSession()">Omitir</button>
     <button class="add-btn" onclick="saveSession()">Guardar sesión</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL EVALUACIÓN INICIAL -->
+<div class="modal-bg" id="eval-modal">
+<div class="modal" style="max-width:520px;max-height:85vh;overflow-y:auto">
+  <h3>Evaluación inicial</h3>
+  <div id="eval-modal-patient-name" style="font-size:13px;color:#6b6a64;margin-bottom:16px"></div>
+
+  <div class="field-row two">
+    <div class="field">
+      <label>Antecedentes familiares</label>
+      <input type="text" id="ev-ant-fam" placeholder="HTA, diabetes, etc.">
+    </div>
+    <div class="field">
+      <label>Antecedentes personales</label>
+      <input type="text" id="ev-ant-per" placeholder="Cirugías, enfermedades previas...">
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Anamnesis — motivo de consulta</label>
+    <textarea id="ev-anamnesis" rows="2" placeholder="Tiempo de evolución, síntomas principales, cómo empezó..." style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;font-size:13px;color:#1a1917;font-family:inherit;resize:vertical"></textarea>
+  </div>
+
+  <div class="field">
+    <label>Zona afectada</label>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:400;cursor:pointer;color:#1a1917"><input type="checkbox" id="ev-cervical"> Columna cervical</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:400;cursor:pointer;color:#1a1917"><input type="checkbox" id="ev-dorsal"> Columna dorsal</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:400;cursor:pointer;color:#1a1917"><input type="checkbox" id="ev-lumbar"> Columna lumbar</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:400;cursor:pointer;color:#1a1917"><input type="checkbox" id="ev-sup"> Miembro superior</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:400;cursor:pointer;color:#1a1917"><input type="checkbox" id="ev-inf"> Miembro inferior</label>
+    </div>
+  </div>
+
+  <div class="field-row two">
+    <div class="field">
+      <label>Observación</label>
+      <input type="text" id="ev-obs" placeholder="Postura, marcha, actitud...">
+    </div>
+    <div class="field">
+      <label>Inspección</label>
+      <input type="text" id="ev-insp" placeholder="Inflamación, edema, cicatrices...">
+    </div>
+  </div>
+
+  <div class="field-row two">
+    <div class="field">
+      <label>Palpación</label>
+      <input type="text" id="ev-palp" placeholder="Puntos dolorosos, contracturas...">
+    </div>
+    <div class="field">
+      <label>Movilidad</label>
+      <input type="text" id="ev-movilidad" placeholder="Rangos articulares, limitaciones...">
+    </div>
+  </div>
+
+  <div class="field-row two">
+    <div class="field">
+      <label>Fuerza muscular</label>
+      <input type="text" id="ev-fuerza" placeholder="Escala 0-5, grupos musculares...">
+    </div>
+    <div class="field">
+      <label>Pedido médico</label>
+      <div style="display:flex;gap:12px;margin-top:6px">
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:#1a1917"><input type="radio" name="ev-pedido" value="si" id="ev-pedido-si"> Sí</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:#1a1917"><input type="radio" name="ev-pedido" value="no" id="ev-pedido-no" checked> No</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>EVA inicial (dolor 0-10)</label>
+    <div style="display:flex;gap:4px;margin-top:6px" id="ev-eva-btns"></div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#7a7a76;margin-top:4px"><span>Sin dolor</span><span>Máximo dolor</span></div>
+    <input type="hidden" id="ev-eva-val" value="5">
+  </div>
+
+  <div class="field">
+    <label>Observaciones adicionales</label>
+    <textarea id="ev-notas" rows="2" placeholder="Plan de tratamiento propuesto, objetivos, otras observaciones..." style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;font-size:13px;color:#1a1917;font-family:inherit;resize:vertical"></textarea>
+  </div>
+
+  <div class="modal-actions">
+    <button class="btn-cancel" onclick="closeModal('eval-modal')">Cancelar</button>
+    <button class="add-btn" onclick="saveEvalInicial()">Guardar evaluación</button>
   </div>
 </div>
 </div>
