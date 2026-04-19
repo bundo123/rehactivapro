@@ -879,6 +879,11 @@ async function dbUpdateBillingPendientes(patientId,pendientes){
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 
 
@@ -1460,6 +1465,13 @@ function renderResumen(){
   if(!ta.length)html='<div style="color:#6b6a64;font-size:13px;padding:20px 0">No hay citas registradas para hoy.</div>';
   document.getElementById('resumen-content').innerHTML=html;
 }
+function openWA(patientId) {
+  const p = getPatient(patientId);
+  if (!p || !p.tel) { toastErr('Sin teléfono registrado'); return; }
+  const tel = '593' + p.tel.replace(/[^0-9]/g,'').slice(-9);
+  window.open('https://wa.me/' + tel, '_blank');
+}
+
 function waPatient(encodedName) {
   const name = decodeURIComponent(encodedName);
   const pt = patients.find(p => p.name === name);
@@ -1650,175 +1662,7 @@ async function deletePatient(id){
 }
 
 // ======= INFORMES =======
-function renderSemanal(){
-  updateWeekLabel();
-  const _n=new Date();
-  const todayStr=fmtDate(_n);
-  
-  // Calcular inicio y fin de semana
-  const semStart=new Date(currentDate);
-  semStart.setDate(semStart.getDate()-semStart.getDay()+1);
-  const semEnd=new Date(semStart); semEnd.setDate(semStart.getDate()+4);
-  const semDates=[];
-  for(let i=0;i<5;i++){const d=new Date(semStart);d.setDate(semStart.getDate()+i);semDates.push(fmtDate(d));}
-  
-  // Filtrar citas de la semana
-  const semAppts = appointments.filter(a=>semDates.includes(a.date));
-  const conf = semAppts.filter(a=>a.status==='conf'); // incluye citas fuera de horario oficial
-  const noas = semAppts.filter(a=>a.status==='noas');
-  const pend = semAppts.filter(a=>a.status==='pend');
-  const total = semAppts.length;
-  const tasaAsist = total>0 ? Math.round(conf.length/total*100) : 0;
-  
-  // Pacientes únicos atendidos
-  const patsAtendidos = new Set(conf.map(a=>a.patientId)).size;
-  const patsNoas = new Set(noas.map(a=>a.patientId)).size;
-  
-  // Ingresos estimados (sesiones × tarifa base $25)
-  const tarifaBase = 25;
-  const ingresosEst = conf.length * tarifaBase;
-  
-  // Por terapeuta
-  const porTerapeuta = therapists.map(th=>{
-    const thAppts = semAppts.filter(a=>a.therapistId===th.id);
-    const thConf = thAppts.filter(a=>a.status==='conf').length;
-    const thTotal = thAppts.length;
-    const slots = therapistHours(th).length * 5;
-    const util = slots>0 ? Math.round(thTotal/slots*100) : 0;
-    return {th, thConf, thTotal, thNoas: thAppts.filter(a=>a.status==='noas').length, slots, util};
-  });
-  
-  // Top diagnósticos
-  const diagCount = {};
-  conf.forEach(a=>{
-    const pt = getPatient(a.patientId);
-    if(pt&&pt.diag){const d=pt.diag.split(/[,;]/)[0].trim();diagCount[d]=(diagCount[d]||0)+1;}
-  });
-  const topDiag = Object.entries(diagCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  
-  // Pacientes que cumplen hoy (alta o 100% sesiones)
-  const proxAlta = patients.filter(p=>p.status==='active'&&p.sessions>0&&Math.round((p.done/p.sessions)*100)>=80).slice(0,5);
-  
-  const semLabel = fmtDate(semStart)+' al '+fmtDate(semEnd);
-  const c=getColor(therapists[0]?therapists[0].colorId:0);
-  
-  document.getElementById('semanal-stats').innerHTML=`
-  <!-- Header -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
-    <div>
-      <div style="font-size:11px;color:#6b6a64;text-transform:uppercase;letter-spacing:.05em">Semana del</div>
-      <div style="font-size:14px;font-weight:600;color:#1a1917">${semLabel}</div>
-    </div>
-    <button class="ai-btn" onclick="genSemanalAI()">Análisis con IA ↗</button>
-  </div>
 
-  <!-- KPIs principales -->
-  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px">
-    <div class="stat">
-      <div class="stat-lbl">Citas totales</div>
-      <div class="stat-val">${total}</div>
-      <div style="font-size:10px;color:#6b6a64;margin-top:2px">${semDates.length} días hábiles</div>
-    </div>
-    <div class="stat">
-      <div class="stat-lbl">Asistencia</div>
-      <div class="stat-val" style="color:${tasaAsist>=80?'#1D9E75':tasaAsist>=60?'#BA7517':'#E24B4A'}">${tasaAsist}%</div>
-      <div style="font-size:10px;color:#6b6a64;margin-top:2px">${conf.length} confirmadas</div>
-    </div>
-    <div class="stat">
-      <div class="stat-lbl">No asistieron</div>
-      <div class="stat-val" style="color:#E24B4A">${noas.length}</div>
-      <div style="font-size:10px;color:#6b6a64;margin-top:2px">${patsNoas} pacientes</div>
-    </div>
-    <div class="stat">
-      <div class="stat-lbl">Ingreso est.</div>
-      <div class="stat-val" style="color:#1D9E75">$${ingresosEst}</div>
-      <div style="font-size:10px;color:#6b6a64;margin-top:2px">a $${tarifaBase}/sesión</div>
-    </div>
-  </div>
-
-  <!-- Segunda fila de KPIs -->
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
-    <div class="stat">
-      <div class="stat-lbl">Pacientes atendidos</div>
-      <div class="stat-val">${patsAtendidos}</div>
-      <div style="font-size:10px;color:#6b6a64;margin-top:2px">pacientes únicos</div>
-    </div>
-    <div class="stat">
-      <div class="stat-lbl">Pendientes hoy</div>
-      <div class="stat-val" style="color:#BA7517">${pend.length}</div>
-      <div style="font-size:10px;color:#6b6a64;margin-top:2px">sin confirmar</div>
-    </div>
-    <div class="stat">
-      <div class="stat-lbl">Total pacientes activos</div>
-      <div class="stat-val">${patients.filter(p=>p.status==='active').length}</div>
-      <div style="font-size:10px;color:#6b6a64;margin-top:2px">en tratamiento</div>
-    </div>
-  </div>
-
-  <!-- Por terapeuta -->
-  <div class="full-card" style="margin-bottom:14px">
-    <div class="card-title" style="margin-bottom:12px">Desempeño por terapeuta</div>
-    ${porTerapeuta.map(({th,thConf,thTotal,thNoas,slots,util})=>{
-      const thC=getColor(th.colorId);
-      const uColor=util>=80?'#1D9E75':util>=60?'#BA7517':'#E24B4A';
-      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(29,158,117,.08)">'
-        +'<div class="avatar" style="background:'+thC.border+'22;color:'+thC.text+';width:36px;height:36px;font-size:12px;flex-shrink:0">'+th.initials+'</div>'
-        +'<div style="flex:1">'
-        +'<div style="font-size:13px;font-weight:600;color:#1a1917">'+th.name+'</div>'
-        +'<div style="display:flex;gap:12px;margin-top:4px">'
-        +'<span style="font-size:11px;color:#1D9E75">✓ '+thConf+' confirmadas</span>'
-        +'<span style="font-size:11px;color:#E24B4A">✗ '+thNoas+' no asistió</span>'
-        +'<span style="font-size:11px;color:#6b6a64">'+thTotal+'/'+slots+' slots</span>'
-        +'</div>'
-        +'<div style="margin-top:6px;height:4px;background:rgba(255,255,255,.08);border-radius:2px">'
-        +'<div style="height:4px;width:'+Math.min(util,100)+'%;background:'+uColor+';border-radius:2px;transition:width .4s"></div>'
-        +'</div>'
-        +'</div>'
-        +'<div style="font-size:16px;font-weight:700;color:'+uColor+'">'+util+'%</div>'
-        +'</div>';
-    }).join('')}
-  </div>
-
-  <!-- Top diagnósticos + Pacientes próximos a alta -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-    <div class="card">
-      <div class="card-title" style="margin-bottom:10px">Top diagnósticos semana</div>
-      ${topDiag.length ? topDiag.map(([d,n])=>
-        '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(29,158,117,.06)">'
-        +'<span style="font-size:11px;color:#1a1917">'+d+'</span>'
-        +'<span style="font-size:11px;font-weight:700;color:#1D9E75;background:rgba(29,158,117,.12);padding:2px 8px;border-radius:99px">'+n+'</span>'
-        +'</div>'
-      ).join('') : '<div style="font-size:12px;color:#4a4a46;padding:8px 0">Sin datos esta semana</div>'}
-    </div>
-    <div class="card">
-      <div class="card-title" style="margin-bottom:10px">Próximos a alta (≥80%)</div>
-      ${proxAlta.length ? proxAlta.map(p=>{
-        const pct=Math.round(p.done/p.sessions*100);
-        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(29,158,117,.06)">'
-          +'<span style="font-size:11px;color:#1a1917">'+p.name.split(' ').slice(0,2).join(' ')+'</span>'
-          +'<span style="font-size:11px;font-weight:700;color:#BA7517;background:rgba(186,117,23,.12);padding:2px 8px;border-radius:99px">'+pct+'%</span>'
-          +'</div>';
-      }).join('') : '<div style="font-size:12px;color:#4a4a46;padding:8px 0">Ninguno cerca de alta</div>'}
-    </div>
-  </div>
-
-  <!-- Pacientes que no asistieron esta semana -->
-  ${noas.length ? '<div class="full-card"><div class="card-title" style="margin-bottom:10px">No asistieron esta semana — requieren seguimiento</div>'
-  + noas.slice(0,8).map(a=>{
-    const pt=getPatient(a.patientId); const th=getTherapist(a.therapistId);
-    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(224,80,80,.08)">'
-      +'<div><div style="font-size:12px;font-weight:500;color:#1a1917">'+(pt?pt.name:'Paciente')+'</div>'
-      +'<div style="font-size:10px;color:#6b6a64">'+a.date+' · '+(th?th.name:'')+'</div></div>'
-      +'<button onclick="waPatient(\''+encodeURIComponent(pt?pt.name:'')+'\')" style="font-size:10px;padding:3px 10px;background:rgba(37,211,102,.15);color:#25d366;border:none;border-radius:99px;cursor:pointer;font-weight:600">WA</button>'
-      +'</div>';
-  }).join('')+'</div>' : ''}
-
-  <div id="insights" style="margin-top:12px"></div>
-  `;
-}
-
-
-function hmCol(p){if(p===null)return'#1a1917';if(p===0)return'#141412';if(p<25)return'#0d2a21';if(p<50)return'#0f4030';if(p<75)return'#145c44';if(p<90)return'#1D9E75';return'#0F6E56';}
 function renderHeatmap(){
   let html=`<div class="heatmap-grid" style="grid-template-columns:50px repeat(5,1fr)"><div class="hm-hdr"></div>`;
   DAYS.forEach(d=>{html+=`<div class="hm-hdr">${d}</div>`;});
@@ -2326,7 +2170,7 @@ function toggleNotif(id,v){const n=notifSettings.find(x=>x.id===id);if(n){n.on=v
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 function showTab(tab){
   allTabs.forEach(t=>document.getElementById('tab-'+t).style.display=t===tab?'':'none');
-  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));const navMap={'agenda':-1,'resumen':0,'pacientes':1,'paciente_rpt':2,'protocolos':3,'informes':4,'facturacion':5,'terapeutas':6,'doctores':7};const navItems=document.querySelectorAll('.nav-item');if(navItems[navMap[tab]])navItems[navMap[tab]].classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));const navMap={'agenda':0,'resumen':1,'pacientes':2,'paciente_rpt':3,'protocolos':4,'informes':5,'facturacion':6,'terapeutas':7,'doctores':8};const navItems=document.querySelectorAll('.nav-item');if(navItems[navMap[tab]])navItems[navMap[tab]].classList.add('active');
   if(tab==='pacientes')renderPatients();
   if(tab==='informes')renderSemanal();
   if(tab==='paciente_rpt')renderPatientReportSelect();
