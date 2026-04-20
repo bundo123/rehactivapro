@@ -84,7 +84,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* El único punto: estado, clickeable */
 .appt-dot{position:absolute;top:6px;right:7px;width:8px;height:8px;border-radius:50%;cursor:pointer;transition:transform .1s}
 .appt-dot:hover{transform:scale(1.6)}
-.appt-del{position:absolute;bottom:3px;right:4px;width:12px;height:12px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:8px;cursor:pointer;background:rgba(0,0,0,0.4);color:#fff}
+.appt-del{position:absolute;bottom:4px;right:4px;width:18px;height:18px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;background:rgba(224,80,80,.85);color:#fff;line-height:1}
 .appt:hover .appt-del{display:flex}
 /* Fondos de citas por color de terapeuta */
 .ca{background:#091f17;color:#7dd9b2}
@@ -1277,7 +1277,7 @@ function renderGrid(){
         const docTag=doc?`<span style="font-size:9px;opacity:.7">${doc.name.split(' ').slice(-1)[0]}</span>`:'';
         // Borde izquierdo = color del doctor referente (si existe), si no = color del terapeuta
         if(doc){card.style.borderLeftColor=doc.color;card.title=`Ref: ${doc.name} (${doc.spec})${appt.status==='conf'?' · Doble click para registrar sesión':''}`;}
-        card.innerHTML=`<div class="appt-name" onclick="event.stopPropagation();openEditPatient('${appt.patientId}')" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Ver/editar paciente">${pt?pt.name:(appt.patientName||'Sin paciente')}</div><div class="appt-sub">${appt.type}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${appt.status} — click para cambiar"></div><div class="appt-del" onclick="delAppt(${appt.id},event)">×</div>`;
+        card.innerHTML=`<div class="appt-name" onclick="event.stopPropagation();openEditPatient('${appt.patientId}')" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Ver/editar paciente">${pt?pt.name:(appt.patientName||'Sin paciente')}</div><div class="appt-sub">${appt.type}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${appt.status} — click para cambiar"></div><div class="appt-del" onclick="delAppt('${appt.id}',event)">×</div>`;
         card.querySelector('.appt-dot').addEventListener('click',e=>{e.stopPropagation();cycleStatus(appt.id);});
         card.addEventListener('dragstart',()=>{dragData=appt.id});
         card.addEventListener('dblclick',e=>{
