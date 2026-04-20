@@ -79,20 +79,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .appt:active{cursor:grabbing}
 .appt.status-pend{opacity:.45}
 .appt.status-noas{opacity:.55}
-.appt-name{font-weight:600;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.1px}
-.appt-sub{font-size:10px;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.appt-name{font-weight:700;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.1px;color:inherit}
+.appt-sub{font-size:10px;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:inherit}
 /* El único punto: estado, clickeable */
 .appt-dot{position:absolute;top:6px;right:7px;width:8px;height:8px;border-radius:50%;cursor:pointer;transition:transform .1s}
 .appt-dot:hover{transform:scale(1.6)}
 .appt-del{position:absolute;bottom:4px;right:4px;width:18px;height:18px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;background:rgba(224,80,80,.85);color:#fff;line-height:1}
 .appt:hover .appt-del{display:flex}
 /* Fondos de citas por color de terapeuta */
-.ca{background:#091f17;color:#7dd9b2}
-.cb{background:#09172a;color:#7ab8e8}
-.cc{background:#13102a;color:#b0acef}
-.cd{background:#1e160a;color:#e0a850}
-.ce{background:#200c16;color:#e890b0}
-.cf{background:#0e1808;color:#90c44a}
+.ca{background:#e8f5f0;color:#0d6e4e;border-left-color:#1D9E75}
+.cb{background:#e8f2fb;color:#1a4a8a;border-left-color:#378ADD}
+.cc{background:#fef6e8;color:#7a4a00;border-left-color:#BA7517}
+.cd{background:#fdeef4;color:#8a2a50;border-left-color:#D4537E}
+.ce{background:#f0eefb;color:#4a3d9e;border-left-color:#7F77DD}
+.cf{background:#f0f8e8;color:#3a5a10;border-left-color:#639922}
 
 /* Leyenda doctores — discreta, horizontal */
 .ref-legend{display:flex;align-items:center;gap:14px;padding:5px 0;flex-wrap:wrap;margin-bottom:10px}
@@ -991,12 +991,12 @@ function protocolSVG(img) {
 const ALL_HOURS=[6,7,8,9,10,11,12,13,14,15,16,17];
 const DAYS=['Lun','Mar','Mié','Jue','Vie'];
 const COLOR_OPTIONS=[
-  {id:'ca',bg:'#0d2a21',border:'#1D9E75',text:'#7dd9b2'},
-  {id:'cb',bg:'#0d1e2e',border:'#378ADD',text:'#7ab8e8'},
-  {id:'cc',bg:'#1a1830',border:'#7F77DD',text:'#b0acef'},
-  {id:'cd',bg:'#271d0e',border:'#BA7517',text:'#e0a850'},
-  {id:'ce',bg:'#28101a',border:'#D4537E',text:'#e890b0'},
-  {id:'cf',bg:'#131e0a',border:'#639922',text:'#90c44a'},
+  {id:'ca',bg:'#e8f5f0',border:'#1D9E75',text:'#0d6e4e'},   // Giovanni — verde
+  {id:'cb',bg:'#e8f2fb',border:'#378ADD',text:'#1a4a8a'},   // Marco — azul
+  {id:'cc',bg:'#fef6e8',border:'#BA7517',text:'#7a4a00'},   // Josselyn — naranja
+  {id:'cd',bg:'#fdeef4',border:'#D4537E',text:'#8a2a50'},   // Karina — rosa
+  {id:'ce',bg:'#f0eefb',border:'#7F77DD',text:'#4a3d9e'},   // Axel — morado
+  {id:'cf',bg:'#f0f8e8',border:'#639922',text:'#3a5a10'},   // extra — verde lima
 ];
 const DOC_COLORS=['#E24B4A','#378ADD','#7F77DD','#BA7517','#D4537E','#1D9E75','#D85A30','#639922'];
 
@@ -1277,8 +1277,10 @@ function renderGrid(){
         const docTag=doc?`<span style="font-size:9px;opacity:.7">${doc.name.split(' ').slice(-1)[0]}</span>`:'';
         // Borde izquierdo = color del doctor referente (si existe), si no = color del terapeuta
         if(doc){card.style.borderLeftColor=doc.color;card.title=`Ref: ${doc.name} (${doc.spec})${appt.status==='conf'?' · Doble click para registrar sesión':''}`;}
-        card.innerHTML=`<div class="appt-name" onclick="event.stopPropagation();openEditPatient('${appt.patientId}')" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Ver/editar paciente">${pt?pt.name:(appt.patientName||'Sin paciente')}</div><div class="appt-sub">${appt.type}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${appt.status} — click para cambiar"></div><div class="appt-del" onclick="delAppt('${appt.id}',event)">×</div>`;
+        card.innerHTML=`<div class="appt-name" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Ver/editar paciente">${pt?pt.name:(appt.patientName||'Sin paciente')}</div><div class="appt-sub">${appt.type}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${appt.status} — click para cambiar"></div><div class="appt-del">×</div>`;
+        card.querySelector('.appt-name').addEventListener('click',e=>{e.stopPropagation();openEditPatient(appt.patientId);});
         card.querySelector('.appt-dot').addEventListener('click',e=>{e.stopPropagation();cycleStatus(appt.id);});
+        card.querySelector('.appt-del').addEventListener('click',e=>{e.stopPropagation();delAppt(appt.id,e);});
         card.addEventListener('dragstart',()=>{dragData=appt.id});
         card.addEventListener('dblclick',e=>{
           e.stopPropagation();
