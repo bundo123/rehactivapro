@@ -1418,12 +1418,13 @@ async function saveAppt(){
       }renderGrid();toastOk('Cita guardada correctamente');}
   }catch(e){toastErr('Error de conexión al guardar cita.');}
   updateFacturaBadge();
+}
+
 function updateGlobalSPF(v){
   const n=parseInt(v)||5;
   patients.forEach(p=>{if(p.billing)p.billing.sesPerFactura=n;});
   if(document.getElementById('facturacion-content').children.length>0)renderFacturacion();
   updateFacturaBadge();
-}
 }
 
 // ======= RESUMEN DEL DÍA =======
@@ -3420,7 +3421,6 @@ initApp();
       <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="ne-eval" value="no"> No por ahora</label>
     </div>
   </div>
-  /* bundo123 */
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal('nuevo-episodio-modal')">Cancelar</button>
     <button class="btn-save" onclick="guardarNuevoEpisodio()">Iniciar episodio</button>
