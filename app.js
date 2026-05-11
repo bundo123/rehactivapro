@@ -2525,10 +2525,72 @@ function exportarPDF() {
 // ============================================================
 let realtimeChannel=null;
 let realtimeReconnectTimer=null;
-let lastLocalChangeAt=0;
-function markLocalChange(){ lastLocalChangeAt=Date.now(); }
-function isLocalEcho(){ return (Date.now()-lastLocalChangeAt) < 1500; }
-function _toastRemote(msg){ if(!isLocalEcho()) toastInfo(msg); }
+
+// ── Anti-eco por tabla (ventana 3 s) ──
+const ANTI_ECHO_MS = 3000;
+const TRACKED_TABLES = new Set(['appointments','patients','session_log','cobros','therapists','doctors']);
+const _lastLocalChangeByTable = new Map();
+function markLocalChange(table){
+  if (table) { _lastLocalChangeByTable.set(table, Date.now()); return; }
+  // Sin argumento: marcar todas (compatibilidad con callsites antiguos)
+  const now = Date.now();
+  TRACKED_TABLES.forEach(t => _lastLocalChangeByTable.set(t, now));
+}
+function isLocalEcho(table){
+  const ts = _lastLocalChangeByTable.get(table) || 0;
+  return (Date.now() - ts) < ANTI_ECHO_MS;
+}
+
+// ── Wrapper sobre supa.from: auto-marca cualquier mutación sobre tablas tracked ──
+// Captura escrituras directas (cycleStatus, deletePatient, nuevoEpisodio, etc.) sin
+// depender de que cada callsite recuerde llamar markLocalChange.
+const _supaFromOrig = supa.from.bind(supa);
+supa.from = function(table){
+  const builder = _supaFromOrig(table);
+  if (TRACKED_TABLES.has(table)) {
+    ['insert','update','upsert','delete'].forEach(method => {
+      const orig = builder[method];
+      if (typeof orig === 'function') {
+        builder[method] = function(...args){
+          markLocalChange(table);
+          return orig.apply(builder, args);
+        };
+      }
+    });
+  }
+  return builder;
+};
+
+// ── Toasts agrupados (debounce 600 ms) ──
+let _toastFlushTimer = null;
+const _pendingToasts = new Map(); // table → { count, lastMsg }
+const _TOAST_PLURAL = {
+  appointments: 'Cambios en agenda',
+  patients:     'Pacientes actualizados',
+  session_log:  'Sesiones actualizadas',
+  cobros:       'Cobros registrados',
+  therapists:   'Terapeutas actualizados',
+  doctors:      'Doctores actualizados',
+};
+function queueRemoteToast(table, msg){
+  if (isLocalEcho(table)) return;
+  const cur = _pendingToasts.get(table) || { count: 0, lastMsg: msg };
+  cur.count += 1;
+  cur.lastMsg = msg;
+  _pendingToasts.set(table, cur);
+  if (_toastFlushTimer) clearTimeout(_toastFlushTimer);
+  _toastFlushTimer = setTimeout(_flushRemoteToasts, 600);
+}
+function _flushRemoteToasts(){
+  _toastFlushTimer = null;
+  for (const [table, info] of _pendingToasts) {
+    const msg = info.count === 1
+      ? info.lastMsg
+      : `${_TOAST_PLURAL[table] || 'Cambios remotos'} (${info.count})`;
+    toastInfo(msg);
+  }
+  _pendingToasts.clear();
+}
 
 // ── Mappers DB row → in-memory shape ──
 function _mapAppt(r){
@@ -2567,18 +2629,18 @@ function _onAppt(payload){
   if(ev==='INSERT'){
     if(!appointments.find(a=>a.id===payload.new.id)){
       appointments.push(_mapAppt(payload.new));
-      _toastRemote('Nueva cita agregada');
+      queueRemoteToast('appointments','Nueva cita agregada');
     }
   } else if(ev==='UPDATE'){
     const i=appointments.findIndex(a=>a.id===payload.new.id);
     const mapped=_mapAppt(payload.new);
     if(i>=0){ mapped.hasSession=appointments[i].hasSession; appointments[i]=mapped; }
     else appointments.push(mapped);
-    _toastRemote('Cita actualizada');
+    queueRemoteToast('appointments','Cita actualizada');
   } else if(ev==='DELETE'){
     const before=appointments.length;
     appointments=appointments.filter(a=>a.id!==payload.old.id);
-    if(appointments.length<before) _toastRemote('Cita eliminada');
+    if(appointments.length<before) queueRemoteToast('appointments','Cita eliminada');
   }
   _refreshTabAfterAppt();
 }
@@ -2588,17 +2650,17 @@ function _onPatient(payload){
   if(ev==='INSERT'){
     if(!patients.find(p=>p.id===payload.new.id)){
       patients.push(_mapPatient(payload.new));
-      _toastRemote('Paciente agregado');
+      queueRemoteToast('patients','Paciente agregado');
     }
   } else if(ev==='UPDATE'){
     const i=patients.findIndex(p=>p.id===payload.new.id);
     if(i>=0) patients[i]=_mapPatient(payload.new);
     else patients.push(_mapPatient(payload.new));
-    _toastRemote('Paciente actualizado');
+    queueRemoteToast('patients','Paciente actualizado');
   } else if(ev==='DELETE'){
     const before=patients.length;
     patients=patients.filter(p=>p.id!==payload.old.id);
-    if(patients.length<before) _toastRemote('Paciente eliminado');
+    if(patients.length<before) queueRemoteToast('patients','Paciente eliminado');
   }
   if(currentTab==='pacientes') renderPatients();
   else if(currentTab==='paciente_rpt'){
@@ -2620,7 +2682,7 @@ function _onSessionLog(payload){
   if(ev==='INSERT'){
     if(!p.log.find(s=>s.date===payload.new.date && s.hour===payload.new.hour)){
       p.log.push(_mapSession(payload.new));
-      _toastRemote('Sesión clínica registrada');
+      queueRemoteToast('session_log','Sesión clínica registrada');
     }
     // marcar appointment.hasSession
     const hh=String((payload.new.hour||'').split(':')[0]);
@@ -2630,10 +2692,10 @@ function _onSessionLog(payload){
     const idx=p.log.findIndex(s=>s.date===payload.new.date && s.hour===payload.new.hour);
     if(idx>=0) p.log[idx]=_mapSession(payload.new);
     else p.log.push(_mapSession(payload.new));
-    _toastRemote('Sesión actualizada');
+    queueRemoteToast('session_log','Sesión actualizada');
   } else if(ev==='DELETE'){
     p.log=p.log.filter(s=>!(s.date===payload.old.date && s.hour===payload.old.hour));
-    _toastRemote('Sesión eliminada');
+    queueRemoteToast('session_log','Sesión eliminada');
   }
   if(currentTab==='paciente_rpt'){
     const sel=document.getElementById('patient-rpt-select')?.value;
@@ -2654,7 +2716,7 @@ function _onCobro(payload){
       const m=String(r.cobro_ref||'').match(/^F(\d+)$/);
       if(m){ const n=parseInt(m[1],10); if(n>facturaCounter) facturaCounter=n; }
     }
-    _toastRemote('Cobro registrado');
+    queueRemoteToast('cobros','Cobro registrado');
   }
   if(currentTab==='facturacion') renderFacturacion();
   updateFacturaBadge();
@@ -2665,17 +2727,17 @@ function _onTherapist(payload){
   if(ev==='INSERT'){
     if(!therapists.find(t=>t.id===payload.new.id)){
       therapists.push(_mapTherapist(payload.new));
-      _toastRemote('Terapeuta agregado');
+      queueRemoteToast('therapists','Terapeuta agregado');
     }
   } else if(ev==='UPDATE'){
     const i=therapists.findIndex(t=>t.id===payload.new.id);
     if(i>=0) therapists[i]=_mapTherapist(payload.new);
     else therapists.push(_mapTherapist(payload.new));
-    _toastRemote('Terapeuta actualizado');
+    queueRemoteToast('therapists','Terapeuta actualizado');
   } else if(ev==='DELETE'){
     const before=therapists.length;
     therapists=therapists.filter(t=>t.id!==payload.old.id);
-    if(therapists.length<before) _toastRemote('Terapeuta eliminado');
+    if(therapists.length<before) queueRemoteToast('therapists','Terapeuta eliminado');
   }
   if(currentTab==='terapeutas') renderTherapistList();
   if(currentTab==='agenda') renderGrid();
@@ -2686,17 +2748,17 @@ function _onDoctor(payload){
   if(ev==='INSERT'){
     if(!doctors.find(d=>d.id===payload.new.id)){
       doctors.push(_mapDoctor(payload.new));
-      _toastRemote('Doctor agregado');
+      queueRemoteToast('doctors','Doctor agregado');
     }
   } else if(ev==='UPDATE'){
     const i=doctors.findIndex(d=>d.id===payload.new.id);
     if(i>=0) doctors[i]=_mapDoctor(payload.new);
     else doctors.push(_mapDoctor(payload.new));
-    _toastRemote('Doctor actualizado');
+    queueRemoteToast('doctors','Doctor actualizado');
   } else if(ev==='DELETE'){
     const before=doctors.length;
     doctors=doctors.filter(d=>d.id!==payload.old.id);
-    if(doctors.length<before) _toastRemote('Doctor eliminado');
+    if(doctors.length<before) queueRemoteToast('doctors','Doctor eliminado');
   }
   renderRefLegend();
   if(currentTab==='doctores') renderDoctorsList();
