@@ -22,9 +22,11 @@ async function doLogin(){
     await loadAll();
     document.getElementById('loading-overlay').style.display='none';
     renderGrid();updateResumenBadge();updateFacturaBadge();
+    subscribeRealtime();
   }
 }
 async function doLogout(){
+  await unsubscribeRealtime();
   await supa.auth.signOut();location.reload();
 }
 
@@ -77,42 +79,50 @@ async function loadAll(){
 
 // ── GUARDAR / BORRAR ──
 async function dbSaveAppt(a){
+  markLocalChange();
   const payload={date:a.date,therapist_id:a.therapistId,patient_id:a.patientId,hour:a.hour,type:a.type,status:a.status,note:a.note||''};
   if(typeof a.id==='string')payload.id=a.id;
   await supa.from('appointments').upsert(payload);
 }
-async function dbDeleteAppt(id){if(typeof id==='string')await supa.from('appointments').delete().eq('id',id);}
+async function dbDeleteAppt(id){markLocalChange();if(typeof id==='string')await supa.from('appointments').delete().eq('id',id);}
 async function dbUpdateApptStatus(id,status){
   if(typeof id!=='string')return;
+  markLocalChange();
   const {error}=await supa.from('appointments').update({status}).eq('id',id);
   if(error)toastErr('No se pudo guardar el estado de la cita.');
 }
 async function dbSavePatient(p){
+  markLocalChange();
   await supa.from('patients').insert({name:p.name,age:p.age,cedula:p.cedula,tel:p.tel,email:p.email,dir:p.dir,diag:p.diag,therapist_id:p.therapistId||null,doctor_id:p.doctorId||null,sessions:p.sessions,done:0,status:p.status,billing_ses_per_factura:p.billing.sesPerFactura,billing_pendientes:p.billing.pendientes});
 }
 async function dbSaveTherapist(th){
+  markLocalChange();
   const d={name:th.name,initials:th.initials,spec:th.spec,start_h:th.startH,end_h:th.endH,color_id:th.colorId};
   if(typeof th.id==='string')d.id=th.id;
   await supa.from('therapists').upsert(d);
 }
-async function dbDeleteTherapist(id){if(typeof id==='string')await supa.from('therapists').delete().eq('id',id);}
+async function dbDeleteTherapist(id){markLocalChange();if(typeof id==='string')await supa.from('therapists').delete().eq('id',id);}
 async function dbSaveDoctor(d){
+  markLocalChange();
   const p={name:d.name,spec:d.spec,email:d.email,tel:d.tel,color:d.color};
   if(typeof d.id==='string')p.id=d.id;
   await supa.from('doctors').upsert(p);
 }
-async function dbDeleteDoctor(id){if(typeof id==='string')await supa.from('doctors').delete().eq('id',id);}
+async function dbDeleteDoctor(id){markLocalChange();if(typeof id==='string')await supa.from('doctors').delete().eq('id',id);}
 async function dbSaveProtocol(p){
+  markLocalChange();
   const d={name:p.name,diag_keywords:p.diag,sessions:p.sessions,freq:p.freq,discharge_criteria:p.alta};
   if(typeof p.id==='string')d.id=p.id;
   await supa.from('protocols').upsert(d);
 }
-async function dbDeleteProtocol(id){if(typeof id==='string')await supa.from('protocols').delete().eq('id',id);}
+async function dbDeleteProtocol(id){markLocalChange();if(typeof id==='string')await supa.from('protocols').delete().eq('id',id);}
 async function dbRegistrarCobro(patientId,nSessions,cobroRef){
+  markLocalChange();
   await supa.from('cobros').insert({cobro_ref:cobroRef,patient_id:patientId,n_sessions:nSessions,date:fmtDate(new Date())});
   await supa.from('patients').update({billing_pendientes:0}).eq('id',patientId);
 }
 async function dbUpdateBillingPendientes(patientId,pendientes){
+  markLocalChange();
   if(typeof patientId==='string')await supa.from('patients').update({billing_pendientes:pendientes}).eq('id',patientId);
 }
 
@@ -362,6 +372,7 @@ let editingProtocolId=null;
 let editingPatientId=null;
 const allTabs=['agenda','pacientes','informes','paciente_rpt','protocolos','resumen','terapeutas','doctores','facturacion'];
 let facturaCounter=10;
+let currentTab='agenda';
 
 // ======= HELPERS =======
 function escapeHtml(v){
@@ -1608,6 +1619,7 @@ function toggleNotif(id,v){const n=notifSettings.find(x=>x.id===id);if(n){n.on=v
 // ======= TABS =======
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 function showTab(tab){
+  currentTab=tab;
   allTabs.forEach(t=>document.getElementById('tab-'+t).style.display=t===tab?'':'none');
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));const navMap={'agenda':0,'resumen':1,'pacientes':2,'paciente_rpt':3,'protocolos':4,'informes':5,'facturacion':6,'terapeutas':7,'doctores':8};const navItems=document.querySelectorAll('.nav-item');if(navItems[navMap[tab]])navItems[navMap[tab]].classList.add('active');
   if(tab==='pacientes')renderPatients();
@@ -1958,6 +1970,7 @@ async function saveSession() {
   document.getElementById('sess-note').style.borderColor = '';
   
   if (appt.id && appt.patientId) {
+    markLocalChange();
     // Buscar si ya existe sesión para este paciente en este día Y HORA
     const existingInDB = await supa.from('session_log')
       .select('id')
@@ -2507,6 +2520,233 @@ function exportarPDF() {
   win.document.close();
 }
 
+// ============================================================
+// REALTIME — sincronización entre pestañas/usuarios
+// ============================================================
+let realtimeChannel=null;
+let realtimeReconnectTimer=null;
+let lastLocalChangeAt=0;
+function markLocalChange(){ lastLocalChangeAt=Date.now(); }
+function isLocalEcho(){ return (Date.now()-lastLocalChangeAt) < 1500; }
+function _toastRemote(msg){ if(!isLocalEcho()) toastInfo(msg); }
+
+// ── Mappers DB row → in-memory shape ──
+function _mapAppt(r){
+  const pt=getPatient(r.patient_id);
+  return {id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:pt?pt.name:null,hour:r.hour,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''};
+}
+function _mapPatient(r){
+  const existing=patients.find(p=>p.id===r.id);
+  return {
+    id:r.id,name:r.name,age:r.age||35,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
+    diag:r.diag||'Sin diagnóstico',therapistId:r.therapist_id,doctorId:r.doctor_id,
+    sessions:r.sessions||10,done:r.done||0,status:r.status||'active',
+    log: existing ? existing.log : [],
+    billing: {
+      sesPerFactura:r.billing_ses_per_factura||5,
+      pendientes:r.billing_pendientes||0,
+      facturas: existing && existing.billing ? existing.billing.facturas : []
+    }
+  };
+}
+function _mapTherapist(r){ return {id:r.id,name:r.name,initials:r.initials||r.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),spec:r.spec||'',startH:r.start_h,endH:r.end_h,colorId:r.color_id||'ca'}; }
+function _mapDoctor(r){ return {id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'}; }
+function _mapSession(s){ return {date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[]}; }
+
+// ── Re-render según pestaña activa ──
+function _refreshTabAfterAppt(){
+  if(currentTab==='agenda') renderGrid();
+  else if(currentTab==='resumen') renderResumen();
+  else if(currentTab==='facturacion') renderFacturacion();
+  updateResumenBadge(); updateFacturaBadge();
+}
+
+// ── Handlers por tabla ──
+function _onAppt(payload){
+  const ev=payload.eventType;
+  if(ev==='INSERT'){
+    if(!appointments.find(a=>a.id===payload.new.id)){
+      appointments.push(_mapAppt(payload.new));
+      _toastRemote('Nueva cita agregada');
+    }
+  } else if(ev==='UPDATE'){
+    const i=appointments.findIndex(a=>a.id===payload.new.id);
+    const mapped=_mapAppt(payload.new);
+    if(i>=0){ mapped.hasSession=appointments[i].hasSession; appointments[i]=mapped; }
+    else appointments.push(mapped);
+    _toastRemote('Cita actualizada');
+  } else if(ev==='DELETE'){
+    const before=appointments.length;
+    appointments=appointments.filter(a=>a.id!==payload.old.id);
+    if(appointments.length<before) _toastRemote('Cita eliminada');
+  }
+  _refreshTabAfterAppt();
+}
+
+function _onPatient(payload){
+  const ev=payload.eventType;
+  if(ev==='INSERT'){
+    if(!patients.find(p=>p.id===payload.new.id)){
+      patients.push(_mapPatient(payload.new));
+      _toastRemote('Paciente agregado');
+    }
+  } else if(ev==='UPDATE'){
+    const i=patients.findIndex(p=>p.id===payload.new.id);
+    if(i>=0) patients[i]=_mapPatient(payload.new);
+    else patients.push(_mapPatient(payload.new));
+    _toastRemote('Paciente actualizado');
+  } else if(ev==='DELETE'){
+    const before=patients.length;
+    patients=patients.filter(p=>p.id!==payload.old.id);
+    if(patients.length<before) _toastRemote('Paciente eliminado');
+  }
+  if(currentTab==='pacientes') renderPatients();
+  else if(currentTab==='paciente_rpt'){
+    const sel=document.getElementById('patient-rpt-select')?.value;
+    if(sel) renderPatientReport();
+  }
+  else if(currentTab==='facturacion') renderFacturacion();
+  updateFacturaBadge();
+}
+
+function _onSessionLog(payload){
+  const ev=payload.eventType;
+  const row=payload.new||payload.old;
+  if(!row) return;
+  const pid=row.patient_id;
+  const p=getPatient(pid);
+  if(!p) return;
+  if(!p.log) p.log=[];
+  if(ev==='INSERT'){
+    if(!p.log.find(s=>s.date===payload.new.date && s.hour===payload.new.hour)){
+      p.log.push(_mapSession(payload.new));
+      _toastRemote('Sesión clínica registrada');
+    }
+    // marcar appointment.hasSession
+    const hh=String((payload.new.hour||'').split(':')[0]);
+    const a=appointments.find(x=>x.patientId===pid && x.date===payload.new.date && String(x.hour)===hh);
+    if(a) a.hasSession=true;
+  } else if(ev==='UPDATE'){
+    const idx=p.log.findIndex(s=>s.date===payload.new.date && s.hour===payload.new.hour);
+    if(idx>=0) p.log[idx]=_mapSession(payload.new);
+    else p.log.push(_mapSession(payload.new));
+    _toastRemote('Sesión actualizada');
+  } else if(ev==='DELETE'){
+    p.log=p.log.filter(s=>!(s.date===payload.old.date && s.hour===payload.old.hour));
+    _toastRemote('Sesión eliminada');
+  }
+  if(currentTab==='paciente_rpt'){
+    const sel=document.getElementById('patient-rpt-select')?.value;
+    if(String(sel)===String(pid)) renderPatientReport();
+  }
+  if(currentTab==='agenda') renderGrid();
+}
+
+function _onCobro(payload){
+  const ev=payload.eventType;
+  if(ev==='INSERT'){
+    const r=payload.new;
+    const p=getPatient(r.patient_id);
+    if(p && p.billing){
+      if(!p.billing.facturas.find(f=>f.id===r.cobro_ref)){
+        p.billing.facturas.push({id:r.cobro_ref,n:r.n_sessions,fecha:r.date,estado:'cobrada'});
+      }
+      const m=String(r.cobro_ref||'').match(/^F(\d+)$/);
+      if(m){ const n=parseInt(m[1],10); if(n>facturaCounter) facturaCounter=n; }
+    }
+    _toastRemote('Cobro registrado');
+  }
+  if(currentTab==='facturacion') renderFacturacion();
+  updateFacturaBadge();
+}
+
+function _onTherapist(payload){
+  const ev=payload.eventType;
+  if(ev==='INSERT'){
+    if(!therapists.find(t=>t.id===payload.new.id)){
+      therapists.push(_mapTherapist(payload.new));
+      _toastRemote('Terapeuta agregado');
+    }
+  } else if(ev==='UPDATE'){
+    const i=therapists.findIndex(t=>t.id===payload.new.id);
+    if(i>=0) therapists[i]=_mapTherapist(payload.new);
+    else therapists.push(_mapTherapist(payload.new));
+    _toastRemote('Terapeuta actualizado');
+  } else if(ev==='DELETE'){
+    const before=therapists.length;
+    therapists=therapists.filter(t=>t.id!==payload.old.id);
+    if(therapists.length<before) _toastRemote('Terapeuta eliminado');
+  }
+  if(currentTab==='terapeutas') renderTherapistList();
+  if(currentTab==='agenda') renderGrid();
+}
+
+function _onDoctor(payload){
+  const ev=payload.eventType;
+  if(ev==='INSERT'){
+    if(!doctors.find(d=>d.id===payload.new.id)){
+      doctors.push(_mapDoctor(payload.new));
+      _toastRemote('Doctor agregado');
+    }
+  } else if(ev==='UPDATE'){
+    const i=doctors.findIndex(d=>d.id===payload.new.id);
+    if(i>=0) doctors[i]=_mapDoctor(payload.new);
+    else doctors.push(_mapDoctor(payload.new));
+    _toastRemote('Doctor actualizado');
+  } else if(ev==='DELETE'){
+    const before=doctors.length;
+    doctors=doctors.filter(d=>d.id!==payload.old.id);
+    if(doctors.length<before) _toastRemote('Doctor eliminado');
+  }
+  renderRefLegend();
+  if(currentTab==='doctores') renderDoctorsList();
+  if(currentTab==='agenda') renderGrid();
+}
+
+// ── Subscribe / Unsubscribe / Reconnect ──
+function subscribeRealtime(){
+  if(realtimeChannel) return;
+  realtimeChannel = supa.channel('rehactiva-realtime')
+    .on('postgres_changes',{event:'*',schema:'public',table:'appointments'},_onAppt)
+    .on('postgres_changes',{event:'*',schema:'public',table:'patients'},    _onPatient)
+    .on('postgres_changes',{event:'*',schema:'public',table:'session_log'}, _onSessionLog)
+    .on('postgres_changes',{event:'*',schema:'public',table:'cobros'},      _onCobro)
+    .on('postgres_changes',{event:'*',schema:'public',table:'therapists'},  _onTherapist)
+    .on('postgres_changes',{event:'*',schema:'public',table:'doctors'},     _onDoctor)
+    .subscribe(status=>{
+      if(status==='SUBSCRIBED'){
+        console.log('[Realtime] conectado');
+        if(realtimeReconnectTimer){ clearTimeout(realtimeReconnectTimer); realtimeReconnectTimer=null; }
+      } else if(status==='CHANNEL_ERROR' || status==='CLOSED' || status==='TIMED_OUT'){
+        console.warn('[Realtime] estado:', status, '— reintento en 5s');
+        if(!realtimeReconnectTimer){
+          realtimeReconnectTimer=setTimeout(async ()=>{
+            realtimeReconnectTimer=null;
+            try { if(realtimeChannel) await supa.removeChannel(realtimeChannel); } catch(e){}
+            realtimeChannel=null;
+            try {
+              await loadAll(); // resync por si perdimos eventos
+              if(currentTab==='agenda') renderGrid();
+              else if(currentTab==='pacientes') renderPatients();
+              else if(currentTab==='resumen') renderResumen();
+              else if(currentTab==='facturacion') renderFacturacion();
+              updateResumenBadge(); updateFacturaBadge();
+            } catch(e){ console.warn('[Realtime] resync falló:', e); }
+            subscribeRealtime();
+          }, 5000);
+        }
+      }
+    });
+}
+
+async function unsubscribeRealtime(){
+  if(realtimeReconnectTimer){ clearTimeout(realtimeReconnectTimer); realtimeReconnectTimer=null; }
+  if(realtimeChannel){
+    try { await supa.removeChannel(realtimeChannel); } catch(e){}
+    realtimeChannel=null;
+  }
+}
+
 async function initApp(){
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('loading-overlay').style.display='none';
@@ -2518,6 +2758,7 @@ async function initApp(){
     document.getElementById('loading-overlay').style.display='none';
     checkAutoNoas();renderGrid();updateResumenBadge();updateFacturaBadge();
     checkCitasPendientes();
+    subscribeRealtime();
   }
 }
 // ============================================================
