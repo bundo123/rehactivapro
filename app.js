@@ -54,6 +54,13 @@ async function loadAll(){
     protocols=(prot.data||[]).map(r=>({id:r.id,name:r.name,diag:r.diag_keywords||'',sessions:r.sessions||20,freq:r.freq||3,alta:r.discharge_criteria||''}));
     appointments=(appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:(r.patients&&r.patients.name)||null,hour:r.hour,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''}));
     if(!protocols.length) protocols=[...DEFAULT_PROTOCOLS];
+    // Inicializar contador de facturas desde el mayor F### ya emitido (persistente entre recargas)
+    let maxFact = 0;
+    cobData.forEach(c => {
+      const m = String(c.cobro_ref || '').match(/^F(\d+)$/);
+      if (m) { const n = parseInt(m[1], 10); if (n > maxFact) maxFact = n; }
+    });
+    facturaCounter = maxFact;
     // Marcar citas que ya tienen sesión registrada
     const sessionDates=new Set();
     patients.forEach(p=>{
@@ -357,6 +364,16 @@ const allTabs=['agenda','pacientes','informes','paciente_rpt','protocolos','resu
 let facturaCounter=10;
 
 // ======= HELPERS =======
+function escapeHtml(v){
+  if(v==null) return '';
+  return String(v)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+const esc = escapeHtml;
 function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function getColor(id){return COLOR_OPTIONS.find(c=>c.id===id)||COLOR_OPTIONS[0]}
 function getTherapist(id){return therapists.find(t=>t.id===id)}
@@ -369,7 +386,7 @@ function dotColor(s){return s==='conf'?'#1D9E75':s==='pend'?'#BA7517':'#E24B4A';
 // ======= LEYENDA DOCTORES =======
 function renderRefLegend(){
   if(!doctors.length){document.getElementById('ref-legend-bar').innerHTML='';return;}
-  const items=doctors.map(d=>`<span class="ref-legend-item"><span class="ref-stripe" style="background:${d.color}"></span>${d.name}<span style="color:#7a7a76;font-size:10px;margin-left:3px">(${d.spec})</span></span>`).join('');
+  const items=doctors.map(d=>`<span class="ref-legend-item"><span class="ref-stripe" style="background:${d.color}"></span>${esc(d.name)}<span style="color:#7a7a76;font-size:10px;margin-left:3px">(${esc(d.spec)})</span></span>`).join('');
   document.getElementById('ref-legend-bar').innerHTML=`<div class="ref-legend"><span class="ref-legend-lbl">Borde = doctor ref.:</span>${items}</div>`;
 }
 
@@ -451,7 +468,7 @@ function renderGrid(){
   therapists.forEach(th=>{
     const c=getColor(th.colorId);
     const h=document.createElement('div');h.className='th-header';
-    h.innerHTML=`<div class="avatar" style="background:${c.border}22;color:${c.text}">${th.initials}</div><div><div class="th-nm">${th.name}</div><div class="th-sp">${th.startH}:00-${th.endH}:00</div></div>`;
+    h.innerHTML=`<div class="avatar" style="background:${c.border}22;color:${c.text}">${esc(th.initials)}</div><div><div class="th-nm">${esc(th.name)}</div><div class="th-sp">${th.startH}:00-${th.endH}:00</div></div>`;
     g.appendChild(h);
   });
 
@@ -484,10 +501,10 @@ function renderGrid(){
         card.draggable=true;
         // Nombre del paciente + tipo — sin punto del doctor
         const doc=pt&&pt.doctorId?getDoctor(pt.doctorId):null;
-        const docTag=doc?`<span style="font-size:9px;opacity:.7">${doc.name.split(' ').slice(-1)[0]}</span>`:'';
+        const docTag=doc?`<span style="font-size:9px;opacity:.7">${esc(doc.name.split(' ').slice(-1)[0])}</span>`:'';
         // Borde izquierdo = color del doctor referente (si existe), si no = color del terapeuta
-        if(doc){card.style.borderLeftColor=doc.color;card.title=`Ref: ${doc.name} (${doc.spec})${appt.status==='conf'?' · Doble click para registrar sesión':''}`;}
-        card.innerHTML=`<div class="appt-name" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Ver/editar paciente">${pt?pt.name:(appt.patientName||'Sin paciente')}</div><div class="appt-sub">${appt.type}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${appt.status} — click para cambiar"></div><div class="appt-del">×</div>`;
+        if(doc){card.style.borderLeftColor=doc.color;card.title=`Ref: ${doc.name} (${doc.spec})${appt.status==='conf'?' · Doble click para registrar sesión':''}`;}/* card.title uses textContent — no escape needed */
+        card.innerHTML=`<div class="appt-name" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Ver/editar paciente">${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div><div class="appt-del">×</div>`;
         card.querySelector('.appt-name').addEventListener('click',e=>{e.stopPropagation();openEditPatient(appt.patientId);});
         card.querySelector('.appt-dot').addEventListener('click',e=>{e.stopPropagation();cycleStatus(appt.id);});
         card.querySelector('.appt-del').addEventListener('click',e=>{e.stopPropagation();delAppt(appt.id,e);});
@@ -591,7 +608,7 @@ function openApptModal(){
   document.getElementById('m-patient').value='';
   filterApptPatient();
   // Poblar terapeutas
-  document.getElementById('m-therapist').innerHTML=therapists.map(t=>`<option value="${t.id}">${t.name} (${t.startH}:00-${t.endH}:00)</option>`).join('');
+  document.getElementById('m-therapist').innerHTML=therapists.map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${t.startH}:00-${t.endH}:00)</option>`).join('');
   updateTimeSlots();
   document.getElementById('appt-modal').classList.add('open');
 }
@@ -607,7 +624,7 @@ function updateTimeSlots(){
 async function saveAppt(){
   const thId=document.getElementById('m-therapist').value;
   const hr=parseInt(document.getElementById('m-time').value);
-  const patId=document.getElementById('m-patient').value;
+  let patId=document.getElementById('m-patient').value;
   if(!thId){alert('Selecciona un terapeuta.');return;}
 
   // Si escribieron en el buscador pero no seleccionaron de la lista, buscar por nombre exacto
@@ -751,7 +768,7 @@ function simEmail(nombre,email){
 
 // ======= PACIENTES =======
 function openPatientModal(){
-  document.getElementById('pm-doctor').innerHTML='<option value="">Sin doctor referente</option>'+doctors.map(d=>`<option value="${d.id}">${d.name} (${d.spec})</option>`).join('');
+  document.getElementById('pm-doctor').innerHTML='<option value="">Sin doctor referente</option>'+doctors.map(d=>`<option value="${esc(d.id)}">${esc(d.name)} (${esc(d.spec)})</option>`).join('');
   document.getElementById('patient-modal').classList.add('open');
 }
 async function savePatient(){
@@ -869,12 +886,12 @@ function renderPatients(){
     const adh=p.log.length>0?Math.round(p.log.filter(s=>s.status==='asistió').length/p.log.length*100):0;
     const ac=adh>=85?'#1D9E75':adh>=70?'#BA7517':'#E24B4A';
     const dc=doc
-      ?`<span style="display:inline-flex;align-items:center;gap:5px;background:${doc.color}18;border:1px solid ${doc.color}44;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:500;color:${doc.color};white-space:nowrap">${doc.name}</span>`
+      ?`<span style="display:inline-flex;align-items:center;gap:5px;background:${doc.color}18;border:1px solid ${doc.color}44;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:500;color:${doc.color};white-space:nowrap">${esc(doc.name)}</span>`
       :'<span style="font-size:10px;color:#6b6a64;font-style:italic">Independiente</span>';
     return`<tr>
       <td style="font-weight:500;color:#1a1917">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          ${p.name}
+          ${esc(p.name)}
           ${!hasEvalInicial(p)?'<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:#fee2e2;color:#991b1b">⚠️ Sin eval.</span>':'<span style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:99px;background:#dcfce7;color:#166534">✓ Eval. ok</span>'}
         </div>
         <div style="display:flex;gap:4px;margin-top:4px">
@@ -883,7 +900,7 @@ function renderPatients(){
           ${!hasEvalInicial(p)?'<button class=\'th-btn\' style=\'font-size:9px;padding:2px 6px;background:rgba(224,80,80,.1);color:#E24B4A;border-color:rgba(224,80,80,.3)\' onclick=\'openEvalInicial("'+p.id+'")\'> Eval. inicial</button>':''}
         </div>
       </td>
-      <td style="color:#6b6a64;font-size:11px">${p.diag}</td>
+      <td style="color:#6b6a64;font-size:11px">${esc(p.diag)}</td>
       <td style="font-size:11px">${dc}</td>
       <td><div style="font-size:11px;margin-bottom:3px;color:#6b6a64">${p.done}/${p.sessions} (${pct}%)</div><div class="bar-wrap prog-mini"><div class="bar-fill" style="width:${pct}%;background:#1D9E75"></div></div></td>
       <td><span style="font-size:13px;font-weight:500;color:${ac}">${adh}%</span></td>
@@ -1041,8 +1058,8 @@ function renderTherapistUtil(){
     const u=ts>0?Math.round(us/ts*100):0; // puede superar 100% si hay citas extra
     const c=getColor(th.colorId);const uc=u>=80?'#1D9E75':u>=60?'#BA7517':'#E24B4A';
     return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(29,158,117,.1)">
-      <div class="avatar" style="background:${c.border}22;color:${c.text};width:30px;height:30px">${th.initials}</div>
-      <div style="flex:1"><div style="font-size:12px;font-weight:500;color:#1a1917">${th.name}</div>
+      <div class="avatar" style="background:${c.border}22;color:${c.text};width:30px;height:30px">${esc(th.initials)}</div>
+      <div style="flex:1"><div style="font-size:12px;font-weight:500;color:#1a1917">${esc(th.name)}</div>
         <div style="font-size:10px;color:#6b6a64">${th.startH}:00–${th.endH}:00</div>
         <div class="util-bar"><div class="util-fill" style="width:${u}%;background:${uc}"></div></div>
       </div>
@@ -1089,7 +1106,7 @@ function renderMensual(){
   html+=`<div class="full-card"><div class="card-title">Pacientes por doctor referente</div>`;
   doctors.forEach(d=>{
     const n=patients.filter(p=>p.doctorId===d.id).length;
-    html+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(29,158,117,.1)"><span style="width:10px;height:10px;border-radius:50%;background:${d.color};display:inline-block;flex-shrink:0"></span><div style="flex:1;font-size:12px;color:#c8c6c0">${d.name} <span style="color:#6b6a64">(${d.spec})</span></div><div style="font-size:13px;font-weight:500;color:#1a1917">${n}</div></div>`;
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(29,158,117,.1)"><span style="width:10px;height:10px;border-radius:50%;background:${d.color};display:inline-block;flex-shrink:0"></span><div style="flex:1;font-size:12px;color:#c8c6c0">${esc(d.name)} <span style="color:#6b6a64">(${esc(d.spec)})</span></div><div style="font-size:13px;font-weight:500;color:#1a1917">${n}</div></div>`;
   });
   html+=`</div><div class="full-card"><div class="card-title">Tendencia — últimos 3 meses</div><canvas id="monthly-chart" height="80"></canvas></div>`;
   document.getElementById('mensual-content').innerHTML=html;
@@ -1132,7 +1149,7 @@ function renderAnual(){
 // Los pacientes pueden tener múltiples episodios (simulados como rangos del log)
 function renderPatientReportSelect(){
   const sel=document.getElementById('patient-rpt-select');
-  sel.innerHTML=patients.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  sel.innerHTML=patients.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
   if(patients.length>0) sel.value=String(patients[0].id);
   updateEpisodes();
 }
@@ -1149,15 +1166,15 @@ function updateEpisodes(){
   let options = '';
   if(finEpisodios.length === 0){
     // Solo un episodio
-    options = `<option value="current">Episodio actual — ${p.diag||'Sin diagnóstico'}</option>`;
+    options = `<option value="current">Episodio actual — ${esc(p.diag||'Sin diagnóstico')}</option>`;
   } else {
     // Episodio actual
-    options = `<option value="current">Episodio actual — ${p.diag||'Sin diagnóstico'}</option>`;
+    options = `<option value="current">Episodio actual — ${esc(p.diag||'Sin diagnóstico')}</option>`;
     // Episodios anteriores
     finEpisodios.forEach((fin, i) => {
       const diagAnterior = fin.note ? fin.note.split('Episodio anterior: ')[1]?.split(' · ')[0] || 'Tratamiento anterior' : 'Tratamiento anterior';
       const sesiones = fin.note ? fin.note.split('·')[1]?.trim() || '' : '';
-      options += `<option value="ep_${i}">Episodio ${i+1} — ${diagAnterior} (${fin.date})</option>`;
+      options += `<option value="ep_${i}">Episodio ${i+1} — ${esc(diagAnterior)} (${esc(fin.date)})</option>`;
     });
   }
   ep.innerHTML = options;
@@ -1222,24 +1239,24 @@ function renderPatientReport(){
     ? `<div style="background:#fef3c7;border:1px solid rgba(186,117,23,.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
         <div>
           <div style="font-size:12px;font-weight:600;color:#BA7517">✓ Tratamiento completado</div>
-          <div style="font-size:11px;color:#6b6a64;margin-top:2px">${p.name} completó sus ${p.sessions} sesiones. ¿Viene por algo nuevo?</div>
+          <div style="font-size:11px;color:#6b6a64;margin-top:2px">${esc(p.name)} completó sus ${p.sessions} sesiones. ¿Viene por algo nuevo?</div>
         </div>
-        <button onclick="nuevoEpisodio('${p.id}')" style="padding:6px 12px;background:#BA7517;color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">Nuevo episodio</button>
+        <button onclick="nuevoEpisodio('${esc(p.id)}')" style="padding:6px 12px;background:#BA7517;color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">Nuevo episodio</button>
       </div>` : '';
 
   // ── Header del paciente ──
   let html=avisoEpisodio+`<div class="full-card" style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
-    <div class="avatar" style="background:${thC.border}22;color:${thC.text};width:48px;height:48px;font-size:16px;flex-shrink:0">${p.name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
+    <div class="avatar" style="background:${thC.border}22;color:${thC.text};width:48px;height:48px;font-size:16px;flex-shrink:0">${esc(p.name.split(' ').map(n=>n[0]).join('').slice(0,2))}</div>
     <div style="flex:1">
-      <div style="font-size:15px;font-weight:600;color:#1a1917;margin-bottom:3px">${p.name} ${sp}</div>
-      <div style="font-size:12px;color:#6b6a64">${epDiag||p.diag||'Sin diagnóstico'} · ${p.age||'?'} años${!isCurrentEpisode?' <span style="font-size:10px;background:#fef3c7;color:#BA7517;padding:1px 7px;border-radius:99px;margin-left:4px">Episodio anterior</span>':''}</div>
-      ${doc?`<div style="font-size:11px;color:#5a5a56;margin-top:2px">Ref: ${doc.name} (${doc.spec})</div>`:''}
-      ${p.cedula?`<div style="font-size:11px;color:#6b6a64;margin-top:1px">CI: ${p.cedula}${p.tel?' · '+p.tel:''}${p.email?' · '+p.email:''}</div>`:''}
+      <div style="font-size:15px;font-weight:600;color:#1a1917;margin-bottom:3px">${esc(p.name)} ${sp}</div>
+      <div style="font-size:12px;color:#6b6a64">${esc(epDiag||p.diag||'Sin diagnóstico')} · ${p.age||'?'} años${!isCurrentEpisode?' <span style="font-size:10px;background:#fef3c7;color:#BA7517;padding:1px 7px;border-radius:99px;margin-left:4px">Episodio anterior</span>':''}</div>
+      ${doc?`<div style="font-size:11px;color:#5a5a56;margin-top:2px">Ref: ${esc(doc.name)} (${esc(doc.spec)})</div>`:''}
+      ${p.cedula?`<div style="font-size:11px;color:#6b6a64;margin-top:1px">CI: ${esc(p.cedula)}${p.tel?' · '+esc(p.tel):''}${p.email?' · '+esc(p.email):''}</div>`:''}
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
       <button class="ai-btn" onclick="genPatientAI()">Informe IA ↗</button>
-      <button onclick="agendarCitaParaPaciente('${p.id}')" style="padding:6px 14px;background:rgba(29,158,117,.12);color:#1D9E75;border:1px solid rgba(29,158,117,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">+ Agendar cita</button>
-      ${isCurrentEpisode ? '<button onclick="nuevoEpisodio(\'${p.id}\')" style="padding:6px 14px;background:rgba(186,117,23,.1);color:#BA7517;border:1px solid rgba(186,117,23,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">🔄 Nuevo episodio</button>' : ''}
+      <button onclick="agendarCitaParaPaciente('${esc(p.id)}')" style="padding:6px 14px;background:rgba(29,158,117,.12);color:#1D9E75;border:1px solid rgba(29,158,117,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">+ Agendar cita</button>
+      ${isCurrentEpisode ? `<button onclick="nuevoEpisodio('${esc(p.id)}')" style="padding:6px 14px;background:rgba(186,117,23,.1);color:#BA7517;border:1px solid rgba(186,117,23,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">🔄 Nuevo episodio</button>` : ''}
     </div>
   </div>`;
 
@@ -1302,10 +1319,10 @@ function renderPatientReport(){
         <div class="tl-content">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
             ${sp2}
-            <span style="font-size:12px;font-weight:500;color:#1a1917">${s.type||''}</span>
+            <span style="font-size:12px;font-weight:500;color:#1a1917">${esc(s.type||'')}</span>
             ${evaStr}
           </div>
-          ${s.note?`<div class="tl-note" style="color:#6b6a64;font-size:12px">${s.note}</div>`:''}
+          ${s.note?`<div class="tl-note" style="color:#6b6a64;font-size:12px">${esc(s.note)}</div>`:''}
         </div>
       </div>`;
     });
@@ -1363,7 +1380,7 @@ function renderProtocols(){
       return`<div class="protocol-card" style="display:flex;gap:14px;align-items:flex-start">
         <div style="flex-shrink:0;background:#f8f8f4;border-radius:8px;padding:8px;border:1px solid rgba(29,158,117,.12)">${svg}</div>
         <div style="flex:1;min-width:0">
-          <div class="protocol-diag">${p.name}</div>
+          <div class="protocol-diag">${esc(p.name)}</div>
           ${p.def?`<div style="font-size:11px;color:#6b6a64;margin-top:4px;line-height:1.5">${p.def}</div>`:''}
           <div class="protocol-meta" style="margin-top:6px">${p.sessions} sesiones · ${fl[p.freq]||p.freq+'×/sem'}</div>
           ${p.alta?`<div style="font-size:10px;color:#7a7a76;margin-top:3px">Alta: ${p.alta}</div>`:''}
@@ -1417,8 +1434,8 @@ function renderProtocolAdherence(){
     return`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(29,158,117,.1)">
       <span style="font-size:14px;flex-shrink:0">${alrt?'⚠':'✓'}</span>
       <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:500;color:#1a1917">${p.name}</div>
-        <div style="font-size:11px;color:#6b6a64">${p.diag} — ${prot.name}</div>
+        <div style="font-size:12px;font-weight:500;color:#1a1917">${esc(p.name)}</div>
+        <div style="font-size:11px;color:#6b6a64">${esc(p.diag)} — ${esc(prot.name)}</div>
         <div style="font-size:10px;color:#6b6a64;margin-top:1px">Esperado: ${fl[prot.freq]||prot.freq+'×/sem'} · ${prot.sessions} sesiones</div>
         <div style="margin-top:5px;position:relative">
           <div class="bar-wrap" style="height:6px">
@@ -1441,10 +1458,10 @@ function renderTherapistList(){
   document.getElementById('therapist-list').innerHTML=filtered.map(th=>{
     const c=getColor(th.colorId);
     return`<div class="th-manage-row">
-      <div class="avatar" style="background:${c.border}22;color:${c.text};width:36px;height:36px;font-size:12px">${th.initials}</div>
+      <div class="avatar" style="background:${c.border}22;color:${c.text};width:36px;height:36px;font-size:12px">${esc(th.initials)}</div>
       <div style="flex:1">
-        <div style="font-size:13px;font-weight:500;color:#1a1917">${th.name}</div>
-        <div style="font-size:11px;color:#6b6a64">${th.spec}</div>
+        <div style="font-size:13px;font-weight:500;color:#1a1917">${esc(th.name)}</div>
+        <div style="font-size:11px;color:#6b6a64">${esc(th.spec)}</div>
         <div style="font-size:11px;color:#5a5a56;margin-top:2px">Turno: ${th.startH}:00–${th.endH}:00 · ${therapistHours(th).length} h/día</div>
       </div>
       <div class="th-actions">
@@ -1487,14 +1504,21 @@ async function saveTherapist(){
 updateFacturaBadge();
 
 }
-function deleteTherapist(id){
-  if(!confirm('¿Eliminar este terapeuta?'))return;
+async function deleteTherapist(id){
+  if(!confirm('¿Eliminar este terapeuta? Se borrarán también todas sus citas.'))return;
   therapists=therapists.filter(t=>t.id!==id);
   appointments=appointments.filter(a=>a.therapistId!==id);
   renderTherapistList();renderGrid();
-  dbDeleteTherapist(id);
-updateFacturaBadge();
-
+  try {
+    if (typeof id === 'string') {
+      const {error: e1} = await supa.from('appointments').delete().eq('therapist_id', id);
+      if (e1) toastErr('Error al borrar citas del terapeuta: ' + e1.message);
+    }
+    await dbDeleteTherapist(id);
+  } catch (e) {
+    toastErr('Error de conexión al eliminar terapeuta.');
+  }
+  updateFacturaBadge();
 }
 
 // ======= DOCTORES =======
@@ -1503,11 +1527,11 @@ function renderDoctorsList(){
   const filtDocs=doctors.filter(d=>!q||d.name.toLowerCase().includes(q)||d.spec.toLowerCase().includes(q));
   document.getElementById('doctors-list').innerHTML=`<div class="full-card">${filtDocs.map(d=>`
     <div class="th-manage-row">
-      <div style="width:36px;height:36px;border-radius:50%;background:${d.color}22;border:1px solid ${d.color}44;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:${d.color};flex-shrink:0">${d.name.split(' ').pop()[0]}</div>
+      <div style="width:36px;height:36px;border-radius:50%;background:${d.color}22;border:1px solid ${d.color}44;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:${d.color};flex-shrink:0">${esc(d.name.split(' ').pop()[0])}</div>
       <div style="flex:1">
-        <div style="font-size:13px;font-weight:500;color:#1a1917">${d.name}</div>
-        <div style="font-size:11px;color:#6b6a64">${d.spec}</div>
-        <div style="font-size:11px;color:#5a5a56;margin-top:2px">${d.email||''}${d.tel?' · '+d.tel:''}</div>
+        <div style="font-size:13px;font-weight:500;color:#1a1917">${esc(d.name)}</div>
+        <div style="font-size:11px;color:#6b6a64">${esc(d.spec)}</div>
+        <div style="font-size:11px;color:#5a5a56;margin-top:2px">${esc(d.email||'')}${d.tel?' · '+esc(d.tel):''}</div>
       </div>
       <div class="th-actions">
         <button class="th-btn" onclick="openDoctorModal('${d.id}')">Editar</button>
@@ -1541,12 +1565,20 @@ async function saveDoctor(){
     else{if(!editingDocId)_d.id=data.id;renderDoctorsList();renderRefLegend();toastOk((editingDocId?'Doctor actualizado':'Doctor guardado')+' correctamente');}
   }catch(e){toastErr('Error de conexión al guardar doctor.');}
 }
-function deleteDoctor(id){
-  if(!confirm('¿Eliminar este doctor?'))return;
+async function deleteDoctor(id){
+  if(!confirm('¿Eliminar este doctor? Sus pacientes quedarán como independientes.'))return;
   doctors=doctors.filter(d=>d.id!==id);
   patients.forEach(p=>{if(p.doctorId===id)p.doctorId=null;});
   renderDoctorsList();renderRefLegend();
-  dbDeleteDoctor(id);
+  try {
+    if (typeof id === 'string') {
+      const {error: e1} = await supa.from('patients').update({doctor_id: null}).eq('doctor_id', id);
+      if (e1) toastErr('Error al desasociar pacientes: ' + e1.message);
+    }
+    await dbDeleteDoctor(id);
+  } catch (e) {
+    toastErr('Error de conexión al eliminar doctor.');
+  }
 }
 function showDoctoresTab(n,btn){
   document.getElementById('config-doctores').style.display=n==='referentes'?'':'none';
@@ -1660,11 +1692,11 @@ function renderFacturacion(){
         <div style="width:9px;height:9px;border-radius:50%;background:${esFinal?'#378ADD':'#e0a850'};flex-shrink:0;margin-top:5px"></div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
-            <span style="font-size:13px;font-weight:600;color:#1a1917">${p.name}</span>
+            <span style="font-size:13px;font-weight:600;color:#1a1917">${esc(p.name)}</span>
             ${tagLabel}
           </div>
           <div style="font-size:11px;color:#6b6a64;margin-top:3px">
-            CI: ${p.cedula||'—'} · ${p.email||'sin correo'}${th?' · '+th.name:''}${doc?' · Ref: '+doc.name:''}
+            CI: ${esc(p.cedula||'—')} · ${esc(p.email||'sin correo')}${th?' · '+esc(th.name):''}${doc?' · Ref: '+esc(doc.name):''}
           </div>
           <div style="margin-top:8px;display:flex;align-items:center;gap:3px;flex-wrap:wrap">
             ${cajitas}
@@ -1690,10 +1722,10 @@ function renderFacturacion(){
       const cajitas=Array.from({length:spf},(_,i)=>`<div style="width:18px;height:18px;border-radius:4px;background:${i<pend?'#1D9E75':'rgba(255,255,255,0.06)'};border:1px solid ${i<pend?'rgba(29,158,117,.4)':'rgba(255,255,255,.06)'};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:${i<pend?'#fff':'#333'}">${info.sesYaCobradas+i+1}</div>`).join('');
       html+=`<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid rgba(29,158,117,.1)">
         <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600;color:#1a1917">${p.name}
+          <div style="font-size:12px;font-weight:600;color:#1a1917">${esc(p.name)}
             <span style="font-size:10px;font-weight:400;color:#5a5a56;margin-left:6px">cobro ${info.cobrosRealizados+1} de ${info.totalCobros}</span>
           </div>
-          <div style="font-size:10px;color:#5a5a56;margin-top:2px">CI: ${p.cedula||'—'} · ${p.email||'sin correo'}</div>
+          <div style="font-size:10px;color:#5a5a56;margin-top:2px">CI: ${esc(p.cedula||'—')} · ${esc(p.email||'sin correo')}</div>
           <div style="display:flex;align-items:center;gap:2px;margin-top:7px;flex-wrap:wrap">
             ${cajitas}
             <span style="font-size:11px;color:#5a5a56;margin-left:8px">Faltan ${faltan}</span>
@@ -1761,7 +1793,7 @@ function checkAutoNoas(){
 
 function openEditPatient(id){
   const p=getPatient(id);if(!p)return;
-  document.getElementById('pm-doctor').innerHTML='<option value="">Independiente</option>'+doctors.map(d=>`<option value="${d.id}" ${d.id===p.doctorId?'selected':''}>${d.name} (${d.spec})</option>`).join('');
+  document.getElementById('pm-doctor').innerHTML='<option value="">Independiente</option>'+doctors.map(d=>`<option value="${esc(d.id)}" ${d.id===p.doctorId?'selected':''}>${esc(d.name)} (${esc(d.spec)})</option>`).join('');
   document.getElementById('pm-name').value=p.name;
   document.getElementById('pm-age').value=p.age||'';
   document.getElementById('pm-cedula').value=p.cedula||'';
@@ -1782,7 +1814,7 @@ function filterApptPatient(){
   const q=(document.getElementById('m-patient-search').value||'').toLowerCase();
   const dl=document.getElementById('m-patient-list');
   const match=patients.filter(p=>p.name.toLowerCase().includes(q)||(p.cedula&&p.cedula.includes(q)));
-  dl.innerHTML=match.slice(0,10).map(p=>`<option value="${p.name}" data-id="${p.id}">${p.name}${p.cedula?' · '+p.cedula:''}</option>`).join('');
+  dl.innerHTML=match.slice(0,10).map(p=>`<option value="${esc(p.name)}" data-id="${esc(p.id)}">${esc(p.name)}${p.cedula?' · '+esc(p.cedula):''}</option>`).join('');
   // Buscar si el texto ingresado coincide exactamente con algún paciente
   const exact=patients.find(p=>p.name.toLowerCase()===q);
   if(exact) document.getElementById('m-patient').value=exact.id;
@@ -1806,7 +1838,7 @@ function filterPatientRptSelect(){
   const q=(document.getElementById('patient-rpt-search').value||'').toLowerCase();
   const sel=document.getElementById('patient-rpt-select');
   sel.innerHTML=patients.filter(p=>p.name.toLowerCase().includes(q)||p.diag.toLowerCase().includes(q))
-    .map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+    .map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
   if(sel.options.length>0)updateEpisodes();
 }
 
@@ -1926,18 +1958,19 @@ async function saveSession() {
   document.getElementById('sess-note').style.borderColor = '';
   
   if (appt.id && appt.patientId) {
-    // Buscar si ya existe sesión para este paciente en este día
+    // Buscar si ya existe sesión para este paciente en este día Y HORA
     const existingInDB = await supa.from('session_log')
       .select('id')
       .eq('patient_id', appt.patientId)
       .eq('date', appt.date)
+      .eq('hour', appt.hour + ':00')
       .maybeSingle();
-    
+
     let dbError;
     if (existingInDB.data) {
-      // Actualizar la existente
+      // Actualizar la existente (misma fecha + misma hora)
       const {error} = await supa.from('session_log')
-        .update({type, hour: appt.hour+':00', pain_before:pb, pain_after:pa, note})
+        .update({type, pain_before:pb, pain_after:pa, note})
         .eq('id', existingInDB.data.id);
       dbError = error;
     } else {
@@ -1966,12 +1999,13 @@ async function saveSession() {
   const pt2 = getPatient(appt.patientId);
   if (pt2) {
     if (!pt2.log) pt2.log = [];
-    const existIdx = pt2.log.findIndex(s => s.date === appt.date);
-    const newEntry = {date:appt.date, type:type, hour:appt.hour+':00', status:'asistió', pb:pb, pa:pa, note:note, tags:[]};
+    const hh = appt.hour + ':00';
+    const existIdx = pt2.log.findIndex(s => s.date === appt.date && s.hour === hh);
+    const newEntry = {date:appt.date, type:type, hour:hh, status:'asistió', pb:pb, pa:pa, note:note, tags:[]};
     if (existIdx >= 0) {
-      pt2.log[existIdx] = newEntry; // sobreescribir
+      pt2.log[existIdx] = newEntry; // sobreescribir misma cita
     } else {
-      pt2.log.push(newEntry); // nueva entrada
+      pt2.log.push(newEntry); // nueva entrada (otra cita el mismo día está permitida)
     }
   }
   
@@ -2246,10 +2280,10 @@ function globalSearch(q) {
     div.onmouseout = () => div.style.background = '';
     div.onclick = () => selectGlobalResult(p.id);
     div.innerHTML = '<div style="width:32px;height:32px;border-radius:50%;background:#e8f5f0;color:#1D9E75;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0">'
-      + p.name.split(' ').map(n=>n[0]).join('').slice(0,2) + '</div>'
+      + esc(p.name.split(' ').map(n=>n[0]).join('').slice(0,2)) + '</div>'
       + '<div style="flex:1;min-width:0">'
-      + '<div style="font-size:12px;font-weight:600;color:#1a1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.name + (evalOk ? '' : ' ⚠️') + '</div>'
-      + '<div style="font-size:10px;color:#9c9a92">' + (p.diag||'Sin diagnóstico') + (th?' · '+th.name:'') + '</div>'
+      + '<div style="font-size:12px;font-weight:600;color:#1a1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(p.name) + (evalOk ? '' : ' ⚠️') + '</div>'
+      + '<div style="font-size:10px;color:#9c9a92">' + esc(p.diag||'Sin diagnóstico') + (th?' · '+esc(th.name):'') + '</div>'
       + '</div>';
     res.appendChild(div);
   });
@@ -2496,7 +2530,7 @@ function showToast(msg,type,duration){
   const t=document.createElement('div');
   t.className='toast '+type;
   const icons={success:'✓',error:'✕',info:'ℹ'};
-  t.innerHTML='<span class="toast-icon">'+(icons[type]||'ℹ')+'</span><span class="toast-msg">'+msg+'</span>';
+  t.innerHTML='<span class="toast-icon">'+(icons[type]||'ℹ')+'</span><span class="toast-msg">'+esc(msg)+'</span>';
   c.appendChild(t);
   setTimeout(function(){t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(function(){t.remove();},300);},duration);
 }
