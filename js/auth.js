@@ -7,7 +7,7 @@ export async function loadProfile() {
   const { data: { user } } = await supa.auth.getUser();
   if (!user) return false;
   state.currentUserId = user.id;
-  const { data, error } = await supa.from('profiles').select('role, name').eq('id', user.id).single();
+  const { data, error } = await supa.from('profiles').select('role, full_name').eq('id', user.id).single();
   if (error || !data || !data.role) {
     toastErr('Tu cuenta no tiene rol asignado. Contacta al administrador.');
     await supa.auth.signOut();
@@ -17,7 +17,7 @@ export async function loadProfile() {
     return false;
   }
   state.currentUserRole = data.role;
-  state.currentUserProfile = { name: data.name || user.email, email: user.email, role: data.role };
+  state.currentUserProfile = { name: data.full_name || user.email, email: user.email, role: data.role };
   return true;
 }
 
