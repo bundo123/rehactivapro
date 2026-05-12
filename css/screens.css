@@ -1,0 +1,117 @@
+/* ===== AGENDA ===== */
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.day-nav{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.day-nav button{width:28px;height:28px;border-radius:50%;border:1px solid rgba(29,158,117,.2);background:transparent;cursor:pointer;color:#6b6a64;display:flex;align-items:center;justify-content:center;font-size:13px}
+.day-nav button:hover{background:rgba(255,255,255,0.08)}
+.day-lbl{font-size:14px;font-weight:600;color:#1a1917;letter-spacing:-.2px}
+.grid-wrap{overflow-x:auto;border:1px solid rgba(29,158,117,.25);border-radius:10px}
+.schedule-grid{display:grid;min-width:500px}
+.grid-header{background:#f0efe8;border-bottom:1px solid rgba(29,158,117,.14);padding:8px 10px;font-size:10px;font-weight:600;color:#7a7a76;text-transform:uppercase;letter-spacing:.05em}
+.th-header{display:flex;align-items:center;gap:8px;padding:9px 10px;background:#f8f8f4;border-bottom:1px solid rgba(29,158,117,.14)}
+.avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
+.th-nm{font-size:11px;font-weight:500;color:#d0cdc8;line-height:1.2}
+.th-sp{font-size:10px;color:#7a7a76}
+.time-cell{border-right:1px solid rgba(29,158,117,.09);border-bottom:1px solid rgba(29,158,117,.09);padding:0 8px;height:58px;display:flex;align-items:center;font-size:10px;color:#7a7a76;background:#f5f5f0;flex-shrink:0;font-weight:500}
+.slot{border-right:1px solid rgba(29,158,117,.12);border-bottom:1px solid rgba(29,158,117,.12);height:58px;padding:3px;position:relative;min-width:0;background:#f5f5f0}
+.slot.blocked{background:#f8f8f4;opacity:.4}
+.slot.drag-over{background:#0b2a1c}
+
+/* CITA */
+.appt{border-radius:6px;padding:5px 26px 5px 9px;height:100%;cursor:grab;display:flex;flex-direction:column;justify-content:center;gap:2px;user-select:none;border-left:3px solid transparent;position:relative;transition:opacity .18s}
+.appt:active{cursor:grabbing}
+.appt.status-pend{opacity:.45}
+.appt.status-noas{opacity:.55}
+.appt-name{font-weight:700;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.1px;color:inherit}
+.appt-sub{font-size:10px;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:inherit}
+.appt-dot{position:absolute;top:6px;right:7px;width:8px;height:8px;border-radius:50%;cursor:pointer;transition:transform .1s}
+.appt-dot:hover{transform:scale(1.6)}
+.appt-del{position:absolute;bottom:4px;right:4px;width:18px;height:18px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;background:rgba(224,80,80,.85);color:#fff;line-height:1}
+.appt:hover .appt-del{display:flex}
+
+/* Fondos por color de terapeuta */
+.ca{background:#e8f5f0;color:#0d6e4e;border-left-color:#1D9E75}
+.cb{background:#e8f2fb;color:#1a4a8a;border-left-color:#378ADD}
+.cc{background:#fef6e8;color:#7a4a00;border-left-color:#BA7517}
+.cd{background:#fdeef4;color:#8a2a50;border-left-color:#D4537E}
+.ce{background:#f0eefb;color:#4a3d9e;border-left-color:#7F77DD}
+.cf{background:#f0f8e8;color:#3a5a10;border-left-color:#639922}
+
+/* Leyenda doctores */
+.ref-legend{display:flex;align-items:center;gap:14px;padding:5px 0;flex-wrap:wrap;margin-bottom:10px}
+.ref-legend-lbl{font-size:10px;color:#7a7a76;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.ref-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#6b6a64}
+.ref-stripe{width:12px;height:3px;border-radius:99px;flex-shrink:0}
+.status-guide{display:flex;align-items:center;gap:14px;margin-bottom:12px;font-size:10px;color:#7a7a76}
+.status-guide span{display:flex;align-items:center;gap:5px}
+
+/* ===== PACIENTES ===== */
+.patient-table{width:100%;border-collapse:collapse}
+.patient-table th{background:#f0efe8;padding:9px 12px;font-size:10px;font-weight:600;color:#7a7a76;text-align:left;border-bottom:1px solid rgba(29,158,117,.14);text-transform:uppercase;letter-spacing:.05em}
+.patient-table td{padding:10px 12px;font-size:12px;color:#c8c6c0;border-bottom:1px solid rgba(0,0,0,.06);vertical-align:middle;background:#ffffff}
+.patient-table tr:last-child td{border-bottom:none}
+.patient-table tr:hover td{background:rgba(255,255,255,0.02)}
+.search-row{display:flex;gap:10px;margin-bottom:14px;align-items:center}
+.search-input{background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:7px 12px;font-size:12px;color:#1a1917;outline:none;width:260px}
+.prog-mini{width:72px}
+.doc-pill{display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:2px 8px;font-size:10px;font-weight:500;border:1px solid;white-space:nowrap}
+
+/* ===== HEATMAP ===== */
+.heatmap-grid{display:grid;gap:2px}
+.hm-cell{height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;cursor:default;position:relative}
+.hm-lbl{font-size:10px;color:#7a7a76;display:flex;align-items:center;justify-content:flex-end;padding-right:7px}
+.hm-hdr{font-size:10px;color:#7a7a76;text-align:center;padding-bottom:4px;font-weight:500}
+.tooltip-val{display:none;position:absolute;background:#2a2926;border:1px solid rgba(29,158,117,.2);border-radius:6px;padding:3px 8px;font-size:10px;white-space:nowrap;z-index:10;top:-28px;left:50%;transform:translateX(-50%);color:#1a1917;pointer-events:none}
+.hm-cell:hover .tooltip-val{display:block}
+
+/* ===== INSIGHTS ===== */
+.insight-row{display:flex;align-items:flex-start;gap:9px;padding:9px 0;border-bottom:1px solid rgba(29,158,117,.1)}
+.insight-row:last-child{border-bottom:none}
+.insight-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.insight-text{font-size:12px;color:#d0cdc8;line-height:1.4;font-weight:500}
+.insight-sub{font-size:11px;color:#5a5a56;margin-top:2px}
+
+/* ===== TIMELINE ===== */
+.timeline{border-left:2px solid rgba(29,158,117,.2);margin-left:14px;padding-left:18px}
+.tl-item{position:relative;margin-bottom:12px}
+.tl-dot{position:absolute;left:-25px;top:4px;width:9px;height:9px;border-radius:50%;border:2px solid #0e0d0c}
+.tl-date{font-size:10px;color:#7a7a76;margin-bottom:3px}
+.tl-content{background:#f8f8f4;border-radius:8px;padding:9px 11px}
+.tl-note{font-size:11px;color:#6b6a64;margin-top:3px;line-height:1.5}
+.tl-tags{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+
+/* ===== RESUMEN ===== */
+.resumen-section{margin-bottom:18px}
+.resumen-section-title{font-size:11px;font-weight:600;color:#6b6a64;margin-bottom:8px;display:flex;align-items:center;gap:7px;text-transform:uppercase;letter-spacing:.05em}
+.resumen-row{display:flex;align-items:center;gap:10px;padding:10px 13px;background:#ffffff;border:1px solid rgba(29,158,117,.15);border-radius:8px;margin-bottom:6px}
+.resumen-actions{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.resumen-btn{padding:3px 10px;font-size:10px;border:1px solid rgba(29,158,117,.25);background:transparent;border-radius:5px;cursor:pointer;color:#6b6a64;font-family:inherit}
+.resumen-btn:hover{background:rgba(255,255,255,0.05)}
+.resumen-btn.wa{border-color:rgba(37,211,102,.3);color:#25d366}
+.resumen-btn.em{border-color:rgba(122,184,232,.3);color:#7ab8e8}
+.resumen-btn.rep{border-color:rgba(94,207,160,.3);color:#5ecfa0}
+
+/* ===== PROTOCOLOS ===== */
+.protocol-card{background:#ffffff;border:1px solid rgba(29,158,117,.14);border-radius:10px;padding:14px;margin-bottom:8px}
+.protocol-diag{font-size:13px;font-weight:500;color:#1a1917}
+.protocol-meta{font-size:11px;color:#5a5a56;margin-top:3px}
+.prot-pager{display:flex;align-items:center;gap:8px}
+.prot-pager button{padding:3px 10px;font-size:11px;border:1px solid rgba(29,158,117,.25);background:transparent;border-radius:5px;cursor:pointer;color:#6b6a64;font-family:inherit}
+.prot-pager button:hover{background:rgba(255,255,255,0.05)}
+.prot-pager button:disabled{opacity:.3;cursor:default}
+
+/* ===== NOTIFICACIONES ===== */
+.notif-row{display:flex;align-items:flex-start;gap:12px;padding:13px 0;border-bottom:1px solid rgba(29,158,117,.1)}
+.notif-row:last-child{border-bottom:none}
+
+/* ===== MANAGE ROWS ===== */
+.th-manage-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid rgba(29,158,117,.1)}
+.th-manage-row:last-child{border-bottom:none}
+.th-actions{display:flex;gap:6px;margin-left:auto}
+
+/* ===== INFORMES ===== */
+.week-nav{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.week-nav button{width:28px;height:28px;border-radius:50%;border:1px solid rgba(29,158,117,.2);background:transparent;cursor:pointer;color:#6b6a64;display:flex;align-items:center;justify-content:center}
+.week-nav button:hover{background:rgba(255,255,255,0.07)}
+.week-lbl{font-size:14px;font-weight:600;color:#1a1917;letter-spacing:-.2px}
+.export-row{display:flex;gap:8px;margin-top:14px}
+.informe-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
