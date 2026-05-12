@@ -1,0 +1,152 @@
+import { supa } from './supabase-client.js';
+import { state } from './state.js';
+import { fmtDate } from './utils.js';
+import { toastErr } from './toast.js';
+
+export const DEFAULT_PROTOCOLS = [
+  {id:'p1',name:'POP Manguito de los Rotadores Hombro Derecho',diag:'manguito,rotadores,hombro derecho,POP hombro derecho',sessions:20,freq:5,alta:'Rango articular completo, fuerza 80% lado contralateral, EVA 0-1',def:'Postoperatorio de reparación quirúrgica del manguito rotador.',img:'shoulder'},
+  {id:'p2',name:'Coxartrosis Derecha',diag:'coxartrosis,artrosis cadera,cadera derecha',sessions:15,freq:3,alta:'Marcha sin dolor, mejora de rangos articulares, funcionalidad en AVD',def:'Desgaste del cartílago de la articulación coxofemoral derecha.',img:'hip'},
+  {id:'p3',name:'Tendinitis de Quervain Bilateral',diag:'quervain,tendinitis quervain,bilateral quervain',sessions:12,freq:3,alta:'Sin dolor en maniobra de Finkelstein, retorno a actividades manuales',def:'Inflamación de los tendones abductores del pulgar.',img:'hand'},
+  {id:'p4',name:'Tendinitis Bíceps Izquierdo',diag:'tendinitis biceps,biceps izquierdo,bicipital',sessions:10,freq:3,alta:'EVA 0-1, fuerza simétrica, retorno deportivo o laboral',def:'Inflamación del tendón del bíceps braquial.',img:'arm'},
+  {id:'p5',name:'Cefalea Tensional',diag:'cefalea,tensional,cefalea tensional,cervicogénica',sessions:8,freq:2,alta:'Reducción de frecuencia e intensidad de episodios en 70%, control postural',def:'Dolor de cabeza de origen muscular y postural.',img:'head'},
+  {id:'p6',name:'Epicondilitis Lateral Izquierda',diag:'epicondilitis,codo de tenista,epicóndilo,lateral izquierda',sessions:12,freq:3,alta:'Sin dolor en prueba de Cozen, fuerza de agarre simétrica',def:'Inflamación de los extensores del carpo en su inserción epicondílea.',img:'elbow'},
+  {id:'p7',name:'Lesión Manguito Rotadores Hombro Izquierdo',diag:'manguito rotadores,hombro izquierdo,lesión manguito',sessions:18,freq:4,alta:'Arco de movimiento completo sin dolor, fuerza 85% contralateral',def:'Desgarro parcial o total de los tendones del manguito rotador.',img:'shoulder'},
+  {id:'p8',name:'Discopatía L4-S1',diag:'discopatía,L4,S1,lumbar,disco lumbar',sessions:15,freq:3,alta:'EVA 0-2, retorno laboral, control motor lumbo-pélvico',def:'Degeneración o herniación discal en segmento lumbar bajo.',img:'spine'},
+  {id:'p9',name:'Artrosis de Cadera Derecha',diag:'artrosis cadera,coxartrosis derecha,osteoartritis cadera',sessions:15,freq:3,alta:'Mejora funcional en escaleras y marcha, dolor controlado',def:'Degeneración articular de la cadera derecha.',img:'hip'},
+  {id:'p10',name:'Rotura Tendón de Aquiles Derecho',diag:'aquiles,tendón aquiles,rotura aquiles',sessions:25,freq:5,alta:'Marcha simétrica, fuerza gemelar 90%, retorno deportivo gradual',def:'Ruptura total o parcial del tendón de Aquiles.',img:'ankle'},
+  {id:'p11',name:'Prótesis Hombro Izquierdo',diag:'prótesis hombro,artroplastia hombro,hombro izquierdo prótesis',sessions:24,freq:5,alta:'Movilidad funcional, independencia en AVD, fuerza progresiva',def:'Rehabilitación post-artroplastia de hombro.',img:'shoulder'},
+  {id:'p12',name:'Radiculopatía + Ciática Izquierda',diag:'radiculopatía,ciática,ciática izquierda,radicular',sessions:12,freq:3,alta:'Abolición de dolor irradiado, test neurológicos negativos',def:'Compresión o irritación de raíces nerviosas lumbares.',img:'spine'},
+  {id:'p13',name:'Meniscectomía Rodilla Derecha',diag:'meniscectomía,menisco derecho,rodilla derecha menisco',sessions:20,freq:5,alta:'Cuádriceps simétrico, propiocepción completa, retorno deportivo',def:'Post-quirúrgico de extracción meniscal.',img:'knee'},
+  {id:'p14',name:'POP Menisco Derecho',diag:'POP menisco,postoperatorio menisco,menisco derecho POP',sessions:18,freq:4,alta:'ROM completo, sin derrame, funcionalidad deportiva',def:'Postoperatorio de reparación meniscal.',img:'knee'},
+  {id:'p15',name:'Condromalacia Rotuliana Bilateral',diag:'condromalacia,rotuliana,bilateral,condromalacia rotuliana',sessions:14,freq:3,alta:'Sin dolor en escaleras, cuádriceps simétrico, retorno deportivo',def:'Degeneración del cartílago rotuliano.',img:'knee'},
+];
+
+export async function loadAll() {
+  try {
+    const [th,doc,pat,appt,prot,cob] = await Promise.all([
+      supa.from('therapists').select('*').order('created_at'),
+      supa.from('doctors').select('*').order('created_at'),
+      supa.from('patients').select('*,session_log(*)').order('created_at'),
+      supa.from('appointments').select('*,patients(name)').order('date').order('hour'),
+      supa.from('protocols').select('*').order('created_at'),
+      supa.from('cobros').select('*').order('created_at'),
+    ]);
+    if(th.error) throw th.error;
+    state.therapists = (th.data||[]).map(r=>({id:r.id,name:r.name,initials:r.initials||r.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),spec:r.spec||'',startH:r.start_h,endH:r.end_h,colorId:r.color_id||'ca'}));
+    state.doctors = (doc.data||[]).map(r=>({id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'}));
+    const cobData = cob.data||[];
+    state.patients = (pat.data||[]).map(r=>({
+      id:r.id,name:r.name,age:r.age||35,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
+      diag:r.diag||'Sin diagnóstico',therapistId:r.therapist_id,doctorId:r.doctor_id,
+      sessions:r.sessions||10,done:r.done||0,status:r.status||'active',
+      log:(r.session_log||[]).map(s=>({date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[]})),
+      billing:{sesPerFactura:r.billing_ses_per_factura||5,pendientes:r.billing_pendientes||0,
+        facturas:cobData.filter(c=>c.patient_id===r.id).map(c=>({id:c.cobro_ref,n:c.n_sessions,fecha:c.date,estado:'cobrada'}))}
+    }));
+    state.protocols = (prot.data||[]).map(r=>({id:r.id,name:r.name,diag:r.diag_keywords||'',sessions:r.sessions||20,freq:r.freq||3,alta:r.discharge_criteria||''}));
+    state.appointments = (appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:(r.patients&&r.patients.name)||null,hour:r.hour,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''}));
+    if(!state.protocols.length) state.protocols = [...DEFAULT_PROTOCOLS];
+
+    let maxFact = 0;
+    cobData.forEach(c=>{
+      const m = String(c.cobro_ref||'').match(/^F(\d+)$/);
+      if(m){const n=parseInt(m[1],10);if(n>maxFact)maxFact=n;}
+    });
+    state.facturaCounter = maxFact;
+
+    const sessionDates = new Set();
+    state.patients.forEach(p=>{
+      (p.log||[]).forEach(s=>{sessionDates.add(p.id+'|'+s.date+'|'+(s.hour||'').split(':')[0]);});
+    });
+    state.appointments.forEach(a=>{
+      a.hasSession = sessionDates.has(String(a.patientId)+'|'+a.date+'|'+String(a.hour));
+    });
+    console.log('Datos cargados desde Supabase');
+  } catch(e) {
+    console.warn('Error cargando datos:', e.message);
+    toastErr('Error de conexión con la base de datos. Verifica tu internet.');
+  }
+}
+
+export async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const btn = document.getElementById('login-btn');
+  const err = document.getElementById('login-error');
+  if(!email||!pass){err.textContent='Ingresa tu correo y contraseña.';return;}
+  btn.disabled=true; btn.textContent='Ingresando...'; err.textContent='';
+  const {error} = await supa.auth.signInWithPassword({email,password:pass});
+  if(error){
+    err.textContent='Correo o contraseña incorrectos.';
+    btn.disabled=false; btn.textContent='Ingresar';
+  } else {
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('loading-overlay').style.display='flex';
+    await loadAll();
+    document.getElementById('loading-overlay').style.display='none';
+    // Callbacks inyectados desde main.js al inicializar
+    const {renderGrid,updateResumenBadge,updateFacturaBadge,subscribeRealtime} = window._app;
+    renderGrid(); updateResumenBadge(); updateFacturaBadge(); subscribeRealtime();
+  }
+}
+
+export async function doLogout() {
+  const {unsubscribeRealtime} = window._app;
+  await unsubscribeRealtime();
+  await supa.auth.signOut();
+  location.reload();
+}
+
+// ── DB helpers ──
+export function markLocalChange(table){
+  // Delegado a realtime.js a través de window._app
+  window._app?.markLocalChange(table);
+}
+
+export async function dbSaveAppt(a){
+  markLocalChange('appointments');
+  const payload={date:a.date,therapist_id:a.therapistId,patient_id:a.patientId,hour:a.hour,type:a.type,status:a.status,note:a.note||''};
+  if(typeof a.id==='string') payload.id=a.id;
+  await supa.from('appointments').upsert(payload);
+}
+export async function dbDeleteAppt(id){markLocalChange('appointments');if(typeof id==='string')await supa.from('appointments').delete().eq('id',id);}
+export async function dbUpdateApptStatus(id,status){
+  if(typeof id!=='string') return;
+  markLocalChange('appointments');
+  const {error}=await supa.from('appointments').update({status}).eq('id',id);
+  if(error) toastErr('No se pudo guardar el estado de la cita.');
+}
+export async function dbSavePatient(p){
+  markLocalChange('patients');
+  await supa.from('patients').insert({name:p.name,age:p.age,cedula:p.cedula,tel:p.tel,email:p.email,dir:p.dir,diag:p.diag,therapist_id:p.therapistId||null,doctor_id:p.doctorId||null,sessions:p.sessions,done:0,status:p.status,billing_ses_per_factura:p.billing.sesPerFactura,billing_pendientes:p.billing.pendientes});
+}
+export async function dbSaveTherapist(th){
+  markLocalChange('therapists');
+  const d={name:th.name,initials:th.initials,spec:th.spec,start_h:th.startH,end_h:th.endH,color_id:th.colorId};
+  if(typeof th.id==='string') d.id=th.id;
+  await supa.from('therapists').upsert(d);
+}
+export async function dbDeleteTherapist(id){markLocalChange('therapists');if(typeof id==='string')await supa.from('therapists').delete().eq('id',id);}
+export async function dbSaveDoctor(d){
+  markLocalChange('doctors');
+  const p={name:d.name,spec:d.spec,email:d.email,tel:d.tel,color:d.color};
+  if(typeof d.id==='string') p.id=d.id;
+  await supa.from('doctors').upsert(p);
+}
+export async function dbDeleteDoctor(id){markLocalChange('doctors');if(typeof id==='string')await supa.from('doctors').delete().eq('id',id);}
+export async function dbSaveProtocol(p){
+  markLocalChange('protocols');
+  const d={name:p.name,diag_keywords:p.diag,sessions:p.sessions,freq:p.freq,discharge_criteria:p.alta};
+  if(typeof p.id==='string') d.id=p.id;
+  await supa.from('protocols').upsert(d);
+}
+export async function dbDeleteProtocol(id){markLocalChange('protocols');if(typeof id==='string')await supa.from('protocols').delete().eq('id',id);}
+export async function dbRegistrarCobro(patientId,nSessions,cobroRef){
+  markLocalChange('cobros');
+  await supa.from('cobros').insert({cobro_ref:cobroRef,patient_id:patientId,n_sessions:nSessions,date:fmtDate(new Date())});
+  await supa.from('patients').update({billing_pendientes:0}).eq('id',patientId);
+}
+export async function dbUpdateBillingPendientes(patientId,pendientes){
+  markLocalChange('patients');
+  if(typeof patientId==='string') await supa.from('patients').update({billing_pendientes:pendientes}).eq('id',patientId);
+}
