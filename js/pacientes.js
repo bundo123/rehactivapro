@@ -3,6 +3,7 @@ import { state } from './state.js';
 import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, COLOR_OPTIONS } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
+import { hasPermission } from './permissions.js';
 
 export function populateDiagList() {
   const diags=[...new Set(state.patients.filter(p=>p.diag&&p.diag!=='Sin diagnóstico').map(p=>p.diag))];
@@ -18,6 +19,11 @@ export function openPatientModal() {
 }
 
 export async function savePatient() {
+  if(state.editingPatientId){
+    if(!hasPermission('editPatient')){toastErr('No tienes permisos para editar pacientes.');return;}
+  } else {
+    if(!hasPermission('createPatient')){toastErr('No tienes permisos para crear pacientes.');return;}
+  }
   if(state.editingPatientId){
     const p=getPatient(state.editingPatientId);if(!p)return;
     p.name=document.getElementById('pm-name').value.trim();
@@ -88,6 +94,8 @@ export function renderPatients() {
     if(!aEval&&bEval) return -1;if(aEval&&!bEval) return 1;
     return a.name.localeCompare(b.name);
   });
+  const canDelete = hasPermission('deletePatient');
+  const canEval = hasPermission('evalInicial');
   document.getElementById('patient-tbody').innerHTML=f.map(p=>{
     const doc=p.doctorId?getDoctor(p.doctorId):null;
     const pct=Math.round(p.done/p.sessions*100);
@@ -98,6 +106,8 @@ export function renderPatients() {
     const dc=doc
       ?`<span style="display:inline-flex;align-items:center;gap:5px;background:${doc.color}18;border:1px solid ${doc.color}44;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:500;color:${doc.color};white-space:nowrap">${esc(doc.name)}</span>`
       :'<span style="font-size:10px;color:#6b6a64;font-style:italic">Independiente</span>';
+    const delBtn = canDelete ? `<button class='th-btn del' style='font-size:9px;padding:2px 6px' onclick='deletePatient("${p.id}")'>Eliminar</button>` : '';
+    const evalBtn = canEval && !hasEvalInicial(p) ? `<button class='th-btn' style='font-size:9px;padding:2px 6px;background:rgba(224,80,80,.1);color:#E24B4A;border-color:rgba(224,80,80,.3)' onclick='openEvalInicial("${p.id}")'>Eval. inicial</button>` : '';
     return`<tr>
       <td style="font-weight:500;color:#1a1917">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -106,8 +116,7 @@ export function renderPatients() {
         </div>
         <div style="display:flex;gap:4px;margin-top:4px">
           <button class='th-btn' style='font-size:9px;padding:2px 6px' onclick='openEditPatient("${p.id}")'>Editar</button>
-          <button class='th-btn del' style='font-size:9px;padding:2px 6px' onclick='deletePatient("${p.id}")'>Eliminar</button>
-          ${!hasEvalInicial(p)?'<button class=\'th-btn\' style=\'font-size:9px;padding:2px 6px;background:rgba(224,80,80,.1);color:#E24B4A;border-color:rgba(224,80,80,.3)\' onclick=\'openEvalInicial("'+p.id+'")\'> Eval. inicial</button>':''}
+          ${delBtn}${evalBtn}
         </div>
       </td>
       <td style="color:#6b6a64;font-size:11px">${esc(p.diag)}</td>
@@ -120,6 +129,7 @@ export function renderPatients() {
 }
 
 export async function deletePatient(id) {
+  if(!hasPermission('deletePatient')){toastErr('No tienes permisos para eliminar pacientes.');return;}
   if(!confirm('¿Eliminar este paciente? Se eliminarán también sus citas y cobros.')) return;
   state.patients=state.patients.filter(p=>p.id!==id);
   state.appointments=state.appointments.filter(a=>a.patientId!==id);
@@ -203,6 +213,7 @@ let _evalPatientId = null;
 let _evEvaVal = 5;
 
 export function openEvalInicial(patientId) {
+  if(!hasPermission('evalInicial')){toastErr('No tienes permisos para registrar evaluaciones.');return;}
   _evalPatientId=patientId;
   const p=getPatient(patientId);
   document.getElementById('eval-modal-patient-name').textContent=p?p.name+' · '+(p.diag||'Sin diagnóstico'):'';

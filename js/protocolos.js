@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { esc, getPatient } from './utils.js';
-import { toastOk } from './toast.js';
+import { toastOk, toastErr } from './toast.js';
+import { hasPermission } from './permissions.js';
 import { dbSaveProtocol, dbDeleteProtocol } from './auth.js';
 
 const PROT_PAGE_SIZE = 3;
@@ -40,6 +41,7 @@ export function openProtocolModal(eid=null) {
 }
 
 export function saveProtocol() {
+  if(!hasPermission('createProtocol')){toastErr('No tienes permisos para guardar protocolos.');return;}
   const diag=document.getElementById('prot-diag').value.trim();
   const name=document.getElementById('prot-name').value.trim();
   if(!diag||!name){alert('Completa diagnóstico y nombre.');return;}
@@ -67,10 +69,7 @@ export function renderProtocols() {
           ${p.def?`<div style="font-size:11px;color:#6b6a64;margin-top:4px;line-height:1.5">${p.def}</div>`:''}
           <div class="protocol-meta" style="margin-top:6px">${p.sessions} sesiones · ${fl[p.freq]||p.freq+'×/sem'}</div>
           ${p.alta?`<div style="font-size:10px;color:#7a7a76;margin-top:3px">Alta: ${p.alta}</div>`:''}
-          <div style="display:flex;gap:6px;margin-top:8px">
-            <button class="th-btn" onclick="openProtocolModal('${p.id}')">Editar</button>
-            <button class="th-btn del" onclick="deleteProtocol('${p.id}')">Eliminar</button>
-          </div>
+          ${hasPermission('createProtocol')?`<div style="display:flex;gap:6px;margin-top:8px"><button class="th-btn" onclick="openProtocolModal('${p.id}')">Editar</button><button class="th-btn del" onclick="deleteProtocol('${p.id}')">Eliminar</button></div>`:''}
         </div>
       </div>`;
     }).join('')+`</div>`;
@@ -79,6 +78,7 @@ export function renderProtocols() {
 }
 
 export function deleteProtocol(id) {
+  if(!hasPermission('createProtocol')){toastErr('No tienes permisos para eliminar protocolos.');return;}
   if(!confirm('¿Eliminar?'))return;
   state.protocols=state.protocols.filter(p=>p.id!==id);
   renderProtocols(); dbDeleteProtocol(id);

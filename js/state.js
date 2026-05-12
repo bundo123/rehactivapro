@@ -28,4 +28,7 @@ export const state = {
   editingProtocolId: null,
   selectedColor: 'ca',
   selectedDocColor: '#E24B4A',
+  currentUserRole: null,
+  currentUserProfile: null,
+  currentUserId: null,
 };

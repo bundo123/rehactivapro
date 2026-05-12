@@ -2,6 +2,7 @@ import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { getPatient, fmtDate } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
+import { hasPermission } from './permissions.js';
 
 export const PRO_TECNICAS = [
   'Compresa caliente','Crioterapia','Electroterapia','Magnetoterapia',
@@ -51,6 +52,7 @@ export function setEva(containerId, valId, val, col) {
 
 export function openSessionModal(appt) {
   if(!appt)return;
+  if(!hasPermission('registerSession')){toastErr('No tienes permisos para registrar sesiones.');return;}
   _pendingSessionAppt=appt;
   const pt=getPatient(appt.patientId);
   const existing=pt&&pt.log?pt.log.find(s=>s.date===appt.date&&s.hour===appt.hour+':00'):null;

@@ -4,6 +4,7 @@ import { esc, getTherapist, getColor, therapistHours, COLOR_OPTIONS } from './ut
 import { toastOk, toastErr } from './toast.js';
 import { dbDeleteTherapist } from './auth.js';
 import { updateFacturaBadge } from './agenda.js';
+import { hasPermission } from './permissions.js';
 
 export function renderTherapistList() {
   const q=(document.getElementById('therapist-search')?.value||'').toLowerCase();
@@ -17,10 +18,7 @@ export function renderTherapistList() {
         <div style="font-size:11px;color:#6b6a64">${esc(th.spec)}</div>
         <div style="font-size:11px;color:#5a5a56;margin-top:2px">Turno: ${th.startH}:00–${th.endH}:00 · ${therapistHours(th).length} h/día</div>
       </div>
-      <div class="th-actions">
-        <button class="th-btn" onclick="openEditTherapist('${th.id}')">Editar</button>
-        <button class="th-btn del" onclick="deleteTherapist('${th.id}')">Eliminar</button>
-      </div>
+      ${hasPermission('createTherapist')?`<div class="th-actions"><button class="th-btn" onclick="openEditTherapist('${th.id}')">Editar</button><button class="th-btn del" onclick="deleteTherapist('${th.id}')">Eliminar</button></div>`:''}
     </div>`;
   }).join('')||'<div style="color:#6b6a64;font-size:13px">Sin terapeutas registrados.</div>';
 }
@@ -60,6 +58,7 @@ export function openEditTherapist(id) {
 }
 
 export async function saveTherapist() {
+  if(!hasPermission('createTherapist')){toastErr('No tienes permisos para gestionar terapeutas.');return;}
   const name=document.getElementById('th-name').value.trim();if(!name){alert('Ingresa el nombre.');return;}
   const s=parseInt(document.getElementById('th-start').value),e=parseInt(document.getElementById('th-end').value);
   if(e<=s){alert('La hora de fin debe ser mayor.');return;}
@@ -87,6 +86,7 @@ export async function saveTherapist() {
 }
 
 export async function deleteTherapist(id) {
+  if(!hasPermission('createTherapist')){toastErr('No tienes permisos para eliminar terapeutas.');return;}
   if(!confirm('¿Eliminar este terapeuta? Se borrarán también todas sus citas.'))return;
   state.therapists=state.therapists.filter(t=>t.id!==id);
   state.appointments=state.appointments.filter(a=>a.therapistId!==id);

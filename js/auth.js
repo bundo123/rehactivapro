@@ -3,6 +3,24 @@ import { state } from './state.js';
 import { fmtDate } from './utils.js';
 import { toastErr } from './toast.js';
 
+export async function loadProfile() {
+  const { data: { user } } = await supa.auth.getUser();
+  if (!user) return false;
+  state.currentUserId = user.id;
+  const { data, error } = await supa.from('profiles').select('role, name').eq('id', user.id).single();
+  if (error || !data || !data.role) {
+    toastErr('Tu cuenta no tiene rol asignado. Contacta al administrador.');
+    await supa.auth.signOut();
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('loading-overlay').style.display = 'none';
+    state.currentUserRole = null; state.currentUserProfile = null;
+    return false;
+  }
+  state.currentUserRole = data.role;
+  state.currentUserProfile = { name: data.name || user.email, email: user.email, role: data.role };
+  return true;
+}
+
 export const DEFAULT_PROTOCOLS = [
   {id:'p1',name:'POP Manguito de los Rotadores Hombro Derecho',diag:'manguito,rotadores,hombro derecho,POP hombro derecho',sessions:20,freq:5,alta:'Rango articular completo, fuerza 80% lado contralateral, EVA 0-1',def:'Postoperatorio de reparación quirúrgica del manguito rotador.',img:'shoulder'},
   {id:'p2',name:'Coxartrosis Derecha',diag:'coxartrosis,artrosis cadera,cadera derecha',sessions:15,freq:3,alta:'Marcha sin dolor, mejora de rangos articulares, funcionalidad en AVD',def:'Desgaste del cartílago de la articulación coxofemoral derecha.',img:'hip'},
@@ -82,11 +100,14 @@ export async function doLogin() {
   } else {
     document.getElementById('login-screen').style.display='none';
     document.getElementById('loading-overlay').style.display='flex';
+    const profileOk = await loadProfile();
+    if (!profileOk) { btn.disabled=false; btn.textContent='Ingresar'; return; }
     await loadAll();
     document.getElementById('loading-overlay').style.display='none';
-    // Callbacks inyectados desde main.js al inicializar
-    const {renderGrid,updateResumenBadge,updateFacturaBadge,subscribeRealtime} = window._app;
-    renderGrid(); updateResumenBadge(); updateFacturaBadge(); subscribeRealtime();
+    const {renderGrid,updateResumenBadge,updateFacturaBadge,subscribeRealtime,applyRolePermissions} = window._app;
+    renderGrid(); updateResumenBadge(); updateFacturaBadge();
+    applyRolePermissions();
+    subscribeRealtime();
   }
 }
 

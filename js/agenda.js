@@ -3,6 +3,7 @@ import { state } from './state.js';
 import { esc, fmtDate, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dbUpdateApptStatus, dbUpdateBillingPendientes, dbRegistrarCobro } from './auth.js';
+import { hasPermission } from './permissions.js';
 
 export function renderRefLegend() {
   if(!state.doctors.length){document.getElementById('ref-legend-bar').innerHTML='';return;}
@@ -95,10 +96,11 @@ export function renderGrid() {
         card.draggable=true;
         const doc=pt&&pt.doctorId?getDoctor(pt.doctorId):null;
         if(doc){card.style.borderLeftColor=doc.color;card.title=`Ref: ${doc.name} (${doc.spec})${appt.status==='conf'?' · Doble click para registrar sesión':''}`;}
-        card.innerHTML=`<div class="appt-name" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Ver/editar paciente">${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div><div class="appt-del">×</div>`;
+        const canDel = hasPermission('deleteAppt');
+        card.innerHTML=`<div class="appt-name" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Ver/editar paciente">${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}`;
         card.querySelector('.appt-name').addEventListener('click',e=>{e.stopPropagation();window._app.openEditPatient(appt.patientId);});
         card.querySelector('.appt-dot').addEventListener('click',e=>{e.stopPropagation();cycleStatus(appt.id);});
-        card.querySelector('.appt-del').addEventListener('click',e=>{e.stopPropagation();delAppt(appt.id,e);});
+        if(canDel) card.querySelector('.appt-del').addEventListener('click',e=>{e.stopPropagation();delAppt(appt.id,e);});
         card.addEventListener('dragstart',()=>{state.dragData=appt.id});
         card.addEventListener('dblclick',e=>{
           e.stopPropagation();
@@ -156,6 +158,7 @@ export async function cycleStatus(id) {
 
 export async function delAppt(id,e) {
   if(e) e.stopPropagation();
+  if(!hasPermission('deleteAppt')){toastErr('No tienes permisos para eliminar citas.');return;}
   if(!confirm('¿Eliminar esta cita?')) return;
   const cita=state.appointments.find(a=>a.id===id);
   if(cita&&cita.status==='conf'&&cita.patientId){
@@ -233,6 +236,7 @@ export function filterApptPatient() {
 }
 
 export async function saveAppt() {
+  if(!hasPermission('createAppt')){toastErr('No tienes permisos para crear citas.');return;}
   const thId=document.getElementById('m-therapist').value;
   const hr=parseInt(document.getElementById('m-time').value);
   let patId=document.getElementById('m-patient').value;

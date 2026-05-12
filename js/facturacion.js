@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { esc, getPatient, getTherapist, getDoctor, fmtDate } from './utils.js';
-import { toastOk } from './toast.js';
+import { toastOk, toastErr } from './toast.js';
+import { hasPermission } from './permissions.js';
 import { dbRegistrarCobro } from './auth.js';
 import { updateFacturaBadge } from './agenda.js';
 
@@ -104,6 +105,7 @@ export function renderFacturacion() {
 }
 
 export function emitirFactura(patientId) {
+  if(!hasPermission('emitirFactura')){toastErr('No tienes permisos para emitir cobros.');return;}
   const p=getPatient(patientId);if(!p||!p.billing)return;
   const n=p.billing.pendientes;
   const fId='F'+(++state.facturaCounter).toString().padStart(3,'0');
@@ -117,6 +119,7 @@ export function emitirFactura(patientId) {
 }
 
 export function marcarTodosFacturados() {
+  if(!hasPermission('emitirFactura')){toastErr('No tienes permisos para emitir cobros.');return;}
   const spf=parseInt(document.getElementById('global-spf').value)||5;
   const paracobrar=state.patients.filter(p=>p.billing&&(p.billing.pendientes>=spf||(p.billing.pendientes>0&&(p.billing.facturas.reduce((s,f)=>s+f.n,0)+p.billing.pendientes)>=p.sessions)));
   paracobrar.forEach(p=>emitirFactura(p.id));

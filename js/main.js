@@ -3,7 +3,8 @@ import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { allTabs, fmtDate } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
-import { loadAll, doLogin, doLogout } from './auth.js';
+import { loadAll, doLogin, doLogout, loadProfile } from './auth.js';
+import { applyRolePermissions, canAccessTab, hasPermission } from './permissions.js';
 import { markLocalChange, subscribeRealtime, unsubscribeRealtime } from './realtime.js';
 import {
   renderGrid, renderRefLegend, cycleStatus, updateFacturaBadge,
@@ -58,6 +59,8 @@ window._app = {
   fmtDate,
   // auth/realtime
   loadAll, subscribeRealtime, unsubscribeRealtime, markLocalChange,
+  // permissions
+  applyRolePermissions, hasPermission,
   // ui helpers
   showTab, closeModal,
   // render
@@ -85,6 +88,10 @@ document.addEventListener('change', function(e) {
 
 // ── showTab ──
 export function showTab(tab) {
+  if (!canAccessTab(tab)) {
+    toastErr('No tienes permisos para acceder a esta sección');
+    tab = 'agenda';
+  }
   state.currentTab=tab;
   allTabs.forEach(t=>document.getElementById('tab-'+t).style.display=t===tab?'':'none');
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
@@ -115,9 +122,12 @@ async function initApp() {
   if(session){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('loading-overlay').style.display='flex';
+    const profileOk = await loadProfile();
+    if (!profileOk) return;
     await loadAll();
     document.getElementById('loading-overlay').style.display='none';
     checkAutoNoas(); renderGrid(); updateResumenBadge(); updateFacturaBadge();
+    applyRolePermissions();
     checkCitasPendientes();
     subscribeRealtime();
   }
@@ -142,6 +152,7 @@ Object.assign(window, {
   marcarTodosFacturados, exportarPDF, genSemanalAI, genResumenDiaAI,
   genPatientAI, globalSearch, selectGlobalResult,
   updateGlobalSPF, updateRecPreview, populateDiagList,
+  applyRolePermissions, hasPermission,
   // referencias a datos accesibles desde HTML (onclick strings)
   get appointments(){ return state.appointments; },
   get patients(){ return state.patients; },

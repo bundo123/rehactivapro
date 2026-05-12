@@ -2,6 +2,7 @@ import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { esc, getDoctor, DOC_COLORS } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
+import { hasPermission } from './permissions.js';
 import { dbDeleteDoctor } from './auth.js';
 
 export function renderDoctorsList() {
@@ -49,6 +50,7 @@ export function openDoctorModal(eid=null) {
 }
 
 export async function saveDoctor() {
+  if(!hasPermission('createDoctor')){toastErr('No tienes permisos para gestionar doctores.');return;}
   const name=document.getElementById('doc-name').value.trim();if(!name){alert('Ingresa el nombre.');return;}
   const d={name,spec:document.getElementById('doc-spec').value,email:document.getElementById('doc-email').value,tel:document.getElementById('doc-tel').value,color:state.selectedDocColor};
   if(state.editingDocId) Object.assign(getDoctor(state.editingDocId),d);
@@ -69,6 +71,7 @@ export async function saveDoctor() {
 }
 
 export async function deleteDoctor(id) {
+  if(!hasPermission('createDoctor')){toastErr('No tienes permisos para eliminar doctores.');return;}
   if(!confirm('¿Eliminar este doctor? Sus pacientes quedarán como independientes.'))return;
   state.doctors=state.doctors.filter(d=>d.id!==id);
   state.patients.forEach(p=>{if(p.doctorId===id) p.doctorId=null;});
