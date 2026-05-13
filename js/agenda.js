@@ -50,9 +50,9 @@ export function renderGrid() {
 
   document.getElementById('agenda-stats').innerHTML=`
     <div class="stat"><div class="stat-lbl">Citas hoy</div><div class="stat-val">${ta.length}</div><div class="stat-chg neu">${slots} slots disponibles</div></div>
-    <div class="stat"><div class="stat-lbl">Confirmadas</div><div class="stat-val" style="color:#1D9E75">${conf}</div><div class="stat-chg up">Listas</div></div>
-    <div class="stat"><div class="stat-lbl">Pendientes</div><div class="stat-val" style="color:#BA7517">${pend}</div><div class="stat-chg neu">Por confirmar</div></div>
-    <div class="stat"><div class="stat-lbl">No asistieron</div><div class="stat-val" style="color:#E24B4A">${noas}</div><div class="stat-chg down">Seguimiento</div></div>`;
+    <div class="stat green"><div class="stat-lbl">Confirmadas</div><div class="stat-val" style="color:#1D9E75">${conf}</div><div class="stat-chg up">Listas</div></div>
+    <div class="stat yellow"><div class="stat-lbl">Pendientes</div><div class="stat-val" style="color:#BA7517">${pend}</div><div class="stat-chg neu">Por confirmar</div></div>
+    <div class="stat red"><div class="stat-lbl">No asistieron</div><div class="stat-val" style="color:#E24B4A">${noas}</div><div class="stat-chg down">Seguimiento</div></div>`;
 
   const vh=getAvailHours();
   const g=document.getElementById('schedule-grid');

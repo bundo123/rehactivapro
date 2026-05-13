@@ -5,7 +5,16 @@ import { hasEvalInicial } from './resumen.js';
 
 export { genSemanalAI, genPatientAI };
 
-export function hmCol(p){if(p===null)return'#f0efe8';if(p===0)return'#f0efe8';if(p<25)return'#e8f5f0';if(p<50)return'#c5e8d8';if(p<75)return'#7dd9b2';if(p<90)return'#1D9E75';return'#0F6E56';}
+export function hmCol(p){
+  if(p===null||p===0) return '#f0efe8';
+  if(p<30) return '#E24B4A';
+  if(p<45) return '#E88B5B';
+  if(p<60) return '#E0A850';
+  if(p<75) return '#E0D068';
+  if(p<85) return '#7DC9A6';
+  if(p<95) return '#1D9E75';
+  return '#0F6E56';
+}
 
 export function renderHeatmap() {
   let html=`<div class="heatmap-grid" style="grid-template-columns:50px repeat(5,1fr)"><div class="hm-hdr"></div>`;
@@ -17,7 +26,7 @@ export function renderHeatmap() {
       if(!av){html+=`<div class="hm-cell" style="background:#f0efe8"><span style="font-size:9px;color:#444">—</span></div>`;return;}
       const occ=Math.min(av,Math.floor(hr>=9&&hr<=11?av*0.9:hr>=7&&hr<=8?av*0.75:hr===12||hr===13?av*0.4:av*0.55));
       const p=Math.round(occ/av*100);
-      const tc=p>=75?'#e8e6e1':'#5ecfa0';
+      const tc=p>=60?'#fff':'#1a1917';
       html+=`<div class="hm-cell" style="background:${hmCol(p)};color:${tc}">${p}%<div class="tooltip-val">${d} ${hr}:00 — ${occ}/${av} · ${p}%</div></div>`;
     });
   });
