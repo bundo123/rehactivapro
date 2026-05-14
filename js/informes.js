@@ -42,12 +42,12 @@ export function renderTherapistUtil() {
     const ts=therapistHours(th).length*5;
     const us=state.appointments.filter(a=>a.therapistId===th.id&&semDates.includes(a.date)&&a.status==='conf').length;
     const u=ts>0?Math.round(us/ts*100):0;
-    const c=getColor(th.colorId);const uc=u>=80?'#1D9E75':u>=60?'#BA7517':'#E24B4A';
+    const c=getColor(th.colorId);const uc=hmCol(u);
     return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(29,158,117,.1)">
       <div class="avatar" style="background:${c.border}22;color:${c.text};width:30px;height:30px">${esc(th.initials)}</div>
       <div style="flex:1"><div style="font-size:12px;font-weight:500;color:#1a1917">${esc(th.name)}</div>
         <div style="font-size:10px;color:#6b6a64">${th.startH}:00–${th.endH}:00</div>
-        <div class="util-bar"><div class="util-fill" style="width:${u}%;background:${uc}"></div></div>
+        <div class="util-bar"><div class="util-fill" style="width:${u}%;background-color:${uc}"></div></div>
       </div>
       <div style="text-align:right;min-width:48px"><div style="font-size:15px;font-weight:500;color:${uc}">${u}%</div><div style="font-size:10px;color:#6b6a64">${us}/${ts}</div></div>
     </div>`;

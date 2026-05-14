@@ -105,7 +105,7 @@ body{background:var(--rh-cream)!important;color:#1a1917}
 
 .toast.success{background:var(--rh-green-soft)!important;color:var(--rh-green-d)!important;border-color:rgba(29,158,117,.4)!important}
 
-.prog-fill,.bar-fill,.util-fill{background:linear-gradient(90deg,var(--rh-red) 0%,var(--rh-yellow) 50%,var(--rh-green) 100%)!important}
+.prog-fill,.bar-fill{background:linear-gradient(90deg,var(--rh-red) 0%,var(--rh-yellow) 50%,var(--rh-green) 100%)!important}
 
 .cont-alta{color:var(--rh-green-d)!important}
 .cont-alta .cd{background:var(--rh-green)!important}

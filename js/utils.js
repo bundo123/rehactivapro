@@ -3,14 +3,20 @@ import { state } from './state.js';
 export const ALL_HOURS = [6,7,8,9,10,11,12,13,14,15,16,17];
 export const DAYS = ['Lun','Mar','Mié','Jue','Vie'];
 export const COLOR_OPTIONS = [
-  {id:'ca',bg:'#e8f5f0',border:'#1D9E75',text:'#0d6e4e'},
-  {id:'cb',bg:'#e8f2fb',border:'#378ADD',text:'#1a4a8a'},
-  {id:'cc',bg:'#fef6e8',border:'#BA7517',text:'#7a4a00'},
-  {id:'cd',bg:'#fdeef4',border:'#D4537E',text:'#8a2a50'},
-  {id:'ce',bg:'#f0eefb',border:'#7F77DD',text:'#4a3d9e'},
-  {id:'cf',bg:'#f0f8e8',border:'#639922',text:'#3a5a10'},
+  {id:'ca',name:'Verde',bg:'#e8f5f0',border:'#1D9E75',text:'#0d6e4e'},
+  {id:'cb',name:'Azul',bg:'#e8f2fb',border:'#29ABE2',text:'#155b7a'},
+  {id:'cc',name:'Naranja',bg:'#fef6e8',border:'#F5A623',text:'#7a4900'},
+  {id:'cd',name:'Rosa',bg:'#fdeef4',border:'#D9508A',text:'#8a2a50'},
+  {id:'ce',name:'Morado',bg:'#f0eefb',border:'#8B5CF6',text:'#4a3d9e'},
+  {id:'cf',name:'Lima',bg:'#f0f8e8',border:'#84CC16',text:'#3a5a10'},
+  {id:'cg',name:'Turquesa',bg:'#e6fffb',border:'#14B8A6',text:'#0f766e'},
+  {id:'ch',name:'Rojo',bg:'#fef2f2',border:'#EF4444',text:'#991b1b'},
+  {id:'ci',name:'Indigo',bg:'#eef2ff',border:'#6366F1',text:'#3730a3'},
+  {id:'cj',name:'Ambar',bg:'#fffbeb',border:'#F59E0B',text:'#92400e'},
+  {id:'ck',name:'Coral',bg:'#fff1f2',border:'#FB7185',text:'#9f1239'},
+  {id:'cl',name:'Pizarra',bg:'#f1f5f9',border:'#64748B',text:'#334155'},
 ];
-export const DOC_COLORS = ['#E24B4A','#378ADD','#7F77DD','#BA7517','#D4537E','#1D9E75','#D85A30','#639922'];
+export const DOC_COLORS = ['#E24B4A','#378ADD','#7F77DD','#BA7517','#D4537E','#1D9E75','#D85A30','#639922','#5EEAD4','#FCA5A5','#FDE047','#A78BFA','#6EE7B7','#FB923C','#94A3B8'];
 export const allTabs = ['agenda','pacientes','informes','paciente_rpt','protocolos','resumen','terapeutas','doctores','facturacion'];
 
 export function escapeHtml(v){
