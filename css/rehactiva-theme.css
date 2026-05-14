@@ -2,6 +2,8 @@
    REHACTIVA — TEMA DE MARCA (Azul · Naranja · Crema)
    ============================================================ */
 
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&display=swap');
+
 :root{
   --rh-blue:#29ABE2;
   --rh-blue-d:#1d8fbf;
@@ -37,7 +39,6 @@ body{background:var(--rh-cream)!important;color:#1a1917}
 .sidebar{background:var(--rh-cream3)!important;border-right-color:rgba(41,171,226,.2)!important}
 .sidebar-logo{border-bottom-color:rgba(0,0,0,.06)!important}
 
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&display=swap');
 .logo-text{font-family:'Outfit',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif!important;font-size:20px!important;font-weight:700!important;letter-spacing:-.6px!important;font-style:normal!important;display:inline-flex!important;align-items:baseline!important;gap:5px!important}
 .logo-text .w{color:var(--rh-blue)!important;font-weight:700!important}
 .logo-text .g{color:var(--rh-orange)!important;font-weight:600!important;font-size:13px!important;letter-spacing:.04em!important;text-transform:uppercase!important;padding:2px 7px!important;background:var(--rh-orange-soft)!important;border-radius:5px!important;line-height:1!important}
