@@ -19,6 +19,13 @@ export function isLocalEcho(table) {
   return(Date.now()-ts)<ANTI_ECHO_MS;
 }
 
+function touchLoaded(table) {
+  const now=Date.now();
+  state.lastLoaded.all=now;
+  if(table)state.lastLoaded[table]=now;
+  window._app?.updateLastLoadedLabels?.();
+}
+
 // ── Wrapper sobre supa.from ──
 const _supaFromOrig = supa.from.bind(supa);
 supa.from = function(table) {
@@ -69,7 +76,7 @@ function _mapAppt(r) {
 function _mapPatient(r) {
   const existing=state.patients.find(p=>p.id===r.id);
   return{
-    id:r.id,name:r.name,age:r.age||35,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
+    id:r.id,createdAt:r.created_at||null,name:r.name,age:r.age||35,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
     diag:r.diag||'Sin diagnóstico',therapistId:r.therapist_id,doctorId:r.doctor_id,
     sessions:r.sessions||10,done:r.done||0,status:r.status||'active',
     log:existing?existing.log:[],
@@ -90,6 +97,7 @@ function _refreshTabAfterAppt() {
 }
 
 function _onAppt(payload) {
+  touchLoaded('appointments');
   const ev=payload.eventType;
   if(ev==='INSERT'){
     if(!state.appointments.find(a=>a.id===payload.new.id)){state.appointments.push(_mapAppt(payload.new));queueRemoteToast('appointments','Nueva cita agregada');}
@@ -108,6 +116,7 @@ function _onAppt(payload) {
 }
 
 function _onPatient(payload) {
+  touchLoaded('patients');
   const ev=payload.eventType;
   if(ev==='INSERT'){
     if(!state.patients.find(p=>p.id===payload.new.id)){state.patients.push(_mapPatient(payload.new));queueRemoteToast('patients','Paciente agregado');}
@@ -128,6 +137,7 @@ function _onPatient(payload) {
 }
 
 function _onSessionLog(payload) {
+  touchLoaded('patients');
   const ev=payload.eventType;
   const row=payload.new||payload.old;if(!row)return;
   const pid=row.patient_id;
@@ -152,6 +162,7 @@ function _onSessionLog(payload) {
 }
 
 function _onCobro(payload) {
+  touchLoaded('cobros');
   const ev=payload.eventType;
   if(ev==='INSERT'){
     const r=payload.new;const p=getPatient(r.patient_id);
@@ -168,6 +179,7 @@ function _onCobro(payload) {
 }
 
 function _onTherapist(payload) {
+  touchLoaded('therapists');
   const ev=payload.eventType;
   if(ev==='INSERT'){
     if(!state.therapists.find(t=>t.id===payload.new.id)){state.therapists.push(_mapTherapist(payload.new));queueRemoteToast('therapists','Terapeuta agregado');}
@@ -186,6 +198,7 @@ function _onTherapist(payload) {
 }
 
 function _onDoctor(payload) {
+  touchLoaded('doctors');
   const ev=payload.eventType;
   if(ev==='INSERT'){
     if(!state.doctors.find(d=>d.id===payload.new.id)){state.doctors.push(_mapDoctor(payload.new));queueRemoteToast('doctors','Doctor agregado');}
@@ -229,7 +242,7 @@ export function subscribeRealtime() {
             realtimeChannel=null;
             try {
               const {loadAll,renderGrid,renderPatients,renderResumen,renderFacturacion,updateResumenBadge,updateFacturaBadge}=window._app;
-              await loadAll();
+              await loadAll(true);
               if(state.currentTab==='agenda')renderGrid();
               else if(state.currentTab==='pacientes')renderPatients();
               else if(state.currentTab==='resumen')renderResumen();

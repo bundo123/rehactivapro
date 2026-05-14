@@ -1,7 +1,7 @@
 // ── Imports ──
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { allTabs, fmtDate } from './utils.js';
+import { allTabs, fmtDate, relativeTime } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { loadAll, doLogin, doLogout, loadProfile } from './auth.js';
 import { applyRolePermissions, canAccessTab, hasPermission } from './permissions.js';
@@ -20,6 +20,7 @@ import {
 import {
   renderPatients, openPatientModal, savePatient, deletePatient,
   openEditPatient, populateDiagList, nuevoEpisodio, guardarNuevoEpisodio,
+  setupPatientSearch, goToPatientPage,
   openEvalInicial, renderEvEva, saveEvalInicial
 } from './pacientes.js';
 import {
@@ -59,6 +60,7 @@ window._app = {
   fmtDate,
   // auth/realtime
   loadAll, subscribeRealtime, unsubscribeRealtime, markLocalChange,
+  refreshData, updateLastLoadedLabels,
   // permissions
   applyRolePermissions, hasPermission,
   // ui helpers
@@ -114,6 +116,40 @@ export function closeModal(id) {
 }
 window._app.closeModal = closeModal;
 
+export function updateLastLoadedLabels() {
+  const txt='Última actualización: '+relativeTime(state.lastLoaded?.all);
+  document.querySelectorAll('.last-updated-label').forEach(el=>{el.textContent=txt;});
+}
+window._app.updateLastLoadedLabels = updateLastLoadedLabels;
+
+function renderRefreshControls() {
+  document.querySelectorAll('.main-header').forEach(header=>{
+    if(header.querySelector('.refresh-meta'))return;
+    const meta=document.createElement('div');
+    meta.className='refresh-meta';
+    meta.innerHTML='<button class="refresh-btn" onclick="refreshData()">Actualizar</button><span class="last-updated-label">Última actualización: nunca</span>';
+    header.appendChild(meta);
+  });
+  updateLastLoadedLabels();
+}
+
+export async function refreshData() {
+  const result=await loadAll(true);
+  if(result?.error)return;
+  if(state.currentTab==='agenda')renderGrid();
+  else if(state.currentTab==='pacientes')renderPatients();
+  else if(state.currentTab==='paciente_rpt')renderPatientReportSelect();
+  else if(state.currentTab==='informes')renderSemanal();
+  else if(state.currentTab==='resumen')renderResumen();
+  else if(state.currentTab==='protocolos')renderProtocols();
+  else if(state.currentTab==='terapeutas')renderTherapistList();
+  else if(state.currentTab==='doctores'){renderDoctorsList();renderNotifList();}
+  else if(state.currentTab==='facturacion')renderFacturacion();
+  updateResumenBadge(); updateFacturaBadge(); applyRolePermissions();
+  toastOk('Datos actualizados');
+}
+window._app.refreshData = refreshData;
+
 // ── initApp ──
 async function initApp() {
   document.getElementById('login-screen').style.display='flex';
@@ -152,6 +188,7 @@ Object.assign(window, {
   marcarTodosFacturados, exportarPDF, genSemanalAI, genResumenDiaAI,
   genPatientAI, globalSearch, selectGlobalResult,
   updateGlobalSPF, updateRecPreview, populateDiagList,
+  goToPatientPage, refreshData,
   applyRolePermissions, hasPermission,
   // referencias a datos accesibles desde HTML (onclick strings)
   get appointments(){ return state.appointments; },
@@ -162,6 +199,9 @@ Object.assign(window, {
 });
 
 // ── Arrancar ──
+renderRefreshControls();
+setupPatientSearch();
+setInterval(updateLastLoadedLabels,30000);
 renderGrid();
 updateFacturaBadge();
 initApp();

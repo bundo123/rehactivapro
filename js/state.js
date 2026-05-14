@@ -31,4 +31,7 @@ export const state = {
   currentUserRole: null,
   currentUserProfile: null,
   currentUserId: null,
+  lastLoaded: {},
+  dataLoaded: false,
+  patientPage: 1,
 };

@@ -3,6 +3,8 @@ import { state } from './state.js';
 import { fmtDate } from './utils.js';
 import { toastErr } from './toast.js';
 
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
 export async function loadProfile() {
   const { data: { user } } = await supa.auth.getUser();
   if (!user) return false;
@@ -39,7 +41,11 @@ export const DEFAULT_PROTOCOLS = [
   {id:'p15',name:'Condromalacia Rotuliana Bilateral',diag:'condromalacia,rotuliana,bilateral,condromalacia rotuliana',sessions:14,freq:3,alta:'Sin dolor en escaleras, cuádriceps simétrico, retorno deportivo',def:'Degeneración del cartílago rotuliano.',img:'knee'},
 ];
 
-export async function loadAll() {
+export async function loadAll(force=false) {
+  const last=state.lastLoaded?.all||0;
+  if(!force&&state.dataLoaded&&Date.now()-last<CACHE_TTL_MS){
+    return {cached:true};
+  }
   try {
     const [th,doc,pat,appt,prot,cob] = await Promise.all([
       supa.from('therapists').select('*').order('created_at'),
@@ -54,7 +60,7 @@ export async function loadAll() {
     state.doctors = (doc.data||[]).map(r=>({id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'}));
     const cobData = cob.data||[];
     state.patients = (pat.data||[]).map(r=>({
-      id:r.id,name:r.name,age:r.age||35,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
+      id:r.id,createdAt:r.created_at||null,name:r.name,age:r.age||35,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
       diag:r.diag||'Sin diagnóstico',therapistId:r.therapist_id,doctorId:r.doctor_id,
       sessions:r.sessions||10,done:r.done||0,status:r.status||'active',
       log:(r.session_log||[]).map(s=>({date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[]})),
@@ -79,10 +85,16 @@ export async function loadAll() {
     state.appointments.forEach(a=>{
       a.hasSession = sessionDates.has(String(a.patientId)+'|'+a.date+'|'+String(a.hour));
     });
+    const now=Date.now();
+    state.dataLoaded=true;
+    state.lastLoaded={all:now,therapists:now,doctors:now,patients:now,appointments:now,protocols:now,cobros:now};
+    window._app?.updateLastLoadedLabels?.();
     console.log('Datos cargados desde Supabase');
+    return {cached:false};
   } catch(e) {
     console.warn('Error cargando datos:', e.message);
     toastErr('Error de conexión con la base de datos. Verifica tu internet.');
+    return {cached:false,error:e};
   }
 }
 

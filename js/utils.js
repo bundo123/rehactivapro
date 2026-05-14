@@ -24,6 +24,37 @@ export function escapeHtml(v){
   return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 export const esc = escapeHtml;
+export function escapeRegex(v){return String(v||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+export function normalizeSearch(v){
+  return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+}
+export function patientSearchText(p){
+  return normalizeSearch([p.name,p.cedula,p.diag,p.tel,p.email].filter(Boolean).join(' '));
+}
+export function patientMatchesSearch(p,q){
+  const nq=normalizeSearch(q);
+  if(!nq)return true;
+  return patientSearchText(p).includes(nq);
+}
+export function highlightMatch(text,query){
+  const raw=String(text||'');
+  const q=String(query||'').trim();
+  if(!q)return esc(raw);
+  const re=new RegExp('('+escapeRegex(q)+')','gi');
+  return esc(raw).replace(re,'<mark class="search-hit">$1</mark>');
+}
+export function relativeTime(ts){
+  if(!ts)return 'nunca';
+  const s=Math.max(0,Math.floor((Date.now()-ts)/1000));
+  if(s<10)return 'ahora';
+  if(s<60)return `hace ${s} segundos`;
+  const m=Math.floor(s/60);
+  if(m<60)return `hace ${m} minuto${m===1?'':'s'}`;
+  const h=Math.floor(m/60);
+  if(h<24)return `hace ${h} hora${h===1?'':'s'}`;
+  const d=Math.floor(h/24);
+  return `hace ${d} dia${d===1?'':'s'}`;
+}
 export function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 export function getColor(id){return COLOR_OPTIONS.find(c=>c.id===id)||COLOR_OPTIONS[0]}
 export function getTherapist(id){return state.therapists.find(t=>t.id===id)}

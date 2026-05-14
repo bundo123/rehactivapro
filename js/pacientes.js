@@ -1,9 +1,60 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, COLOR_OPTIONS } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, COLOR_OPTIONS, patientMatchesSearch, highlightMatch } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';
+
+export const PATIENTS_PER_PAGE = 20;
+let patientSearchTimeout = null;
+
+export function setupPatientSearch() {
+  const input=document.getElementById('patient-search');
+  if(!input||input.dataset.searchReady)return;
+  input.dataset.searchReady='1';
+  input.addEventListener('input',()=>{
+    clearTimeout(patientSearchTimeout);
+    if(!input.value.trim()){
+      state.patientPage=1;
+      renderPatients();
+      return;
+    }
+    patientSearchTimeout=setTimeout(()=>{
+      state.patientPage=1;
+      renderPatients();
+    },300);
+  });
+}
+
+export function goToPatientPage(page) {
+  state.patientPage=Math.max(1,page);
+  renderPatients();
+  document.getElementById('patient-table-card')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function renderPatientPagination(totalPages,totalRows,start,end) {
+  const el=document.getElementById('patient-pagination');
+  if(!el)return;
+  if(!totalRows){
+    el.innerHTML='';
+    return;
+  }
+  const page=state.patientPage;
+  const pages=[];
+  for(let i=1;i<=totalPages;i++){
+    if(i===1||i===totalPages||Math.abs(i-page)<=1)pages.push(i);
+    else if(pages[pages.length-1]!=='...')pages.push('...');
+  }
+  const btn=(label,target,disabled=false,active=false)=>
+    `<button class="pager-btn${active?' active':''}" ${disabled?'disabled':''} onclick="goToPatientPage(${target})">${label}</button>`;
+  el.innerHTML=`
+    <div class="pager-info">Mostrando ${start+1}-${end} de ${totalRows} pacientes</div>
+    <div class="pager-controls">
+      ${btn('&laquo; Anterior',page-1,page<=1)}
+      ${pages.map(p=>p==='...'?'<span class="pager-ellipsis">...</span>':btn(p,p,false,p===page)).join('')}
+      ${btn('Siguiente &raquo;',page+1,page>=totalPages)}
+    </div>`;
+}
 
 export function populateDiagList() {
   const diags=[...new Set(state.patients.filter(p=>p.diag&&p.diag!=='Sin diagnóstico').map(p=>p.diag))];
@@ -76,7 +127,7 @@ export async function savePatient() {
     if(error) toastErr('Error al guardar paciente: '+error.message);
     else {
       const {loadAll}=window._app;
-      await loadAll(); renderPatients();
+	      await loadAll(true); renderPatients();
       toastOk('Paciente guardado correctamente');
     }
   } catch(e){toastErr('Error de conexión al guardar paciente.');}
@@ -86,7 +137,7 @@ export async function savePatient() {
   document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
 }
 
-export function renderPatients() {
+function renderPatientsOld() {
   const q=(document.getElementById('patient-search').value||'').toLowerCase();
   let f=state.patients.filter(p=>p.name.toLowerCase().includes(q)||p.diag.toLowerCase().includes(q));
   f.sort((a,b)=>{
@@ -126,6 +177,67 @@ export function renderPatients() {
       <td><span class="pill ${bc}">${bt}</span></td>
     </tr>`;
   }).join('');
+}
+
+export function renderPatients() {
+  const q=(document.getElementById('patient-search')?.value||'').trim();
+  let f=state.patients.filter(p=>patientMatchesSearch(p,q));
+  f.sort((a,b)=>{
+    const aEval=hasEvalInicial(a),bEval=hasEvalInicial(b);
+    if(!aEval&&bEval) return -1;if(aEval&&!bEval) return 1;
+    return a.name.localeCompare(b.name);
+  });
+  const totalRows=f.length;
+  const totalPages=Math.max(1,Math.ceil(totalRows/PATIENTS_PER_PAGE));
+  state.patientPage=Math.min(Math.max(1,state.patientPage||1),totalPages);
+  const start=(state.patientPage-1)*PATIENTS_PER_PAGE;
+  const paginated=f.slice(start,start+PATIENTS_PER_PAGE);
+  const tbody=document.getElementById('patient-tbody');
+  const canDelete = hasPermission('deletePatient');
+  const canEval = hasPermission('evalInicial');
+  if(!totalRows){
+    tbody.innerHTML=`<tr><td colspan="7" class="empty-patient-row">
+      No se encontraron pacientes con "${esc(q)}".
+      ${hasPermission('createPatient')?'<button class="add-btn" onclick="openPatientModal()">Crear nuevo paciente</button>':''}
+    </td></tr>`;
+    renderPatientPagination(0,0,0,0);
+    return;
+  }
+  tbody.innerHTML=paginated.map(p=>{
+    const doc=p.doctorId?getDoctor(p.doctorId):null;
+    const sessions=Math.max(1,p.sessions||0);
+    const pct=Math.round((p.done||0)/sessions*100);
+    const bc=p.status==='active'?'pg':p.status==='alta'?'pb':'pa';
+    const bt=p.status==='active'?'Activo':p.status==='alta'?'Alta':'Pendiente';
+    const log=p.log||[];
+    const adh=log.length>0?Math.round(log.filter(s=>s.status==='asistiÃ³').length/log.length*100):0;
+    const ac=adh>=85?'#1D9E75':adh>=70?'#BA7517':'#E24B4A';
+    const dc=doc
+      ?`<span style="display:inline-flex;align-items:center;gap:5px;background:${doc.color}18;border:1px solid ${doc.color}44;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:500;color:${doc.color};white-space:nowrap">${esc(doc.name)}</span>`
+      :'<span style="font-size:10px;color:#6b6a64;font-style:italic">Independiente</span>';
+    const delBtn = canDelete ? `<button class='th-btn del' style='font-size:9px;padding:2px 6px' onclick='deletePatient("${p.id}")'>Eliminar</button>` : '';
+    const evalBtn = canEval && !hasEvalInicial(p) ? `<button class='th-btn' style='font-size:9px;padding:2px 6px;background:rgba(224,80,80,.1);color:#E24B4A;border-color:rgba(224,80,80,.3)' onclick='openEvalInicial("${p.id}")'>Eval. inicial</button>` : '';
+    return`<tr>
+      <td style="font-weight:500;color:#1a1917">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          ${highlightMatch(p.name,q)}
+          ${!hasEvalInicial(p)?'<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:#fee2e2;color:#991b1b">âš ï¸ Sin eval.</span>':'<span style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:99px;background:#dcfce7;color:#166534">âœ“ Eval. ok</span>'}
+        </div>
+        <div class="patient-contact-line">${[p.tel,p.email].filter(Boolean).map(v=>highlightMatch(v,q)).join(' Â· ')}</div>
+        <div style="display:flex;gap:4px;margin-top:4px">
+          <button class='th-btn' style='font-size:9px;padding:2px 6px' onclick='openEditPatient("${p.id}")'>Editar</button>
+          ${delBtn}${evalBtn}
+        </div>
+      </td>
+      <td style="color:#6b6a64;font-size:11px">${highlightMatch(p.diag,q)}</td>
+      <td style="font-size:11px">${dc}</td>
+      <td><div style="font-size:11px;margin-bottom:3px;color:#6b6a64">${p.done}/${p.sessions} (${pct}%)</div><div class="bar-wrap prog-mini"><div class="bar-fill" style="width:${pct}%;background:#1D9E75"></div></div></td>
+      <td><span style="font-size:13px;font-weight:500;color:${ac}">${adh}%</span></td>
+      <td style="font-size:11px;color:#6b6a64">${highlightMatch(p.cedula||'—',q)}</td>
+      <td><span class="pill ${bc}">${bt}</span></td>
+    </tr>`;
+  }).join('');
+  renderPatientPagination(totalPages,totalRows,start,Math.min(start+PATIENTS_PER_PAGE,totalRows));
 }
 
 export async function deletePatient(id) {

@@ -1,18 +1,14 @@
 import { state } from './state.js';
-import { esc, getTherapist } from './utils.js';
+import { esc, getTherapist, patientMatchesSearch } from './utils.js';
 import { toastErr } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
 
 export function globalSearch(q) {
   const res=document.getElementById('global-search-results');
   if(!q||q.length<2){res.style.display='none';return;}
-  q=q.toLowerCase();
-  const matches=state.patients.filter(p=>
-    p.name.toLowerCase().includes(q)||
-    (p.cedula&&p.cedula.includes(q))||
-    (p.diag&&p.diag.toLowerCase().includes(q))||
-    (p.tel&&p.tel.includes(q))
-  ).slice(0,8);
+  const matches=state.patients.filter(p=>patientMatchesSearch(p,q))
+    .sort((a,b)=>a.name.localeCompare(b.name))
+    .slice(0,8);
   if(!matches.length){
     res.style.display='block';
     res.innerHTML='<div style="padding:12px;font-size:12px;color:#9c9a92;text-align:center">Sin resultados</div>';
