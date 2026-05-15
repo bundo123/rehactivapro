@@ -11,7 +11,9 @@ import {
   changeDay, openApptModal, updateTimeSlots, saveAppt, delAppt,
   goToDate, openDatePicker, agendarCitaParaPaciente, checkAutoNoas,
   toggleRecurrencia, updateRecPreview, getRecDates, filterApptPatient,
-  updateGlobalSPF
+  updateGlobalSPF,
+  setAgendaView, setTherapistFilter, renderWeekView, renderMonthView,
+  goToDateAndSelect, exportAgendaCSV
 } from './agenda.js';
 import {
   updateResumenBadge, renderResumen, openWA, waPatient, simWA, simEmail,
@@ -136,7 +138,10 @@ function renderRefreshControls() {
 export async function refreshData() {
   const result=await loadAll(true);
   if(result?.error)return;
-  if(state.currentTab==='agenda')renderGrid();
+  if(state.currentTab==='agenda'){
+    const v=state.agendaView||'day';
+    if(v==='week')renderWeekView();else if(v==='month')renderMonthView();else renderGrid();
+  }
   else if(state.currentTab==='pacientes')renderPatients();
   else if(state.currentTab==='paciente_rpt')renderPatientReportSelect();
   else if(state.currentTab==='informes')renderSemanal();
@@ -189,6 +194,7 @@ Object.assign(window, {
   genPatientAI, globalSearch, selectGlobalResult,
   updateGlobalSPF, updateRecPreview, populateDiagList,
   goToPatientPage, refreshData,
+  setAgendaView, setTherapistFilter, goToDateAndSelect, exportAgendaCSV,
   applyRolePermissions, hasPermission,
   // referencias a datos accesibles desde HTML (onclick strings)
   get appointments(){ return state.appointments; },

@@ -97,6 +97,8 @@ body{background:var(--rh-cream)!important;color:#1a1917}
 .slot{background:#fff!important;border-color:rgba(0,0,0,.04)!important}
 .slot.blocked{background:repeating-linear-gradient(45deg,var(--rh-cream2),var(--rh-cream2) 6px,#fff 6px,#fff 12px)!important;opacity:.6}
 .th-nm{color:#1a1917!important}
+.view-btn.active{background:var(--rh-blue)!important;border-color:var(--rh-blue)!important}
+.view-btn:hover{color:var(--rh-blue)!important}
 
 .ca{background:rgba(41,171,226,.13)!important;color:#155b7a!important;border-left-color:var(--rh-blue)!important}
 .cb{background:rgba(245,166,35,.15)!important;color:#7a4900!important;border-left-color:var(--rh-orange)!important}

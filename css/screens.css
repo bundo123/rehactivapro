@@ -52,6 +52,9 @@
 .ref-stripe{width:12px;height:3px;border-radius:99px;flex-shrink:0}
 .status-guide{display:flex;align-items:center;gap:14px;margin-bottom:12px;font-size:10px;color:#7a7a76}
 .status-guide span{display:flex;align-items:center;gap:5px}
+.view-btn{padding:5px 12px;font-size:11px;border:1px solid rgba(29,158,117,.2);background:transparent;border-radius:6px;cursor:pointer;color:#6b6a64;font-family:inherit;font-weight:500;transition:background .12s,color .12s}
+.view-btn:hover{background:rgba(29,158,117,.06);color:#1D9E75}
+.view-btn.active{background:#1D9E75;color:#fff;border-color:#1D9E75}
 
 /* ===== PACIENTES ===== */
 .patient-table{width:100%;border-collapse:collapse}
