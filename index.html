@@ -349,7 +349,8 @@
 <!-- ===== MODALES ===== -->
 <div class="modal-bg" id="appt-modal">
 <div class="modal">
-  <h3>Nueva cita</h3>
+  <input type="hidden" id="m-editing-id" value="">
+  <h3 id="appt-modal-title">Nueva cita</h3>
   <div class="field-row two">
     <div class="field"><label>Fecha</label>
       <input type="date" id="m-date" style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;font-size:13px;color:#1a1917;font-family:inherit;outline:none">
@@ -420,7 +421,8 @@
 
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal('appt-modal')">Cancelar</button>
-    <button class="btn-save" onclick="saveAppt()">Guardar cita</button>
+    <button id="appt-modal-del-btn" class="th-btn del" style="display:none" onclick="delAppt(document.getElementById('m-editing-id').value);closeModal('appt-modal')">Eliminar</button>
+    <button class="btn-save" id="appt-modal-save-btn" onclick="saveAppt()">Guardar cita</button>
   </div>
 </div>
 </div>

@@ -143,8 +143,9 @@ export function renderGrid() {
         if(doc){card.style.borderLeftColor=doc.color;card.title=`Ref: ${doc.name} (${doc.spec})${appt.status==='conf'?' · Doble click para registrar sesión':''}`;}
         const durLabel=dur!==60?` · ${dur}min`:'';
         const canDel=hasPermission('deleteAppt');
-        card.innerHTML=`<div class="appt-name" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Ver/editar paciente">${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}${durLabel}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}`;
-        card.querySelector('.appt-name').addEventListener('click',e=>{e.stopPropagation();window._app.openEditPatient(appt.patientId);});
+        card.innerHTML=`<div class="appt-name">${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}${durLabel}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}`;
+        card.style.cursor='pointer';
+        card.addEventListener('click',e=>{if(!e.target.classList.contains('appt-dot')&&!e.target.classList.contains('appt-del')){e.stopPropagation();openEditApptModal(appt.id);}});
         card.querySelector('.appt-dot').addEventListener('click',e=>{e.stopPropagation();cycleStatus(appt.id);});
         if(canDel) card.querySelector('.appt-del').addEventListener('click',e=>{e.stopPropagation();delAppt(appt.id,e);});
         card.addEventListener('dragstart',()=>{state.dragData=appt.id});
@@ -262,17 +263,56 @@ export function changeDay(d) {
   }
 }
 
+function _openApptModalBase() {
+  document.getElementById('m-therapist').innerHTML=state.therapists.map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.startH)}-${fmtTime(t.endH)})</option>`).join('');
+  updateTimeSlots();
+  document.getElementById('appt-modal').classList.add('open');
+}
+
 export function openApptModal() {
   if(!state.therapists.length){toastErr('Primero agrega al menos un terapeuta.');window._app.showTab('terapeutas');return;}
   if(!state.patients.length){toastErr('Primero agrega al menos un paciente.');window._app.showTab('pacientes');return;}
+  document.getElementById('m-editing-id').value='';
+  document.getElementById('appt-modal-title').textContent='Nueva cita';
+  document.getElementById('appt-modal-save-btn').textContent='Guardar cita';
+  document.getElementById('appt-modal-del-btn').style.display='none';
   document.getElementById('m-date').value=fmtDate(state.currentDate);
   document.getElementById('m-patient-search').value='';
   document.getElementById('m-patient').value='';
   const durSel=document.getElementById('m-duration');
   if(durSel) durSel.value='60';
+  document.getElementById('m-note').value='';
+  document.getElementById('m-status').value='conf';
+  document.getElementById('m-recurrente').checked=false;
+  document.getElementById('recurrencia-panel').style.display='none';
+  filterApptPatient();
+  _openApptModalBase();
+}
+
+export function openEditApptModal(id) {
+  const a=state.appointments.find(x=>x.id===id);
+  if(!a){toastErr('Cita no encontrada.');return;}
+  const pt=getPatient(a.patientId);
+  document.getElementById('m-editing-id').value=String(id);
+  document.getElementById('appt-modal-title').textContent='Editar cita';
+  document.getElementById('appt-modal-save-btn').textContent='Guardar cambios';
+  const canDel=hasPermission('deleteAppt');
+  document.getElementById('appt-modal-del-btn').style.display=canDel?'':'none';
+  document.getElementById('m-date').value=a.date;
+  document.getElementById('m-patient-search').value=pt?pt.name:(a.patientName||'');
+  document.getElementById('m-patient').value=String(a.patientId||'');
+  const durSel=document.getElementById('m-duration');
+  if(durSel) durSel.value=String(a.duration||60);
+  document.getElementById('m-note').value=a.note||'';
+  document.getElementById('m-status').value=a.status||'conf';
+  document.getElementById('m-recurrente').checked=false;
+  document.getElementById('recurrencia-panel').style.display='none';
   filterApptPatient();
   document.getElementById('m-therapist').innerHTML=state.therapists.map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.startH)}-${fmtTime(t.endH)})</option>`).join('');
+  document.getElementById('m-therapist').value=String(a.therapistId);
+  document.getElementById('m-type').value=a.type||'Fisioterapia';
   updateTimeSlots();
+  document.getElementById('m-time').value=String(a.hour);
   document.getElementById('appt-modal').classList.add('open');
 }
 
@@ -298,7 +338,10 @@ export function filterApptPatient() {
 }
 
 export async function saveAppt() {
-  if(!hasPermission('createAppt')){toastErr('No tienes permisos para crear citas.');return;}
+  const editingId=document.getElementById('m-editing-id').value;
+  const isEdit=!!editingId;
+
+  if(!isEdit&&!hasPermission('createAppt')){toastErr('No tienes permisos para crear citas.');return;}
   const thId=document.getElementById('m-therapist').value;
   const hr=parseFloat(document.getElementById('m-time').value);
   const dur=parseInt(document.getElementById('m-duration')?.value||'60');
@@ -313,10 +356,31 @@ export async function saveAppt() {
   if(isNaN(hr)||hr<0||hr>24){alert('Selecciona una hora válida.');return;}
   const dateVal=document.getElementById('m-date').value;
   const ds=dateVal||fmtDate(state.currentDate);
+  const excludeId=isEdit?editingId:null;
+  if(conflictsWithExisting(ds,thId,hr,dur,excludeId)){toastErr('Conflicto: el terapeuta ya tiene una cita en ese horario.');return;}
+
+  if(isEdit){
+    const existing=state.appointments.find(a=>String(a.id)===editingId);
+    if(!existing){toastErr('Cita no encontrada.');return;}
+    existing.therapistId=thId;existing.hour=hr;existing.duration=dur;
+    existing.patientId=patId;existing.type=document.getElementById('m-type').value;
+    existing.status=document.getElementById('m-status').value;existing.note=document.getElementById('m-note').value;existing.date=ds;
+    window._app.closeModal('appt-modal'); renderGrid();
+    try {
+      const {error}=await supa.from('appointments').update({
+        date:ds,therapist_id:thId,patient_id:patId,hour:hr,duration:dur,
+        type:existing.type,status:existing.status,note:existing.note||''
+      }).eq('id',editingId);
+      if(error) toastErr('Error al actualizar cita: '+error.message);
+      else toastOk('Cita actualizada');
+    } catch(e){toastErr('Error de conexión al actualizar cita.');}
+    updateFacturaBadge();
+    return;
+  }
+
   const today=fmtDate(new Date());
   if(ds<today){toastErr('No se pueden agendar citas en días pasados.');return;}
-  if(conflictsWithExisting(ds,thId,hr,dur,null)){toastErr('Conflicto: el terapeuta ya tiene una cita en ese horario.');return;}
-  const _a={id:++state.apptCounter,date:ds,therapistId:thId,hour:hr,duration:dur,patientId:document.getElementById('m-patient').value,type:document.getElementById('m-type').value,status:document.getElementById('m-status').value,note:document.getElementById('m-note').value};
+  const _a={id:++state.apptCounter,date:ds,therapistId:thId,hour:hr,duration:dur,patientId:patId,type:document.getElementById('m-type').value,status:document.getElementById('m-status').value,note:document.getElementById('m-note').value};
   state.appointments.push(_a);
   window._app.closeModal('appt-modal'); renderGrid();
   try {
