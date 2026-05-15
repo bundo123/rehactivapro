@@ -93,12 +93,23 @@ body{background:var(--rh-cream)!important;color:#1a1917}
 .grid-wrap{border-color:rgba(41,171,226,.22)!important;background:#fff!important}
 .grid-header,.th-header{background:var(--rh-cream2)!important;border-bottom-color:rgba(41,171,226,.14)!important;color:#5a5a56!important}
 .time-cell{background:var(--rh-cream2)!important;color:#7a7a76!important;border-color:rgba(0,0,0,.05)!important}
+.time-cell.half-hour{color:#b0ada8!important}
 .slot{background:#fff!important;border-color:rgba(0,0,0,.04)!important}
 .slot.blocked{background:repeating-linear-gradient(45deg,var(--rh-cream2),var(--rh-cream2) 6px,#fff 6px,#fff 12px)!important;opacity:.6}
 .th-nm{color:#1a1917!important}
 
 .ca{background:rgba(41,171,226,.13)!important;color:#155b7a!important;border-left-color:var(--rh-blue)!important}
 .cb{background:rgba(245,166,35,.15)!important;color:#7a4900!important;border-left-color:var(--rh-orange)!important}
+.cc{background:rgba(186,117,23,.12)!important;color:#7a4a00!important;border-left-color:#BA7517!important}
+.cd{background:rgba(212,83,126,.13)!important;color:#8a2a50!important;border-left-color:#D4537E!important}
+.ce{background:rgba(127,119,221,.13)!important;color:#4a3d9e!important;border-left-color:#7F77DD!important}
+.cf{background:rgba(99,153,34,.13)!important;color:#3a5a10!important;border-left-color:#639922!important}
+.cg{background:rgba(20,184,166,.13)!important;color:#0a5e54!important;border-left-color:#14B8A6!important}
+.ch{background:rgba(239,68,68,.13)!important;color:#7a1f1f!important;border-left-color:#EF4444!important}
+.ci{background:rgba(99,102,241,.13)!important;color:#2a2d8a!important;border-left-color:#6366F1!important}
+.cj{background:rgba(245,158,11,.15)!important;color:#7a4a00!important;border-left-color:#F59E0B!important}
+.ck{background:rgba(251,113,133,.13)!important;color:#7a2535!important;border-left-color:#FB7185!important}
+.cl{background:rgba(100,116,139,.15)!important;color:#1f2937!important;border-left-color:#64748B!important}
 
 .appt-dot[data-status="conf"]{background:var(--rh-green)!important}
 .appt-dot[data-status="pend"]{background:var(--rh-yellow)!important}
