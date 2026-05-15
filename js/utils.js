@@ -56,10 +56,11 @@ export function relativeTime(ts){
   return `hace ${d} dia${d===1?'':'s'}`;
 }
 export function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+export function fmtTime(h){const hh=Math.floor(h);return `${hh}:${h%1===0.5?'30':'00'}`;}
 export function getColor(id){return COLOR_OPTIONS.find(c=>c.id===id)||COLOR_OPTIONS[0]}
 export function getTherapist(id){return state.therapists.find(t=>t.id===id)}
 export function getPatient(id){return state.patients.find(p=>p.id===id)}
 export function getDoctor(id){return state.doctors.find(d=>d.id===id)}
-export function therapistHours(th){const h=[];for(let i=th.startH;i<th.endH;i++)h.push(i);return h;}
-export function getAvailHours(){const s=new Set();state.therapists.forEach(t=>therapistHours(t).forEach(h=>s.add(h)));return[...s].sort((a,b)=>a-b);}
+export function therapistHours(th){const h=[];for(let i=th.startH;i<th.endH;i+=0.5)h.push(i);return h;}
+export function getAvailHours(ths){const s=new Set();(ths||state.therapists).forEach(t=>therapistHours(t).forEach(h=>s.add(h)));return[...s].sort((a,b)=>a-b);}
 export function dotColor(s){return s==='conf'?'#1D9E75':s==='pend'?'#BA7517':'#E24B4A';}

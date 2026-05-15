@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { getPatient } from './utils.js';
+import { getPatient, fmtTime } from './utils.js';
 import { toastInfo } from './toast.js';
 
 // ── Anti-eco por tabla (ventana 3 s) ──
@@ -71,7 +71,7 @@ function _flushRemoteToasts() {
 // ── Mappers DB row → in-memory ──
 function _mapAppt(r) {
   const pt=getPatient(r.patient_id);
-  return{id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:pt?pt.name:null,hour:r.hour,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''};
+  return{id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:pt?pt.name:null,hour:r.hour,duration:r.duration||60,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''};
 }
 function _mapPatient(r) {
   const existing=state.patients.find(p=>p.id===r.id);
@@ -145,8 +145,7 @@ function _onSessionLog(payload) {
   if(!p.log)p.log=[];
   if(ev==='INSERT'){
     if(!p.log.find(s=>s.date===payload.new.date&&s.hour===payload.new.hour)){p.log.push(_mapSession(payload.new));queueRemoteToast('session_log','Sesión clínica registrada');}
-    const hh=String((payload.new.hour||'').split(':')[0]);
-    const a=state.appointments.find(x=>x.patientId===pid&&x.date===payload.new.date&&String(x.hour)===hh);
+    const a=state.appointments.find(x=>x.patientId===pid&&x.date===payload.new.date&&fmtTime(x.hour)===(payload.new.hour||''));
     if(a)a.hasSession=true;
   } else if(ev==='UPDATE'){
     const idx=p.log.findIndex(s=>s.date===payload.new.date&&s.hour===payload.new.hour);

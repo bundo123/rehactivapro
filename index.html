@@ -114,6 +114,20 @@
   </div>
   <div class="main-body">
     <div class="stats-row" id="agenda-stats"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap">
+      <div style="display:flex;gap:4px">
+        <button class="view-btn active" id="vbtn-day" onclick="setAgendaView('day')">Día</button>
+        <button class="view-btn" id="vbtn-week" onclick="setAgendaView('week')">Semana</button>
+        <button class="view-btn" id="vbtn-month" onclick="setAgendaView('month')">Mes</button>
+        <button class="view-btn" id="vbtn-therapist" onclick="setAgendaView('therapist')">Por terapeuta</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <select id="agenda-th-filter" onchange="setTherapistFilter(this.value)" style="font-size:12px;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:5px 10px;color:#1a1917;outline:none;cursor:pointer;display:none">
+          <option value="">Todos los terapeutas</option>
+        </select>
+        <button class="exp-btn" onclick="exportAgendaCSV()">&#8595; Exportar</button>
+      </div>
+    </div>
     <div class="toolbar">
       <div class="day-nav" style="display:flex;align-items:center;gap:6px;min-width:0">
         <button onclick="changeDay(-1)" style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(29,158,117,.2);background:#fff;cursor:pointer;color:#1D9E75;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;line-height:1">‹</button>
@@ -356,9 +370,17 @@
     <div class="field"><label>Terapeuta</label><select id="m-therapist" onchange="updateTimeSlots()"></select></div>
     <div class="field"><label>Hora</label><select id="m-time"></select></div>
   </div>
-  <div class="field">
-    <label>Estado</label>
-    <select id="m-status"><option value="conf">Confirmada</option><option value="pend">Pendiente</option></select>
+  <div class="field-row two">
+    <div class="field"><label>Duración</label>
+      <select id="m-duration">
+        <option value="30">30 min</option>
+        <option value="60" selected>60 min</option>
+        <option value="90">90 min</option>
+      </select>
+    </div>
+    <div class="field"><label>Estado</label>
+      <select id="m-status"><option value="conf">Confirmada</option><option value="pend">Pendiente</option></select>
+    </div>
   </div>
   <div class="field"><label>Nota rápida</label><textarea id="m-note" rows="2" placeholder="Observaciones..."></textarea></div>
   

@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { fmtDate } from './utils.js';
+import { fmtDate, fmtTime } from './utils.js';
 import { toastErr } from './toast.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -68,7 +68,7 @@ export async function loadAll(force=false) {
         facturas:cobData.filter(c=>c.patient_id===r.id).map(c=>({id:c.cobro_ref,n:c.n_sessions,fecha:c.date,estado:'cobrada'}))}
     }));
     state.protocols = (prot.data||[]).map(r=>({id:r.id,name:r.name,diag:r.diag_keywords||'',sessions:r.sessions||20,freq:r.freq||3,alta:r.discharge_criteria||''}));
-    state.appointments = (appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:(r.patients&&r.patients.name)||null,hour:r.hour,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''}));
+    state.appointments = (appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:(r.patients&&r.patients.name)||null,hour:r.hour,duration:r.duration||60,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''}));
     if(!state.protocols.length) state.protocols = [...DEFAULT_PROTOCOLS];
 
     let maxFact = 0;
@@ -80,10 +80,10 @@ export async function loadAll(force=false) {
 
     const sessionDates = new Set();
     state.patients.forEach(p=>{
-      (p.log||[]).forEach(s=>{sessionDates.add(p.id+'|'+s.date+'|'+(s.hour||'').split(':')[0]);});
+      (p.log||[]).forEach(s=>{sessionDates.add(p.id+'|'+s.date+'|'+(s.hour||''));});
     });
     state.appointments.forEach(a=>{
-      a.hasSession = sessionDates.has(String(a.patientId)+'|'+a.date+'|'+String(a.hour));
+      a.hasSession = sessionDates.has(String(a.patientId)+'|'+a.date+'|'+fmtTime(a.hour));
     });
     const now=Date.now();
     state.dataLoaded=true;

@@ -1,9 +1,25 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { esc, fmtDate, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor } from './utils.js';
+import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dbUpdateApptStatus, dbUpdateBillingPendientes, dbRegistrarCobro } from './auth.js';
 import { hasPermission } from './permissions.js';
+
+// ── Helpers de slots/duración ──
+function apptSlots(a) {
+  const spans = Math.max(1, Math.round((a.duration || 60) / 30));
+  const slots = [];
+  for (let i = 0; i < spans; i++) slots.push(+(a.hour + i * 0.5).toFixed(1));
+  return slots;
+}
+
+function conflictsWithExisting(date, thId, startHour, duration, excludeId) {
+  const newSlots = new Set(apptSlots({ hour: startHour, duration }));
+  return state.appointments.some(a =>
+    a.id !== excludeId && a.date === date && a.therapistId === thId &&
+    apptSlots(a).some(s => newSlots.has(s))
+  );
+}
 
 export function renderRefLegend() {
   if(!state.doctors.length){document.getElementById('ref-legend-bar').innerHTML='';return;}
@@ -26,7 +42,7 @@ export function checkAutoNoas() {
   const currentMin=now.getMinutes();
   state.appointments.forEach(a=>{
     if(a.date===ds&&a.status==='pend'){
-      if(a.hour<currentHour||(a.hour===currentHour&&currentMin>=30)){
+      if(a.hour*60+30<=currentHour*60+currentMin){
         a.status='noas';
         dbUpdateApptStatus(a.id,'noas');
       }
@@ -36,17 +52,25 @@ export function checkAutoNoas() {
 
 export function renderGrid() {
   checkAutoNoas();
+  const view = state.agendaView || 'day';
+  if(view === 'week' || view === 'month') return;
+
+  const g = document.getElementById('schedule-grid');
+  if(!g) return;
+
   const ds=fmtDate(state.currentDate);
   const dn=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
   const mn=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   document.getElementById('day-lbl').textContent=`${dn[state.currentDate.getDay()]}, ${state.currentDate.getDate()} de ${mn[state.currentDate.getMonth()]} ${state.currentDate.getFullYear()}`;
 
+  const filterTh = state.agendaTherapistFilter || null;
+  const visTherapists = filterTh ? state.therapists.filter(t => t.id === filterTh) : state.therapists;
+
   const ta=state.appointments.filter(a=>a.date===ds);
-  const slots=state.therapists.reduce((s,t)=>s+therapistHours(t).length,0);
+  const slots=visTherapists.reduce((s,t)=>s+therapistHours(t).length,0);
   const conf=ta.filter(a=>a.status==='conf').length;
   const pend=ta.filter(a=>a.status==='pend').length;
   const noas=ta.filter(a=>a.status==='noas').length;
-  const util=slots>0?Math.round(ta.length/slots*100):0;
 
   document.getElementById('agenda-stats').innerHTML=`
     <div class="stat"><div class="stat-lbl">Citas hoy</div><div class="stat-val">${ta.length}</div><div class="stat-chg neu">${slots} slots disponibles</div></div>
@@ -54,24 +78,40 @@ export function renderGrid() {
     <div class="stat yellow"><div class="stat-lbl">Pendientes</div><div class="stat-val" style="color:#BA7517">${pend}</div><div class="stat-chg neu">Por confirmar</div></div>
     <div class="stat red"><div class="stat-lbl">No asistieron</div><div class="stat-val" style="color:#E24B4A">${noas}</div><div class="stat-chg down">Seguimiento</div></div>`;
 
-  const vh=getAvailHours();
-  const g=document.getElementById('schedule-grid');
-  g.innerHTML=''; g.style.gridTemplateColumns=`60px repeat(${state.therapists.length},1fr)`;
+  const vh=getAvailHours(visTherapists);
+  g.innerHTML=''; g.style.gridTemplateColumns=`60px repeat(${visTherapists.length},1fr)`;
 
   const eh=document.createElement('div');eh.className='grid-header';eh.textContent='Hora';g.appendChild(eh);
-  state.therapists.forEach(th=>{
+  visTherapists.forEach(th=>{
     const c=getColor(th.colorId);
     const h=document.createElement('div');h.className='th-header';
-    h.innerHTML=`<div class="avatar" style="background:${c.border}22;color:${c.text}">${esc(th.initials)}</div><div><div class="th-nm">${esc(th.name)}</div><div class="th-sp">${th.startH}:00-${th.endH}:00</div></div>`;
+    h.innerHTML=`<div class="avatar" style="background:${c.border}22;color:${c.text}">${esc(th.initials)}</div><div><div class="th-nm">${esc(th.name)}</div><div class="th-sp">${fmtTime(th.startH)}-${fmtTime(th.endH)}</div></div>`;
     g.appendChild(h);
   });
 
+  // Build set of tail slots (slots beyond the first covered by multi-slot appts)
+  const tailSet = new Set();
+  ta.forEach(a => {
+    apptSlots(a).slice(1).forEach(s => tailSet.add(`${a.therapistId}:${s}`));
+  });
+
   vh.forEach(hr=>{
-    const tc=document.createElement('div');tc.className='time-cell';tc.textContent=hr+':00';g.appendChild(tc);
-    state.therapists.forEach(th=>{
+    const tc=document.createElement('div');tc.className='time-cell'+(hr%1===0.5?' half-hour':'');tc.textContent=fmtTime(hr);g.appendChild(tc);
+    visTherapists.forEach(th=>{
       const avail=hr>=th.startH&&hr<th.endH;
+      const key=`${th.id}:${+hr.toFixed(1)}`;
+      const isTail=tailSet.has(key);
+
       const slot=document.createElement('div');
-      slot.className='slot'+(avail?'':' blocked');
+
+      if(isTail){
+        slot.className='slot slot-tail'+(hr%1===0.5?' half-hour':'');
+        g.appendChild(slot);
+        return;
+      }
+
+      slot.className='slot'+(avail?'':' blocked')+(hr%1===0.5?' half-hour':'');
+
       if(avail){
         slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('drag-over')});
         slot.addEventListener('dragleave',()=>slot.classList.remove('drag-over'));
@@ -80,15 +120,19 @@ export function renderGrid() {
           if(state.dragData!=null){
             const a=state.appointments.find(x=>x.id===state.dragData);
             if(a){
-              const ex=state.appointments.find(x=>x.id!==a.id&&x.date===a.date&&x.therapistId===th.id&&x.hour===hr);
-              if(!ex){a.therapistId=th.id;a.hour=hr;renderGrid();}else alert('Slot ocupado.');
+              if(!conflictsWithExisting(a.date,th.id,hr,a.duration||60,a.id)){
+                a.therapistId=th.id;a.hour=hr;renderGrid();
+              } else alert('Conflicto: el terapeuta ya tiene una cita en ese horario.');
             }
           }
           state.dragData=null;
         });
       }
+
       const appt=ta.find(a=>a.therapistId===th.id&&a.hour===hr);
       if(appt&&avail){
+        const dur=appt.duration||60;
+        const spans=Math.max(1,Math.round(dur/30));
         const pt=getPatient(appt.patientId);
         const card=document.createElement('div');
         let sc='';if(appt.status==='pend')sc=' status-pend';else if(appt.status==='noas')sc=' status-noas';
@@ -96,8 +140,9 @@ export function renderGrid() {
         card.draggable=true;
         const doc=pt&&pt.doctorId?getDoctor(pt.doctorId):null;
         if(doc){card.style.borderLeftColor=doc.color;card.title=`Ref: ${doc.name} (${doc.spec})${appt.status==='conf'?' · Doble click para registrar sesión':''}`;}
-        const canDel = hasPermission('deleteAppt');
-        card.innerHTML=`<div class="appt-name" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Ver/editar paciente">${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}`;
+        const durLabel=dur!==60?` · ${dur}min`:'';
+        const canDel=hasPermission('deleteAppt');
+        card.innerHTML=`<div class="appt-name" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Ver/editar paciente">${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}${durLabel}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}`;
         card.querySelector('.appt-name').addEventListener('click',e=>{e.stopPropagation();window._app.openEditPatient(appt.patientId);});
         card.querySelector('.appt-dot').addEventListener('click',e=>{e.stopPropagation();cycleStatus(appt.id);});
         if(canDel) card.querySelector('.appt-del').addEventListener('click',e=>{e.stopPropagation();delAppt(appt.id,e);});
@@ -113,6 +158,11 @@ export function renderGrid() {
             },100);
           }
         });
+        if(spans>1){
+          slot.style.zIndex='2';
+          card.style.bottom='auto';
+          card.style.height=`calc(${spans} * 40px - 6px)`;
+        }
         slot.appendChild(card);
       }
       g.appendChild(slot);
@@ -198,8 +248,17 @@ export function goToDate(ds) {
 }
 
 export function changeDay(d) {
-  state.currentDate.setDate(state.currentDate.getDate()+d);
-  renderGrid();
+  const view = state.agendaView || 'day';
+  if(view === 'week'){
+    state.currentDate.setDate(state.currentDate.getDate() + d * 7);
+    renderWeekView();
+  } else if(view === 'month'){
+    state.currentDate.setMonth(state.currentDate.getMonth() + d);
+    renderMonthView();
+  } else {
+    state.currentDate.setDate(state.currentDate.getDate() + d);
+    renderGrid();
+  }
 }
 
 export function openApptModal() {
@@ -208,8 +267,10 @@ export function openApptModal() {
   document.getElementById('m-date').value=fmtDate(state.currentDate);
   document.getElementById('m-patient-search').value='';
   document.getElementById('m-patient').value='';
+  const durSel=document.getElementById('m-duration');
+  if(durSel) durSel.value='60';
   filterApptPatient();
-  document.getElementById('m-therapist').innerHTML=state.therapists.map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${t.startH}:00-${t.endH}:00)</option>`).join('');
+  document.getElementById('m-therapist').innerHTML=state.therapists.map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.startH)}-${fmtTime(t.endH)})</option>`).join('');
   updateTimeSlots();
   document.getElementById('appt-modal').classList.add('open');
 }
@@ -217,8 +278,8 @@ export function openApptModal() {
 export function updateTimeSlots() {
   const th=getTherapist(document.getElementById('m-therapist').value);
   if(!th) return;
-  const allH=[];for(let h=7;h<=20;h++) allH.push(h);
-  document.getElementById('m-time').innerHTML=allH.map(h=>`<option value="${h}">${h}:00</option>`).join('');
+  const opts=[];for(let h=6;h<=20;h+=0.5) opts.push(`<option value="${h}">${fmtTime(h)}</option>`);
+  document.getElementById('m-time').innerHTML=opts.join('');
   document.getElementById('m-time').value=th.startH||7;
 }
 
@@ -238,7 +299,8 @@ export function filterApptPatient() {
 export async function saveAppt() {
   if(!hasPermission('createAppt')){toastErr('No tienes permisos para crear citas.');return;}
   const thId=document.getElementById('m-therapist').value;
-  const hr=parseInt(document.getElementById('m-time').value);
+  const hr=parseFloat(document.getElementById('m-time').value);
+  const dur=parseInt(document.getElementById('m-duration')?.value||'60');
   let patId=document.getElementById('m-patient').value;
   if(!thId){alert('Selecciona un terapeuta.');return;}
   if(!patId){
@@ -247,19 +309,19 @@ export async function saveAppt() {
     if(found){patId=found.id;document.getElementById('m-patient').value=found.id;}
     else{toastErr('Selecciona un paciente de la lista.');return;}
   }
-  if(isNaN(hr)){alert('Selecciona una hora válida.');return;}
+  if(isNaN(hr)||hr<0||hr>24){alert('Selecciona una hora válida.');return;}
   const dateVal=document.getElementById('m-date').value;
   const ds=dateVal||fmtDate(state.currentDate);
   const today=fmtDate(new Date());
   if(ds<today){toastErr('No se pueden agendar citas en días pasados.');return;}
-  if(state.appointments.find(a=>a.date===ds&&a.therapistId===thId&&a.hour===hr)){alert('Ese slot ya está ocupado.');return;}
-  const _a={id:++state.apptCounter,date:ds,therapistId:thId,hour:hr,patientId:document.getElementById('m-patient').value,type:document.getElementById('m-type').value,status:document.getElementById('m-status').value,note:document.getElementById('m-note').value};
+  if(conflictsWithExisting(ds,thId,hr,dur,null)){toastErr('Conflicto: el terapeuta ya tiene una cita en ese horario.');return;}
+  const _a={id:++state.apptCounter,date:ds,therapistId:thId,hour:hr,duration:dur,patientId:document.getElementById('m-patient').value,type:document.getElementById('m-type').value,status:document.getElementById('m-status').value,note:document.getElementById('m-note').value};
   state.appointments.push(_a);
   window._app.closeModal('appt-modal'); renderGrid();
   try {
     const {data,error}=await supa.from('appointments').insert({
       date:_a.date,therapist_id:_a.therapistId,patient_id:_a.patientId,
-      hour:_a.hour,type:_a.type,status:_a.status,note:_a.note||''
+      hour:_a.hour,duration:_a.duration,type:_a.type,status:_a.status,note:_a.note||''
     }).select().single();
     if(error){toastErr('Error al guardar cita: '+error.message);}
     else {
@@ -271,7 +333,7 @@ export async function saveAppt() {
           const fechas=getRecDates(_a.date,dias,semanas);
           let creadas=0;
           for(const fecha of fechas){
-            const {error:re}=await supa.from('appointments').insert({date:fecha,therapist_id:_a.therapistId,patient_id:_a.patientId,hour:_a.hour,type:_a.type,status:'pend',note:_a.note||''});
+            const {error:re}=await supa.from('appointments').insert({date:fecha,therapist_id:_a.therapistId,patient_id:_a.patientId,hour:_a.hour,duration:_a.duration,type:_a.type,status:'pend',note:_a.note||''});
             if(!re){state.appointments.push({..._a,id:'rec-'+fecha+'-'+Math.random(),date:fecha,status:'pend'});creadas++;}
           }
           if(creadas>0) toastOk('✓ '+(creadas+1)+' citas creadas (recurrentes)');
@@ -333,4 +395,184 @@ export function getRecDates(baseDate,dias,semanas) {
     }
   }
   return [...new Set(fechas)].sort();
+}
+
+// ── Modos de vista ──
+
+export function setAgendaView(mode) {
+  state.agendaView = mode;
+  ['day','week','month','therapist'].forEach(m => {
+    const btn = document.getElementById('vbtn-'+m);
+    if(btn) btn.classList.toggle('active', m === mode);
+  });
+  const filterSel = document.getElementById('agenda-th-filter');
+  if(filterSel){
+    filterSel.style.display = mode === 'therapist' ? '' : 'none';
+    if(mode !== 'therapist'){
+      state.agendaTherapistFilter = null;
+      filterSel.value = '';
+    } else {
+      filterSel.innerHTML = '<option value="">Todos los terapeutas</option>' +
+        state.therapists.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
+    }
+  }
+  const wrap = document.querySelector('#tab-agenda .grid-wrap');
+  if(!wrap) return;
+  if(mode === 'day' || mode === 'therapist'){
+    if(!document.getElementById('schedule-grid')){
+      wrap.innerHTML = '<div class="schedule-grid" id="schedule-grid"></div>';
+    }
+    renderGrid();
+  } else if(mode === 'week'){
+    renderWeekView();
+  } else if(mode === 'month'){
+    renderMonthView();
+  }
+}
+
+export function setTherapistFilter(val) {
+  state.agendaTherapistFilter = val || null;
+  renderGrid();
+}
+
+export function renderWeekView() {
+  const wrap = document.querySelector('#tab-agenda .grid-wrap');
+  if(!wrap) return;
+  const base = new Date(state.currentDate);
+  const dow = base.getDay();
+  const monday = new Date(base);
+  monday.setDate(base.getDate() - (dow === 0 ? 6 : dow - 1));
+  const days = [];
+  for(let i = 0; i < 7; i++){
+    const d = new Date(monday); d.setDate(monday.getDate() + i);
+    days.push(d);
+  }
+  const dn = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const mn = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const todayStr = fmtDate(new Date());
+
+  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;min-width:700px;padding:12px">';
+  days.forEach(d => {
+    const ds = fmtDate(d);
+    const dayAppts = state.appointments.filter(a => a.date === ds).sort((a,b) => a.hour - b.hour);
+    const isToday = ds === todayStr;
+    html += `<div style="border:1px solid rgba(29,158,117,${isToday?'.4':'.14'});border-radius:8px;padding:8px;min-height:80px;background:${isToday?'rgba(29,158,117,.04)':'#fff'}">
+      <div style="font-size:10px;font-weight:600;color:${isToday?'#1D9E75':'#5a5a56'};margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer" onclick="goToDateAndSelect('${ds}')">${dn[d.getDay()]} ${d.getDate()} ${mn[d.getMonth()]}</div>`;
+    if(!dayAppts.length){
+      html += `<div style="font-size:10px;color:#b0ada8">Sin citas</div>`;
+    } else {
+      dayAppts.forEach(a => {
+        const pt = getPatient(a.patientId);
+        const th = getTherapist(a.therapistId);
+        const c = getColor(th?.colorId||'ca');
+        const dot = dotColor(a.status);
+        html += `<div style="background:${c.bg};border-left:2px solid ${c.border};border-radius:4px;padding:4px 6px;margin-bottom:4px;font-size:10px;cursor:pointer" onclick="goToDateAndSelect('${ds}')">
+          <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dot};margin-right:3px;vertical-align:middle;flex-shrink:0"></span>
+          <b>${fmtTime(a.hour)}</b> ${esc(pt?pt.name:(a.patientName||'?'))}
+        </div>`;
+      });
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+  wrap.innerHTML = html;
+  document.getElementById('day-lbl').textContent = `Semana del ${monday.getDate()} ${mn[monday.getMonth()]}`;
+}
+
+export function renderMonthView() {
+  const wrap = document.querySelector('#tab-agenda .grid-wrap');
+  if(!wrap) return;
+  const year = state.currentDate.getFullYear();
+  const month = state.currentDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const mn = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const mn2 = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const todayStr = fmtDate(new Date());
+  const startDow = firstDay.getDay();
+  const offset = startDow === 0 ? 6 : startDow - 1;
+
+  document.getElementById('day-lbl').textContent = `${mn[month]} ${year}`;
+
+  let html = `<div style="padding:12px">
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:6px;text-align:center">
+      ${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>`<div style="font-size:10px;font-weight:600;color:#7a7a76;padding:4px 0">${d}</div>`).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">`;
+
+  for(let i = 0; i < offset; i++) html += '<div></div>';
+
+  for(let day = 1; day <= lastDay.getDate(); day++){
+    const d = new Date(year, month, day);
+    const ds = fmtDate(d);
+    const dayAppts = state.appointments.filter(a => a.date === ds);
+    const isToday = ds === todayStr;
+    const dotColors = [...new Set(dayAppts.map(a => {
+      const th = getTherapist(a.therapistId);
+      return getColor(th?.colorId||'ca').border;
+    }))].slice(0,5);
+
+    html += `<div onclick="goToDateAndSelect('${ds}')" style="border:1px solid rgba(29,158,117,${isToday?'.4':'.1'});border-radius:8px;padding:6px;min-height:52px;cursor:pointer;background:${isToday?'rgba(29,158,117,.06)':'#fff'};transition:background .12s" onmouseover="this.style.background='rgba(29,158,117,.06)'" onmouseout="this.style.background='${isToday?'rgba(29,158,117,.06)':'#fff'}'">
+      <div style="font-size:11px;font-weight:${isToday?'700':'500'};color:${isToday?'#1D9E75':'#1a1917'};margin-bottom:3px">${day}</div>
+      <div style="display:flex;gap:2px;flex-wrap:wrap;align-items:center">
+        ${dotColors.map(c=>`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c}"></span>`).join('')}
+        ${dayAppts.length>0?`<span style="font-size:9px;color:#7a7a76;line-height:8px">${dayAppts.length}</span>`:''}
+      </div>
+    </div>`;
+  }
+  html += '</div></div>';
+  wrap.innerHTML = html;
+}
+
+export function goToDateAndSelect(ds) {
+  goToDate(ds);
+  setAgendaView('day');
+}
+
+export function exportAgendaCSV() {
+  const view = state.agendaView || 'day';
+  let appts = [];
+  if(view === 'month'){
+    const year = state.currentDate.getFullYear();
+    const month = state.currentDate.getMonth();
+    const prefix = `${year}-${String(month+1).padStart(2,'0')}`;
+    appts = state.appointments.filter(a => a.date.startsWith(prefix));
+  } else if(view === 'week'){
+    const base = new Date(state.currentDate);
+    const dow = base.getDay();
+    const monday = new Date(base);
+    monday.setDate(base.getDate() - (dow === 0 ? 6 : dow - 1));
+    const dates = new Set();
+    for(let i = 0; i < 7; i++){
+      const d = new Date(monday); d.setDate(monday.getDate() + i);
+      dates.add(fmtDate(d));
+    }
+    appts = state.appointments.filter(a => dates.has(a.date));
+  } else {
+    appts = state.appointments.filter(a => a.date === fmtDate(state.currentDate));
+  }
+  const filterTh = state.agendaTherapistFilter;
+  if(filterTh) appts = appts.filter(a => a.therapistId === filterTh);
+  appts = appts.sort((a,b) => a.date.localeCompare(b.date)||a.hour-b.hour);
+
+  const rows = [['Fecha','Hora','Paciente','Terapeuta','Estado','Duracion_min','Tipo','Notas']];
+  appts.forEach(a => {
+    const pt = getPatient(a.patientId);
+    const th = getTherapist(a.therapistId);
+    rows.push([
+      a.date, fmtTime(a.hour),
+      pt?pt.name:(a.patientName||''),
+      th?th.name:'',
+      a.status, a.duration||60,
+      a.type||'',
+      (a.note||'').replace(/[\n\r,]/g,' ')
+    ]);
+  });
+
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = `agenda-${view}-${fmtDate(state.currentDate)}.csv`;
+  link.click(); URL.revokeObjectURL(url);
 }
