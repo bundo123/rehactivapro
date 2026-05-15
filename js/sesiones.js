@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { getPatient, fmtDate } from './utils.js';
+import { getPatient, fmtDate, fmtTime } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasPermission } from './permissions.js';
 
@@ -55,9 +55,10 @@ export function openSessionModal(appt) {
   if(!hasPermission('registerSession')){toastErr('No tienes permisos para registrar sesiones.');return;}
   _pendingSessionAppt=appt;
   const pt=getPatient(appt.patientId);
-  const existing=pt&&pt.log?pt.log.find(s=>s.date===appt.date&&s.hour===appt.hour+':00'):null;
+  const apptHour=fmtTime(appt.hour);
+  const existing=pt&&pt.log?pt.log.find(s=>s.date===appt.date&&s.hour===apptHour):null;
   document.getElementById('session-modal-title').textContent=(existing?'Editar sesión — ':'Registrar sesión — ')+(pt?pt.name.split(' ').slice(0,2).join(' '):'Paciente');
-  document.getElementById('session-modal-sub').textContent=appt.type+' · '+appt.date+' · '+appt.hour+':00';
+  document.getElementById('session-modal-sub').textContent=appt.type+' · '+appt.date+' · '+apptHour;
   const pb=existing?(existing.pb!=null?existing.pb:5):5;
   const pa=existing?(existing.pa!=null?existing.pa:5):5;
   renderEvaButtons('eva-before-btns','sess-eva-before-val',pb,'#E24B4A');
@@ -86,14 +87,15 @@ export async function saveSession() {
   }
   document.getElementById('sess-note').style.borderColor='';
   if(appt.id&&appt.patientId){
-    const existingInDB=await supa.from('session_log').select('id').eq('patient_id',appt.patientId).eq('date',appt.date).eq('hour',appt.hour+':00').maybeSingle();
+    const apptHourFmt=fmtTime(appt.hour);
+    const existingInDB=await supa.from('session_log').select('id').eq('patient_id',appt.patientId).eq('date',appt.date).eq('hour',apptHourFmt).maybeSingle();
     let dbError;
     if(existingInDB.data){
       const {error}=await supa.from('session_log').update({type,pain_before:pb,pain_after:pa,note}).eq('id',existingInDB.data.id);
       dbError=error;
     } else {
       const {error}=await supa.from('session_log').insert({
-        patient_id:appt.patientId,date:appt.date,type,hour:appt.hour+':00',status:'asistió',
+        patient_id:appt.patientId,date:appt.date,type,hour:apptHourFmt,status:'asistió',
         pain_before:pb,pain_after:pa,note,
         next_plan:document.getElementById('sess-next')?.value||''
       });
@@ -107,7 +109,7 @@ export async function saveSession() {
   const pt2=getPatient(appt.patientId);
   if(pt2){
     if(!pt2.log) pt2.log=[];
-    const hh=appt.hour+':00';
+    const hh=fmtTime(appt.hour);
     const existIdx=pt2.log.findIndex(s=>s.date===appt.date&&s.hour===hh);
     const newEntry={date:appt.date,type,hour:hh,status:'asistió',pb,pa,note,tags:[]};
     if(existIdx>=0) pt2.log[existIdx]=newEntry;

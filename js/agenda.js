@@ -63,6 +63,7 @@ export function renderGrid() {
   const mn=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   document.getElementById('day-lbl').textContent=`${dn[state.currentDate.getDay()]}, ${state.currentDate.getDate()} de ${mn[state.currentDate.getMonth()]} ${state.currentDate.getFullYear()}`;
 
+  populateThFilter();
   const filterTh = state.agendaTherapistFilter || null;
   const visTherapists = filterTh ? state.therapists.filter(t => t.id === filterTh) : state.therapists;
 
@@ -399,26 +400,26 @@ export function getRecDates(baseDate,dias,semanas) {
 
 // ── Modos de vista ──
 
+function populateThFilter() {
+  const sel = document.getElementById('agenda-th-filter');
+  if(!sel || sel.dataset.populated === String(state.therapists.length)) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Todos los terapeutas</option>' +
+    state.therapists.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
+  if(cur) sel.value = cur;
+  sel.dataset.populated = String(state.therapists.length);
+}
+
 export function setAgendaView(mode) {
   state.agendaView = mode;
-  ['day','week','month','therapist'].forEach(m => {
+  ['day','week','month'].forEach(m => {
     const btn = document.getElementById('vbtn-'+m);
     if(btn) btn.classList.toggle('active', m === mode);
   });
-  const filterSel = document.getElementById('agenda-th-filter');
-  if(filterSel){
-    filterSel.style.display = mode === 'therapist' ? '' : 'none';
-    if(mode !== 'therapist'){
-      state.agendaTherapistFilter = null;
-      filterSel.value = '';
-    } else {
-      filterSel.innerHTML = '<option value="">Todos los terapeutas</option>' +
-        state.therapists.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
-    }
-  }
+  populateThFilter();
   const wrap = document.querySelector('#tab-agenda .grid-wrap');
   if(!wrap) return;
-  if(mode === 'day' || mode === 'therapist'){
+  if(mode === 'day'){
     if(!document.getElementById('schedule-grid')){
       wrap.innerHTML = '<div class="schedule-grid" id="schedule-grid"></div>';
     }
@@ -432,12 +433,17 @@ export function setAgendaView(mode) {
 
 export function setTherapistFilter(val) {
   state.agendaTherapistFilter = val || null;
-  renderGrid();
+  const view = state.agendaView || 'day';
+  if(view === 'week') renderWeekView();
+  else if(view === 'month') renderMonthView();
+  else renderGrid();
 }
 
 export function renderWeekView() {
   const wrap = document.querySelector('#tab-agenda .grid-wrap');
   if(!wrap) return;
+  populateThFilter();
+  const filterTh = state.agendaTherapistFilter || null;
   const base = new Date(state.currentDate);
   const dow = base.getDay();
   const monday = new Date(base);
@@ -454,7 +460,9 @@ export function renderWeekView() {
   let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;min-width:700px;padding:12px">';
   days.forEach(d => {
     const ds = fmtDate(d);
-    const dayAppts = state.appointments.filter(a => a.date === ds).sort((a,b) => a.hour - b.hour);
+    let dayAppts = state.appointments.filter(a => a.date === ds);
+    if(filterTh) dayAppts = dayAppts.filter(a => a.therapistId === filterTh);
+    dayAppts = dayAppts.sort((a,b) => a.hour - b.hour);
     const isToday = ds === todayStr;
     html += `<div style="border:1px solid rgba(29,158,117,${isToday?'.4':'.14'});border-radius:8px;padding:8px;min-height:80px;background:${isToday?'rgba(29,158,117,.04)':'#fff'}">
       <div style="font-size:10px;font-weight:600;color:${isToday?'#1D9E75':'#5a5a56'};margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer" onclick="goToDateAndSelect('${ds}')">${dn[d.getDay()]} ${d.getDate()} ${mn[d.getMonth()]}</div>`;
@@ -482,12 +490,13 @@ export function renderWeekView() {
 export function renderMonthView() {
   const wrap = document.querySelector('#tab-agenda .grid-wrap');
   if(!wrap) return;
+  populateThFilter();
+  const filterTh = state.agendaTherapistFilter || null;
   const year = state.currentDate.getFullYear();
   const month = state.currentDate.getMonth();
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
   const mn = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const mn2 = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   const todayStr = fmtDate(new Date());
   const startDow = firstDay.getDay();
   const offset = startDow === 0 ? 6 : startDow - 1;
@@ -505,7 +514,8 @@ export function renderMonthView() {
   for(let day = 1; day <= lastDay.getDate(); day++){
     const d = new Date(year, month, day);
     const ds = fmtDate(d);
-    const dayAppts = state.appointments.filter(a => a.date === ds);
+    let dayAppts = state.appointments.filter(a => a.date === ds);
+    if(filterTh) dayAppts = dayAppts.filter(a => a.therapistId === filterTh);
     const isToday = ds === todayStr;
     const dotColors = [...new Set(dayAppts.map(a => {
       const th = getTherapist(a.therapistId);

@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor } from './utils.js';
+import { esc, fmtDate, fmtTime, getPatient, getTherapist, getDoctor } from './utils.js';
 
 export function hasEvalInicial(p) {
   return (p.log||[]).some(s=>s.type==='Evaluación inicial');
@@ -42,7 +42,7 @@ export function renderResumen() {
       <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0;margin-top:3px"></div>
       <div style="flex:1">
         <div style="font-size:12px;font-weight:500;color:#1a1917">${pt?pt.name:'Paciente'}</div>
-        <div style="font-size:11px;color:#6b6a64">${a.hour}:00 · ${a.type} · ${th?th.name:''}${doc?' · Ref: '+doc.name:''}</div>
+        <div style="font-size:11px;color:#6b6a64">${fmtTime(a.hour)} · ${a.type} · ${th?th.name:''}${doc?' · Ref: '+doc.name:''}</div>
       </div>${btns}</div>`;
   }
 
