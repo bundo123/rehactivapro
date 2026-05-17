@@ -13,7 +13,7 @@
 .th-sp{font-size:10px;color:#7a7a76}
 .time-cell{border-right:1px solid rgba(29,158,117,.09);border-bottom:1px solid rgba(29,158,117,.09);padding:0 8px;height:40px;display:flex;align-items:center;font-size:10px;color:#7a7a76;background:#f5f5f0;flex-shrink:0;font-weight:500}
 .time-cell.half-hour{border-bottom-style:dashed;color:#b0ada8;font-weight:400}
-.slot{border-right:1px solid rgba(29,158,117,.12);border-bottom:1px solid rgba(29,158,117,.12);height:40px;padding:3px;position:relative;min-width:0;background:#f5f5f0}
+.slot{border-right:1px solid rgba(29,158,117,.12);border-bottom:1px solid rgba(29,158,117,.12);height:40px;padding:3px;position:relative;min-width:0;background:#f5f5f0;overflow:visible}
 .slot.half-hour{border-bottom-style:dashed}
 .slot.blocked{background:#f8f8f4;opacity:.4}
 .slot.drag-over{background:#0b2a1c}
