@@ -146,7 +146,8 @@ export function renderGrid() {
         card.className=`appt ${th.colorId}${sc}`;
         card.draggable=true;
         const doc=pt&&pt.doctorId?getDoctor(pt.doctorId):null;
-        if(doc){card.style.borderLeftColor=doc.color;card.title=`Ref: ${doc.name} (${doc.spec})${appt.status==='conf'?' · Doble click para registrar sesión':''}`;}
+        card.style.borderLeftColor=doc?doc.color:'rgba(0,0,0,.1)';
+        if(doc) card.title=`Ref: ${doc.name} (${doc.spec})${appt.status==='conf'?' · Doble click para registrar sesión':''}`;
         const durLabel=dur!==60?` · ${dur}min`:'';
         const canDel=hasPermission('deleteAppt');
         card.innerHTML=`<div class="appt-name">${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}${durLabel}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}`;
@@ -553,8 +554,10 @@ export function renderWeekView() {
         const pt = getPatient(a.patientId);
         const th = getTherapist(a.therapistId);
         const c = getColor(th?.colorId||'ca');
+        const doc = pt&&pt.doctorId?getDoctor(pt.doctorId):null;
+        const borderColor = doc ? doc.color : 'rgba(0,0,0,.1)';
         const dot = dotColor(a.status);
-        html += `<div style="background:${c.bg};border-left:2px solid ${c.border};border-radius:4px;padding:4px 6px;margin-bottom:4px;font-size:10px;cursor:pointer" onclick="goToDateAndSelect('${ds}')">
+        html += `<div style="background:${c.bg};border-left:2px solid ${borderColor};border-radius:4px;padding:4px 6px;margin-bottom:4px;font-size:10px;cursor:pointer" onclick="goToDateAndSelect('${ds}')">
           <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dot};margin-right:3px;vertical-align:middle;flex-shrink:0"></span>
           <b>${fmtTime(a.hour)}</b> ${esc(pt?pt.name:(a.patientName||'?'))}
         </div>`;
