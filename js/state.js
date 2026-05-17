@@ -34,4 +34,5 @@ export const state = {
   lastLoaded: {},
   dataLoaded: false,
   patientPage: 1,
+  patientEvalFilter: false,
 };

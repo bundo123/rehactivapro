@@ -22,7 +22,7 @@ import {
 import {
   renderPatients, openPatientModal, savePatient, deletePatient,
   openEditPatient, populateDiagList, nuevoEpisodio, guardarNuevoEpisodio,
-  setupPatientSearch, goToPatientPage,
+  setupPatientSearch, goToPatientPage, toggleEvalFilter,
   openEvalInicial, renderEvEva, saveEvalInicial
 } from './pacientes.js';
 import {
@@ -193,7 +193,7 @@ Object.assign(window, {
   marcarTodosFacturados, exportarPDF, genSemanalAI, genResumenDiaAI,
   genPatientAI, globalSearch, selectGlobalResult,
   updateGlobalSPF, updateRecPreview, populateDiagList,
-  goToPatientPage, refreshData,
+  goToPatientPage, refreshData, toggleEvalFilter,
   setAgendaView, setTherapistFilter, goToDateAndSelect, exportAgendaCSV,
   applyRolePermissions, hasPermission,
   // referencias a datos accesibles desde HTML (onclick strings)

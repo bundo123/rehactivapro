@@ -163,6 +163,7 @@
   <div class="main-body">
     <div class="search-row">
       <input class="search-input" type="text" id="patient-search" placeholder="Buscar por nombre, cédula, diagnóstico, teléfono o email...">
+      <button id="eval-filter-btn" class="view-btn" onclick="toggleEvalFilter()" title="Mostrar solo pacientes sin evaluación inicial" style="white-space:nowrap">Sin eval.</button>
       <button class="add-btn" onclick="openPatientModal()" data-permission="admin-secretaria">+ Nuevo paciente</button>
     </div>
     <div id="patient-table-card" style="border:1px solid rgba(29,158,117,.15);border-radius:10px;overflow:hidden;background:#ffffff">

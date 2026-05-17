@@ -1,4 +1,4 @@
-import { supa } from './supabase-client.js';
+﻿import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, COLOR_OPTIONS, patientMatchesSearch, highlightMatch } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
@@ -163,7 +163,7 @@ function renderPatientsOld() {
       <td style="font-weight:500;color:#1a1917">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           ${esc(p.name)}
-          ${!hasEvalInicial(p)?'<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:#fee2e2;color:#991b1b">⚠️ Sin eval.</span>':'<span style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:99px;background:#dcfce7;color:#166534">✓ Eval. ok</span>'}
+          ${!hasEvalInicial(p)?'<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:#fee2e2;color:#991b1b">Sin eval.</span>':'<span style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:99px;background:#dcfce7;color:#166534">Eval. ok</span>'}
         </div>
         <div style="display:flex;gap:4px;margin-top:4px">
           <button class='th-btn' style='font-size:9px;padding:2px 6px' onclick='openEditPatient("${p.id}")'>Editar</button>
@@ -179,9 +179,18 @@ function renderPatientsOld() {
   }).join('');
 }
 
+export function toggleEvalFilter() {
+  state.patientEvalFilter = !state.patientEvalFilter;
+  state.patientPage = 1;
+  const btn = document.getElementById('eval-filter-btn');
+  if(btn) btn.classList.toggle('active', state.patientEvalFilter);
+  renderPatients();
+}
+
 export function renderPatients() {
   const q=(document.getElementById('patient-search')?.value||'').trim();
   let f=state.patients.filter(p=>patientMatchesSearch(p,q));
+  if(state.patientEvalFilter) f=f.filter(p=>!hasEvalInicial(p));
   f.sort((a,b)=>{
     const aEval=hasEvalInicial(a),bEval=hasEvalInicial(b);
     if(!aEval&&bEval) return -1;if(aEval&&!bEval) return 1;
@@ -210,7 +219,7 @@ export function renderPatients() {
     const bc=p.status==='active'?'pg':p.status==='alta'?'pb':'pa';
     const bt=p.status==='active'?'Activo':p.status==='alta'?'Alta':'Pendiente';
     const log=p.log||[];
-    const adh=log.length>0?Math.round(log.filter(s=>s.status==='asistiÃ³').length/log.length*100):0;
+    const adh=log.length>0?Math.round(log.filter(s=>s.status==='asistió').length/log.length*100):0;
     const ac=adh>=85?'#1D9E75':adh>=70?'#BA7517':'#E24B4A';
     const dc=doc
       ?`<span style="display:inline-flex;align-items:center;gap:5px;background:${doc.color}18;border:1px solid ${doc.color}44;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:500;color:${doc.color};white-space:nowrap">${esc(doc.name)}</span>`
@@ -223,7 +232,7 @@ export function renderPatients() {
           ${highlightMatch(p.name,q)}
           ${!hasEvalInicial(p)?'<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:#fee2e2;color:#991b1b">âš ï¸ Sin eval.</span>':'<span style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:99px;background:#dcfce7;color:#166534">âœ“ Eval. ok</span>'}
         </div>
-        <div class="patient-contact-line">${[p.tel,p.email].filter(Boolean).map(v=>highlightMatch(v,q)).join(' Â· ')}</div>
+        <div class="patient-contact-line">${[p.tel,p.email].filter(Boolean).map(v=>highlightMatch(v,q)).join(' · ')}</div>
         <div style="display:flex;gap:4px;margin-top:4px">
           <button class='th-btn' style='font-size:9px;padding:2px 6px' onclick='openEditPatient("${p.id}")'>Editar</button>
           ${delBtn}${evalBtn}
