@@ -420,9 +420,9 @@
     </div>
   </div>
 
-  <div class="modal-actions">
+  <div class="modal-actions" style="display:flex;align-items:center;gap:8px">
+    <button id="appt-modal-del-btn" class="th-btn del" style="display:none;margin-right:auto" onclick="delAppt(document.getElementById('m-editing-id').value);closeModal('appt-modal')">Eliminar</button>
     <button class="btn-cancel" onclick="closeModal('appt-modal')">Cancelar</button>
-    <button id="appt-modal-del-btn" class="th-btn del" style="display:none" onclick="delAppt(document.getElementById('m-editing-id').value);closeModal('appt-modal')">Eliminar</button>
     <button class="btn-save" id="appt-modal-save-btn" onclick="saveAppt()">Guardar cita</button>
   </div>
 </div>

@@ -46,9 +46,9 @@
 .ai-btn{padding:6px 14px;background:#1D9E75;color:#fff;border:none;border-radius:7px;font-size:12px;cursor:pointer;font-weight:500;font-family:inherit}
 .ai-btn:hover{background:#17865f}
 .exp-btn{padding:6px 12px;border:1px solid rgba(29,158,117,.25);background:transparent;border-radius:7px;font-size:11px;cursor:pointer;color:#6b6a64;font-family:inherit}
-.exp-btn:hover{background:rgba(255,255,255,0.05)}
+.exp-btn:hover{background:rgba(0,0,0,.04)}
 .th-btn{padding:4px 11px;font-size:11px;border:1px solid rgba(29,158,117,.25);background:transparent;border-radius:6px;cursor:pointer;color:#6b6a64;font-family:inherit}
-.th-btn:hover{background:rgba(255,255,255,0.05)}
+.th-btn:hover{background:rgba(0,0,0,.04)}
 .th-btn.del{color:#f07070;border-color:rgba(240,112,112,.25)}
 .th-btn.del:hover{background:rgba(240,112,112,.08)}
 
