@@ -8,7 +8,7 @@ import { applyRolePermissions, canAccessTab, hasPermission } from './permissions
 import { markLocalChange, subscribeRealtime, unsubscribeRealtime } from './realtime.js';
 import {
   renderGrid, renderRefLegend, cycleStatus, updateFacturaBadge,
-  changeDay, openApptModal, openEditApptModal, updateTimeSlots, saveAppt, delAppt,
+  changeDay, openApptModal, openApptModalAt, openEditApptModal, updateTimeSlots, saveAppt, delAppt,
   goToDate, openDatePicker, agendarCitaParaPaciente, checkAutoNoas,
   toggleRecurrencia, updateRecPreview, getRecDates, filterApptPatient,
   updateGlobalSPF,
@@ -177,7 +177,7 @@ async function initApp() {
 // ── Exponer al window para onclick en HTML ──
 Object.assign(window, {
   doLogin, doLogout, showTab, closeModal,
-  openApptModal, openEditApptModal, openPatientModal, openTherapistModal, openDoctorModal,
+  openApptModal, openApptModalAt, openEditApptModal, openPatientModal, openTherapistModal, openDoctorModal,
   openProtocolModal, openEditTherapist, openEditPatient,
   openSessionModal, openEvalInicial, openDatePicker,
   openWA, waPatient, agendarCitaParaPaciente, nuevoEpisodio,

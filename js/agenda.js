@@ -111,7 +111,12 @@ export function renderGrid() {
         return;
       }
 
-      slot.className='slot'+(avail?'':' blocked')+(hr%1===0.5?' half-hour':'');
+      const appt=ta.find(a=>a.therapistId===th.id&&a.hour===hr);
+      const hh=hr%1===0.5?' half-hour':'';
+      const isEmpty=avail&&!appt;
+      if(!avail) slot.className='slot blocked'+hh;
+      else if(isEmpty) slot.className='slot avail'+hh;
+      else slot.className='slot'+hh;
 
       if(avail){
         slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('drag-over')});
@@ -128,9 +133,10 @@ export function renderGrid() {
           }
           state.dragData=null;
         });
+        if(isEmpty){
+          slot.addEventListener('click',()=>openApptModalAt(th.id,hr));
+        }
       }
-
-      const appt=ta.find(a=>a.therapistId===th.id&&a.hour===hr);
       if(appt&&avail){
         const dur=appt.duration||60;
         const spans=Math.max(1,Math.round(dur/30));
@@ -267,6 +273,16 @@ function _openApptModalBase() {
   document.getElementById('m-therapist').innerHTML=state.therapists.map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.startH)}-${fmtTime(t.endH)})</option>`).join('');
   updateTimeSlots();
   document.getElementById('appt-modal').classList.add('open');
+}
+
+export function openApptModalAt(thId, hr) {
+  openApptModal();
+  setTimeout(()=>{
+    const thSel=document.getElementById('m-therapist');
+    if(thSel){thSel.value=String(thId);updateTimeSlots();}
+    const timeSel=document.getElementById('m-time');
+    if(timeSel) timeSel.value=String(hr);
+  },0);
 }
 
 export function openApptModal() {
