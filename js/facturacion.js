@@ -5,127 +5,333 @@ import { hasPermission } from './permissions.js';
 import { dbRegistrarCobro } from './auth.js';
 import { updateFacturaBadge } from './agenda.js';
 
-export function renderFacturacion() {
-  updateFacturaBadge();
-  const spf=parseInt(document.getElementById('global-spf').value)||5;
+// Filter state persists across realtime re-renders
+let _filter = 'todos';
+let _search  = '';
+let _sort    = 'urgente';
 
-  function billingInfo(p){
-    const sesTotal=p.sessions||0;
-    const sesYaCobradas=p.billing.facturas.reduce((s,f)=>s+f.n,0);
-    const sesPend=p.billing.pendientes||0;
-    const cobrosRealizados=p.billing.facturas.length;
-    const totalCobros=Math.floor(sesTotal/spf)+(sesTotal%spf>0?1:0);
-    const cobrosRestantes=totalCobros-cobrosRealizados;
-    const esCierre=sesPend>0&&sesPend<spf&&(sesYaCobradas+sesPend)>=sesTotal;
-    return{sesTotal,sesYaCobradas,sesPend,cobrosRealizados,totalCobros,cobrosRestantes,esCierre};
-  }
+function getInitials(name) {
+  return (name || '').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase() || '??';
+}
 
-  const listos=state.patients.filter(p=>p.billing&&p.billing.pendientes>=spf);
-  const cierre=state.patients.filter(p=>{
-    if(!p.billing||p.billing.pendientes<=0||p.billing.pendientes>=spf)return false;
-    return billingInfo(p).esCierre;
-  });
-  const enCurso=state.patients.filter(p=>{
-    if(!p.billing||p.billing.pendientes<=0||p.billing.pendientes>=spf)return false;
-    return !billingInfo(p).esCierre;
-  });
-  const totalCobros=state.patients.reduce((s,p)=>s+(p.billing&&p.billing.facturas?p.billing.facturas.length:0),0);
-  const totalSes=state.patients.reduce((s,p)=>s+(p.billing&&p.billing.facturas?p.billing.facturas.reduce((a,f)=>a+f.n,0):0),0);
+function billingInfo(p, spf) {
+  const sesTotal        = p.sessions || 0;
+  const sesYaCobradas   = (p.billing.facturas || []).reduce((s, f) => s + f.n, 0);
+  const sesPend         = p.billing.pendientes || 0;
+  const cobrosRealizados = (p.billing.facturas || []).length;
+  const totalCobros     = Math.floor(sesTotal / spf) + (sesTotal % spf > 0 ? 1 : 0);
+  const esCierre        = sesPend > 0 && sesPend < spf && (sesYaCobradas + sesPend) >= sesTotal;
+  return { sesTotal, sesYaCobradas, sesPend, cobrosRealizados, totalCobros, esCierre };
+}
 
-  let html=`<div class="stats-row">
-    <div class="stat"><div class="stat-lbl">Por cobrar ahora</div><div class="stat-val" style="color:${(listos.length+cierre.length)?'#e0a850':'#1D9E75'}">${listos.length+cierre.length}</div><div class="stat-chg neu">Pacientes</div></div>
-    <div class="stat"><div class="stat-lbl">Acumulando citas</div><div class="stat-val">${enCurso.length}</div><div class="stat-chg neu">En curso</div></div>
-    <div class="stat"><div class="stat-lbl">Total cobros hechos</div><div class="stat-val" style="color:#1D9E75">${totalCobros}</div><div class="stat-chg up">Histórico</div></div>
-    <div class="stat"><div class="stat-lbl">Total sesiones cobradas</div><div class="stat-val" style="color:#1D9E75">${totalSes}</div><div class="stat-chg up">Histórico</div></div>
-  </div>`;
+function matchesSearch(p) {
+  if (!_search.trim()) return true;
+  const q = _search.toLowerCase();
+  return (p.name || '').toLowerCase().includes(q) || (p.cedula || '').includes(q);
+}
 
-  const paracobrar=[...listos,...cierre];
-  if(paracobrar.length){
-    html+=`<div class="full-card" style="border:1px solid rgba(224,168,80,.25);background:#fdf8ed">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        <div style="font-size:20px">🧾</div>
-        <div><div style="font-size:13px;font-weight:600;color:#e0a850">${paracobrar.length} paciente${paracobrar.length>1?'s':''} listo${paracobrar.length>1?'s':''} para cobrar</div>
-          <div style="font-size:11px;color:#5a5a56;margin-top:2px">Márcalos como cobrados una vez recibido el pago.</div>
+function applySort(list) {
+  if (_sort === 'nombre')   return [...list].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  if (_sort === 'sesiones') return [...list].sort((a, b) => (b.sessions || 0) - (a.sessions || 0));
+  return [...list].sort((a, b) => (b.billing?.pendientes || 0) - (a.billing?.pendientes || 0));
+}
+
+function renderAlertCard(count) {
+  if (!count) return '';
+  return `
+    <div class="fact-alert-card">
+      <div class="fact-alert-head">
+        <div class="fact-alert-icon">🧾</div>
+        <div>
+          <div class="fact-alert-title">${count} paciente${count !== 1 ? 's' : ''} listo${count !== 1 ? 's' : ''} para cobrar</div>
+          <div class="fact-alert-sub">Márcalos como cobrados una vez recibido el pago.</div>
         </div>
-        <button class="add-btn" style="margin-left:auto;background:#e0a850;color:#111;font-weight:600" onclick="marcarTodosFacturados()">Cobrar todos</button>
-      </div>`;
-    paracobrar.forEach(p=>{
-      const info=billingInfo(p);
-      const th=getTherapist(p.therapistId);
-      const doc=p.doctorId?getDoctor(p.doctorId):null;
-      const esFinal=info.esCierre;
-      const nCita=info.sesPend;
-      const cajitas=Array.from({length:nCita},(_,i)=>`<div style="width:22px;height:22px;border-radius:5px;background:${esFinal?'#378ADD':'#1D9E75'};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">${info.sesYaCobradas+i+1}</div>`).join('');
-      const tagLabel=esFinal
-        ?`<span style="font-size:10px;font-weight:600;color:#7ab8e8;background:#e8f2fc;border:1px solid rgba(55,138,221,.3);border-radius:99px;padding:1px 8px;margin-left:6px">Cobro final</span>`
-        :`<span style="font-size:10px;font-weight:600;color:#e0a850;background:#fefaf0;border:1px solid rgba(224,168,80,.3);border-radius:99px;padding:1px 8px;margin-left:6px">Cobro ${info.cobrosRealizados+1} de ${info.totalCobros}</span>`;
-      html+=`<div class="resumen-row" style="border-color:rgba(224,168,80,.2);background:#fefaf0;margin-bottom:6px;align-items:flex-start">
-        <div style="width:9px;height:9px;border-radius:50%;background:${esFinal?'#378ADD':'#e0a850'};flex-shrink:0;margin-top:5px"></div>
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><span style="font-size:13px;font-weight:600;color:#1a1917">${esc(p.name)}</span>${tagLabel}</div>
-          <div style="font-size:11px;color:#6b6a64;margin-top:3px">CI: ${esc(p.cedula||'—')} · ${esc(p.email||'sin correo')}${th?' · '+esc(th.name):''}${doc?' · Ref: '+esc(doc.name):''}</div>
-          <div style="margin-top:8px;display:flex;align-items:center;gap:3px;flex-wrap:wrap">${cajitas}<span style="font-size:11px;color:#6b6a64;margin-left:6px">${nCita} cita${nCita>1?'s':''} este cobro · ${info.sesTotal} totales prescritas</span></div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0;margin-left:10px">
-          <button class="resumen-btn" style="border-color:rgba(224,168,80,.5);color:#e0a850;font-size:11px;padding:5px 14px;font-weight:600" onclick="emitirFactura(${JSON.stringify(p.id)})">✓ Cobrado</button>
-        </div>
-      </div>`;
-    });
-    html+=`</div>`;
-  }
+        <button class="fact-alert-cta" onclick="marcarTodosFacturados()">Cobrar todos ✓</button>
+      </div>
+    </div>`;
+}
 
-  if(enCurso.length){
-    html+=`<div class="full-card"><div class="card-title">Acumulando citas</div>`;
-    enCurso.forEach(p=>{
-      const info=billingInfo(p);const pend=info.sesPend;const faltan=spf-pend;
-      const cajitas=Array.from({length:spf},(_,i)=>`<div style="width:18px;height:18px;border-radius:4px;background:${i<pend?'#1D9E75':'rgba(255,255,255,0.06)'};border:1px solid ${i<pend?'rgba(29,158,117,.4)':'rgba(255,255,255,.06)'};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:${i<pend?'#fff':'#333'}">${info.sesYaCobradas+i+1}</div>`).join('');
-      html+=`<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid rgba(29,158,117,.1)">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600;color:#1a1917">${esc(p.name)}<span style="font-size:10px;font-weight:400;color:#5a5a56;margin-left:6px">cobro ${info.cobrosRealizados+1} de ${info.totalCobros}</span></div>
-          <div style="font-size:10px;color:#5a5a56;margin-top:2px">CI: ${esc(p.cedula||'—')} · ${esc(p.email||'sin correo')}</div>
-          <div style="display:flex;align-items:center;gap:2px;margin-top:7px;flex-wrap:wrap">${cajitas}<span style="font-size:11px;color:#5a5a56;margin-left:8px">Faltan ${faltan}</span></div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:22px;font-weight:700;color:${pend>=spf*0.8?'#e0a850':'#5a5a56'}">${pend}/${spf}</div>
-          <div style="font-size:10px;color:#7a7a76">${info.sesTotal} prescritas</div>
-        </div>
-      </div>`;
-    });
-    html+=`</div>`;
-  }
+function renderFilterBar(nListos, nCurso) {
+  const chips = [
+    { key: 'todos',      label: 'Todos' },
+    { key: 'listos',     label: 'Listos para cobrar', cnt: nListos },
+    { key: 'acumulando', label: 'Acumulando',         cnt: nCurso  },
+    { key: 'recientes',  label: 'Cobros recientes' },
+  ];
+  const chipsHtml = chips.map(c => {
+    const active  = _filter === c.key ? ' active' : '';
+    const cntHtml = c.cnt != null ? ` <span class="fact-chip-cnt">${c.cnt}</span>` : '';
+    return `<button class="fact-chip${active}" data-filter="${c.key}">${esc(c.label)}${cntHtml}</button>`;
+  }).join('');
+  return `
+    <div class="fact-filter-bar">
+      <div class="fact-filter-chips">${chipsHtml}</div>
+      <input class="fact-search-input" type="text" placeholder="Buscar paciente o cédula…" value="${esc(_search)}">
+      <div class="fact-sort-wrap">Ordenar
+        <select class="fact-sort-select">
+          <option value="urgente" ${_sort === 'urgente'  ? 'selected' : ''}>Más urgente</option>
+          <option value="nombre"  ${_sort === 'nombre'   ? 'selected' : ''}>Nombre A–Z</option>
+          <option value="sesiones"${_sort === 'sesiones' ? 'selected' : ''}>Más sesiones</option>
+        </select>
+      </div>
+    </div>`;
+}
 
-  if(!paracobrar.length&&!enCurso.length){
-    html+=`<div class="full-card" style="text-align:center;padding:32px">
-      <div style="font-size:32px;margin-bottom:8px">✓</div>
-      <div style="font-size:14px;font-weight:600;color:#1D9E75">Todo al día</div>
-      <div style="font-size:12px;color:#5a5a56;margin-top:4px">No hay cobros pendientes en este momento.</div>
+function renderListoRow(p, info) {
+  const initials = getInitials(p.name);
+  const th       = getTherapist(p.therapistId);
+  const doc      = p.doctorId ? getDoctor(p.doctorId) : null;
+  const nCita    = info.sesPend;
+  const tag      = info.esCierre
+    ? `<span class="fact-fp-tag green">✓ Cobro final</span>`
+    : `<span class="fact-fp-tag green">Cobro ${info.cobrosRealizados + 1} de ${info.totalCobros}</span>`;
+  const cajitas  = Array.from({ length: nCita }, (_, i) =>
+    `<div class="fact-fp-box paid">${info.sesYaCobradas + i + 1}</div>`
+  ).join('');
+  const meta = [
+    p.cedula ? `CI: ${esc(p.cedula)}` : null,
+    p.email  ? esc(p.email)           : null,
+    th       ? esc(th.name)           : null,
+    doc      ? `Ref: ${esc(doc.name)}`: null,
+  ].filter(Boolean).join(' · ');
+  return `
+    <div class="fact-fp-row${info.esCierre ? ' final' : ''}">
+      <div class="fact-avatar">${esc(initials)}</div>
+      <div class="fact-fp-info">
+        <div class="fact-fp-name">${esc(p.name)} ${tag}</div>
+        <div class="fact-fp-meta">${meta}</div>
+        <div class="fact-fp-boxes">
+          ${cajitas}
+          <span class="fact-progress-lbl">${nCita} sesión${nCita !== 1 ? 'es' : ''} este cobro · ${info.sesTotal} totales prescritas</span>
+        </div>
+      </div>
+      <div class="fact-fp-actions">
+        <button class="fact-mark-btn" onclick="emitirFactura(${JSON.stringify(p.id)})">✓ Cobrado</button>
+      </div>
+    </div>`;
+}
+
+function renderCursoRow(p, info, spf) {
+  const initials = getInitials(p.name);
+  const th       = getTherapist(p.therapistId);
+  const pend     = info.sesPend;
+  const faltan   = spf - pend;
+  const near     = pend >= spf - 1;
+  const cajitas  = Array.from({ length: spf }, (_, i) =>
+    `<div class="fact-fp-box${i < pend ? ' paid' : ' pending'}">${info.sesYaCobradas + i + 1}</div>`
+  ).join('');
+  const miniDots = Array.from({ length: spf }, (_, i) =>
+    `<span class="fact-d${i < pend ? ' on' : ''}"></span>`
+  ).join('');
+  const meta = [
+    p.cedula ? `CI: ${esc(p.cedula)}` : null,
+    th       ? esc(th.name)           : null,
+  ].filter(Boolean).join(' · ');
+  return `
+    <div class="fact-curso-row">
+      <div class="fact-avatar fact-avatar-sm">${esc(initials)}</div>
+      <div class="fact-fp-info">
+        <div class="fact-fp-name" style="font-size:12.5px">
+          ${esc(p.name)}
+          <span class="fact-fp-tag blue" style="text-transform:none;letter-spacing:0;font-weight:500">cobro ${info.cobrosRealizados + 1} de ${info.totalCobros}</span>
+        </div>
+        <div class="fact-fp-meta">${meta}</div>
+        <div class="fact-fp-boxes fact-fp-boxes-sm">
+          ${cajitas}
+          <span class="fact-progress-lbl">Falta${faltan !== 1 ? 'n' : ''} ${faltan}</span>
+        </div>
+      </div>
+      <div class="fact-curso-progress">
+        <div class="fact-curso-num${near ? ' near' : ''}">${pend}/${spf}</div>
+        <div class="fact-curso-rest">${info.sesTotal} prescritas</div>
+        <div class="fact-curso-mini">${miniDots}</div>
+      </div>
+    </div>`;
+}
+
+function renderCobrosRecientes() {
+  // Cobros are embedded in state.patients[].billing.facturas (no state.cobros array exists)
+  // Schema: { id: cobro_ref, n: n_sessions, fecha: 'YYYY-MM-DD', estado: 'cobrada' }
+  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const allCobros = state.patients
+    .flatMap(p => (p.billing?.facturas || []).map(f => ({
+      fecha: f.fecha || '',
+      name:  p.name,
+      n:     f.n || 0,
+    })))
+    .sort((a, b) => b.fecha.localeCompare(a.fecha))
+    .slice(0, 8);
+
+  if (!allCobros.length) {
+    return `<div class="fact-empty">
+      <div class="fact-empty-icon">📋</div>
+      <div class="fact-empty-title">Aún no hay cobros registrados</div>
+      <div class="fact-empty-sub">Aparecerán aquí cuando emitas la primera factura.</div>
     </div>`;
   }
-  document.getElementById('facturacion-content').innerHTML=html;
+
+  const totalN  = allCobros.reduce((s, c) => s + c.n, 0);
+  const items   = allCobros.map(c => {
+    const [, mon, day] = (c.fecha || '--').split('-');
+    const fechaDisplay = mon
+      ? `${parseInt(day, 10)} ${months[parseInt(mon, 10) - 1]}`
+      : '—';
+    return `<div class="fact-hi">
+      <span class="fact-hi-date">${fechaDisplay}</span>
+      <span class="fact-hi-name">${esc(c.name)}</span>
+      <span class="fact-hi-sessions">${c.n} ses.</span>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="fact-history-card">
+      <div class="fact-history-head">
+        <span class="fact-sec-dot" style="background:var(--rh-green)"></span>
+        <div class="fact-history-title">Cobros recientes</div>
+        <div class="fact-history-sub">últimos ${allCobros.length} cobros · ${totalN} sesiones</div>
+      </div>
+      <div class="fact-history-list">${items}</div>
+    </div>`;
+}
+
+function attachFilterListeners() {
+  document.querySelectorAll('.fact-chip').forEach(btn => {
+    btn.addEventListener('click', () => { _filter = btn.dataset.filter; renderFacturacion(); });
+  });
+  const searchInput = document.querySelector('.fact-search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', e => { _search = e.target.value; renderFacturacion(); });
+  }
+  const sortSelect = document.querySelector('.fact-sort-select');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', e => { _sort = e.target.value; renderFacturacion(); });
+  }
+}
+
+export function renderFacturacion() {
+  updateFacturaBadge();
+  const spf = parseInt(document.getElementById('global-spf').value) || 5;
+
+  const listos = state.patients.filter(p => p.billing && p.billing.pendientes >= spf);
+  const cierre = state.patients.filter(p => {
+    if (!p.billing || p.billing.pendientes <= 0 || p.billing.pendientes >= spf) return false;
+    return billingInfo(p, spf).esCierre;
+  });
+  const enCurso = state.patients.filter(p => {
+    if (!p.billing || p.billing.pendientes <= 0 || p.billing.pendientes >= spf) return false;
+    return !billingInfo(p, spf).esCierre;
+  });
+
+  const nListos = listos.length + cierre.length;
+  const nCurso  = enCurso.length;
+  const totalCobrosHechos = state.patients.reduce((s, p) => s + (p.billing?.facturas?.length || 0), 0);
+  const totalSes = state.patients.reduce((s, p) => s + (p.billing?.facturas?.reduce((a, f) => a + f.n, 0) || 0), 0);
+
+  const fListos = applySort([...listos, ...cierre].filter(matchesSearch));
+  const fCurso  = applySort(enCurso.filter(matchesSearch));
+
+  const showListos    = _filter === 'todos' || _filter === 'listos';
+  const showCurso     = _filter === 'todos' || _filter === 'acumulando';
+  const showRecientes = _filter === 'todos' || _filter === 'recientes';
+  const searchActive  = _search.trim().length > 0;
+
+  let html = `
+    <div class="stats-row">
+      <div class="stat">
+        <div class="stat-lbl">Por cobrar ahora</div>
+        <div class="stat-val" style="color:${nListos ? 'var(--rh-blue-d)' : 'var(--rh-green)'}">${nListos}</div>
+        <div class="stat-chg neu">Pacientes listos</div>
+      </div>
+      <div class="stat">
+        <div class="stat-lbl">Acumulando citas</div>
+        <div class="stat-val">${nCurso}</div>
+        <div class="stat-chg neu">En curso</div>
+      </div>
+      <div class="stat green">
+        <div class="stat-lbl">Total cobros hechos</div>
+        <div class="stat-val" style="color:var(--rh-green-d)">${totalCobrosHechos}</div>
+        <div class="stat-chg up">Histórico</div>
+      </div>
+      <div class="stat green">
+        <div class="stat-lbl">Sesiones cobradas</div>
+        <div class="stat-val" style="color:var(--rh-green-d)">${totalSes}</div>
+        <div class="stat-chg up">Histórico</div>
+      </div>
+    </div>`;
+
+  if (nListos && showListos) html += renderAlertCard(nListos);
+  html += renderFilterBar(nListos, nCurso);
+
+  const listosSection = showListos && fListos.length
+    ? `<div class="fact-sec listos">
+        <div class="fact-sec-title">
+          <span class="fact-sec-dot" style="background:var(--rh-green)"></span>
+          Listos para cobrar
+          <span class="fact-count">${fListos.length} paciente${fListos.length !== 1 ? 's' : ''}</span>
+        </div>
+        ${fListos.map(p => renderListoRow(p, billingInfo(p, spf))).join('')}
+      </div>` : '';
+
+  const cursoSection = showCurso && fCurso.length
+    ? `<div class="fact-sec curso">
+        <div class="fact-sec-title">
+          <span class="fact-sec-dot" style="background:var(--rh-blue)"></span>
+          Acumulando citas
+          <span class="fact-count">${fCurso.length} paciente${fCurso.length !== 1 ? 's' : ''}</span>
+        </div>
+        ${fCurso.map(p => renderCursoRow(p, billingInfo(p, spf), spf)).join('')}
+      </div>` : '';
+
+  const recientesSection = showRecientes ? renderCobrosRecientes() : '';
+
+  const hasContent = listosSection || cursoSection || recientesSection;
+
+  if (!hasContent) {
+    if (searchActive) {
+      html += `<div class="fact-empty">
+        <div class="fact-empty-icon">🔍</div>
+        <div class="fact-empty-title">No hay pacientes que coincidan con la búsqueda.</div>
+      </div>`;
+    } else if (!nListos && !nCurso) {
+      html += `<div class="fact-empty">
+        <div class="fact-empty-icon">✓</div>
+        <div class="fact-empty-title">Todo al día</div>
+        <div class="fact-empty-sub">No hay cobros pendientes en este momento.</div>
+      </div>`;
+    }
+  } else {
+    html += listosSection + cursoSection + recientesSection;
+  }
+
+  document.getElementById('facturacion-content').innerHTML = html;
+  attachFilterListeners();
 }
 
 export function emitirFactura(patientId) {
-  if(!hasPermission('emitirFactura')){toastErr('No tienes permisos para emitir cobros.');return;}
-  const p=getPatient(patientId);if(!p||!p.billing)return;
-  const n=p.billing.pendientes;
-  const fId='F'+(++state.facturaCounter).toString().padStart(3,'0');
-  const today=fmtDate(new Date());
-  p.billing.facturas.push({id:fId,n,fecha:today,estado:'cobrada'});
-  p.billing.pendientes=0;
+  if (!hasPermission('emitirFactura')) { toastErr('No tienes permisos para emitir cobros.'); return; }
+  const p = getPatient(patientId); if (!p || !p.billing) return;
+  const n = p.billing.pendientes;
+  const fId = 'F' + (++state.facturaCounter).toString().padStart(3, '0');
+  const today = fmtDate(new Date());
+  p.billing.facturas.push({ id: fId, n, fecha: today, estado: 'cobrada' });
+  p.billing.pendientes = 0;
   updateFacturaBadge(); renderFacturacion();
-  dbRegistrarCobro(p.id,n,fId);
+  dbRegistrarCobro(p.id, n, fId);
   toastOk(`Cobro ${fId} registrado — ${n} sesiones de ${p.name}`);
-  simEmailFactura(p.name,p.email||'',fId,n);
+  simEmailFactura(p.name, p.email || '', fId, n);
 }
 
 export function marcarTodosFacturados() {
-  if(!hasPermission('emitirFactura')){toastErr('No tienes permisos para emitir cobros.');return;}
-  const spf=parseInt(document.getElementById('global-spf').value)||5;
-  const paracobrar=state.patients.filter(p=>p.billing&&(p.billing.pendientes>=spf||(p.billing.pendientes>0&&(p.billing.facturas.reduce((s,f)=>s+f.n,0)+p.billing.pendientes)>=p.sessions)));
-  paracobrar.forEach(p=>emitirFactura(p.id));
+  if (!hasPermission('emitirFactura')) { toastErr('No tienes permisos para emitir cobros.'); return; }
+  const spf = parseInt(document.getElementById('global-spf').value) || 5;
+  const paracobrar = state.patients.filter(p => p.billing && (
+    p.billing.pendientes >= spf ||
+    (p.billing.pendientes > 0 && (p.billing.facturas.reduce((s, f) => s + f.n, 0) + p.billing.pendientes) >= p.sessions)
+  ));
+  paracobrar.forEach(p => emitirFactura(p.id));
 }
 
-export function simEmailFactura(nombre,email,fId='',n=5) {
-  const correo=email?`📧 ${email}`:'📧 Sin correo registrado — agrégalo en el perfil';
+export function simEmailFactura(nombre, email, fId = '', n = 5) {
+  const correo = email ? `📧 ${email}` : '📧 Sin correo registrado — agrégalo en el perfil';
   alert(`✅ ${nombre} marcado como cobrado\n\nFactura ${fId}  ·  ${n} sesiones\n${correo}\n\n💡 Con backend: genera XML/SRI y envía comprobante automáticamente.`);
 }

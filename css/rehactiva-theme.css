@@ -23,6 +23,9 @@
   --rh-red:#E24B4A;
   --rh-red-d:#c33a3a;
   --rh-red-soft:rgba(226,75,74,.10);
+  --rh-mute:#7a7a76;
+  --rh-mute2:#5a5a56;
+  --rh-ink:#1a1917;
 }
 
 body{background:var(--rh-cream)!important;color:#1a1917}
