@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { esc, getPatient, getTherapist, getDoctor, fmtDate } from './utils.js';
+import { esc, getPatient, getTherapist, getDoctor, fmtDate, getInitials } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { dbRegistrarCobro } from './auth.js';
@@ -9,10 +9,6 @@ import { updateFacturaBadge } from './agenda.js';
 let _filter = 'todos';
 let _search  = '';
 let _sort    = 'urgente';
-
-function getInitials(name) {
-  return (name || '').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase() || '??';
-}
 
 function billingInfo(p, spf) {
   const sesTotal        = p.sessions || 0;

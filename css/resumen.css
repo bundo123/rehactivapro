@@ -1,0 +1,270 @@
+/* ===== RESUMEN DEL DÍA — estilos específicos =====
+   Prefijo .resd- para evitar colisiones con clases globales.
+   No modificar para otras páginas.
+   ================================================= */
+
+/* Header con botón IA a la derecha */
+.resd-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+/* Quick stats bar */
+.resd-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.resd-q-stat {
+  background: #fff;
+  border: 1px solid rgba(41,171,226,.16);
+  border-radius: 10px;
+  padding: 9px 12px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.resd-q-stat::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+}
+.resd-q-stat.green::before { background: var(--rh-green); }
+.resd-q-stat.yellow::before { background: var(--rh-yellow); }
+.resd-q-stat.red::before    { background: var(--rh-red); }
+
+.resd-q-icon {
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.resd-q-stat.green .resd-q-icon { background: var(--rh-green-soft); color: var(--rh-green-d); }
+.resd-q-stat.yellow .resd-q-icon { background: var(--rh-yellow-soft); color: var(--rh-yellow-d); }
+.resd-q-stat.red .resd-q-icon   { background: var(--rh-red-soft);   color: var(--rh-red-d); }
+
+.resd-q-num {
+  font-size: 20px; font-weight: 700;
+  letter-spacing: -.5px;
+  line-height: 1;
+}
+.resd-q-stat.green .resd-q-num { color: var(--rh-green-d); }
+.resd-q-stat.yellow .resd-q-num { color: var(--rh-yellow-d); }
+.resd-q-stat.red .resd-q-num   { color: var(--rh-red-d); }
+
+.resd-q-lbl {
+  font-size: 10.5px;
+  color: var(--rh-mute2);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* Section container + header */
+.resd-section { margin-bottom: 20px; }
+.resd-section-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--rh-mute2);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0,0,0,.05);
+}
+.resd-sec-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.resd-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--rh-mute);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Patient rows */
+.resd-row {
+  background: #fff;
+  border: 1px solid rgba(41,171,226,.14);
+  border-radius: 11px;
+  padding: 12px 14px;
+  margin-bottom: 7px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: border-color .12s, box-shadow .12s;
+}
+.resd-row:hover {
+  border-color: rgba(41,171,226,.3);
+  box-shadow: 0 2px 8px rgba(0,0,0,.03);
+}
+.resd-row.noas { border-left: 4px solid var(--rh-red); }
+.resd-row.pend { border-left: 4px solid var(--rh-yellow); }
+.resd-row.conf { border-left: 4px solid var(--rh-green); }
+
+/* Time chip */
+.resd-time {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--rh-mute2);
+  min-width: 46px;
+  background: var(--rh-cream2);
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* Avatar */
+.resd-avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+  color: var(--rh-blue-d);
+  background: var(--rh-blue-soft);
+  border: 1px solid rgba(41,171,226,.25);
+  flex-shrink: 0;
+  letter-spacing: .02em;
+}
+
+/* Patient info */
+.resd-info { flex: 1; min-width: 0; }
+.resd-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rh-ink);
+  letter-spacing: -.1px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.resd-ref-tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-weight: 600;
+  border: 1px solid;
+  flex-shrink: 0;
+}
+.resd-meta {
+  font-size: 11px;
+  color: var(--rh-mute2);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Action buttons area */
+.resd-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 210px;
+  flex-wrap: wrap;
+}
+
+/* Contact buttons (noas / pend) */
+.resd-btn-wa,
+.resd-btn-em,
+.resd-btn-rep,
+.resd-btn-sess,
+.resd-btn-eval {
+  padding: 5px 12px;
+  font-size: 11px;
+  border-radius: 99px;
+  cursor: pointer;
+  font-weight: 600;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  transition: filter .12s;
+}
+.resd-btn-wa,
+.resd-btn-em,
+.resd-btn-rep,
+.resd-btn-sess,
+.resd-btn-eval { border: 1px solid; }
+
+.resd-btn-wa {
+  background: rgba(37,211,102,.08);
+  color: #1aa84f;
+  border-color: rgba(37,211,102,.3);
+}
+.resd-btn-wa:hover { filter: brightness(.92); }
+
+.resd-btn-em {
+  background: var(--rh-blue-soft);
+  color: var(--rh-blue-d);
+  border-color: rgba(41,171,226,.3);
+}
+.resd-btn-em:hover { filter: brightness(.92); }
+
+.resd-btn-rep {
+  background: var(--rh-orange-soft);
+  color: var(--rh-orange-d);
+  border-color: rgba(245,166,35,.35);
+}
+.resd-btn-rep:hover { filter: brightness(.92); }
+
+/* Session button */
+.resd-btn-sess {
+  background: var(--rh-yellow-soft);
+  color: var(--rh-yellow-d);
+  border-color: rgba(224,168,80,.35);
+}
+.resd-btn-sess.done {
+  background: var(--rh-green-soft);
+  color: var(--rh-green-d);
+  border-color: rgba(29,158,117,.35);
+}
+.resd-btn-sess:hover { filter: brightness(.92); }
+
+/* Eval inicial button */
+.resd-btn-eval {
+  background: var(--rh-red-soft);
+  color: var(--rh-red-d);
+  border-color: rgba(226,75,74,.35);
+}
+.resd-btn-eval:hover { filter: brightness(.92); }
+
+/* "✓ Asistió" label */
+.resd-asistio {
+  font-size: 10px;
+  color: var(--rh-green-d);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Empty state */
+.resd-empty {
+  color: var(--rh-mute2);
+  font-size: 13px;
+  padding: 20px 0;
+}
