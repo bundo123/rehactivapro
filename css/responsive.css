@@ -1,0 +1,321 @@
+/* ===== RESPONSIVE MÓVIL ===== */
+/* Toda la lógica responsive va aquí. No modificar otros archivos CSS para responsive. */
+
+/* Botón hamburguesa — siempre en DOM, oculto en escritorio */
+.hamburger-btn {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 601;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(29,158,117,.25);
+  background: #f0efe8;
+  cursor: pointer;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  padding: 0;
+}
+
+.hamburger-btn span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: #1D9E75;
+  border-radius: 2px;
+  transition: all .2s;
+}
+
+/* Overlay detrás del sidebar */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  z-index: 599;
+  cursor: pointer;
+}
+
+.sidebar-overlay.open {
+  display: block;
+}
+
+@media (max-width: 768px) {
+
+  /* ── Hamburguesa visible ── */
+  .hamburger-btn {
+    display: flex;
+  }
+
+  /* ── Sidebar: oculto por defecto, desliza desde la izquierda ── */
+  .sidebar {
+    position: fixed !important;
+    left: -230px;
+    top: 0;
+    bottom: 0;
+    z-index: 600;
+    width: 220px !important;
+    transition: left .25s cubic-bezier(.4,0,.2,1);
+    box-shadow: 4px 0 24px rgba(0,0,0,.25);
+    height: 100vh !important;
+  }
+
+  .sidebar.open {
+    left: 0;
+  }
+
+  /* ── Shell: columna ── */
+  .shell {
+    flex-direction: column;
+  }
+
+  /* ── Main: ancho completo, padding-top para hamburguesa ── */
+  .main {
+    width: 100vw;
+    padding-top: 56px;
+    box-sizing: border-box;
+  }
+
+  .main-header {
+    padding: 10px 14px 0;
+  }
+
+  .main-body {
+    padding: 12px 14px 24px;
+  }
+
+  /* ── Stats: 2 columnas ── */
+  .stats-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  /* ── Toolbar: apila ── */
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .toolbar .add-btn {
+    width: 100%;
+    min-height: 44px;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .toolbar .day-nav {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /* ── Agenda: scroll horizontal (terapeutas no se comprimen) ── */
+  .grid-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .schedule-grid {
+    min-width: 600px;
+  }
+
+  /* ── Búsqueda: apila y full width ── */
+  .search-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .search-input {
+    width: 100%;
+  }
+
+  .search-row .add-btn {
+    width: 100%;
+    min-height: 44px;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  /* ── Tabla pacientes → tarjetas apiladas ── */
+  #patient-table-card {
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+  }
+
+  .patient-table thead {
+    display: none;
+  }
+
+  .patient-table,
+  .patient-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .patient-table tr {
+    display: block;
+    background: #ffffff;
+    border: 1px solid rgba(29,158,117,.14);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    padding: 12px;
+  }
+
+  .patient-table td {
+    display: block;
+    border: none !important;
+    padding: 4px 0 !important;
+    font-size: 12px;
+    color: #1a1917 !important;
+    background: transparent !important;
+  }
+
+  .patient-table td:first-child {
+    margin-bottom: 6px;
+    padding-bottom: 8px !important;
+    border-bottom: 1px solid rgba(29,158,117,.1) !important;
+  }
+
+  /* ── Modales: sheet desde abajo ── */
+  .modal-bg {
+    align-items: flex-end !important;
+    padding-bottom: 0;
+  }
+
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 16px 16px 0 0 !important;
+    max-height: 92vh;
+    padding: 20px 16px 32px !important;
+    box-sizing: border-box;
+  }
+
+  /* ── Campos: columna única ── */
+  .field-row.two {
+    grid-template-columns: 1fr !important;
+    gap: 0 !important;
+  }
+
+  .two-col {
+    grid-template-columns: 1fr !important;
+  }
+
+  .three-col {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Heatmap: scroll horizontal ── */
+  #heatmap-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── Touch targets mínimo 44×44px ── */
+  .add-btn, .ai-btn, .exp-btn, .btn-save, .btn-cancel {
+    min-height: 44px;
+  }
+
+  .nav-item {
+    min-height: 44px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+
+  /* ── Botones de export row: apilan ── */
+  .export-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .export-row .ai-btn,
+  .export-row .exp-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* ── Paginación: apila ── */
+  .patient-pagination {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  /* ── Informe paciente: selects en columna ── */
+  #patient-rpt-search,
+  #patient-rpt-select,
+  #patient-rpt-episode {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* ── Inputs de búsqueda: ancho completo ── */
+  #protocol-search,
+  #therapist-search,
+  #doctor-search,
+  #global-search {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+  }
+
+  /* ── Toolbars con display:flex: columna ── */
+  #tab-protocolos .main-body > div,
+  #tab-terapeutas .main-body > div,
+  #config-doctores > div {
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+
+  /* ── Status guide: wrap ── */
+  .status-guide {
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 9px;
+  }
+
+  /* ── Sub-tabs: scroll horizontal ── */
+  .sub-tabs {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+
+  /* ── Titles: más compactos ── */
+  .page-title {
+    font-size: 15px;
+  }
+
+  .page-sub {
+    font-size: 11px;
+  }
+
+  /* ── Leyenda doctores: wrap ── */
+  .ref-legend {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* ── Modal login ── */
+  .login-box {
+    width: 90vw !important;
+    padding: 24px 20px !important;
+  }
+}
+
+/* Pantallas muy pequeñas: stats en 1 columna */
+@media (max-width: 420px) {
+  .stats-row {
+    grid-template-columns: 1fr !important;
+  }
+}
