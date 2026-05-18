@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>RehactivaPro — Facturación</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --rh-blue:#29ABE2; --rh-blue-d:#1d8fbf; --rh-blue-soft:rgba(41,171,226,.14);
+  --rh-orange:#F5A623; --rh-orange-d:#d88c0d; --rh-orange-soft:rgba(245,166,35,.14);
+  --rh-cream:#f5f0e8; --rh-cream2:#faf6ef; --rh-cream3:#f0e8d8;
+  --rh-ink:#1a1917; --rh-mute:#7a7a76; --rh-mute2:#5a5a56;
+  --rh-green:#1D9E75; --rh-green-d:#17865f; --rh-green-soft:rgba(29,158,117,.14);
+  --rh-yellow:#E0A850; --rh-yellow-d:#BA7517; --rh-yellow-soft:rgba(224,168,80,.14);
+  --rh-red:#E24B4A; --rh-red-d:#c33a3a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--rh-cream);color:var(--rh-ink);font-size:13px}
+.shell{display:flex;height:100vh;width:100vw}
+
+.sidebar{width:210px;flex-shrink:0;background:var(--rh-cream3);border-right:1px solid rgba(41,171,226,.2);display:flex;flex-direction:column}
+.sidebar-logo{padding:16px 14px 12px;border-bottom:1px solid rgba(0,0,0,.06)}
+.logo-text{font-family:'Outfit',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.6px;display:inline-flex;align-items:baseline;gap:5px}
+.logo-text .w{color:var(--rh-blue)}
+.logo-text .g{color:var(--rh-orange);font-weight:600;font-size:12px;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;background:var(--rh-orange-soft);border-radius:5px;line-height:1}
+.logo-sub{font-size:9px;color:var(--rh-mute);margin-top:6px;letter-spacing:.06em;text-transform:uppercase}
+.sidebar-nav{flex:1;overflow-y:auto;padding:8px}
+.nav-label{font-size:9px;font-weight:700;color:var(--rh-mute2);text-transform:uppercase;letter-spacing:.09em;padding:10px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;cursor:pointer;color:var(--rh-mute2);font-size:12px;border:none;background:none;width:100%;text-align:left;font-family:inherit}
+.nav-item:hover{background:rgba(255,255,255,.55);color:var(--rh-ink)}
+.nav-item.active{background:var(--rh-blue-soft);color:var(--rh-blue-d);font-weight:600}
+.nav-icon{font-size:14px;width:18px;text-align:center;opacity:.7}
+.nav-item.active .nav-icon{opacity:1}
+.nav-badge{margin-left:auto;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 6px}
+.nav-badge.orange{background:var(--rh-orange)}
+.nav-badge.blue{background:var(--rh-blue)}
+.sidebar-footer{padding:10px 8px;border-top:1px solid rgba(0,0,0,.06)}
+.role-badge{font-size:10px;color:var(--rh-mute);padding:4px 9px 6px;line-height:1.5}
+
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.main-header{padding:16px 24px 0}
+.page-title{font-size:20px;font-weight:700;color:var(--rh-ink);letter-spacing:-.4px}
+.page-sub{font-size:12px;color:var(--rh-mute2);margin-top:3px}
+.main-body{padding:18px 24px 24px;flex:1}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat{background:#fff;border:1px solid rgba(41,171,226,.16);border-radius:11px;padding:11px 13px;position:relative;overflow:hidden}
+.stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--rh-blue)}
+.stat.green::before{background:var(--rh-green)}
+.stat-lbl{font-size:10px;color:var(--rh-mute2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.stat-val{font-size:22px;font-weight:700;color:var(--rh-ink);letter-spacing:-.5px;line-height:1.15}
+.stat-chg{font-size:10.5px;margin-top:3px;color:var(--rh-mute2)}
+
+/* ALERT CARD — Listos para cobrar (VERDE) */
+.alert-card{background:linear-gradient(135deg,#eff9f3 0%,#dff3e8 100%);border:1px solid rgba(29,158,117,.35);border-radius:14px;padding:16px 18px;margin-bottom:14px;position:relative;overflow:hidden}
+.alert-card::before{content:"";position:absolute;top:-20px;right:-20px;width:120px;height:120px;background:radial-gradient(circle,rgba(29,158,117,.18),transparent 70%);pointer-events:none}
+.alert-head{display:flex;align-items:center;gap:14px;position:relative}
+.alert-icon{width:44px;height:44px;border-radius:12px;background:var(--rh-green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 14px rgba(29,158,117,.4)}
+.alert-title{font-family:'Outfit',sans-serif;font-size:15px;font-weight:700;color:var(--rh-green-d);letter-spacing:-.2px}
+.alert-sub{font-size:11.5px;color:var(--rh-mute2);margin-top:3px}
+.alert-cta{margin-left:auto;padding:9px 18px;background:var(--rh-green);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:700;font-family:inherit;box-shadow:0 4px 12px rgba(29,158,117,.35)}
+.alert-cta:hover{background:var(--rh-green-d)}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.filter-search{position:relative;flex:0 0 260px}
+.filter-search input{width:100%;background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:8px;padding:7px 12px 7px 30px;font-size:12px;color:var(--rh-ink);outline:none;font-family:inherit}
+.filter-search input:focus{border-color:var(--rh-blue)}
+.filter-search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none}
+.fchip{padding:6px 11px;border:1px solid rgba(41,171,226,.22);background:#fff;border-radius:99px;font-size:11px;color:var(--rh-mute2);cursor:pointer;font-family:inherit;font-weight:500;display:inline-flex;align-items:center;gap:5px}
+.fchip.active{background:var(--rh-blue-soft);border-color:var(--rh-blue);color:var(--rh-blue-d);font-weight:600}
+.fchip .cnt{font-size:10px;color:var(--rh-mute);font-weight:600}
+.fchip.active .cnt{color:var(--rh-blue-d)}
+.filter-sort{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--rh-mute2)}
+.filter-sort select{background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:7px;padding:6px 8px;font-size:11px;color:var(--rh-ink);font-family:inherit;cursor:pointer;outline:none}
+
+/* SECTION */
+.sec{margin-bottom:18px}
+.sec-title{font-size:12px;font-weight:700;color:var(--rh-mute2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;display:flex;align-items:center;gap:9px;padding-bottom:8px;border-bottom:1px solid rgba(0,0,0,.06)}
+.sec-title .count{margin-left:auto;font-size:11px;font-weight:600;color:var(--rh-mute);text-transform:none;letter-spacing:0}
+.sec-dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+
+/* PATIENT ROW — base */
+.fp-row{display:flex;align-items:center;gap:14px;padding:13px;background:#fff;border:1px solid rgba(41,171,226,.18);border-radius:11px;margin-bottom:7px;position:relative;transition:border-color .12s,box-shadow .12s}
+.fp-row:hover{border-color:rgba(41,171,226,.4);box-shadow:0 2px 8px rgba(0,0,0,.03)}
+.fp-row.final{border-color:rgba(29,158,117,.35);background:linear-gradient(135deg,#f1fbf6,#fff)}
+
+.fp-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--rh-blue-d);background:var(--rh-blue-soft);border:1px solid rgba(41,171,226,.25);flex-shrink:0;letter-spacing:.02em}
+.fp-info{flex:1;min-width:0}
+.fp-name{font-size:13.5px;font-weight:700;color:var(--rh-ink);display:flex;align-items:center;gap:8px;flex-wrap:wrap;letter-spacing:-.1px}
+.fp-tag{font-size:10px;font-weight:700;padding:2px 9px;border-radius:99px;text-transform:uppercase;letter-spacing:.05em;border:1px solid}
+.fp-tag.blue{background:var(--rh-blue-soft);color:var(--rh-blue-d);border-color:rgba(41,171,226,.35)}
+.fp-tag.green{background:var(--rh-green-soft);color:var(--rh-green-d);border-color:rgba(29,158,117,.35)}
+.fp-tag.orange{background:var(--rh-orange-soft);color:var(--rh-orange-d);border-color:rgba(245,166,35,.35)}
+.fp-meta{font-size:11px;color:var(--rh-mute);margin-top:3px}
+.fp-boxes{display:flex;gap:4px;margin-top:9px;align-items:center;flex-wrap:wrap}
+.fp-box{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff}
+.fp-box.pending{background:transparent;border:1.5px dashed rgba(0,0,0,.18);color:var(--rh-mute2)}
+.fp-progress-lbl{font-size:11px;color:var(--rh-mute2);margin-left:6px;font-weight:500}
+
+/* LISTOS PARA COBRAR — VERDE (umbral alcanzado) */
+.sec.listos .fp-row{border-color:rgba(29,158,117,.3);background:linear-gradient(135deg,#f5fbf8,#fff)}
+.sec.listos .fp-row:hover{border-color:rgba(29,158,117,.5);box-shadow:0 2px 8px rgba(29,158,117,.08)}
+.sec.listos .fp-box.paid{background:var(--rh-green);box-shadow:0 1px 3px rgba(29,158,117,.3);color:#fff}
+.sec.listos .fp-avatar{background:var(--rh-green-soft);color:var(--rh-green-d);border-color:rgba(29,158,117,.3)}
+.fp-actions{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.fp-amount{font-size:18px;font-weight:700;color:var(--rh-green-d);letter-spacing:-.3px;font-variant-numeric:tabular-nums;line-height:1}
+.fp-amount-lbl{font-size:10px;color:var(--rh-mute);margin-top:-2px}
+.fp-mark-btn{padding:8px 18px;background:#fff;color:var(--rh-green-d);border:1.5px solid var(--rh-green);border-radius:8px;font-size:12px;cursor:pointer;font-weight:700;font-family:inherit;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.fp-mark-btn:hover{background:var(--rh-green);color:#fff}
+
+/* ACUMULANDO CITAS — AZUL (en proceso) */
+.curso-row{display:flex;align-items:center;gap:13px;padding:11px 13px;background:#fff;border:1px solid rgba(41,171,226,.18);border-radius:10px;margin-bottom:6px;transition:border-color .12s}
+.curso-row:hover{border-color:rgba(41,171,226,.4)}
+.sec.curso .fp-avatar{background:var(--rh-blue-soft);color:var(--rh-blue-d);border-color:rgba(41,171,226,.25)}
+.sec.curso .fp-box.paid{background:var(--rh-blue);box-shadow:0 1px 3px rgba(41,171,226,.3);color:#fff}
+.curso-progress{flex-shrink:0;text-align:right;min-width:78px}
+.curso-num{font-size:20px;font-weight:700;color:var(--rh-mute2);letter-spacing:-.5px;font-variant-numeric:tabular-nums;line-height:1}
+.curso-num.near{color:var(--rh-blue-d)}
+.curso-rest{font-size:10px;color:var(--rh-mute);margin-top:3px}
+.curso-mini{display:flex;gap:3px;justify-content:flex-end;margin-top:4px}
+.curso-mini .d{width:8px;height:8px;border-radius:2px;background:rgba(41,171,226,.2)}
+.curso-mini .d.on{background:var(--rh-blue)}
+
+/* COBROS RECIENTES — historia */
+.history-card{background:#fff;border:1px solid rgba(29,158,117,.18);border-radius:12px;padding:14px 16px}
+.history-head{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.history-title{font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;color:var(--rh-green-d);letter-spacing:-.1px}
+.history-sub{font-size:11px;color:var(--rh-mute);margin-left:auto}
+.history-list{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 16px}
+.hi{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed rgba(0,0,0,.06);font-size:12px}
+.hi:last-child,.hi:nth-last-child(2){border-bottom:none}
+.hi-date{font-size:10px;color:var(--rh-mute);font-variant-numeric:tabular-nums;min-width:44px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.hi-name{flex:1;color:var(--rh-ink);font-weight:600;font-size:12px}
+.hi-amt{color:var(--rh-green-d);font-weight:700;font-variant-numeric:tabular-nums;font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-text"><span class="w">Rehactiva</span><span class="g">Pro</span></div>
+      <div class="logo-sub">Gestión clínica</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Clínica</div>
+      <button class="nav-item"><span class="nav-icon">📅</span>Agenda</button>
+      <button class="nav-item"><span class="nav-icon">📋</span>Resumen del día<span class="nav-badge orange">3</span></button>
+      <div class="nav-label">Pacientes</div>
+      <button class="nav-item"><span class="nav-icon">👤</span>Pacientes</button>
+      <button class="nav-item"><span class="nav-icon">📄</span>Informe paciente</button>
+      <button class="nav-item"><span class="nav-icon">🩺</span>Protocolos</button>
+      <div class="nav-label">Análisis</div>
+      <button class="nav-item"><span class="nav-icon">📊</span>Informes</button>
+      <button class="nav-item active"><span class="nav-icon">🧾</span>Facturación<span class="nav-badge blue">4</span></button>
+      <div class="nav-label">Equipo</div>
+      <button class="nav-item"><span class="nav-icon">🧑‍⚕️</span>Terapeutas</button>
+      <button class="nav-item"><span class="nav-icon">👨‍⚕️</span>Doctores ref.</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="role-badge">Dra. Karen Salgado<br><span style="color:var(--rh-blue-d);font-weight:600">Admin</span></div>
+      <button class="nav-item"><span class="nav-icon">🚪</span>Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="main-header">
+      <div class="page-title">Facturación</div>
+      <div class="page-sub">Control de sesiones acumuladas y emisión de comprobantes — cobro cada 5 sesiones</div>
+    </div>
+    <div class="main-body">
+
+      <!-- STATS -->
+      <div class="stats-row">
+        <div class="stat"><div class="stat-lbl">Por cobrar ahora</div><div class="stat-val" style="color:var(--rh-blue-d)">4</div><div class="stat-chg">Pacientes listos · $485</div></div>
+        <div class="stat orange"><div class="stat-lbl">Acumulando citas</div><div class="stat-val" style="color:var(--rh-blue-d)">18</div><div class="stat-chg">En curso</div></div>
+        <div class="stat green">
+          <div class="stat-lbl">Cobros del mes</div>
+          <div class="stat-val" style="color:var(--rh-green-d)">$3,420</div>
+          <div class="stat-chg" style="color:var(--rh-green-d)">▲ +12% vs abril</div>
+        </div>
+        <div class="stat green"><div class="stat-lbl">Sesiones cobradas (año)</div><div class="stat-val" style="color:var(--rh-green-d)">847</div><div class="stat-chg">Histórico 2026</div></div>
+      </div>
+
+      <!-- ALERT CARD -->
+      <div class="alert-card">
+        <div class="alert-head">
+          <div class="alert-icon">🧾</div>
+          <div>
+            <div class="alert-title">4 pacientes listos para cobrar</div>
+            <div class="alert-sub">Marca como cobrados una vez recibido el pago. Total: <strong style="color:var(--rh-green-d)">$485.00</strong></div>
+          </div>
+          <button class="alert-cta">Cobrar todos ✓</button>
+        </div>
+      </div>
+
+      <!-- FILTER BAR -->
+      <div class="filter-bar">
+        <div class="filter-search">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input placeholder="Buscar paciente, cédula o diagnóstico...">
+        </div>
+        <div class="filter-sort">
+          Ordenar
+          <select>
+            <option>Más urgente</option>
+            <option>Monto mayor</option>
+            <option>Nombre A–Z</option>
+            <option>Antigüedad</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- LISTOS PARA COBRAR (AZUL) -->
+      <div class="sec listos">
+        <div class="sec-title">
+          <span class="sec-dot" style="background:var(--rh-green)"></span>
+          Listos para cobrar
+          <span class="count">4 pacientes · $485.00</span>
+        </div>
+
+        <div class="fp-row">
+          <div class="fp-avatar">SM</div>
+          <div class="fp-info">
+            <div class="fp-name">Sofía Méndez <span class="fp-tag green">Cobro 2 de 3</span></div>
+            <div class="fp-meta">CI: 0912345678 · <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="2b58444d424a05464e454f4e516b484459594e4405484446">[email&#160;protected]</a> · Mariana R. · Ref: Dr. Ramírez</div>
+            <div class="fp-boxes">
+              <div class="fp-box paid">6</div>
+              <div class="fp-box paid">7</div>
+              <div class="fp-box paid">8</div>
+              <div class="fp-box paid">9</div>
+              <div class="fp-box paid">10</div>
+              <span class="fp-progress-lbl">5 citas este cobro · 12 totales prescritas</span>
+            </div>
+          </div>
+          <div class="fp-actions">
+            <div class="fp-amount">$125.00</div>
+            <div class="fp-amount-lbl">a $25/sesión</div>
+            <button class="fp-mark-btn">✓ Cobrado</button>
+          </div>
+        </div>
+
+        <div class="fp-row">
+          <div class="fp-avatar">RV</div>
+          <div class="fp-info">
+            <div class="fp-name">Roberto Vega <span class="fp-tag green">Cobro 2 de 3</span></div>
+            <div class="fp-meta">CI: 0923456789 · <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="3d4f525f584f4952134b585a5c7d5e524f4f5852135e5250">[email&#160;protected]</a> · Jorge S. · Ref: Dra. López</div>
+            <div class="fp-boxes">
+              <div class="fp-box paid">6</div>
+              <div class="fp-box paid">7</div>
+              <div class="fp-box paid">8</div>
+              <div class="fp-box paid">9</div>
+              <div class="fp-box paid">10</div>
+              <span class="fp-progress-lbl">5 citas este cobro · 15 totales prescritas</span>
+            </div>
+          </div>
+          <div class="fp-actions">
+            <div class="fp-amount">$125.00</div>
+            <div class="fp-amount-lbl">a $25/sesión</div>
+            <button class="fp-mark-btn">✓ Cobrado</button>
+          </div>
+        </div>
+
+        <!-- COBRO FINAL — destacado en verde -->
+        <div class="fp-row final">
+          <div class="fp-avatar" style="background:var(--rh-green-soft);color:var(--rh-green-d);border-color:rgba(29,158,117,.3)">MJ</div>
+          <div class="fp-info">
+            <div class="fp-name">Marta Jiménez <span class="fp-tag green">✓ Cobro final</span></div>
+            <div class="fp-meta">CI: 0934123456 · <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="8ee3effcfaefa0e4e7e3ebe0ebf4ceede1fcfcebe1a0ede1e3">[email&#160;protected]</a> · Nina B. · Ref: Dr. Mora</div>
+            <div class="fp-boxes">
+              <div class="fp-box paid">9</div>
+              <div class="fp-box paid">10</div>
+              <span class="fp-progress-lbl">2 citas este cobro · 10/10 totales · cierre de tratamiento</span>
+            </div>
+          </div>
+          <div class="fp-actions">
+            <div class="fp-amount">$50.00</div>
+            <div class="fp-amount-lbl">a $25/sesión</div>
+            <button class="fp-mark-btn">✓ Cobrado</button>
+          </div>
+        </div>
+
+        <div class="fp-row">
+          <div class="fp-avatar">EP</div>
+          <div class="fp-info">
+            <div class="fp-name">Elena Paredes <span class="fp-tag green">Cobro 2 de 3</span></div>
+            <div class="fp-meta">CI: 0967234890 · <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="056069606b642b7564776061607645666a7777606a2b666a68">[email&#160;protected]</a> · Mariana R. · Ref: Dr. Ramírez</div>
+            <div class="fp-boxes">
+              <div class="fp-box paid">2</div>
+              <div class="fp-box paid">3</div>
+              <div class="fp-box paid">4</div>
+              <div class="fp-box paid">5</div>
+              <div class="fp-box paid">6</div>
+              <span class="fp-progress-lbl">5 citas este cobro · 12 totales prescritas</span>
+            </div>
+          </div>
+          <div class="fp-actions">
+            <div class="fp-amount">$125.00</div>
+            <div class="fp-amount-lbl">a $25/sesión</div>
+            <button class="fp-mark-btn">✓ Cobrado</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACUMULANDO CITAS (TOMATE/NARANJA) -->
+      <div class="sec curso">
+        <div class="sec-title">
+          <span class="sec-dot" style="background:var(--rh-blue)"></span>
+          Acumulando citas
+          <span class="count">18 pacientes en curso</span>
+        </div>
+
+        <div class="curso-row">
+          <div class="fp-avatar" style="width:34px;height:34px;font-size:11px">LO</div>
+          <div class="fp-info">
+            <div class="fp-name" style="font-size:12.5px">Luis Ortega <span style="font-size:10px;color:var(--rh-mute);font-weight:500;letter-spacing:0">— cobro 1 de 2</span></div>
+            <div class="fp-meta">CI: 0987654321 · Tendinitis rotuliana · Jorge S.</div>
+            <div class="fp-boxes" style="margin-top:6px">
+              <div class="fp-box paid" style="width:20px;height:20px;font-size:9px">1</div>
+              <div class="fp-box paid" style="width:20px;height:20px;font-size:9px">2</div>
+              <div class="fp-box paid" style="width:20px;height:20px;font-size:9px">3</div>
+              <div class="fp-box pending" style="width:20px;height:20px;font-size:9px">4</div>
+              <div class="fp-box pending" style="width:20px;height:20px;font-size:9px">5</div>
+              <span class="fp-progress-lbl" style="font-size:10px">Faltan 2</span>
+            </div>
+          </div>
+          <div class="curso-progress">
+            <div class="curso-num">3/5</div>
+            <div class="curso-rest">10 prescritas</div>
+            <div class="curso-mini"><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d"></span><span class="d"></span></div>
+          </div>
+        </div>
+
+        <div class="curso-row">
+          <div class="fp-avatar" style="width:34px;height:34px;font-size:11px">CN</div>
+          <div class="fp-info">
+            <div class="fp-name" style="font-size:12.5px">Carlos Naranjo <span style="font-size:10px;color:var(--rh-mute);font-weight:500;letter-spacing:0">— cobro 1 de 2</span></div>
+            <div class="fp-meta">CI: 0945678901 · Tendinitis supraespinoso · Pablo T.</div>
+            <div class="fp-boxes" style="margin-top:6px">
+              <div class="fp-box paid" style="width:20px;height:20px;font-size:9px">1</div>
+              <div class="fp-box paid" style="width:20px;height:20px;font-size:9px">2</div>
+              <div class="fp-box paid" style="width:20px;height:20px;font-size:9px">3</div>
+              <div class="fp-box paid" style="width:20px;height:20px;font-size:9px">4</div>
+              <div class="fp-box pending" style="width:20px;height:20px;font-size:9px">5</div>
+              <span class="fp-progress-lbl" style="font-size:10px">Falta 1 · próximo cobro</span>
+            </div>
+          </div>
+          <div class="curso-progress">
+            <div class="curso-num near">4/5</div>
+            <div class="curso-rest">8 prescritas</div>
+            <div class="curso-mini"><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d"></span></div>
+          </div>
+        </div>
+
+        <div class="curso-row">
+          <div class="fp-avatar" style="width:34px;height:34px;font-size:11px">JH</div>
+          <div class="fp-info">
+            <div class="fp-name" style="font-size:12.5px">Javier Herrera <span style="font-size:10px;color:var(--rh-mute);font-weight:500;letter-spacing:0">— cobro 1 de 2</span></div>
+            <div class="fp-meta">CI: 0978345612 · Epicondilitis lateral · Mariana R.</div>
+            <div class="fp-boxes" style="margin-top:6px">
+              <div class="fp-box paid" style="width:20px;height:20px;font-size:9px">1</div>
+              <div class="fp-box paid" style="width:20px;height:20px;font-size:9px">2</div>
+              <div class="fp-box pending" style="width:20px;height:20px;font-size:9px">3</div>
+              <div class="fp-box pending" style="width:20px;height:20px;font-size:9px">4</div>
+              <div class="fp-box pending" style="width:20px;height:20px;font-size:9px">5</div>
+              <span class="fp-progress-lbl" style="font-size:10px">Faltan 3</span>
+            </div>
+          </div>
+          <div class="curso-progress">
+            <div class="curso-num">2/5</div>
+            <div class="curso-rest">6 prescritas</div>
+            <div class="curso-mini"><span class="d on"></span><span class="d on"></span><span class="d"></span><span class="d"></span><span class="d"></span></div>
+          </div>
+        </div>
+
+        <div class="curso-row">
+          <div class="fp-avatar" style="width:34px;height:34px;font-size:11px">AR</div>
+          <div class="fp-info">
+            <div class="fp-name" style="font-size:12.5px">Ana Riofrío <span style="font-size:10px;color:var(--rh-mute);font-weight:500;letter-spacing:0">— cobro 1 de 2</span></div>
+            <div class="fp-meta">CI: 0998123456 · Cervicalgia postural · Nina B.</div>
+            <div class="fp-boxes" style="margin-top:6px">
+              <div class="fp-box paid" style="width:20px;height:20px;font-size:9px">1</div>
+              <div class="fp-box pending" style="width:20px;height:20px;font-size:9px">2</div>
+              <div class="fp-box pending" style="width:20px;height:20px;font-size:9px">3</div>
+              <div class="fp-box pending" style="width:20px;height:20px;font-size:9px">4</div>
+              <div class="fp-box pending" style="width:20px;height:20px;font-size:9px">5</div>
+              <span class="fp-progress-lbl" style="font-size:10px">Faltan 4</span>
+            </div>
+          </div>
+          <div class="curso-progress">
+            <div class="curso-num">1/5</div>
+            <div class="curso-rest">8 prescritas</div>
+            <div class="curso-mini"><span class="d on"></span><span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COBROS RECIENTES (HISTORIA) -->
+      <div class="history-card">
+        <div class="history-head">
+          <span class="sec-dot" style="background:var(--rh-green)"></span>
+          <div class="history-title">Cobros recientes</div>
+          <div class="history-sub">últimos 7 días · 6 cobros · $720</div>
+        </div>
+        <div class="history-list">
+          <div class="hi"><span class="hi-date">10 May</span><span class="hi-name">Andrés Zambrano</span><span class="hi-amt">$125</span></div>
+          <div class="hi"><span class="hi-date">10 May</span><span class="hi-name">Daniela Cobos</span><span class="hi-amt">$125</span></div>
+          <div class="hi"><span class="hi-date">09 May</span><span class="hi-name">Pedro Vásquez</span><span class="hi-amt">$125</span></div>
+          <div class="hi"><span class="hi-date">08 May</span><span class="hi-name">Fernanda Toral</span><span class="hi-amt">$125</span></div>
+          <div class="hi"><span class="hi-date">07 May</span><span class="hi-name">Mateo Carrasco</span><span class="hi-amt">$125</span></div>
+          <div class="hi"><span class="hi-date">07 May</span><span class="hi-name">Lucía Herrera (final)</span><span class="hi-amt">$95</span></div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script></body>
+</html>
