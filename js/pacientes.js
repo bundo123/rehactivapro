@@ -4,6 +4,9 @@ import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, COLOR_OPTI
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';
+import { validateRequired, validateCedulaEcuatoriana, validateTelefono, validateEmail, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker } from './validators.js';
+
+const _patientDirty = createDirtyTracker();
 
 export const PATIENTS_PER_PAGE = 20;
 let patientSearchTimeout = null;
@@ -65,11 +68,29 @@ export function populateDiagList() {
 }
 
 export function openPatientModal() {
+  _patientDirty.reset();
+  clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email']);
   document.getElementById('pm-doctor').innerHTML='<option value="">Sin doctor referente</option>'+state.doctors.map(d=>`<option value="${esc(d.id)}">${esc(d.name)} (${esc(d.spec)})</option>`).join('');
   document.getElementById('patient-modal').classList.add('open');
 }
 
 export async function savePatient() {
+  const _cedula = document.getElementById('pm-cedula').value.trim();
+  const _toValidate = [
+    { id: 'pm-name',   fn: validateRequired,          always: true },
+    { id: 'pm-cedula', fn: validateCedulaEcuatoriana, always: false },
+    { id: 'pm-tel',    fn: validateTelefono,          always: false },
+    { id: 'pm-email',  fn: validateEmail,             always: false },
+  ];
+  let _hasErrors = false;
+  _toValidate.forEach(({ id, fn, always }) => {
+    if (always || _patientDirty.has(id)) {
+      const r = fn(document.getElementById(id).value);
+      if (!r.valid) { showFieldError(id, r.error); _hasErrors = true; }
+      else clearFieldError(id);
+    }
+  });
+  if (_hasErrors) return;
   if(state.editingPatientId){
     if(!hasPermission('editPatient')){toastErr('No tienes permisos para editar pacientes.');return;}
   } else {
@@ -88,6 +109,7 @@ export async function savePatient() {
     p.sessions=parseInt(document.getElementById('pm-sessions').value)||10;
     p.status=document.getElementById('pm-status').value;
     window._app.closeModal('patient-modal');
+    if (!_cedula) toastInfo('Paciente guardado sin cédula. No podrás emitir facturas electrónicas hasta agregarla.');
     renderPatients();
     document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
     state.editingPatientId=null;
@@ -102,7 +124,6 @@ export async function savePatient() {
     return;
   }
   const name=document.getElementById('pm-name').value.trim();
-  if(!name){alert('Ingresa el nombre.');return;}
   state.patients.push({id:++state.patCounter,name,
     age:parseInt(document.getElementById('pm-age').value)||35,
     cedula:document.getElementById('pm-cedula').value||'',
@@ -129,6 +150,7 @@ export async function savePatient() {
       const {loadAll}=window._app;
 	      await loadAll(true); renderPatients();
       toastOk('Paciente guardado correctamente');
+      if (!_cedula) toastInfo('Paciente guardado sin cédula. No podrás emitir facturas electrónicas hasta agregarla.');
     }
   } catch(e){toastErr('Error de conexión al guardar paciente.');}
   ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir'].forEach(id=>document.getElementById(id).value='');
@@ -269,6 +291,8 @@ export async function deletePatient(id) {
 }
 
 export function openEditPatient(id) {
+  _patientDirty.reset();
+  clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email']);
   const p=getPatient(id);if(!p)return;
   document.getElementById('pm-doctor').innerHTML='<option value="">Independiente</option>'+state.doctors.map(d=>`<option value="${esc(d.id)}" ${d.id===p.doctorId?'selected':''}>${esc(d.name)} (${esc(d.spec)})</option>`).join('');
   document.getElementById('pm-name').value=p.name;
@@ -327,6 +351,30 @@ export async function guardarNuevoEpisodio() {
     if(sel){sel.value=String(_nePatientId);window._app.updateEpisodes();}
   },100);
   if(abrirEval) setTimeout(()=>openEvalInicial(_nePatientId),400);
+}
+
+export function initPatientValidation() {
+  const fields = [
+    { id: 'pm-name',   fn: validateRequired,          req: true },
+    { id: 'pm-cedula', fn: validateCedulaEcuatoriana, req: false },
+    { id: 'pm-tel',    fn: validateTelefono,          req: false },
+    { id: 'pm-email',  fn: validateEmail,             req: false },
+  ];
+  fields.forEach(({ id, fn, req }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('blur', () => {
+      if (req || _patientDirty.has(id)) {
+        const r = fn(el.value);
+        if (!r.valid) showFieldError(id, r.error);
+        else clearFieldError(id);
+      }
+    });
+    el.addEventListener('input', () => {
+      _patientDirty.mark(id);
+      if (el.classList.contains('input-error') && fn(el.value).valid) clearFieldError(id);
+    });
+  });
 }
 
 // ── EVALUACIÓN INICIAL ──

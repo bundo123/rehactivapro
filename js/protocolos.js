@@ -3,6 +3,10 @@ import { esc, getPatient } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { dbSaveProtocol, dbDeleteProtocol } from './auth.js';
+import { validateRequired, validateMinChars, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker } from './validators.js';
+
+const _protocolDirty = createDirtyTracker();
+const _altaFn = (v) => v.trim().length === 0 ? { valid: true, error: '' } : validateMinChars(v, 15);
 
 const PROT_PAGE_SIZE = 3;
 
@@ -34,6 +38,8 @@ const svgsSmall = {
 };
 
 export function openProtocolModal(eid=null) {
+  _protocolDirty.reset();
+  clearAllErrors(['prot-name', 'prot-diag', 'prot-alta']);
   state.editingProtocolId=eid;
   if(eid){const p=state.protocols.find(x=>x.id===eid);document.getElementById('prot-diag').value=p.diag;document.getElementById('prot-name').value=p.name;document.getElementById('prot-sessions').value=p.sessions;document.getElementById('prot-freq').value=p.freq;document.getElementById('prot-alta').value=p.alta;}
   else{['prot-diag','prot-name','prot-alta'].forEach(id=>document.getElementById(id).value='');document.getElementById('prot-sessions').value=20;document.getElementById('prot-freq').value=3;}
@@ -41,16 +47,52 @@ export function openProtocolModal(eid=null) {
 }
 
 export function saveProtocol() {
+  const _toValidate = [
+    { id: 'prot-name', fn: validateRequired, always: true },
+    { id: 'prot-diag', fn: validateRequired, always: true },
+    { id: 'prot-alta', fn: _altaFn,          always: false },
+  ];
+  let _hasErrors = false;
+  _toValidate.forEach(({ id, fn, always }) => {
+    if (always || _protocolDirty.has(id)) {
+      const r = fn(document.getElementById(id).value);
+      if (!r.valid) { showFieldError(id, r.error); _hasErrors = true; }
+      else clearFieldError(id);
+    }
+  });
+  if (_hasErrors) return;
   if(!hasPermission('createProtocol')){toastErr('No tienes permisos para guardar protocolos.');return;}
   const diag=document.getElementById('prot-diag').value.trim();
   const name=document.getElementById('prot-name').value.trim();
-  if(!diag||!name){alert('Completa diagnóstico y nombre.');return;}
   const d={diag,name,sessions:parseInt(document.getElementById('prot-sessions').value),freq:parseInt(document.getElementById('prot-freq').value),alta:document.getElementById('prot-alta').value};
   if(state.editingProtocolId) Object.assign(state.protocols.find(p=>p.id===state.editingProtocolId),d);
   else state.protocols.push({id:++state.protCounter,...d});
   const _pr=state.editingProtocolId?state.protocols.find(p=>p.id===state.editingProtocolId):state.protocols[state.protocols.length-1];
   window._app.closeModal('protocol-modal'); renderProtocols();
   dbSaveProtocol(_pr);
+}
+
+export function initProtocolValidation() {
+  const fields = [
+    { id: 'prot-name', fn: validateRequired, req: true },
+    { id: 'prot-diag', fn: validateRequired, req: true },
+    { id: 'prot-alta', fn: _altaFn,          req: false },
+  ];
+  fields.forEach(({ id, fn, req }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('blur', () => {
+      if (req || _protocolDirty.has(id)) {
+        const r = fn(el.value);
+        if (!r.valid) showFieldError(id, r.error);
+        else clearFieldError(id);
+      }
+    });
+    el.addEventListener('input', () => {
+      _protocolDirty.mark(id);
+      if (el.classList.contains('input-error') && fn(el.value).valid) clearFieldError(id);
+    });
+  });
 }
 
 export function renderProtocols() {

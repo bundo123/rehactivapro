@@ -4,6 +4,9 @@ import { esc, getDoctor, DOC_COLORS } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { dbDeleteDoctor } from './auth.js';
+import { validateRequired, validateEmail, validateTelefono, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker } from './validators.js';
+
+const _doctorDirty = createDirtyTracker();
 
 export function renderDoctorsList() {
   const q=(document.getElementById('doctor-search')?.value||'').toLowerCase();
@@ -32,6 +35,8 @@ export function selectDocColor(c) {
 }
 
 export function openDoctorModal(eid=null) {
+  _doctorDirty.reset();
+  clearAllErrors(['doc-name', 'doc-email', 'doc-tel']);
   state.editingDocId=eid;
   document.getElementById('doc-modal-title').textContent=eid?'Editar doctor':'Agregar doctor referente';
   if(eid){
@@ -50,8 +55,22 @@ export function openDoctorModal(eid=null) {
 }
 
 export async function saveDoctor() {
+  const _toValidate = [
+    { id: 'doc-name',  fn: validateRequired, always: true },
+    { id: 'doc-email', fn: validateEmail,    always: false },
+    { id: 'doc-tel',   fn: validateTelefono, always: false },
+  ];
+  let _hasErrors = false;
+  _toValidate.forEach(({ id, fn, always }) => {
+    if (always || _doctorDirty.has(id)) {
+      const r = fn(document.getElementById(id).value);
+      if (!r.valid) { showFieldError(id, r.error); _hasErrors = true; }
+      else clearFieldError(id);
+    }
+  });
+  if (_hasErrors) return;
   if(!hasPermission('createDoctor')){toastErr('No tienes permisos para gestionar doctores.');return;}
-  const name=document.getElementById('doc-name').value.trim();if(!name){alert('Ingresa el nombre.');return;}
+  const name=document.getElementById('doc-name').value.trim();
   const d={name,spec:document.getElementById('doc-spec').value,email:document.getElementById('doc-email').value,tel:document.getElementById('doc-tel').value,color:state.selectedDocColor};
   if(state.editingDocId) Object.assign(getDoctor(state.editingDocId),d);
   else state.doctors.push({id:++state.docCounter,...d});
@@ -104,6 +123,29 @@ export function renderNotifList() {
 export function toggleNotif(id,v) {
   const n=state.notifSettings.find(x=>x.id===id);
   if(n){n.on=v;renderNotifList();}
+}
+
+export function initDoctorValidation() {
+  const fields = [
+    { id: 'doc-name',  fn: validateRequired, req: true },
+    { id: 'doc-email', fn: validateEmail,    req: false },
+    { id: 'doc-tel',   fn: validateTelefono, req: false },
+  ];
+  fields.forEach(({ id, fn, req }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('blur', () => {
+      if (req || _doctorDirty.has(id)) {
+        const r = fn(el.value);
+        if (!r.valid) showFieldError(id, r.error);
+        else clearFieldError(id);
+      }
+    });
+    el.addEventListener('input', () => {
+      _doctorDirty.mark(id);
+      if (el.classList.contains('input-error') && fn(el.value).valid) clearFieldError(id);
+    });
+  });
 }
 
 export function showDoctoresTab(n,btn) {

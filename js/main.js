@@ -23,7 +23,7 @@ import {
   renderPatients, openPatientModal, savePatient, deletePatient,
   openEditPatient, populateDiagList, nuevoEpisodio, guardarNuevoEpisodio,
   setupPatientSearch, goToPatientPage, toggleEvalFilter,
-  openEvalInicial, renderEvEva, saveEvalInicial
+  openEvalInicial, renderEvEva, saveEvalInicial, initPatientValidation
 } from './pacientes.js';
 import {
   openSessionModal, saveSession, skipSession,
@@ -40,7 +40,7 @@ import {
 } from './facturacion.js';
 import {
   openProtocolModal, saveProtocol, renderProtocols, deleteProtocol,
-  protPage, renderProtocolAdherence, protocolSVG
+  protPage, renderProtocolAdherence, protocolSVG, initProtocolValidation
 } from './protocolos.js';
 import {
   renderTherapistList, openTherapistModal, openEditTherapist,
@@ -48,7 +48,7 @@ import {
 } from './terapeutas.js';
 import {
   renderDoctorsList, openDoctorModal, renderDocColorPicker, selectDocColor,
-  saveDoctor, deleteDoctor, showDoctoresTab, renderNotifList, toggleNotif
+  saveDoctor, deleteDoctor, showDoctoresTab, renderNotifList, toggleNotif, initDoctorValidation
 } from './doctores.js';
 import { callAI } from './ia.js';
 import { globalSearch, selectGlobalResult, checkCitasPendientes } from './search.js';
@@ -207,6 +207,9 @@ Object.assign(window, {
 
 // ── Arrancar ──
 initMobileMenu();
+initPatientValidation();
+initDoctorValidation();
+initProtocolValidation();
 renderRefreshControls();
 setupPatientSearch();
 setInterval(updateLastLoadedLabels,30000);
