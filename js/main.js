@@ -52,6 +52,7 @@ import {
 } from './doctores.js';
 import { callAI } from './ia.js';
 import { globalSearch, selectGlobalResult, checkCitasPendientes } from './search.js';
+import { initMobileMenu } from './mobile-menu.js';
 
 // ── Registro central de funciones para módulos cross-cutting ──
 window._app = {
@@ -205,6 +206,7 @@ Object.assign(window, {
 });
 
 // ── Arrancar ──
+initMobileMenu();
 renderRefreshControls();
 setupPatientSearch();
 setInterval(updateLastLoadedLabels,30000);
