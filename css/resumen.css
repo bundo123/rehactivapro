@@ -114,9 +114,9 @@
   border-color: rgba(41,171,226,.3);
   box-shadow: 0 2px 8px rgba(0,0,0,.03);
 }
-.resd-row.noas { border-left: 4px solid var(--rh-red); }
-.resd-row.pend { border-left: 4px solid var(--rh-yellow); }
-.resd-row.conf { border-left: 4px solid var(--rh-green); }
+.resd-row.noas { border-left: 5px solid var(--rh-red); }
+.resd-row.pend { border-left: 5px solid var(--rh-yellow); }
+.resd-row.conf { border-left: 5px solid var(--rh-green); }
 
 /* Time chip */
 .resd-time {
@@ -182,8 +182,8 @@
   flex-shrink: 0;
   justify-content: flex-end;
   align-items: center;
-  min-width: 210px;
-  flex-wrap: wrap;
+  min-width: 320px;
+  flex-wrap: nowrap;
 }
 
 /* Contact buttons (noas / pend) */
@@ -192,8 +192,8 @@
 .resd-btn-rep,
 .resd-btn-sess,
 .resd-btn-eval {
-  padding: 5px 12px;
-  font-size: 11px;
+  padding: 7px 14px;
+  font-size: 12px;
   border-radius: 99px;
   cursor: pointer;
   font-weight: 600;

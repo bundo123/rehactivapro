@@ -32,8 +32,9 @@ function applySort(list) {
   return [...list].sort((a, b) => (b.billing?.pendientes || 0) - (a.billing?.pendientes || 0));
 }
 
-function renderAlertCard(count) {
+function renderAlertCard(count, visibleCount) {
   if (!count) return '';
+  const disabled = visibleCount === 0 ? ' disabled' : '';
   return `
     <div class="fact-alert-card">
       <div class="fact-alert-head">
@@ -42,7 +43,7 @@ function renderAlertCard(count) {
           <div class="fact-alert-title">${count} paciente${count !== 1 ? 's' : ''} listo${count !== 1 ? 's' : ''} para cobrar</div>
           <div class="fact-alert-sub">Márcalos como cobrados una vez recibido el pago.</div>
         </div>
-        <button class="fact-alert-cta" onclick="marcarTodosFacturados()">Cobrar todos ✓</button>
+        <button class="fact-alert-cta"${disabled} onclick="marcarTodosFacturados()">Cobrar todos ✓</button>
       </div>
     </div>`;
 }
@@ -255,7 +256,7 @@ export function renderFacturacion() {
       </div>
     </div>`;
 
-  if (nListos && showListos) html += renderAlertCard(nListos);
+  if (nListos && showListos) html += renderAlertCard(nListos, fListos.length);
   html += renderFilterBar(nListos, nCurso);
 
   const listosSection = showListos && fListos.length
@@ -320,10 +321,13 @@ export function emitirFactura(patientId) {
 export function marcarTodosFacturados() {
   if (!hasPermission('emitirFactura')) { toastErr('No tienes permisos para emitir cobros.'); return; }
   const spf = parseInt(document.getElementById('global-spf').value) || 5;
-  const paracobrar = state.patients.filter(p => p.billing && (
+  const listos = state.patients.filter(p => p.billing && (
     p.billing.pendientes >= spf ||
     (p.billing.pendientes > 0 && (p.billing.facturas.reduce((s, f) => s + f.n, 0) + p.billing.pendientes) >= p.sessions)
   ));
+  const paracobrar = listos.filter(matchesSearch);
+  if (!paracobrar.length) return;
+  if (!confirm(`¿Cobrar a ${paracobrar.length} paciente${paracobrar.length !== 1 ? 's' : ''}?`)) return;
   paracobrar.forEach(p => emitirFactura(p.id));
 }
 

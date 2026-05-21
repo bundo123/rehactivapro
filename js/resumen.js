@@ -17,15 +17,15 @@ function renderStatsBar(nConf, nPend, nNoas) {
     <div class="resd-stats-bar">
       <div class="resd-q-stat green">
         <div class="resd-q-icon">✓</div>
-        <div><div class="resd-q-num">${nConf}</div><div class="resd-q-lbl">Asistieron</div></div>
+        <div><div class="resd-q-num">${nConf}</div><div class="resd-q-lbl">Asistieron correctamente</div></div>
       </div>
       <div class="resd-q-stat yellow">
         <div class="resd-q-icon">⏳</div>
-        <div><div class="resd-q-num">${nPend}</div><div class="resd-q-lbl">Pendientes</div></div>
+        <div><div class="resd-q-num">${nPend}</div><div class="resd-q-lbl">Pendientes de confirmar</div></div>
       </div>
       <div class="resd-q-stat red">
         <div class="resd-q-icon">✗</div>
-        <div><div class="resd-q-num">${nNoas}</div><div class="resd-q-lbl">No asistieron</div></div>
+        <div><div class="resd-q-num">${nNoas}</div><div class="resd-q-lbl">No asistieron — requieren contacto</div></div>
       </div>
     </div>`;
 }
@@ -48,14 +48,14 @@ function row(a, kind) {
       ? `<button class="resd-btn-eval" onclick="openEvalInicial(${esc(JSON.stringify(a.patientId))})">⚠️ Eval. inicial</button>`
       : '';
     actions = `
-      <button class="resd-btn-sess${hasSession ? ' done' : ''}" onclick="openSessionModal(window._app.appointments.find(x=>x.id===${esc(JSON.stringify(a.id))}))">${hasSession ? '✓ Sesión ok' : '📋 Completar sesión'}</button>
+      <button class="resd-btn-sess${hasSession ? ' done' : ''}" onclick="openSessionModal(window._app.appointments.find(x=>x.id===${esc(JSON.stringify(a.id))}))">${hasSession ? '✓ Sesión OK' : '📋 Completar sesión'}</button>
       ${evalBtn}
       <span class="resd-asistio">✓ Asistió</span>`;
   } else {
     actions = `
-      <button class="resd-btn-wa"  onclick="simWA(${esc(JSON.stringify(pt?.name || ''))},${esc(JSON.stringify(pt?.tel || ''))})">WA</button>
-      <button class="resd-btn-em"  onclick="simEmail(${esc(JSON.stringify(pt?.name || ''))},${esc(JSON.stringify(pt?.email || ''))})">Email</button>
-      <button class="resd-btn-rep" onclick="openApptModal()">Reagendar</button>`;
+      <button class="resd-btn-wa"  onclick="simWA(${esc(JSON.stringify(pt?.name || ''))},${esc(JSON.stringify(pt?.tel || ''))})">📱 WhatsApp</button>
+      <button class="resd-btn-em"  onclick="simEmail(${esc(JSON.stringify(pt?.name || ''))},${esc(JSON.stringify(pt?.email || ''))})">✉ Email</button>
+      <button class="resd-btn-rep" onclick="openApptModal()">↻ Reagendar</button>`;
   }
   return `
     <div class="resd-row ${kind}">
@@ -74,7 +74,7 @@ export function renderResumen() {
   const dn = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
   const mn = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   document.getElementById('resumen-day-lbl').textContent =
-    `${dn[state.currentDate.getDay()]} ${state.currentDate.getDate()} de ${mn[state.currentDate.getMonth()]}`;
+    `${dn[state.currentDate.getDay()]} ${state.currentDate.getDate()} de ${mn[state.currentDate.getMonth()]} · Acciones de seguimiento de la jornada`;
 
   const ta   = state.appointments.filter(a => a.date === ds);
   const noAs = ta.filter(a => a.status === 'noas').sort((a, b) => a.hour - b.hour);
