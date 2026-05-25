@@ -53,11 +53,12 @@
 .th-btn.del:hover{background:rgba(240,112,112,.08)}
 
 /* ===== TOAST ===== */
-#toast-container{position:fixed;bottom:24px;right:24px;z-index:99998;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-.toast{padding:10px 16px;border-radius:8px;font-size:12px;font-weight:500;max-width:320px;display:flex;align-items:center;gap:10px;pointer-events:all;animation:toastIn .2s ease;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+@keyframes toastIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+#toast-container{position:fixed;bottom:24px;right:24px;z-index:99998;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.toast{padding:10px 16px;border-radius:8px;font-size:12px;font-weight:500;max-width:320px;display:flex;align-items:center;gap:10px;pointer-events:all;animation:toastIn .2s ease;box-shadow:0 4px 16px rgba(0,0,0,.14)}
 .toast.success{background:#0a2018;border:1px solid rgba(29,158,117,.4);color:#5ecfa0}
 .toast.error{background:#fef5f5;border:1px solid rgba(240,112,112,.4);color:#f07070}
-.toast.info{background:#ffffff;border:1px solid rgba(29,158,117,.2);color:#6b6a64}
+.toast.info{background:#edfaf3;border:1px solid rgba(29,158,117,.35);color:#1a5c3a}
 .toast-icon{font-size:14px;flex-shrink:0}
 .toast-msg{flex:1;line-height:1.4}
 

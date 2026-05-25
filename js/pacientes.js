@@ -70,6 +70,13 @@ export function populateDiagList() {
 export function openPatientModal() {
   _patientDirty.reset();
   clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email', 'pm-birth']);
+  ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pm-birth').value='';
+  document.getElementById('pm-sessions').value='12';
+  document.getElementById('pm-status').value='active';
+  document.getElementById('pm-billing-start').value='0';
+  document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
+  state.editingPatientId=null;
   document.getElementById('pm-doctor').innerHTML='<option value="">Sin doctor referente</option>'+state.doctors.map(d=>`<option value="${esc(d.id)}">${esc(d.name)} (${esc(d.spec)})</option>`).join('');
   document.getElementById('patient-modal').classList.add('open');
 }
