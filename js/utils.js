@@ -67,6 +67,7 @@ export function dotColor(s){return s==='conf'?'#1D9E75':s==='pend'?'#BA7517':'#E
 export function getInitials(name){return(name||'').trim().split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase()||'??';}
 
 export function getDisplayAge(p, showDate = false) {
+  if (!p) return 'Sin edad';
   if (p.birth_date) {
     const [by, bm, bdd] = p.birth_date.split('-').map(Number);
     const bd = new Date(by, bm - 1, bdd);
