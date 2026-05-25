@@ -60,7 +60,7 @@ export async function loadAll(force=false) {
     state.doctors = (doc.data||[]).map(r=>({id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'}));
     const cobData = cob.data||[];
     state.patients = (pat.data||[]).map(r=>({
-      id:r.id,createdAt:r.created_at||null,name:r.name,age:r.age||35,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
+      id:r.id,createdAt:r.created_at||null,name:r.name,age:r.age||null,birth_date:r.birth_date||null,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
       diag:r.diag||'Sin diagnóstico',therapistId:r.therapist_id,doctorId:r.doctor_id,
       sessions:r.sessions||10,done:r.done||0,status:r.status||'active',
       log:(r.session_log||[]).map(s=>({date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[]})),
@@ -151,7 +151,7 @@ export async function dbUpdateApptStatus(id,status){
 }
 export async function dbSavePatient(p){
   markLocalChange('patients');
-  await supa.from('patients').insert({name:p.name,age:p.age,cedula:p.cedula,tel:p.tel,email:p.email,dir:p.dir,diag:p.diag,therapist_id:p.therapistId||null,doctor_id:p.doctorId||null,sessions:p.sessions,done:0,status:p.status,billing_ses_per_factura:p.billing.sesPerFactura,billing_pendientes:p.billing.pendientes});
+  await supa.from('patients').insert({name:p.name,age:p.age,birth_date:p.birth_date||null,cedula:p.cedula,tel:p.tel,email:p.email,dir:p.dir,diag:p.diag,therapist_id:p.therapistId||null,doctor_id:p.doctorId||null,sessions:p.sessions,done:0,status:p.status,billing_ses_per_factura:p.billing.sesPerFactura,billing_pendientes:p.billing.pendientes});
 }
 export async function dbSaveTherapist(th){
   markLocalChange('therapists');

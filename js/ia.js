@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { getTherapist, getDoctor, getPatient } from './utils.js';
+import { getTherapist, getDoctor, getPatient, getDisplayAge } from './utils.js';
 import { toastErr } from './toast.js';
 
 export function callAI(prompt, targetId) {
@@ -43,7 +43,7 @@ export function genPatientAI() {
 
 DATOS DEL PACIENTE:
 - Nombre: ${p.name}
-- Edad: ${p.age||'No registrada'} años
+- Edad: ${getDisplayAge(p)}
 - Diagnóstico: ${p.diag||'No especificado'}
 - Terapeuta: ${th?th.name:'No asignado'}
 - Doctor referente: ${doc?doc.name+' ('+doc.spec+')':'Independiente'}

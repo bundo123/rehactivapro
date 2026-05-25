@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, COLOR_OPTIONS } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, COLOR_OPTIONS, getDisplayAge } from './utils.js';
 import { genSemanalAI, genPatientAI, callAI } from './ia.js';
 import { hasEvalInicial } from './resumen.js';
 
@@ -312,7 +312,7 @@ export function renderPatientReport() {
     <div class="avatar" style="background:${thC.border}22;color:${thC.text};width:48px;height:48px;font-size:16px;flex-shrink:0">${esc(p.name.split(' ').map(n=>n[0]).join('').slice(0,2))}</div>
     <div style="flex:1">
       <div style="font-size:15px;font-weight:600;color:#1a1917;margin-bottom:3px">${esc(p.name)} ${sp}</div>
-      <div style="font-size:12px;color:#6b6a64">${esc(epDiag||p.diag||'Sin diagnóstico')} · ${p.age||'?'} años${!isCurrentEpisode?' <span style="font-size:10px;background:#fef3c7;color:#BA7517;padding:1px 7px;border-radius:99px;margin-left:4px">Episodio anterior</span>':''}</div>
+      <div style="font-size:12px;color:#6b6a64">${esc(epDiag||p.diag||'Sin diagnóstico')} · ${getDisplayAge(p)}${!isCurrentEpisode?' <span style="font-size:10px;background:#fef3c7;color:#BA7517;padding:1px 7px;border-radius:99px;margin-left:4px">Episodio anterior</span>':''}</div>
       ${doc?`<div style="font-size:11px;color:#5a5a56;margin-top:2px">Ref: ${esc(doc.name)} (${esc(doc.spec)})</div>`:''}
       ${p.cedula?`<div style="font-size:11px;color:#6b6a64;margin-top:1px">CI: ${esc(p.cedula)}${p.tel?' · '+esc(p.tel):''}${p.email?' · '+esc(p.email):''}</div>`:''}
     </div>
@@ -410,7 +410,7 @@ export function exportarPDF() {
     +'<h2>Datos del paciente</h2>'
     +'<div class="info-row"><span class="info-lbl">Nombre</span><span class="info-val">'+(p?.name||'—')+'</span></div>'
     +'<div class="info-row"><span class="info-lbl">Cédula</span><span class="info-val">'+(p?.cedula||'—')+'</span></div>'
-    +'<div class="info-row"><span class="info-lbl">Edad</span><span class="info-val">'+(p?.age||'—')+' años</span></div>'
+    +'<div class="info-row"><span class="info-lbl">Edad</span><span class="info-val">'+getDisplayAge(p, true)+'</span></div>'
     +'<div class="info-row"><span class="info-lbl">Teléfono</span><span class="info-val">'+(p?.tel||'—')+'</span></div>'
     +'<div class="info-row"><span class="info-lbl">Correo</span><span class="info-val">'+(p?.email||'—')+'</span></div>'
     +'<div class="info-row"><span class="info-lbl">Diagnóstico</span><span class="info-val">'+(p?.diag||'—')+'</span></div>'

@@ -65,3 +65,22 @@ export function therapistHours(th){const h=[];for(let i=th.startH;i<th.endH;i+=0
 export function getAvailHours(ths){const s=new Set();(ths||state.therapists).forEach(t=>therapistHours(t).forEach(h=>s.add(h)));return[...s].sort((a,b)=>a-b);}
 export function dotColor(s){return s==='conf'?'#1D9E75':s==='pend'?'#BA7517':'#E24B4A';}
 export function getInitials(name){return(name||'').trim().split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase()||'??';}
+
+export function getDisplayAge(p, showDate = false) {
+  if (p.birth_date) {
+    const [by, bm, bdd] = p.birth_date.split('-').map(Number);
+    const bd = new Date(by, bm - 1, bdd);
+    const today = new Date();
+    let age = today.getFullYear() - bd.getFullYear();
+    const mo = today.getMonth() - bd.getMonth();
+    if (mo < 0 || (mo === 0 && today.getDate() < bd.getDate())) age--;
+    if (showDate) {
+      const dd = bdd.toString().padStart(2, '0');
+      const mm = bm.toString().padStart(2, '0');
+      return `${dd}/${mm}/${by} (${age} años)`;
+    }
+    return `${age} años`;
+  }
+  if (p.age) return `${p.age} años`;
+  return 'Sin edad';
+}

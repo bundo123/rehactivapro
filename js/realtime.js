@@ -76,7 +76,7 @@ function _mapAppt(r) {
 function _mapPatient(r) {
   const existing=state.patients.find(p=>p.id===r.id);
   return{
-    id:r.id,createdAt:r.created_at||null,name:r.name,age:r.age||35,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
+    id:r.id,createdAt:r.created_at||null,name:r.name,age:r.age||null,birth_date:r.birth_date||null,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
     diag:r.diag||'Sin diagnóstico',therapistId:r.therapist_id,doctorId:r.doctor_id,
     sessions:r.sessions||10,done:r.done||0,status:r.status||'active',
     log:existing?existing.log:[],

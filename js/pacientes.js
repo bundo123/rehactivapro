@@ -4,7 +4,7 @@ import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, COLOR_OPTI
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';
-import { validateRequired, validateCedulaEcuatoriana, validateTelefono, validateEmail, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker } from './validators.js';
+import { validateRequired, validateCedulaEcuatoriana, validateTelefono, validateEmail, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker, validateBirthDate } from './validators.js';
 
 const _patientDirty = createDirtyTracker();
 
@@ -69,7 +69,7 @@ export function populateDiagList() {
 
 export function openPatientModal() {
   _patientDirty.reset();
-  clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email']);
+  clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email', 'pm-birth']);
   document.getElementById('pm-doctor').innerHTML='<option value="">Sin doctor referente</option>'+state.doctors.map(d=>`<option value="${esc(d.id)}">${esc(d.name)} (${esc(d.spec)})</option>`).join('');
   document.getElementById('patient-modal').classList.add('open');
 }
@@ -81,6 +81,7 @@ export async function savePatient() {
     { id: 'pm-cedula', fn: validateCedulaEcuatoriana, always: false },
     { id: 'pm-tel',    fn: validateTelefono,          always: false },
     { id: 'pm-email',  fn: validateEmail,             always: false },
+    { id: 'pm-birth',  fn: validateBirthDate,         always: false },
   ];
   let _hasErrors = false;
   _toValidate.forEach(({ id, fn, always }) => {
@@ -99,7 +100,8 @@ export async function savePatient() {
   if(state.editingPatientId){
     const p=getPatient(state.editingPatientId);if(!p)return;
     p.name=document.getElementById('pm-name').value.trim();
-    p.age=parseInt(document.getElementById('pm-age').value)||35;
+    p.age=parseInt(document.getElementById('pm-age').value)||null;
+    p.birth_date=document.getElementById('pm-birth').value||null;
     p.cedula=document.getElementById('pm-cedula').value||'';
     p.tel=document.getElementById('pm-tel').value||'';
     p.email=document.getElementById('pm-email').value||'';
@@ -115,17 +117,18 @@ export async function savePatient() {
     state.editingPatientId=null;
     if(typeof p.id==='string'){
       const {error}=await supa.from('patients').update({
-        name:p.name,age:p.age,cedula:p.cedula,tel:p.tel,email:p.email,
+        name:p.name,age:p.age,birth_date:p.birth_date,cedula:p.cedula,tel:p.tel,email:p.email,
         dir:p.dir,diag:p.diag,doctor_id:p.doctorId||null,sessions:p.sessions,status:p.status
       }).eq('id',p.id);
       if(error) toastErr('Error al actualizar paciente: '+error.message);
-      else toastOk('Paciente actualizado correctamente');
+      else { toastOk('Paciente actualizado correctamente'); if(!p.birth_date) toastInfo('Sin fecha de nacimiento. Algunos reportes mostrarán edad como "no registrada".'); }
     }
     return;
   }
   const name=document.getElementById('pm-name').value.trim();
   state.patients.push({id:++state.patCounter,name,
-    age:parseInt(document.getElementById('pm-age').value)||35,
+    age:parseInt(document.getElementById('pm-age').value)||null,
+    birth_date:document.getElementById('pm-birth').value||null,
     cedula:document.getElementById('pm-cedula').value||'',
     tel:document.getElementById('pm-tel').value||'',
     email:document.getElementById('pm-email').value||'',
@@ -141,7 +144,7 @@ export async function savePatient() {
   window._app.closeModal('patient-modal');
   try {
     const {data,error}=await supa.from('patients').insert({
-      name:_p.name,age:_p.age,cedula:_p.cedula,tel:_p.tel,email:_p.email,dir:_p.dir,diag:_p.diag,
+      name:_p.name,age:_p.age,birth_date:_p.birth_date,cedula:_p.cedula,tel:_p.tel,email:_p.email,dir:_p.dir,diag:_p.diag,
       doctor_id:_p.doctorId||null,sessions:_p.sessions,done:0,status:_p.status,
       billing_ses_per_factura:_p.billing.sesPerFactura,billing_pendientes:_p.billing.pendientes
     }).select().single();
@@ -151,9 +154,11 @@ export async function savePatient() {
 	      await loadAll(true); renderPatients();
       toastOk('Paciente guardado correctamente');
       if (!_cedula) toastInfo('Paciente guardado sin cédula. No podrás emitir facturas electrónicas hasta agregarla.');
+      if (!_p.birth_date) toastInfo('Sin fecha de nacimiento. Algunos reportes mostrarán edad como "no registrada".');
     }
   } catch(e){toastErr('Error de conexión al guardar paciente.');}
   ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pm-birth').value='';
   document.getElementById('pm-billing-start').value='0';
   state.editingPatientId=null;
   document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
@@ -292,11 +297,12 @@ export async function deletePatient(id) {
 
 export function openEditPatient(id) {
   _patientDirty.reset();
-  clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email']);
+  clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email', 'pm-birth']);
   const p=getPatient(id);if(!p)return;
   document.getElementById('pm-doctor').innerHTML='<option value="">Independiente</option>'+state.doctors.map(d=>`<option value="${esc(d.id)}" ${d.id===p.doctorId?'selected':''}>${esc(d.name)} (${esc(d.spec)})</option>`).join('');
   document.getElementById('pm-name').value=p.name;
   document.getElementById('pm-age').value=p.age||'';
+  document.getElementById('pm-birth').value=p.birth_date||'';
   document.getElementById('pm-cedula').value=p.cedula||'';
   document.getElementById('pm-tel').value=p.tel||'';
   document.getElementById('pm-email').value=p.email||'';
@@ -359,6 +365,7 @@ export function initPatientValidation() {
     { id: 'pm-cedula', fn: validateCedulaEcuatoriana, req: false },
     { id: 'pm-tel',    fn: validateTelefono,          req: false },
     { id: 'pm-email',  fn: validateEmail,             req: false },
+    { id: 'pm-birth',  fn: validateBirthDate,         req: false },
   ];
   fields.forEach(({ id, fn, req }) => {
     const el = document.getElementById(id);

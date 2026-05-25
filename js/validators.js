@@ -80,3 +80,15 @@ export function createDirtyTracker() {
     reset: ()   => dirty.clear(),
   };
 }
+
+export function validateBirthDate(value) {
+  if (!value) return { valid: true, error: '' };
+  const [y, m, dd] = value.split('-').map(Number);
+  const d = new Date(y, m - 1, dd);
+  if (isNaN(d.getTime())) return { valid: false, error: 'Fecha inválida' };
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (d > today) return { valid: false, error: 'Fecha no puede ser futura' };
+  const minDate = new Date(today.getFullYear() - 120, today.getMonth(), today.getDate());
+  if (d < minDate) return { valid: false, error: 'Fecha demasiado antigua' };
+  return { valid: true, error: '' };
+}
