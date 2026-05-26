@@ -90,3 +90,6 @@
 /* ===== VALIDATION ===== */
 .input-error{border:2px solid #E24B4A !important;}
 .input-error-msg{display:block;font-size:11px;color:#E24B4A;font-weight:500;margin-top:4px;}
+
+/* ===== SEARCH HIGHLIGHT ===== */
+mark.search-hit{background:var(--rh-yellow-soft);color:var(--rh-ink);padding:1px 3px;border-radius:3px;font-weight:600;font-style:normal;}

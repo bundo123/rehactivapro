@@ -3,10 +3,12 @@ import { esc, getPatient } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { dbSaveProtocol, dbDeleteProtocol } from './auth.js';
-import { validateRequired, validateMinChars, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker } from './validators.js';
+import { validateRequired, validateMinChars, validatePositiveInt, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker } from './validators.js';
 
 const _protocolDirty = createDirtyTracker();
 const _altaFn = (v) => v.trim().length === 0 ? { valid: true, error: '' } : validateMinChars(v, 15);
+const _protNameFn = (v) => { const r = validateRequired(v); return r.valid ? validateMinChars(v, 3) : r; };
+const _protSessionsFn = (v) => validatePositiveInt(v, { min: 1, max: 100, fieldName: 'Sesiones' });
 
 const PROT_PAGE_SIZE = 3;
 
@@ -39,18 +41,31 @@ const svgsSmall = {
 
 export function openProtocolModal(eid=null) {
   _protocolDirty.reset();
-  clearAllErrors(['prot-name', 'prot-diag', 'prot-alta']);
-  state.editingProtocolId=eid;
-  if(eid){const p=state.protocols.find(x=>x.id===eid);document.getElementById('prot-diag').value=p.diag;document.getElementById('prot-name').value=p.name;document.getElementById('prot-sessions').value=p.sessions;document.getElementById('prot-freq').value=p.freq;document.getElementById('prot-alta').value=p.alta;}
-  else{['prot-diag','prot-name','prot-alta'].forEach(id=>document.getElementById(id).value='');document.getElementById('prot-sessions').value=20;document.getElementById('prot-freq').value=3;}
+  clearAllErrors(['prot-name', 'prot-diag', 'prot-alta', 'prot-sessions']);
+  ['prot-name','prot-diag','prot-alta'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('prot-sessions').value=20;
+  document.getElementById('prot-freq').value=3;
+  state.editingProtocolId=null;
+  document.querySelector('#protocol-modal h3').textContent='Nuevo protocolo';
+  if(eid){
+    const p=state.protocols.find(x=>x.id===eid);
+    document.getElementById('prot-name').value=p.name;
+    document.getElementById('prot-diag').value=p.diag;
+    document.getElementById('prot-sessions').value=p.sessions;
+    document.getElementById('prot-freq').value=p.freq;
+    document.getElementById('prot-alta').value=p.alta;
+    state.editingProtocolId=eid;
+    document.querySelector('#protocol-modal h3').textContent='Editar protocolo';
+  }
   document.getElementById('protocol-modal').classList.add('open');
 }
 
 export function saveProtocol() {
   const _toValidate = [
-    { id: 'prot-name', fn: validateRequired, always: true },
-    { id: 'prot-diag', fn: validateRequired, always: true },
-    { id: 'prot-alta', fn: _altaFn,          always: false },
+    { id: 'prot-name',     fn: _protNameFn,     always: true },
+    { id: 'prot-diag',     fn: validateRequired, always: true },
+    { id: 'prot-sessions', fn: _protSessionsFn, always: true },
+    { id: 'prot-alta',     fn: _altaFn,          always: false },
   ];
   let _hasErrors = false;
   _toValidate.forEach(({ id, fn, always }) => {
@@ -68,15 +83,17 @@ export function saveProtocol() {
   if(state.editingProtocolId) Object.assign(state.protocols.find(p=>p.id===state.editingProtocolId),d);
   else state.protocols.push({id:++state.protCounter,...d});
   const _pr=state.editingProtocolId?state.protocols.find(p=>p.id===state.editingProtocolId):state.protocols[state.protocols.length-1];
+  state.editingProtocolId=null;
   window._app.closeModal('protocol-modal'); renderProtocols();
   dbSaveProtocol(_pr);
 }
 
 export function initProtocolValidation() {
   const fields = [
-    { id: 'prot-name', fn: validateRequired, req: true },
-    { id: 'prot-diag', fn: validateRequired, req: true },
-    { id: 'prot-alta', fn: _altaFn,          req: false },
+    { id: 'prot-name',     fn: _protNameFn,     req: true },
+    { id: 'prot-diag',     fn: validateRequired, req: true },
+    { id: 'prot-sessions', fn: _protSessionsFn, req: true },
+    { id: 'prot-alta',     fn: _altaFn,          req: false },
   ];
   fields.forEach(({ id, fn, req }) => {
     const el = document.getElementById(id);

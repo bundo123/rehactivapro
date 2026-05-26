@@ -4,9 +4,11 @@ import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, COLOR_OPTI
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';
-import { validateRequired, validateCedulaEcuatoriana, validateTelefono, validateEmail, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker, validateBirthDate } from './validators.js';
+import { validateRequired, validateMinChars, validatePositiveInt, validateCedulaEcuatoriana, validateTelefono, validateEmail, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker, validateBirthDate } from './validators.js';
 
 const _patientDirty = createDirtyTracker();
+const _patNameFn = (v) => { const r = validateRequired(v); return r.valid ? validateMinChars(v, 3) : r; };
+const _patSessionsFn = (v) => validatePositiveInt(v, { min: 1, max: 100, fieldName: 'Sesiones' });
 
 export const PATIENTS_PER_PAGE = 20;
 let patientSearchTimeout = null;
@@ -69,7 +71,7 @@ export function populateDiagList() {
 
 export function openPatientModal() {
   _patientDirty.reset();
-  clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email', 'pm-birth']);
+  clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email', 'pm-birth', 'pm-sessions']);
   ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm-birth').value='';
   document.getElementById('pm-sessions').value='12';
@@ -84,11 +86,12 @@ export function openPatientModal() {
 export async function savePatient() {
   const _cedula = document.getElementById('pm-cedula').value.trim();
   const _toValidate = [
-    { id: 'pm-name',   fn: validateRequired,          always: true },
-    { id: 'pm-cedula', fn: validateCedulaEcuatoriana, always: false },
-    { id: 'pm-tel',    fn: validateTelefono,          always: false },
-    { id: 'pm-email',  fn: validateEmail,             always: false },
-    { id: 'pm-birth',  fn: validateBirthDate,         always: false },
+    { id: 'pm-name',     fn: _patNameFn,              always: true },
+    { id: 'pm-cedula',   fn: validateCedulaEcuatoriana, always: false },
+    { id: 'pm-tel',      fn: validateTelefono,        always: false },
+    { id: 'pm-email',    fn: validateEmail,           always: false },
+    { id: 'pm-birth',    fn: validateBirthDate,       always: false },
+    { id: 'pm-sessions', fn: _patSessionsFn,          always: true },
   ];
   let _hasErrors = false;
   _toValidate.forEach(({ id, fn, always }) => {
@@ -304,7 +307,7 @@ export async function deletePatient(id) {
 
 export function openEditPatient(id) {
   _patientDirty.reset();
-  clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email', 'pm-birth']);
+  clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email', 'pm-birth', 'pm-sessions']);
   const p=getPatient(id);if(!p)return;
   document.getElementById('pm-doctor').innerHTML='<option value="">Independiente</option>'+state.doctors.map(d=>`<option value="${esc(d.id)}" ${d.id===p.doctorId?'selected':''}>${esc(d.name)} (${esc(d.spec)})</option>`).join('');
   document.getElementById('pm-name').value=p.name;
@@ -368,11 +371,12 @@ export async function guardarNuevoEpisodio() {
 
 export function initPatientValidation() {
   const fields = [
-    { id: 'pm-name',   fn: validateRequired,          req: true },
-    { id: 'pm-cedula', fn: validateCedulaEcuatoriana, req: false },
-    { id: 'pm-tel',    fn: validateTelefono,          req: false },
-    { id: 'pm-email',  fn: validateEmail,             req: false },
-    { id: 'pm-birth',  fn: validateBirthDate,         req: false },
+    { id: 'pm-name',     fn: _patNameFn,              req: true },
+    { id: 'pm-cedula',   fn: validateCedulaEcuatoriana, req: false },
+    { id: 'pm-tel',      fn: validateTelefono,        req: false },
+    { id: 'pm-email',    fn: validateEmail,           req: false },
+    { id: 'pm-birth',    fn: validateBirthDate,       req: false },
+    { id: 'pm-sessions', fn: _patSessionsFn,          req: true },
   ];
   fields.forEach(({ id, fn, req }) => {
     const el = document.getElementById(id);

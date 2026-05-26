@@ -43,6 +43,17 @@ export function validateMinChars(value, min) {
   return { valid, error: valid ? '' : `Mínimo ${min} caracteres` };
 }
 
+export function validatePositiveInt(value, options = {}) {
+  const { min = 1, max = 999, fieldName = 'Valor' } = options;
+  const num = parseInt(value, 10);
+  if (isNaN(num) || !Number.isInteger(parseFloat(value))) {
+    return { valid: false, error: `${fieldName} debe ser un número entero` };
+  }
+  if (num < min) return { valid: false, error: `${fieldName} debe ser al menos ${min}` };
+  if (num > max) return { valid: false, error: `${fieldName} no puede ser mayor a ${max}` };
+  return { valid: true, error: '' };
+}
+
 // ── DOM helpers ──
 
 export function showFieldError(id, msg) {
