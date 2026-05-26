@@ -60,7 +60,7 @@ export function openProtocolModal(eid=null) {
   document.getElementById('protocol-modal').classList.add('open');
 }
 
-export function saveProtocol() {
+export async function saveProtocol() {
   const _toValidate = [
     { id: 'prot-name',     fn: _protNameFn,     always: true },
     { id: 'prot-diag',     fn: validateRequired, always: true },
@@ -80,12 +80,21 @@ export function saveProtocol() {
   const diag=document.getElementById('prot-diag').value.trim();
   const name=document.getElementById('prot-name').value.trim();
   const d={diag,name,sessions:parseInt(document.getElementById('prot-sessions').value),freq:parseInt(document.getElementById('prot-freq').value),alta:document.getElementById('prot-alta').value};
+  const _isNew=!state.editingProtocolId;
   if(state.editingProtocolId) Object.assign(state.protocols.find(p=>p.id===state.editingProtocolId),d);
   else state.protocols.push({id:++state.protCounter,...d});
   const _pr=state.editingProtocolId?state.protocols.find(p=>p.id===state.editingProtocolId):state.protocols[state.protocols.length-1];
   state.editingProtocolId=null;
   window._app.closeModal('protocol-modal'); renderProtocols();
-  dbSaveProtocol(_pr);
+  try {
+    const {data,error}=await dbSaveProtocol(_pr);
+    if(error) toastErr('Error al guardar protocolo: '+error.message);
+    else {
+      if(_isNew && data) _pr.id=data.id;
+      renderProtocols();
+      toastOk('Protocolo guardado correctamente');
+    }
+  } catch(e){toastErr('Error de conexión al guardar protocolo.');}
 }
 
 export function initProtocolValidation() {

@@ -171,7 +171,7 @@ export async function dbSaveProtocol(p){
   markLocalChange('protocols');
   const d={name:p.name,diag_keywords:p.diag,sessions:p.sessions,freq:p.freq,discharge_criteria:p.alta};
   if(typeof p.id==='string') d.id=p.id;
-  await supa.from('protocols').upsert(d);
+  return supa.from('protocols').upsert(d).select().single();
 }
 export async function dbDeleteProtocol(id){markLocalChange('protocols');if(typeof id==='string')await supa.from('protocols').delete().eq('id',id);}
 export async function dbRegistrarCobro(patientId,nSessions,cobroRef){
