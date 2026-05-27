@@ -3,7 +3,9 @@ import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { allTabs, fmtDate, relativeTime } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
-import { loadAll, doLogin, doLogout, loadProfile } from './auth.js';
+import { loadAll, doLogin, doLogout, loadProfile,
+         doSendRecoveryEmail, doSetNewPassword,
+         showForgotPassword, showLoginForm, cancelRecovery } from './auth.js';
 import { applyRolePermissions, canAccessTab, hasPermission } from './permissions.js';
 import { markLocalChange, subscribeRealtime, unsubscribeRealtime } from './realtime.js';
 import {
@@ -160,7 +162,29 @@ window._app.refreshData = refreshData;
 async function initApp() {
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('loading-overlay').style.display='none';
+
+  // Registrar ANTES de getSession para no perder el evento PASSWORD_RECOVERY
+  supa.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      if (state.dataLoaded) {
+        window._app.unsubscribeRealtime();
+        state.dataLoaded = false;
+      }
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('recovery-screen').style.display = 'flex';
+      document.getElementById('rec-pass').value = '';
+      document.getElementById('rec-pass2').value = '';
+      document.getElementById('rec-error').textContent = '';
+    } else if (event === 'SIGNED_OUT' && state.dataLoaded) {
+      location.reload();
+    }
+  });
+
   const {data:{session}}=await supa.auth.getSession();
+  if (!session && window.location.hash.includes('type=recovery')) {
+    window.history.replaceState(null, '', window.location.pathname);
+    setTimeout(() => toastInfo('El enlace de recuperación expiró o ya fue usado. Solicita uno nuevo.'), 200);
+  }
   if(session){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('loading-overlay').style.display='flex';
@@ -203,6 +227,7 @@ Object.assign(window, {
   supa, getPatient: (id)=>state.patients.find(p=>p.id===id),
   hasEvalInicial,
   openSessionModal,
+  doSendRecoveryEmail, doSetNewPassword, showForgotPassword, showLoginForm, cancelRecovery,
 });
 
 // ── Arrancar ──

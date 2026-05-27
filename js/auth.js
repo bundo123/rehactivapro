@@ -1,7 +1,7 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { fmtDate, fmtTime } from './utils.js';
-import { toastErr } from './toast.js';
+import { toastErr, toastOk } from './toast.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -128,6 +128,79 @@ export async function doLogout() {
   await unsubscribeRealtime();
   await supa.auth.signOut();
   location.reload();
+}
+
+// ── Password recovery ──
+export function showForgotPassword() {
+  document.getElementById('ls-login').style.display = 'none';
+  document.getElementById('ls-forgot').style.display = '';
+  document.getElementById('forgot-email').value = document.getElementById('login-email').value;
+  const msg = document.getElementById('forgot-msg');
+  msg.textContent = ''; msg.style.color = '';
+  document.getElementById('login-subtitle').textContent = 'Recuperación de contraseña';
+}
+
+export function showLoginForm() {
+  document.getElementById('ls-forgot').style.display = 'none';
+  document.getElementById('ls-login').style.display = '';
+  document.getElementById('login-subtitle').textContent = 'Gestión clínica · Acceso restringido';
+}
+
+export async function doSendRecoveryEmail() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const btn = document.getElementById('forgot-btn');
+  const msg = document.getElementById('forgot-msg');
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    msg.style.color = ''; msg.textContent = 'Ingresa un email válido.'; return;
+  }
+  btn.disabled = true; btn.textContent = 'Enviando...'; msg.textContent = '';
+  const { error } = await supa.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname,
+  });
+  if (error) console.warn('[Recovery] resetPasswordForEmail:', error.message);
+  btn.disabled = false; btn.textContent = 'Enviar instrucciones';
+  msg.style.color = '#1D9E75';
+  msg.textContent = 'Si el email existe, recibirás instrucciones en breve.';
+}
+
+export async function doSetNewPassword() {
+  const pass = document.getElementById('rec-pass').value;
+  const pass2 = document.getElementById('rec-pass2').value;
+  const btn = document.getElementById('rec-btn');
+  const err = document.getElementById('rec-error');
+  if (pass.length < 6) { err.textContent = 'Mínimo 6 caracteres.'; return; }
+  if (pass !== pass2) { err.textContent = 'Las contraseñas no coinciden.'; return; }
+  btn.disabled = true; btn.textContent = 'Guardando...'; err.textContent = '';
+  const { error } = await supa.auth.updateUser({ password: pass });
+  if (error) {
+    btn.disabled = false; btn.textContent = 'Guardar contraseña';
+    const isExpired = error.status === 401 || (error.message || '').toLowerCase().includes('expir');
+    err.textContent = isExpired
+      ? 'El enlace expiró. Solicita uno nuevo.'
+      : 'Error de conexión. Intenta de nuevo.';
+    return;
+  }
+  window.history.replaceState(null, '', window.location.pathname);
+  document.getElementById('recovery-screen').style.display = 'none';
+  document.getElementById('loading-overlay').style.display = 'flex';
+  const profileOk = await loadProfile();
+  if (!profileOk) return;
+  await loadAll();
+  document.getElementById('loading-overlay').style.display = 'none';
+  const { renderGrid, updateResumenBadge, updateFacturaBadge, subscribeRealtime, applyRolePermissions } = window._app;
+  renderGrid(); updateResumenBadge(); updateFacturaBadge();
+  applyRolePermissions(); subscribeRealtime();
+  toastOk('Contraseña actualizada correctamente.');
+}
+
+export async function cancelRecovery() {
+  await supa.auth.signOut();
+  window.history.replaceState(null, '', window.location.pathname);
+  document.getElementById('recovery-screen').style.display = 'none';
+  document.getElementById('rec-pass').value = '';
+  document.getElementById('rec-pass2').value = '';
+  document.getElementById('rec-error').textContent = '';
+  document.getElementById('login-screen').style.display = 'flex';
 }
 
 // ── DB helpers ──
