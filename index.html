@@ -105,6 +105,10 @@
   </nav>
   <div class="sidebar-footer">
     <div id="role-badge" style="font-size:11px;color:#6b6a64;padding:6px 9px 4px;line-height:1.4;border-bottom:1px solid rgba(29,158,117,.1);margin-bottom:4px"></div>
+    <div id="conn-dot-wrap" style="display:flex;align-items:center;gap:6px;padding:3px 9px 5px;cursor:default;border-bottom:1px solid rgba(29,158,117,.06);margin-bottom:2px">
+      <span id="conn-dot" title="Conectando..." style="width:7px;height:7px;border-radius:50%;display:inline-block;background:#9c9a92;flex-shrink:0;transition:background .4s"></span>
+      <span id="conn-label" style="font-size:10px;color:#6b6a64">Conectando...</span>
+    </div>
     <button class="nav-item" onclick="doLogout()" style="cursor:pointer;color:#5a5a56">
       <span class="nav-icon">🚪</span>
       <span style="font-size:11px">Cerrar sesión</span>

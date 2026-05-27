@@ -93,3 +93,6 @@
 
 /* ===== SEARCH HIGHLIGHT ===== */
 mark.search-hit{background:var(--rh-yellow-soft);color:var(--rh-ink);padding:1px 3px;border-radius:3px;font-weight:600;font-style:normal;}
+
+/* ===== REALTIME DOT ===== */
+@keyframes conn-pulse{0%,100%{opacity:1}50%{opacity:.3}}

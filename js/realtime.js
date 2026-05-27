@@ -218,6 +218,50 @@ function _onDoctor(payload) {
 
 let realtimeChannel = null;
 let realtimeReconnectTimer = null;
+let _connState = 'disconnected';
+let _disconnectedSinceTimer = null;
+
+function _updateConnectionDot(s) {
+  const dot=document.getElementById('conn-dot');
+  const lbl=document.getElementById('conn-label');
+  if(!dot||!lbl) return;
+  const cfg={
+    connected:    {bg:'var(--rh-green)',  label:'Tiempo real activo',  title:'Conectado en tiempo real',    anim:''},
+    reconnecting: {bg:'var(--rh-yellow)', label:'Reconectando...',     title:'Reconectando...',             anim:'conn-pulse 1s infinite'},
+    disconnected: {bg:'#9c9a92',          label:'Sin conexión',        title:'Sin conexión con el servidor', anim:''},
+  };
+  const c=cfg[s]||cfg.disconnected;
+  dot.style.background=c.bg; dot.style.animation=c.anim; dot.title=c.title; lbl.textContent=c.label;
+}
+
+function _setConnState(s) {
+  if(_connState===s) return;
+  _connState=s;
+  _updateConnectionDot(s);
+  if(_disconnectedSinceTimer){clearTimeout(_disconnectedSinceTimer);_disconnectedSinceTimer=null;}
+  if(s==='disconnected'||s==='reconnecting'){
+    _disconnectedSinceTimer=setTimeout(()=>toastInfo('Conexión perdida. Reintentando automáticamente...'),30000);
+  }
+}
+
+async function _doReconnect(delay=5000) {
+  if(realtimeReconnectTimer) return;
+  realtimeReconnectTimer=setTimeout(async()=>{
+    realtimeReconnectTimer=null;
+    try{if(realtimeChannel)await supa.removeChannel(realtimeChannel);}catch(e){}
+    realtimeChannel=null;
+    try{
+      const{loadAll,renderGrid,renderPatients,renderResumen,renderFacturacion,updateResumenBadge,updateFacturaBadge}=window._app;
+      await loadAll(true);
+      if(state.currentTab==='agenda')renderGrid();
+      else if(state.currentTab==='pacientes')renderPatients();
+      else if(state.currentTab==='resumen')renderResumen();
+      else if(state.currentTab==='facturacion')renderFacturacion();
+      updateResumenBadge();updateFacturaBadge();
+    }catch(e){console.warn('[Realtime] resync falló:',e);}
+    subscribeRealtime();
+  },delay);
+}
 
 export function subscribeRealtime() {
   if(realtimeChannel)return;
@@ -231,34 +275,30 @@ export function subscribeRealtime() {
     .subscribe(status=>{
       if(status==='SUBSCRIBED'){
         console.log('[Realtime] conectado');
+        _setConnState('connected');
         if(realtimeReconnectTimer){clearTimeout(realtimeReconnectTimer);realtimeReconnectTimer=null;}
       } else if(status==='CHANNEL_ERROR'||status==='CLOSED'||status==='TIMED_OUT'){
         console.warn('[Realtime] estado:',status,'— reintento en 5s');
-        if(!realtimeReconnectTimer){
-          realtimeReconnectTimer=setTimeout(async()=>{
-            realtimeReconnectTimer=null;
-            try{if(realtimeChannel)await supa.removeChannel(realtimeChannel);}catch(e){}
-            realtimeChannel=null;
-            try {
-              const {loadAll,renderGrid,renderPatients,renderResumen,renderFacturacion,updateResumenBadge,updateFacturaBadge}=window._app;
-              await loadAll(true);
-              if(state.currentTab==='agenda')renderGrid();
-              else if(state.currentTab==='pacientes')renderPatients();
-              else if(state.currentTab==='resumen')renderResumen();
-              else if(state.currentTab==='facturacion')renderFacturacion();
-              updateResumenBadge();updateFacturaBadge();
-            }catch(e){console.warn('[Realtime] resync falló:',e);}
-            subscribeRealtime();
-          },5000);
-        }
+        _setConnState('reconnecting');
+        _doReconnect(5000);
       }
     });
 }
 
 export async function unsubscribeRealtime() {
+  _setConnState('disconnected');
   if(realtimeReconnectTimer){clearTimeout(realtimeReconnectTimer);realtimeReconnectTimer=null;}
   if(realtimeChannel){
     try{await supa.removeChannel(realtimeChannel);}catch(e){}
     realtimeChannel=null;
   }
 }
+
+function _onNetworkBack() {
+  if(_connState==='connected') return;
+  _setConnState('reconnecting');
+  _doReconnect(1500);
+}
+
+window.addEventListener('online',  _onNetworkBack);
+window.addEventListener('offline', ()=>_setConnState('disconnected'));
