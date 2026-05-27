@@ -209,8 +209,9 @@ export async function cycleStatus(id) {
     if(pt){
       if(pt.billing) dbUpdateBillingPendientes(a.patientId,pt.billing.pendientes);
       const newDone=Math.max(0,(pt.done||0)-1);
-      await supa.from('patients').update({done:newDone}).eq('id',a.patientId);
-      pt.done=newDone;
+      const{error:_doneErr}=await supa.from('patients').update({done:newDone}).eq('id',a.patientId);
+      if(_doneErr) toastErr('No se pudo actualizar las sesiones. Refresca la página.');
+      else pt.done=newDone;
     }
   }
 }
@@ -225,7 +226,10 @@ export async function delAppt(id,e) {
     if(pt){
       const newDone=Math.max(0,(pt.done||0)-1);
       pt.done=newDone;
-      if(typeof cita.patientId==='string') await supa.from('patients').update({done:newDone}).eq('id',cita.patientId);
+      if(typeof cita.patientId==='string'){
+        const{error:_doneErr}=await supa.from('patients').update({done:newDone}).eq('id',cita.patientId);
+        if(_doneErr) toastErr('No se pudo actualizar las sesiones. Refresca la página.');
+      }
       if(pt.billing&&pt.billing.pendientes>0){
         pt.billing.pendientes=Math.max(0,pt.billing.pendientes-1);
         if(typeof cita.patientId==='string') dbUpdateBillingPendientes(cita.patientId,pt.billing.pendientes);

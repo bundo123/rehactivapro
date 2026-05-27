@@ -159,27 +159,53 @@ export async function dbSaveTherapist(th){
   if(typeof th.id==='string') d.id=th.id;
   await supa.from('therapists').upsert(d);
 }
-export async function dbDeleteTherapist(id){markLocalChange('therapists');if(typeof id==='string')await supa.from('therapists').delete().eq('id',id);}
+export async function dbDeleteTherapist(id){
+  markLocalChange('therapists');
+  if(typeof id!=='string') return;
+  try{const{error}=await supa.from('therapists').delete().eq('id',id);
+    if(error) toastErr('No se pudo eliminar el terapeuta. Verifica tu conexión.');}
+  catch(e){toastErr('No se pudo eliminar. Verifica tu conexión.');}
+}
 export async function dbSaveDoctor(d){
   markLocalChange('doctors');
   const p={name:d.name,spec:d.spec,email:d.email,tel:d.tel,color:d.color};
   if(typeof d.id==='string') p.id=d.id;
   await supa.from('doctors').upsert(p);
 }
-export async function dbDeleteDoctor(id){markLocalChange('doctors');if(typeof id==='string')await supa.from('doctors').delete().eq('id',id);}
+export async function dbDeleteDoctor(id){
+  markLocalChange('doctors');
+  if(typeof id!=='string') return;
+  try{const{error}=await supa.from('doctors').delete().eq('id',id);
+    if(error) toastErr('No se pudo eliminar el doctor. Verifica tu conexión.');}
+  catch(e){toastErr('No se pudo eliminar. Verifica tu conexión.');}
+}
 export async function dbSaveProtocol(p){
   markLocalChange('protocols');
   const d={name:p.name,diag_keywords:p.diag,sessions:p.sessions,freq:p.freq,discharge_criteria:p.alta};
   if(typeof p.id==='string') d.id=p.id;
   return supa.from('protocols').upsert(d).select().single();
 }
-export async function dbDeleteProtocol(id){markLocalChange('protocols');if(typeof id==='string')await supa.from('protocols').delete().eq('id',id);}
+export async function dbDeleteProtocol(id){
+  markLocalChange('protocols');
+  if(typeof id!=='string') return;
+  try{const{error}=await supa.from('protocols').delete().eq('id',id);
+    if(error) toastErr('No se pudo eliminar el protocolo. Verifica tu conexión.');}
+  catch(e){toastErr('No se pudo eliminar. Verifica tu conexión.');}
+}
 export async function dbRegistrarCobro(patientId,nSessions,cobroRef){
   markLocalChange('cobros');
-  await supa.from('cobros').insert({cobro_ref:cobroRef,patient_id:patientId,n_sessions:nSessions,date:fmtDate(new Date())});
-  await supa.from('patients').update({billing_pendientes:0}).eq('id',patientId);
+  try{
+    const{error:e1}=await supa.from('cobros').insert({cobro_ref:cobroRef,patient_id:patientId,n_sessions:nSessions,date:fmtDate(new Date())});
+    if(e1) return{error:e1};
+    const{error:e2}=await supa.from('patients').update({billing_pendientes:0}).eq('id',patientId);
+    if(e2) return{error:e2};
+    return{error:null};
+  }catch(e){return{error:e};}
 }
 export async function dbUpdateBillingPendientes(patientId,pendientes){
   markLocalChange('patients');
-  if(typeof patientId==='string') await supa.from('patients').update({billing_pendientes:pendientes}).eq('id',patientId);
+  if(typeof patientId!=='string') return;
+  try{const{error}=await supa.from('patients').update({billing_pendientes:pendientes}).eq('id',patientId);
+    if(error) console.warn('dbUpdateBillingPendientes:',error.message);}
+  catch(e){console.warn('dbUpdateBillingPendientes:',e);}
 }

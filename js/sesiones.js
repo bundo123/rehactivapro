@@ -101,8 +101,7 @@ export async function saveSession() {
       });
       dbError=error;
     }
-    if(dbError) toastErr('Error guardando sesión: '+dbError.message);
-    else toastOk('Sesión guardada correctamente ✓');
+    if(dbError){toastErr('No se pudo guardar la sesión. Intenta de nuevo.');return;}
   }
   const a=state.appointments.find(x=>x.id===appt.id);
   if(a) a.hasSession=true;

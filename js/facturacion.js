@@ -304,7 +304,7 @@ export function renderFacturacion() {
   attachFilterListeners();
 }
 
-export function emitirFactura(patientId) {
+export async function emitirFactura(patientId) {
   if (!hasPermission('emitirFactura')) { toastErr('No tienes permisos para emitir cobros.'); return; }
   const p = getPatient(patientId); if (!p || !p.billing) return;
   const n = p.billing.pendientes;
@@ -313,12 +313,20 @@ export function emitirFactura(patientId) {
   p.billing.facturas.push({ id: fId, n, fecha: today, estado: 'cobrada' });
   p.billing.pendientes = 0;
   updateFacturaBadge(); renderFacturacion();
-  dbRegistrarCobro(p.id, n, fId);
+  const { error } = await dbRegistrarCobro(p.id, n, fId);
+  if (error) {
+    p.billing.facturas = p.billing.facturas.filter(f => f.id !== fId);
+    p.billing.pendientes = n;
+    state.facturaCounter--;
+    updateFacturaBadge(); renderFacturacion();
+    toastErr('Error al registrar el cobro. Refresca la página.');
+    return;
+  }
   toastOk(`Cobro ${fId} registrado — ${n} sesiones de ${p.name}`);
   simEmailFactura(p.name, p.email || '', fId, n);
 }
 
-export function marcarTodosFacturados() {
+export async function marcarTodosFacturados() {
   if (!hasPermission('emitirFactura')) { toastErr('No tienes permisos para emitir cobros.'); return; }
   const spf = parseInt(document.getElementById('global-spf').value) || 5;
   const listos = state.patients.filter(p => p.billing && (
@@ -328,7 +336,7 @@ export function marcarTodosFacturados() {
   const paracobrar = listos.filter(matchesSearch);
   if (!paracobrar.length) return;
   if (!confirm(`¿Cobrar a ${paracobrar.length} paciente${paracobrar.length !== 1 ? 's' : ''}?`)) return;
-  paracobrar.forEach(p => emitirFactura(p.id));
+  for (const p of paracobrar) { await emitirFactura(p.id); }
 }
 
 export function simEmailFactura(nombre, email, fId = '', n = 5) {
