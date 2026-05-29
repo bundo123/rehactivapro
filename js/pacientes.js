@@ -174,48 +174,6 @@ export async function savePatient() {
   document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
 }
 
-function renderPatientsOld() {
-  const q=(document.getElementById('patient-search').value||'').toLowerCase();
-  let f=state.patients.filter(p=>p.name.toLowerCase().includes(q)||p.diag.toLowerCase().includes(q));
-  f.sort((a,b)=>{
-    const aEval=hasEvalInicial(a),bEval=hasEvalInicial(b);
-    if(!aEval&&bEval) return -1;if(aEval&&!bEval) return 1;
-    return a.name.localeCompare(b.name);
-  });
-  const canDelete = hasPermission('deletePatient');
-  const canEval = hasPermission('evalInicial');
-  document.getElementById('patient-tbody').innerHTML=f.map(p=>{
-    const doc=p.doctorId?getDoctor(p.doctorId):null;
-    const pct=Math.round(p.done/p.sessions*100);
-    const bc=p.status==='active'?'pg':p.status==='alta'?'pb':'pa';
-    const bt=p.status==='active'?'Activo':p.status==='alta'?'Alta':'Pendiente';
-    const adh=p.log.length>0?Math.round(p.log.filter(s=>s.status==='asistió').length/p.log.length*100):0;
-    const ac=adh>=85?'#1D9E75':adh>=70?'#BA7517':'#E24B4A';
-    const dc=doc
-      ?`<span style="display:inline-flex;align-items:center;gap:5px;background:${doc.color}18;border:1px solid ${doc.color}44;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:500;color:${doc.color};white-space:nowrap">${esc(doc.name)}</span>`
-      :'<span style="font-size:10px;color:#6b6a64;font-style:italic">Independiente</span>';
-    const delBtn = canDelete ? `<button class='th-btn del' style='font-size:9px;padding:2px 6px' onclick='deletePatient("${p.id}")'>Eliminar</button>` : '';
-    const evalBtn = canEval && !hasEvalInicial(p) ? `<button class='th-btn' style='font-size:9px;padding:2px 6px;background:rgba(224,80,80,.1);color:#E24B4A;border-color:rgba(224,80,80,.3)' onclick='openEvalInicial("${p.id}")'>Eval. inicial</button>` : '';
-    return`<tr>
-      <td style="font-weight:500;color:#1a1917">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          ${esc(p.name)}
-          ${!hasEvalInicial(p)?'<span class="pa" style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px">Sin eval.</span>':'<span class="pg" style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:99px">Eval. ok</span>'}
-        </div>
-        <div style="display:flex;gap:4px;margin-top:4px">
-          <button class='th-btn' style='font-size:9px;padding:2px 6px' onclick='openEditPatient("${p.id}")'>Editar</button>
-          ${delBtn}${evalBtn}
-        </div>
-      </td>
-      <td style="color:#6b6a64;font-size:11px">${esc(p.diag)}</td>
-      <td style="font-size:11px">${dc}</td>
-      <td><div style="font-size:11px;margin-bottom:3px;color:#6b6a64">${p.done}/${p.sessions} (${pct}%)</div><div class="bar-wrap prog-mini"><div class="bar-fill" style="width:${pct}%;background:#1D9E75"></div></div></td>
-      <td><span style="font-size:13px;font-weight:500;color:${ac}">${adh}%</span></td>
-      <td><span class="pill ${bc}">${bt}</span></td>
-    </tr>`;
-  }).join('');
-}
-
 export function toggleEvalFilter() {
   state.patientEvalFilter = !state.patientEvalFilter;
   state.patientPage = 1;

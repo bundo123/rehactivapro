@@ -18,7 +18,7 @@ import {
   goToDateAndSelect, exportAgendaCSV
 } from './agenda.js';
 import {
-  updateResumenBadge, renderResumen, openWA, waPatient, simWA, simEmail,
+  updateResumenBadge, renderResumen, simWA, simEmail,
   hasEvalInicial, genResumenDiaAI
 } from './resumen.js';
 import {
@@ -206,7 +206,7 @@ Object.assign(window, {
   openApptModal, openApptModalAt, openEditApptModal, openPatientModal, openTherapistModal, openDoctorModal,
   openProtocolModal, openEditTherapist, openEditPatient,
   openSessionModal, openEvalInicial, openDatePicker,
-  openWA, waPatient, agendarCitaParaPaciente, nuevoEpisodio,
+  agendarCitaParaPaciente, nuevoEpisodio,
   saveAppt, savePatient, saveTherapist, saveDoctor, saveProtocol,
   saveSession, saveEvalInicial, guardarNuevoEpisodio,
   delAppt, deletePatient, deleteTherapist, deleteDoctor, deleteProtocol,

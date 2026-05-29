@@ -109,19 +109,6 @@ export function renderResumen() {
   document.getElementById('resumen-content').innerHTML = html;
 }
 
-export function openWA(patientId) {
-  const p = getPatient(patientId);
-  if (!p || !p.tel) { window._app.toastErr('Sin teléfono registrado'); return; }
-  const tel = '593' + p.tel.replace(/[^0-9]/g, '').slice(-9);
-  window.open('https://wa.me/' + tel, '_blank');
-}
-
-export function waPatient(encodedName) {
-  const name = decodeURIComponent(encodedName);
-  const pt   = state.patients.find(p => p.name === name);
-  if (pt) simWA(pt.name, pt.tel || '');
-}
-
 export function simWA(nombre, tel) {
   const msg = encodeURIComponent('Hola ' + nombre + ', le contactamos desde Rehactiva Rehabilitación. Notamos que no pudo asistir a su cita de hoy. ¿Le ayudamos a reagendar?');
   const num = (tel ? tel.replace(/[^0-9]/g, '') : '593999211258');

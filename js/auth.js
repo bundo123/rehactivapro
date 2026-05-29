@@ -209,28 +209,11 @@ export function markLocalChange(table){
   window._app?.markLocalChange(table);
 }
 
-export async function dbSaveAppt(a){
-  markLocalChange('appointments');
-  const payload={date:a.date,therapist_id:a.therapistId,patient_id:a.patientId,hour:a.hour,type:a.type,status:a.status,note:a.note||''};
-  if(typeof a.id==='string') payload.id=a.id;
-  await supa.from('appointments').upsert(payload);
-}
-export async function dbDeleteAppt(id){markLocalChange('appointments');if(typeof id==='string')await supa.from('appointments').delete().eq('id',id);}
 export async function dbUpdateApptStatus(id,status){
   if(typeof id!=='string') return;
   markLocalChange('appointments');
   const {error}=await supa.from('appointments').update({status}).eq('id',id);
   if(error) toastErr('No se pudo guardar el estado de la cita.');
-}
-export async function dbSavePatient(p){
-  markLocalChange('patients');
-  await supa.from('patients').insert({name:p.name,age:p.age,birth_date:p.birth_date||null,cedula:p.cedula,tel:p.tel,email:p.email,dir:p.dir,diag:p.diag,therapist_id:p.therapistId||null,doctor_id:p.doctorId||null,sessions:p.sessions,done:0,status:p.status,billing_ses_per_factura:p.billing.sesPerFactura,billing_pendientes:p.billing.pendientes});
-}
-export async function dbSaveTherapist(th){
-  markLocalChange('therapists');
-  const d={name:th.name,initials:th.initials,spec:th.spec,start_h:th.startH,end_h:th.endH,color_id:th.colorId};
-  if(typeof th.id==='string') d.id=th.id;
-  await supa.from('therapists').upsert(d);
 }
 export async function dbDeleteTherapist(id){
   markLocalChange('therapists');
@@ -238,12 +221,6 @@ export async function dbDeleteTherapist(id){
   try{const{error}=await supa.from('therapists').delete().eq('id',id);
     if(error) toastErr('No se pudo eliminar el terapeuta. Verifica tu conexión.');}
   catch(e){toastErr('No se pudo eliminar. Verifica tu conexión.');}
-}
-export async function dbSaveDoctor(d){
-  markLocalChange('doctors');
-  const p={name:d.name,spec:d.spec,email:d.email,tel:d.tel,color:d.color};
-  if(typeof d.id==='string') p.id=d.id;
-  await supa.from('doctors').upsert(p);
 }
 export async function dbDeleteDoctor(id){
   markLocalChange('doctors');
