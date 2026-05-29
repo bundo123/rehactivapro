@@ -213,6 +213,15 @@ export async function cycleStatus(id) {
       if(_doneErr) toastErr('No se pudo actualizar las sesiones. Refresca la página.');
       else pt.done=newDone;
     }
+  } else if(a.status==='conf'&&prevStatus!=='conf'){
+    const pt=getPatient(a.patientId);
+    if(pt){
+      if(pt.billing) dbUpdateBillingPendientes(a.patientId,pt.billing.pendientes);
+      const newDone=(pt.done||0)+1;
+      const{error:_doneErr}=await supa.from('patients').update({done:newDone}).eq('id',a.patientId);
+      if(_doneErr) toastErr('No se pudo actualizar las sesiones. Refresca la página.');
+      else pt.done=newDone;
+    }
   }
 }
 
