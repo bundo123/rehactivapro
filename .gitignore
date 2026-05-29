@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 
 .env
+.claude/
+   node_modules.zip
+   PROYECTO_ESTADO.md
