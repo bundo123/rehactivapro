@@ -34,6 +34,7 @@ import {
 import {
   renderSemanal, renderHeatmap, renderTherapistUtil, renderInsights,
   changeWeek, updateWeekLabel, showSubTab, renderMensual, renderAnual,
+  changeMensualMonth,
   renderPatientReportSelect, updateEpisodes, renderPatientReport,
   filterPatientRptSelect, exportarPDF, genSemanalAI, genPatientAI
 } from './informes.js';
@@ -210,7 +211,7 @@ Object.assign(window, {
   saveSession, saveEvalInicial, guardarNuevoEpisodio,
   delAppt, deletePatient, deleteTherapist, deleteDoctor, deleteProtocol,
   cycleStatus, changeDay, changeWeek, goToDate,
-  showSubTab, showDoctoresTab, selectColor, selectDocColor,
+  showSubTab, changeMensualMonth, showDoctoresTab, selectColor, selectDocColor,
   filterApptPatient, filterPatientRptSelect, updateEpisodes, updateTimeSlots,
   renderPatientReport, renderProtocols, protPage,
   toggleNotif, toggleRecurrencia, toggleProTecnica,

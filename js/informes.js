@@ -5,6 +5,53 @@ import { hasEvalInicial } from './resumen.js';
 
 export { genSemanalAI, genPatientAI };
 
+// ── Helpers de informes (cálculo sobre state real) ──
+const MES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const MES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function _ym(y, m) { return `${y}-${String(m + 1).padStart(2, '0')}`; } // m 0-based
+function _prevYm(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 2, 1);
+  return _ym(d.getFullYear(), d.getMonth());
+}
+// prefix = 'YYYY-MM' (mes) o 'YYYY' (año). cont = null si no hubo citas decididas (sin NaN/0 falso).
+function _apptStats(prefix) {
+  const ap = state.appointments.filter(a => a.date && a.date.startsWith(prefix));
+  const conf = ap.filter(a => a.status === 'conf').length;
+  const noas = ap.filter(a => a.status === 'noas').length;
+  const dec = conf + noas;
+  return { total: ap.length, conf, noas, cont: dec > 0 ? Math.round(conf / dec * 100) : null };
+}
+function _nuevos(prefix) {
+  return state.patients.filter(p => p.createdAt && p.createdAt.startsWith(prefix)).length;
+}
+function _monthHasData(ym) {
+  return state.appointments.some(a => a.date && a.date.startsWith(ym));
+}
+// Chip de variación honesto. kind:'pct'|'abs'. goodWhenUp: si subir es bueno (verde).
+// Mes anterior sin datos -> '—'. % con prev===0 -> '—' (jamás dividir por cero). Nunca inventa.
+function _deltaChip(cur, prev, pym, kind, goodWhenUp) {
+  if (!_monthHasData(pym)) return '<div class="stat-chg neu">—</div>';
+  const lbl = 'vs ' + MES_CORTO[parseInt(pym.split('-')[1], 10) - 1].toLowerCase();
+  let txt, dir;
+  if (kind === 'pct') {
+    if (prev === 0) return '<div class="stat-chg neu">—</div>';
+    const pct = Math.round((cur - prev) / prev * 100);
+    dir = Math.sign(pct);
+    txt = (pct > 0 ? '+' : '') + pct + '% ' + lbl;
+  } else {
+    const d = cur - prev;
+    dir = Math.sign(d);
+    txt = (d > 0 ? '+' : '') + d + ' ' + lbl;
+  }
+  const cls = dir === 0 ? 'neu' : ((dir > 0) === goodWhenUp ? 'up' : 'down');
+  return `<div class="stat-chg ${cls}">${txt}</div>`;
+}
+
+let _mensualMonth = null; // 'YYYY-MM' seleccionado en el informe mensual
+export function changeMensualMonth(ym) { _mensualMonth = ym; renderMensual(); }
+
 export function hmCol(p){
   if(p===null||p===0) return '#f0efe8';
   if(p<30) return '#E24B4A';
@@ -167,59 +214,114 @@ export function showSubTab(n,btn) {
 }
 
 export function renderMensual() {
-  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-    <select style="background:#ffffff;border:1px solid rgba(29,158,117,.2);border-radius:6px;padding:7px 12px;font-size:13px;color:#1a1917"><option>Marzo 2026</option><option>Febrero 2026</option><option>Enero 2026</option></select>
+  const now = new Date();
+  const curYm = _ym(now.getFullYear(), now.getMonth());
+  if (!_mensualMonth) _mensualMonth = curYm;
+  const ym = _mensualMonth;
+  const pym = _prevYm(ym);
+  const ppym = _prevYm(pym);
+
+  const cur = _apptStats(ym);
+  const prev = _apptStats(pym);
+  const nuevos = _nuevos(ym);
+  const nuevosPrev = _nuevos(pym);
+
+  const activos = state.patients.filter(p => p.status === 'active').length;
+  const altas = state.patients.filter(p => p.status === 'alta').length;
+
+  // Opciones del selector: meses con datos + siempre el mes actual, desc.
+  const mset = new Set([curYm]);
+  state.appointments.forEach(a => { if (a.date) mset.add(a.date.slice(0, 7)); });
+  state.patients.forEach(p => { if (p.createdAt) mset.add(p.createdAt.slice(0, 7)); });
+  const optsHtml = [...mset].filter(Boolean).sort().reverse().map(m => {
+    const [y, mo] = m.split('-').map(Number);
+    return `<option value="${m}"${m === ym ? ' selected' : ''}>${MES_LARGO[mo - 1]} ${y}</option>`;
+  }).join('');
+
+  const contColor = cur.cont == null ? '#6b6a64' : cur.cont >= 85 ? '#1D9E75' : cur.cont >= 70 ? '#BA7517' : '#E24B4A';
+  const contTxt = cur.cont == null ? '—' : cur.cont + '%';
+
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <select onchange="changeMensualMonth(this.value)" style="background:#ffffff;border:1px solid rgba(29,158,117,.2);border-radius:6px;padding:7px 12px;font-size:13px;color:#1a1917">${optsHtml}</select>
     <button class="ai-btn" onclick="genSemanalAI()">Análisis con IA ↗</button>
   </div>`;
-  html+=`<div class="informe-stat-grid">
-    <div class="stat"><div class="stat-lbl">Sesiones del mes</div><div class="stat-val">38</div><div class="stat-chg down">-12% vs feb</div></div>
-    <div class="stat"><div class="stat-lbl">Continuidad promedio</div><div class="stat-val" style="color:#BA7517">81%</div><div class="stat-chg neu">Meta: 85%</div></div>
-    <div class="stat"><div class="stat-lbl">Inasistencias</div><div class="stat-val" style="color:#E24B4A">7</div><div class="stat-chg down">+2 vs feb</div></div>
-    <div class="stat"><div class="stat-lbl">Pacientes activos</div><div class="stat-val">${state.patients.filter(p=>p.status==='active').length}</div><div class="stat-chg up">+1 vs feb</div></div>
-    <div class="stat"><div class="stat-lbl">Altas médicas</div><div class="stat-val">${state.patients.filter(p=>p.status==='alta').length}</div><div class="stat-chg up">+1 vs feb</div></div>
-    <div class="stat"><div class="stat-lbl">Nuevos pacientes</div><div class="stat-val">3</div><div class="stat-chg up">+1 vs feb</div></div>
+  html += `<div class="informe-stat-grid">
+    <div class="stat"><div class="stat-lbl">Sesiones del mes</div><div class="stat-val">${cur.conf}</div>${_deltaChip(cur.conf, prev.conf, pym, 'pct', true)}</div>
+    <div class="stat"><div class="stat-lbl">Continuidad promedio</div><div class="stat-val" style="color:${contColor}">${contTxt}</div><div class="stat-chg neu">Meta: 85%</div></div>
+    <div class="stat"><div class="stat-lbl">Inasistencias</div><div class="stat-val" style="color:#E24B4A">${cur.noas}</div>${_deltaChip(cur.noas, prev.noas, pym, 'abs', false)}</div>
+    <div class="stat"><div class="stat-lbl">Pacientes activos</div><div class="stat-val">${activos}</div><div class="stat-chg neu">en tratamiento</div></div>
+    <div class="stat"><div class="stat-lbl">Altas médicas (total)</div><div class="stat-val">${altas}</div><div class="stat-chg neu">total</div></div>
+    <div class="stat"><div class="stat-lbl">Nuevos pacientes</div><div class="stat-val">${nuevos}</div>${_deltaChip(nuevos, nuevosPrev, pym, 'abs', true)}</div>
   </div>`;
-  html+=`<div class="full-card"><div class="card-title">Pacientes por doctor referente</div>`;
-  state.doctors.forEach(d=>{
-    const n=state.patients.filter(p=>p.doctorId===d.id).length;
-    html+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(29,158,117,.1)"><span style="width:10px;height:10px;border-radius:50%;background:${d.color};display:inline-block;flex-shrink:0"></span><div style="flex:1;font-size:12px;color:#c8c6c0">${esc(d.name)} <span style="color:#6b6a64">(${esc(d.spec)})</span></div><div style="font-size:13px;font-weight:500;color:#1a1917">${n}</div></div>`;
+  html += `<div class="full-card"><div class="card-title">Pacientes por doctor referente</div>`;
+  state.doctors.forEach(d => {
+    const n = state.patients.filter(p => p.doctorId === d.id).length;
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(29,158,117,.1)"><span style="width:10px;height:10px;border-radius:50%;background:${d.color};display:inline-block;flex-shrink:0"></span><div style="flex:1;font-size:12px;color:#c8c6c0">${esc(d.name)} <span style="color:#6b6a64">(${esc(d.spec)})</span></div><div style="font-size:13px;font-weight:500;color:#1a1917">${n}</div></div>`;
   });
-  html+=`</div><div class="full-card"><div class="card-title">Tendencia — últimos 3 meses</div><canvas id="monthly-chart" height="80"></canvas></div>`;
-  document.getElementById('mensual-content').innerHTML=html;
-  setTimeout(()=>{
-    const ctx=document.getElementById('monthly-chart');if(!ctx)return;
-    Chart.defaults.color='#6b6a64';
-    new Chart(ctx,{type:'bar',data:{labels:['Enero','Febrero','Marzo'],datasets:[
-      {label:'Sesiones',data:[30,42,38],backgroundColor:'#1D9E75',borderRadius:4},
-      {label:'Continuidad %',data:[78,84,81],backgroundColor:'#378ADD',borderRadius:4},
-      {label:'Inasistencias',data:[8,5,7],backgroundColor:'#E24B4A',borderRadius:4},
-    ]},options:{responsive:true,plugins:{legend:{labels:{font:{size:11},color:'#9c9a92'}}},scales:{y:{beginAtZero:true,ticks:{color:'#6b6a64',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}},x:{ticks:{color:'#6b6a64'},grid:{display:false}}}}});
-  },50);
+  html += `</div><div class="full-card"><div class="card-title">Tendencia — últimos 3 meses</div><canvas id="monthly-chart" height="80"></canvas></div>`;
+  document.getElementById('mensual-content').innerHTML = html;
+
+  // Datos reales para el chart: 3 meses [ppym, pym, ym]. Meses sin datos = 0, nunca undefined.
+  const chartMonths = [ppym, pym, ym];
+  const cs = chartMonths.map(_apptStats);
+  const chartLabels = chartMonths.map(m => MES_LARGO[parseInt(m.split('-')[1], 10) - 1]);
+
+  setTimeout(() => {
+    const ctx = document.getElementById('monthly-chart'); if (!ctx) return;
+    Chart.defaults.color = '#6b6a64';
+    new Chart(ctx, { type: 'bar', data: { labels: chartLabels, datasets: [
+      { label: 'Sesiones', data: cs.map(s => s.conf), backgroundColor: '#1D9E75', borderRadius: 4 },
+      { label: 'Continuidad %', data: cs.map(s => s.cont ?? 0), backgroundColor: '#378ADD', borderRadius: 4 },
+      { label: 'Inasistencias', data: cs.map(s => s.noas), backgroundColor: '#E24B4A', borderRadius: 4 },
+    ] }, options: { responsive: true, plugins: { legend: { labels: { font: { size: 11 }, color: '#9c9a92' } } }, scales: { y: { beginAtZero: true, ticks: { color: '#6b6a64', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }, x: { ticks: { color: '#6b6a64' }, grid: { display: false } } } } });
+  }, 50);
 }
 
 export function renderAnual() {
-  const mn=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const s=[30,42,38,0,0,0,0,0,0,0,0,0];
-  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-    <div style="font-size:14px;font-weight:500;color:#1a1917">Informe anual 2026</div>
+  const now = new Date();
+  const year = now.getFullYear();
+  const ystr = String(year);
+
+  const perMes = [];
+  for (let m = 0; m < 12; m++) perMes.push(_apptStats(_ym(year, m)));
+  const sArr = perMes.map(s => s.conf); // sesiones (conf) por mes; sin datos = 0
+  const sesAcum = sArr.reduce((a, b) => a + b, 0);
+  const noasAcum = perMes.reduce((a, s) => a + s.noas, 0);
+  const decAnual = sesAcum + noasAcum;
+  const contAnual = decAnual > 0 ? Math.round(sesAcum / decAnual * 100) : null;
+  const altas = state.patients.filter(p => p.status === 'alta').length;
+  const uniq = new Set(
+    state.appointments.filter(a => a.date && a.date.startsWith(ystr)).map(a => a.patientId)
+  ).size;
+
+  // Proyección run-rate sobre MESES COMPLETOS (excluye el mes actual en curso).
+  // Enero (mes en curso) => 0 meses completos => '—'.
+  const mesesCompletos = now.getMonth(); // 0-based = nº de meses ya cerrados este año
+  const sesCompletos = sArr.slice(0, mesesCompletos).reduce((a, b) => a + b, 0);
+  const proyeccion = mesesCompletos > 0 ? Math.round(sesCompletos / mesesCompletos * 12) : null;
+
+  const contColor = contAnual == null ? '#6b6a64' : contAnual >= 85 ? '#1D9E75' : contAnual >= 70 ? '#BA7517' : '#E24B4A';
+
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <div style="font-size:14px;font-weight:500;color:#1a1917">Informe anual ${year}</div>
     <button class="ai-btn" onclick="genSemanalAI()">Análisis anual con IA ↗</button>
   </div>`;
-  html+=`<div class="informe-stat-grid">
-    <div class="stat"><div class="stat-lbl">Sesiones acumuladas</div><div class="stat-val">110</div><div class="stat-chg neu">Ene-Mar 2026</div></div>
-    <div class="stat"><div class="stat-lbl">Continuidad prom.</div><div class="stat-val" style="color:#BA7517">81%</div><div class="stat-chg neu">Meta: 85%</div></div>
-    <div class="stat"><div class="stat-lbl">Altas médicas</div><div class="stat-val" style="color:#1D9E75">4</div><div class="stat-chg up">Acumulado</div></div>
-    <div class="stat"><div class="stat-lbl">Pacientes únicos</div><div class="stat-val">${state.patients.length}</div><div class="stat-chg neu">Año hasta hoy</div></div>
-    <div class="stat"><div class="stat-lbl">Inasistencias</div><div class="stat-val" style="color:#E24B4A">20</div><div class="stat-chg neu">Acumuladas</div></div>
-    <div class="stat"><div class="stat-lbl">Proyección anual</div><div class="stat-val">440</div><div class="stat-chg up">Sesiones est.</div></div>
+  html += `<div class="informe-stat-grid">
+    <div class="stat"><div class="stat-lbl">Sesiones acumuladas</div><div class="stat-val">${sesAcum}</div><div class="stat-chg neu">Ene–${MES_CORTO[now.getMonth()]} ${year}</div></div>
+    <div class="stat"><div class="stat-lbl">Continuidad prom.</div><div class="stat-val" style="color:${contColor}">${contAnual == null ? '—' : contAnual + '%'}</div><div class="stat-chg neu">Meta: 85%</div></div>
+    <div class="stat"><div class="stat-lbl">Altas médicas (total)</div><div class="stat-val" style="color:#1D9E75">${altas}</div><div class="stat-chg neu">total</div></div>
+    <div class="stat"><div class="stat-lbl">Pacientes únicos</div><div class="stat-val">${uniq}</div><div class="stat-chg neu">con cita en ${year}</div></div>
+    <div class="stat"><div class="stat-lbl">Inasistencias</div><div class="stat-val" style="color:#E24B4A">${noasAcum}</div><div class="stat-chg neu">Acumuladas</div></div>
+    <div class="stat"><div class="stat-lbl">Proyección anual</div><div class="stat-val">${proyeccion != null ? proyeccion : '—'}</div><div class="stat-chg neu">${proyeccion != null ? 'estimada al ritmo actual' : 'sin meses completos'}</div></div>
   </div>`;
-  html+=`<div class="full-card"><div class="card-title">Sesiones por mes — 2026</div><canvas id="anual-chart" height="80"></canvas></div>`;
-  document.getElementById('anual-content').innerHTML=html;
-  setTimeout(()=>{
-    const ctx=document.getElementById('anual-chart');if(!ctx)return;
-    Chart.defaults.color='#6b6a64';
-    new Chart(ctx,{type:'bar',data:{labels:mn,datasets:[{label:'Sesiones',data:s,backgroundColor:s.map(v=>v>0?'#1D9E75':'#1a1917'),borderRadius:4}]},
-      options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{color:'#6b6a64',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}},x:{ticks:{color:'#6b6a64'},grid:{display:false}}}}});
-  },50);
+  html += `<div class="full-card"><div class="card-title">Sesiones por mes — ${year}</div><canvas id="anual-chart" height="80"></canvas></div>`;
+  document.getElementById('anual-content').innerHTML = html;
+  setTimeout(() => {
+    const ctx = document.getElementById('anual-chart'); if (!ctx) return;
+    Chart.defaults.color = '#6b6a64';
+    new Chart(ctx, { type: 'bar', data: { labels: MES_CORTO, datasets: [{ label: 'Sesiones', data: sArr, backgroundColor: sArr.map(v => v > 0 ? '#1D9E75' : '#1a1917'), borderRadius: 4 }] },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { color: '#6b6a64', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }, x: { ticks: { color: '#6b6a64' }, grid: { display: false } } } } });
+  }, 50);
 }
 
 // ── Informe Paciente ──
