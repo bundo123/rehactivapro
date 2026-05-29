@@ -134,9 +134,9 @@ export function renderProtocols() {
         <div style="flex-shrink:0;background:#f8f8f4;border-radius:8px;padding:8px;border:1px solid rgba(29,158,117,.12)">${svg}</div>
         <div style="flex:1;min-width:0">
           <div class="protocol-diag">${esc(p.name)}</div>
-          ${p.def?`<div style="font-size:11px;color:#6b6a64;margin-top:4px;line-height:1.5">${p.def}</div>`:''}
+          ${p.def?`<div style="font-size:11px;color:#6b6a64;margin-top:4px;line-height:1.5">${esc(p.def)}</div>`:''}
           <div class="protocol-meta" style="margin-top:6px">${p.sessions} sesiones · ${fl[p.freq]||p.freq+'×/sem'}</div>
-          ${p.alta?`<div style="font-size:10px;color:#7a7a76;margin-top:3px">Alta: ${p.alta}</div>`:''}
+          ${p.alta?`<div style="font-size:10px;color:#7a7a76;margin-top:3px">Alta: ${esc(p.alta)}</div>`:''}
           ${hasPermission('createProtocol')?`<div style="display:flex;gap:6px;margin-top:8px"><button class="th-btn" onclick="openProtocolModal('${p.id}')">Editar</button><button class="th-btn del" onclick="deleteProtocol('${p.id}')">Eliminar</button></div>`:''}
         </div>
       </div>`;
