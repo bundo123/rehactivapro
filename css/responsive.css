@@ -141,6 +141,19 @@
     min-height: 44px;
     font-size: 13px;
     text-align: center;
+    margin-left: 0 !important;
+  }
+
+  .filter-pill-group {
+    display: flex;
+    width: 100%;
+    gap: 6px;
+  }
+
+  .filter-pill {
+    flex: 1;
+    text-align: center;
+    min-height: 38px;
   }
 
   /* ── Tabla pacientes → tarjetas apiladas ── */
@@ -171,18 +184,69 @@
   }
 
   .patient-table td {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     border: none !important;
-    padding: 4px 0 !important;
-    font-size: 12px;
+    padding: 5px 0 !important;
+    font-size: 12.5px;
     color: #1a1917 !important;
     background: transparent !important;
   }
 
+  /* Etiqueta a la izquierda en cada celda apilada */
+  .patient-table td[data-label]::before {
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 600;
+    color: #7a7a76;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    flex-shrink: 0;
+  }
+
+  /* Celda nombre: encabezado de la tarjeta (nombre + badges) */
   .patient-table td:first-child {
-    margin-bottom: 6px;
+    display: block;
+    margin-bottom: 8px;
     padding-bottom: 8px !important;
-    border-bottom: 1px solid rgba(29,158,117,.1) !important;
+    border-bottom: 1px solid rgba(41,171,226,.12) !important;
+  }
+
+  /* En tarjetas apiladas: sin ellipsis, el contenido envuelve completo */
+  .pname-row { flex-wrap: wrap; }
+  .pl-pname { white-space: normal; overflow: visible; text-overflow: clip; }
+  .pl-email, .pl-ced, .pl-doc { white-space: normal; overflow: visible; text-overflow: clip; }
+  .doc-pill { white-space: normal; }
+
+  /* Celda Acciones: etiqueta arriba, botones en fila tocable */
+  .patient-table td.pl-action-cell {
+    display: block;
+    text-align: left;
+    margin-top: 8px;
+    padding-top: 8px !important;
+    border-top: 1px solid rgba(41,171,226,.1);
+  }
+
+  .patient-table td.pl-action-cell::before {
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .patient-table .pl-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    white-space: normal;
+  }
+
+  .patient-table .pl-act-btn {
+    flex: 1 1 auto;
+    min-width: 72px;
+    min-height: 42px;
+    font-size: 12px !important;
+    padding: 8px 10px !important;
   }
 
   /* ── Modales: sheet desde abajo ── */

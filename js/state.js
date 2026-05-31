@@ -35,4 +35,5 @@ export const state = {
   dataLoaded: false,
   patientPage: 1,
   patientEvalFilter: false,
+  patientStatusFilter: 'all',
 };

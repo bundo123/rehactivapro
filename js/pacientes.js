@@ -1,6 +1,6 @@
 ﻿import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, COLOR_OPTIONS, patientMatchesSearch, highlightMatch } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, COLOR_OPTIONS, patientMatchesSearch, highlightMatch, getFullAge } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';
@@ -182,10 +182,26 @@ export function toggleEvalFilter() {
   renderPatients();
 }
 
+export function setPatientStatusFilter(filter) {
+  state.patientStatusFilter = filter;
+  state.patientPage = 1;
+  document.querySelectorAll('.pat-status-filter').forEach(b=>b.classList.toggle('active', b.dataset.filter===filter));
+  renderPatients();
+}
+
+export function verPaciente(id) {
+  window._app.showTab('paciente_rpt');
+  const sel=document.getElementById('patient-rpt-select');
+  if(sel){ sel.value=String(id); window._app.updateEpisodes(); }
+}
+
 export function renderPatients() {
   const q=(document.getElementById('patient-search')?.value||'').trim();
   let f=state.patients.filter(p=>patientMatchesSearch(p,q));
   if(state.patientEvalFilter) f=f.filter(p=>!hasEvalInicial(p));
+  const sf=state.patientStatusFilter||'all';
+  if(sf==='active') f=f.filter(p=>p.status==='active');
+  else if(sf==='inactive') f=f.filter(p=>p.status!=='active');
   f.sort((a,b)=>{
     const aEval=hasEvalInicial(a),bEval=hasEvalInicial(b);
     if(!aEval&&bEval) return -1;if(aEval&&!bEval) return 1;
@@ -200,7 +216,7 @@ export function renderPatients() {
   const canDelete = hasPermission('deletePatient');
   const canEval = hasPermission('evalInicial');
   if(!totalRows){
-    tbody.innerHTML=`<tr><td colspan="7" class="empty-patient-row">
+    tbody.innerHTML=`<tr><td colspan="6" class="empty-patient-row">
       No se encontraron pacientes con "${esc(q)}".
       ${hasPermission('createPatient')?'<button class="add-btn" onclick="openPatientModal()">Crear nuevo paciente</button>':''}
     </td></tr>`;
@@ -209,36 +225,29 @@ export function renderPatients() {
   }
   tbody.innerHTML=paginated.map(p=>{
     const doc=p.doctorId?getDoctor(p.doctorId):null;
-    const sessions=Math.max(1,p.sessions||0);
-    const pct=Math.round((p.done||0)/sessions*100);
-    const bc=p.status==='active'?'pg':p.status==='alta'?'pb':'pa';
-    const bt=p.status==='active'?'Activo':p.status==='alta'?'Alta':'Pendiente';
-    const log=p.log||[];
-    const adh=log.length>0?Math.round(log.filter(s=>s.status==='asistió').length/log.length*100):0;
-    const ac=adh>=85?'#1D9E75':adh>=70?'#BA7517':'#E24B4A';
+    const statusBadge=p.status==='active'?''
+      :p.status==='alta'?'<span class="pill pgr pl-badge">Alta médica</span>'
+      :'<span class="pill pa pl-badge">Pendiente</span>';
+    const evalBadge=!hasEvalInicial(p)?'<span class="pill pa pl-badge">Sin eval.</span>':'';
     const dc=doc
-      ?`<span style="display:inline-flex;align-items:center;gap:5px;background:${doc.color}18;border:1px solid ${doc.color}44;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:500;color:${doc.color};white-space:nowrap">${esc(doc.name)}</span>`
-      :'<span style="font-size:10px;color:#6b6a64;font-style:italic">Independiente</span>';
-    const delBtn = canDelete ? `<button class='th-btn del' style='font-size:9px;padding:2px 6px' onclick='deletePatient("${p.id}")'>Eliminar</button>` : '';
-    const evalBtn = canEval && !hasEvalInicial(p) ? `<button class='th-btn' style='font-size:9px;padding:2px 6px;background:rgba(224,80,80,.1);color:#E24B4A;border-color:rgba(224,80,80,.3)' onclick='openEvalInicial("${p.id}")'>Eval. inicial</button>` : '';
+      ?`<span class="doc-pill" title="${esc(doc.name)}" style="background:${doc.color}18;border-color:${doc.color}44;color:${doc.color}">${esc(doc.name)}</span>`
+      :'<span class="pl-indep">Independiente</span>';
+    const ageStr=getFullAge(p);
+    const ageCell=ageStr==='Sin edad'?'<span class="pl-muted">Sin edad</span>':esc(ageStr);
+    const emailCell=p.email?highlightMatch(p.email,q):'<span class="pl-muted">—</span>';
+    const delBtn = canDelete ? `<button class='th-btn del pl-act-btn' onclick='deletePatient("${p.id}")'>Eliminar</button>` : '';
+    const evalBtn = canEval && !hasEvalInicial(p) ? `<button class='th-btn pl-act-btn' onclick='openEvalInicial("${p.id}")'>Eval. inicial</button>` : '';
     return`<tr>
-      <td style="font-weight:500;color:#1a1917">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          ${highlightMatch(p.name,q)}
-          ${!hasEvalInicial(p)?'<span class="pa" style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px">Sin eval.</span>':'<span class="pg" style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:99px">Eval. ok</span>'}
-        </div>
-        <div class="patient-contact-line">${[p.tel,p.email].filter(Boolean).map(v=>highlightMatch(v,q)).join(' · ')}</div>
-        <div style="display:flex;gap:4px;margin-top:4px">
-          <button class='th-btn' style='font-size:9px;padding:2px 6px' onclick='openEditPatient("${p.id}")'>Editar</button>
-          ${delBtn}${evalBtn}
+      <td class="pl-name"><span class="pname-row"><span class="pl-pname" title="${esc(p.name)}">${highlightMatch(p.name,q)}</span>${statusBadge}${evalBadge}</span></td>
+      <td class="pl-age" data-label="Edad">${ageCell}</td>
+      <td class="pl-ced" data-label="Cédula">${highlightMatch(p.cedula||'—',q)}</td>
+      <td class="pl-email" data-label="Email"${p.email?` title="${esc(p.email)}"`:''}>${emailCell}</td>
+      <td class="pl-doc" data-label="Doctor">${dc}</td>
+      <td class="pl-action-cell" data-label="Acciones">
+        <div class="pl-actions">
+          <button class='th-btn pl-act-btn' onclick='openEditPatient("${p.id}")'>Editar</button>${delBtn}${evalBtn}<button class="ver-btn pl-act-btn" onclick='verPaciente("${p.id}")'>Ver</button>
         </div>
       </td>
-      <td style="color:#6b6a64;font-size:11px">${highlightMatch(p.diag,q)}</td>
-      <td style="font-size:11px">${dc}</td>
-      <td><div style="font-size:11px;margin-bottom:3px;color:#6b6a64">${p.done}/${p.sessions} (${pct}%)</div><div class="bar-wrap prog-mini"><div class="bar-fill" style="width:${pct}%;background:#1D9E75"></div></div></td>
-      <td><span style="font-size:13px;font-weight:500;color:${ac}">${adh}%</span></td>
-      <td style="font-size:11px;color:#6b6a64">${highlightMatch(p.cedula||'—',q)}</td>
-      <td><span class="pill ${bc}">${bt}</span></td>
     </tr>`;
   }).join('');
   renderPatientPagination(totalPages,totalRows,start,Math.min(start+PATIENTS_PER_PAGE,totalRows));

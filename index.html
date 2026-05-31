@@ -199,19 +199,23 @@
   <div class="main-body">
     <div class="search-row">
       <input class="search-input" type="text" id="patient-search" placeholder="Buscar por nombre, cédula, diagnóstico, teléfono o email...">
+      <div class="filter-pill-group">
+        <button class="filter-pill pat-status-filter active" data-filter="all" onclick="setPatientStatusFilter('all')">Todos</button>
+        <button class="filter-pill pat-status-filter" data-filter="active" onclick="setPatientStatusFilter('active')">Activos</button>
+        <button class="filter-pill pat-status-filter" data-filter="inactive" onclick="setPatientStatusFilter('inactive')">Inactivos</button>
+      </div>
       <button id="eval-filter-btn" class="view-btn" onclick="toggleEvalFilter()" title="Mostrar solo pacientes sin evaluación inicial" style="white-space:nowrap">Sin eval.</button>
-      <button class="add-btn" onclick="openPatientModal()" data-permission="admin-secretaria">+ Nuevo paciente</button>
+      <button class="add-btn" onclick="openPatientModal()" data-permission="admin-secretaria" style="margin-left:auto">+ Nuevo paciente</button>
     </div>
-    <div id="patient-table-card" style="border:1px solid rgba(29,158,117,.15);border-radius:10px;overflow:hidden;background:#ffffff">
+    <div id="patient-table-card" style="border:1px solid rgba(41,171,226,.18);border-radius:11px;overflow:hidden;background:#ffffff">
       <table class="patient-table" style="width:100%;table-layout:fixed">
         <thead><tr>
-          <th style="width:22%">Paciente</th>
-          <th style="width:25%">Diagnóstico</th>
-          <th style="width:18%">Doctor ref.</th>
-          <th style="width:13%">Progreso</th>
-          <th style="width:10%">Continuidad</th>
-          <th style="width:8%">Cédula</th>
-          <th style="width:4%">Estado</th>
+          <th style="width:25%">Paciente</th>
+          <th style="width:13%">Edad</th>
+          <th style="width:9%">Cédula</th>
+          <th style="width:16%">Email</th>
+          <th style="width:14%">Doctor ref.</th>
+          <th class="pl-action-th" style="width:23%">Acciones</th>
         </tr></thead>
         <tbody id="patient-tbody"></tbody>
       </table>

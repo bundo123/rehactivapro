@@ -85,3 +85,23 @@ export function getDisplayAge(p, showDate = false) {
   if (p.age) return `${p.age} años`;
   return 'Sin edad';
 }
+
+export function getFullAge(p) {
+  if (!p) return 'Sin edad';
+  if (p.birth_date) {
+    const [by, bm, bdd] = p.birth_date.split('-').map(Number);
+    const today = new Date();
+    let y = today.getFullYear() - by;
+    let m = today.getMonth() - (bm - 1);
+    let d = today.getDate() - bdd;
+    if (d < 0) { m--; d += new Date(today.getFullYear(), today.getMonth(), 0).getDate(); }
+    if (m < 0) { y--; m += 12; }
+    if (y < 0) return 'Sin edad';
+    const parts = [`${y} año${y === 1 ? '' : 's'}`];
+    if (m > 0) parts.push(`${m} ${m === 1 ? 'mes' : 'meses'}`);
+    if (d > 0) parts.push(`${d} día${d === 1 ? '' : 's'}`);
+    return parts.join(' ');
+  }
+  if (p.age) return `${p.age} año${p.age === 1 ? '' : 's'}`;
+  return 'Sin edad';
+}

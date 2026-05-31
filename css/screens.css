@@ -53,21 +53,45 @@
 .ref-stripe{width:12px;height:3px;border-radius:99px;flex-shrink:0}
 .status-guide{display:flex;align-items:center;gap:14px;margin-bottom:12px;font-size:10px;color:#7a7a76}
 .status-guide span{display:flex;align-items:center;gap:5px}
-.view-btn{padding:5px 12px;font-size:11px;border:1px solid rgba(29,158,117,.2);background:transparent;border-radius:6px;cursor:pointer;color:#6b6a64;font-family:inherit;font-weight:500;transition:background .12s,color .12s}
-.view-btn:hover{background:rgba(29,158,117,.06);color:#1D9E75}
-.view-btn.active{background:#1D9E75;color:#fff;border-color:#1D9E75}
+.view-btn{padding:5px 12px;font-size:11px;border:1px solid rgba(41,171,226,.25);background:transparent;border-radius:6px;cursor:pointer;color:#6b6a64;font-family:inherit;font-weight:500;transition:background .12s,color .12s}
+.view-btn:hover{background:rgba(41,171,226,.08);color:#1d8fbf}
+.view-btn.active{background:#29ABE2;color:#fff;border-color:#29ABE2}
 
 /* ===== PACIENTES ===== */
 .patient-table{width:100%;border-collapse:collapse}
-.patient-table th{background:#f0efe8;padding:9px 12px;font-size:10px;font-weight:600;color:#7a7a76;text-align:left;border-bottom:1px solid rgba(29,158,117,.14);text-transform:uppercase;letter-spacing:.05em}
-.patient-table td{padding:10px 12px;font-size:12px;color:#c8c6c0;border-bottom:1px solid rgba(0,0,0,.06);vertical-align:middle;background:#ffffff}
+.patient-table th{background:#f0efe8;padding:12px 14px;font-size:11px;font-weight:600;color:#7a7a76;text-align:left;border-bottom:1px solid rgba(29,158,117,.14);text-transform:uppercase;letter-spacing:.05em}
+.patient-table td{padding:14px 14px;font-size:14px;color:#c8c6c0;border-bottom:1px solid rgba(0,0,0,.06);vertical-align:middle;background:#ffffff}
 .patient-table tr:last-child td{border-bottom:none}
 .patient-table tr:hover td{background:rgba(255,255,255,0.02)}
 .search-row{display:flex;gap:10px;margin-bottom:14px;align-items:center}
 .search-input{background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:7px 12px;font-size:12px;color:#1a1917;outline:none;width:260px}
-.prog-mini{width:72px}
-.doc-pill{display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:2px 8px;font-size:10px;font-weight:500;border:1px solid;white-space:nowrap}
-.patient-contact-line{font-size:10px;color:#7a7a76;margin-top:3px;line-height:1.35;word-break:break-word}
+.doc-pill{display:inline-block;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;border:1px solid;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.pl-indep{font-size:12px;color:#6b6a64;font-style:italic}
+
+/* ── Filtros de estado (pills) ── */
+.filter-pill-group{display:flex;gap:6px}
+.filter-pill{padding:6px 14px;border:1px solid rgba(41,171,226,.25);background:#fff;border-radius:99px;font-size:11px;color:#5a5a56;cursor:pointer;font-family:inherit;font-weight:500;white-space:nowrap}
+.filter-pill:hover{border-color:#29ABE2;color:#1d8fbf}
+.filter-pill.active{background:rgba(41,171,226,.14);border-color:#29ABE2;color:#1d8fbf;font-weight:600}
+
+/* ── Fila de paciente (plana, estilo Reliv) ── */
+.pname-row{display:flex;align-items:center;gap:7px;flex-wrap:nowrap;font-weight:600;color:#1a1917;font-size:14.5px;min-width:0}
+.pl-name{font-weight:600;overflow:hidden}
+.pl-pname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.pl-badge{font-size:10px;font-weight:600;padding:2px 8px;flex-shrink:0;white-space:nowrap}
+.pl-age{font-size:14px;color:#5a5a56;white-space:nowrap}
+.pl-ced{font-size:14px;color:#6b6a64;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-email{font-size:13px;color:#6b6a64;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-doc{overflow:hidden}
+.pl-muted{font-size:13px;color:#a8a6a0;font-style:italic}
+
+/* ── Acciones: una sola fila compacta ── */
+.pl-action-th{text-align:right}
+.pl-action-cell{text-align:right;white-space:nowrap}
+.pl-actions{display:inline-flex;align-items:center;gap:5px;flex-wrap:nowrap;white-space:nowrap}
+.pl-act-btn{font-size:11px;padding:5px 8px;white-space:nowrap;flex-shrink:0}
+.ver-btn{background:#29ABE2;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-family:inherit}
+.ver-btn:hover{background:#1d8fbf}
 .empty-patient-row{text-align:center;color:#6b6a64!important;padding:26px 14px!important}
 .empty-patient-row .add-btn{margin-left:10px}
 .patient-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;flex-wrap:wrap}
