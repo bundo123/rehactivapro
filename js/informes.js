@@ -150,7 +150,7 @@ export function renderSemanal() {
   const statsHtml=`
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
     <div><div style="font-size:11px;color:#6b6a64;text-transform:uppercase;letter-spacing:.05em">Semana del</div><div style="font-size:14px;font-weight:600;color:#1a1917">${semLabel}</div></div>
-    <button class="ai-btn" onclick="genSemanalAI()">Análisis con IA ↗</button>
+    <button class="ai-btn" onclick="genSemanalAI()">Análisis con IA</button>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
     <div class="stat"><div class="stat-lbl">Citas totales</div><div class="stat-val">${total}</div><div style="font-size:10px;color:#6b6a64">${semDates.length} días hábiles</div></div>
@@ -243,7 +243,7 @@ export function renderMensual() {
 
   let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
     <select onchange="changeMensualMonth(this.value)" style="background:#ffffff;border:1px solid rgba(29,158,117,.2);border-radius:6px;padding:7px 12px;font-size:13px;color:#1a1917">${optsHtml}</select>
-    <button class="ai-btn" onclick="genSemanalAI()">Análisis con IA ↗</button>
+    <button class="ai-btn" onclick="genSemanalAI()">Análisis con IA</button>
   </div>`;
   html += `<div class="informe-stat-grid">
     <div class="stat"><div class="stat-lbl">Sesiones del mes</div><div class="stat-val">${cur.conf}</div>${_deltaChip(cur.conf, prev.conf, pym, 'pct', true)}</div>
@@ -304,7 +304,7 @@ export function renderAnual() {
 
   let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
     <div style="font-size:14px;font-weight:500;color:#1a1917">Informe anual ${year}</div>
-    <button class="ai-btn" onclick="genSemanalAI()">Análisis anual con IA ↗</button>
+    <button class="ai-btn" onclick="genSemanalAI()">Análisis anual con IA</button>
   </div>`;
   html += `<div class="informe-stat-grid">
     <div class="stat"><div class="stat-lbl">Sesiones acumuladas</div><div class="stat-val">${sesAcum}</div><div class="stat-chg neu">Ene–${MES_CORTO[now.getMonth()]} ${year}</div></div>
@@ -419,7 +419,7 @@ export function renderPatientReport() {
       ${p.cedula?`<div style="font-size:11px;color:#6b6a64;margin-top:1px">CI: ${esc(p.cedula)}${p.tel?' · '+esc(p.tel):''}${p.email?' · '+esc(p.email):''}</div>`:''}
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
-      <button class="ai-btn" onclick="genPatientAI()">Informe IA ↗</button>
+      <button class="ai-btn" onclick="genPatientAI()">Informe IA</button>
       <button onclick="agendarCitaParaPaciente('${esc(p.id)}')" style="padding:6px 14px;background:rgba(29,158,117,.12);color:#1D9E75;border:1px solid rgba(29,158,117,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">+ Agendar cita</button>
       ${isCurrentEpisode?`<button onclick="nuevoEpisodio('${esc(p.id)}')" style="padding:6px 14px;background:rgba(186,117,23,.1);color:#BA7517;border:1px solid rgba(186,117,23,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">🔄 Nuevo episodio</button>`:''}
     </div>

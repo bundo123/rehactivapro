@@ -261,7 +261,7 @@
         <div class="card"><div class="card-title">Insights automáticos</div><div id="insights"></div></div>
       </div>
       <div class="export-row">
-        <button class="ai-btn" onclick="genSemanalAI()" data-permission="admin">Análisis con IA ↗</button>
+        <button class="ai-btn" onclick="genSemanalAI()" data-permission="admin">Análisis con IA</button>
         <button class="exp-btn" onclick="exportarPDF()" data-permission="admin">Exportar PDF</button>
       </div>
     </div>
@@ -281,7 +281,7 @@
       <input type="text" id="patient-rpt-search" placeholder="Buscar paciente..." oninput="filterPatientRptSelect()" style="background:#ffffff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:7px 12px;font-size:13px;color:#1a1917;min-width:220px;font-family:inherit;outline:none">
     <select id="patient-rpt-select" onchange="updateEpisodes()" style="background:#ffffff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:7px 12px;font-size:13px;color:#1a1917;min-width:220px;font-family:inherit"></select>
       <select id="patient-rpt-episode" onchange="renderPatientReport()" style="background:#ffffff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:7px 12px;font-size:13px;color:#1a1917;min-width:180px;font-family:inherit"></select>
-      <button class="ai-btn" onclick="genPatientAI()" data-permission="admin-terapeuta">Informe clínico con IA ↗</button>
+      <button class="ai-btn" onclick="genPatientAI()" data-permission="admin-terapeuta">Informe clínico con IA</button>
     </div>
     <div id="patient-report-content"></div>
   </div>
@@ -320,7 +320,7 @@
       <div class="page-title">Resumen del día</div>
       <div class="page-sub" id="resumen-day-lbl"></div>
     </div>
-    <button class="ai-btn" onclick="document.getElementById('resumen-ai-output').style.display='block';genResumenDiaAI()" data-permission="admin-terapeuta">Análisis con IA ↗</button>
+    <button class="ai-btn" onclick="document.getElementById('resumen-ai-output').style.display='block';genResumenDiaAI()" data-permission="admin-terapeuta">Análisis con IA</button>
   </div>
   <div class="main-body">
     <div id="resumen-ai-output" class="full-card" style="display:none;margin-bottom:14px"></div>

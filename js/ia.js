@@ -1,18 +1,33 @@
 import { state } from './state.js';
-import { getTherapist, getDoctor, getPatient, getDisplayAge } from './utils.js';
+import { getPatient, getDisplayAge, esc } from './utils.js';
 import { toastErr } from './toast.js';
+import { supa } from './supabase-client.js';
 
-export function callAI(prompt, targetId) {
+export async function callAI(prompt, targetId) {
   const el=document.getElementById(targetId);if(!el)return;
+  const { data:{ session } }=await supa.auth.getSession();
+  if(!session?.access_token){toastErr('Tu sesión expiró. Vuelve a iniciar sesión.');return;}
   el.style.display='block';
-  const encoded=encodeURIComponent(prompt);
-  const url='https://claude.ai/new?q='+encoded;
-  window.open(url,'_blank');
-  el.innerHTML='<div style="background:rgba(29,158,117,.08);border:1px solid rgba(29,158,117,.2);border-radius:8px;padding:14px;font-size:12px;color:#6b6a64;line-height:1.6">'
-    +'<div style="font-weight:600;color:#1D9E75;margin-bottom:6px">✓ Claude.ai abierto en nueva pestaña</div>'
-    +'El informe se está generando en Claude.ai. Copia el resultado y pégalo aquí si lo necesitas.<br><br>'
-    +'<textarea style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:6px;padding:8px;font-size:12px;color:#1a1917;font-family:inherit;resize:vertical;min-height:80px" placeholder="Pega aquí el informe generado por Claude..."></textarea>'
-    +'</div>';
+  el.innerHTML='<div style="background:rgba(29,158,117,.08);border:1px solid rgba(29,158,117,.2);'
+    +'border-radius:8px;padding:14px;font-size:12px;color:#6b6a64">⏳ Generando informe…</div>';
+  try {
+    const res=await fetch('/api/informe',{
+      method:'POST',
+      headers:{'content-type':'application/json','Authorization':'Bearer '+session.access_token},
+      body:JSON.stringify({prompt})
+    });
+    if(!res.ok) throw new Error('status '+res.status);
+    const data=await res.json();
+    const text=data&&data.text?data.text:'';
+    if(!text) throw new Error('respuesta vacía');
+    el.innerHTML='<div style="background:rgba(29,158,117,.08);border:1px solid rgba(29,158,117,.2);'
+      +'border-radius:8px;padding:14px;font-size:13px;color:#1a1917;line-height:1.6;white-space:pre-wrap">'
+      +esc(text)+'</div>';
+  } catch(e) {
+    toastErr('No se pudo generar el informe. Intenta de nuevo.');
+    el.innerHTML='<div style="background:rgba(226,75,74,.08);border:1px solid rgba(226,75,74,.25);'
+      +'border-radius:8px;padding:14px;font-size:12px;color:#c33a3a">No se pudo generar el informe.</div>';
+  }
 }
 
 export function genSemanalAI() {
@@ -36,25 +51,20 @@ export function genPatientAI() {
   const id=selEl.value;
   const p=state.patients.find(x=>x.id===id||String(x.id)===id);
   if(!p){toastErr('Selecciona un paciente primero');return;}
-  const th=getTherapist(p.therapistId);
-  const doc=p.doctorId?getDoctor(p.doctorId):null;
   const sesiones=p.log&&p.log.length>0?p.log.map(s=>`- ${s.date}: EVA ${s.pb||'?'}→${s.pa||'?'}, ${s.type||s.status||''}, ${s.note||''}`.trim()).join('\n'):'Sin sesiones registradas aún';
   const prompt=`Eres un fisioterapeuta redactando un informe clínico profesional para Ecuador.
 
-DATOS DEL PACIENTE:
-- Nombre: ${p.name}
+DATOS CLÍNICOS DEL PACIENTE (anonimizado, sin datos personales):
 - Edad: ${getDisplayAge(p)}
 - Diagnóstico: ${p.diag||'No especificado'}
-- Terapeuta: ${th?th.name:'No asignado'}
-- Doctor referente: ${doc?doc.name+' ('+doc.spec+')':'Independiente'}
 - Sesiones prescritas: ${p.sessions||0}
 - Sesiones realizadas: ${p.done||0}
 - Estado: ${p.status==='active'?'En tratamiento':p.status==='alta'?'Alta médica':'Inactivo'}
 
-HISTORIAL DE SESIONES:
+HISTORIAL DE SESIONES (EVA dolor antes→después):
 ${sesiones}
 
-Redacta un informe clínico de evolución en español, formato profesional médico, máximo 300 palabras. Incluye: estado actual, evolución del dolor (EVA), respuesta al tratamiento y recomendaciones.`;
+Redacta un informe clínico de evolución en español, formato profesional médico, máximo 300 palabras. Refiérete siempre al "paciente", sin nombres propios. Incluye: estado actual, evolución del dolor (EVA), respuesta al tratamiento y recomendaciones.`;
   const outputEl=document.getElementById('patient-rpt-ai-output');
   if(outputEl){outputEl.style.display='block';callAI(prompt,'patient-rpt-ai-output');}
 }
