@@ -8,7 +8,7 @@ const ROLE_TABS = {
 
 const ROLE_ACTIONS = {
   admin:     ['createAppt','deleteAppt','cycleStatus','createPatient','editPatient','deletePatient',
-              'registerSession','evalInicial','createTherapist','createDoctor','createProtocol',
+              'registerSession','deleteSession','evalInicial','createTherapist','createDoctor','createProtocol',
               'emitirFactura','viewAI'],
   secretaria:['createAppt','deleteAppt','cycleStatus','createPatient','editPatient',
               'createDoctor','emitirFactura'],

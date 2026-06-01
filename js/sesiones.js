@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { getPatient, fmtDate, fmtTime } from './utils.js';
+import { getPatient, fmtDate, fmtTime, normHour } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasPermission } from './permissions.js';
 
@@ -15,6 +15,14 @@ let proTecnicasSel = [];
 let _pendingSessionAppt = null;
 let _manualMode = false;       // true cuando el modal se abre como "sesión manual" (carga retroactiva)
 let _manualPatientId = null;
+let _editMode = false;         // true cuando el modal se abre para EDITAR una sesión existente
+let _editRef = null;           // {patientId, date, hour} ORIGINAL — clave del UPDATE
+let _savingSession = false;    // candado anti-doble-submit (todos los saves)
+
+function _setSaveBtn(saving) {
+  const b=document.getElementById('session-save-btn'); if(!b)return;
+  b.disabled=saving; b.textContent=saving?'Guardando…':'Guardar sesión';
+}
 
 export function renderProTecnicas() {
   const grid=document.getElementById('pro-tecnicas-grid');if(!grid)return;
@@ -57,6 +65,7 @@ export function openSessionModal(appt) {
   if(!hasPermission('registerSession')){toastErr('No tienes permisos para registrar sesiones.');return;}
   _pendingSessionAppt=appt;
   _manualMode=false; _manualPatientId=null;
+  _editMode=false; _editRef=null;
   const _df=document.getElementById('sess-manual-date-field');
   if(_df) _df.style.display='none';
   const _cancel=document.getElementById('session-cancel-btn');
@@ -88,6 +97,7 @@ export function openSessionModalManual(patientId) {
   const pt=getPatient(patientId);
   if(!pt){toastErr('Paciente no encontrado.');return;}
   _manualMode=true; _manualPatientId=patientId; _pendingSessionAppt=null;
+  _editMode=false; _editRef=null;
   document.getElementById('session-modal-title').textContent='Registrar sesión manual — '+pt.name.split(' ').slice(0,2).join(' ');
   document.getElementById('session-modal-sub').textContent='Carga retroactiva — elegí la fecha de la sesión';
   const di=document.getElementById('sess-manual-date');
@@ -125,6 +135,7 @@ async function genUniqueHour(patientId, date) {
 }
 
 async function saveSessionManual() {
+  if(_savingSession) return;                 // candado: ignora re-entradas mientras guarda
   const pt=getPatient(_manualPatientId);
   if(!pt){toastErr('Paciente no encontrado.');return;}
   const date=document.getElementById('sess-manual-date').value;
@@ -142,35 +153,148 @@ async function saveSessionManual() {
     return;
   }
   document.getElementById('sess-note').style.borderColor='';
-  const hour=await genUniqueHour(pt.id,date);
-  const {error}=await supa.from('session_log').insert({
-    patient_id:pt.id,date,type,hour,status:'asistió',
-    pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,
-    next_plan:document.getElementById('sess-next')?.value||''
-  });
-  if(error){toastErr('No se pudo guardar la sesión. Intenta de nuevo.');return;}
-  // +1 a done SOLO en INSERT nuevo y SOLO si la fecha cae en el episodio actual.
-  // Frontera del episodio actual = MAX(date) de session_log type='Fin de episodio' (mismo criterio que informes.js).
-  const finDates=(pt.log||[]).filter(s=>s.type==='Fin de episodio').map(s=>s.date).sort();
+  _savingSession=true; _setSaveBtn(true);
+  try {
+    const hour=await genUniqueHour(pt.id,date);
+    const {error}=await supa.from('session_log').insert({
+      patient_id:pt.id,date,type,hour,status:'asistió',
+      pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,
+      next_plan:document.getElementById('sess-next')?.value||''
+    });
+    if(error){toastErr('No se pudo guardar la sesión. Intenta de nuevo.');return;}
+    // +1 a done SOLO en INSERT nuevo y SOLO si la fecha cae en el episodio actual.
+    // Frontera del episodio actual = MAX(date) de session_log type='Fin de episodio' (mismo criterio que informes.js).
+    const finDates=(pt.log||[]).filter(s=>s.type==='Fin de episodio').map(s=>s.date).sort();
+    const lastFin=finDates.length?finDates[finDates.length-1]:null;
+    const inCurrentEpisode=!lastFin||date>lastFin;
+    if(inCurrentEpisode){
+      const newDone=(pt.done||0)+1;
+      const {error:dErr}=await supa.from('patients').update({done:newDone}).eq('id',pt.id);
+      if(dErr) toastErr('Sesión guardada, pero no se pudo actualizar el contador. Refresca la página.');
+      else pt.done=newDone;
+    }
+    if(!pt.log) pt.log=[];
+    pt.log.push({date,type,hour,status:'asistió',pb,pa,note,tags:[...proTecnicasSel]});
+    window._app.closeModal('session-modal');
+    _manualMode=false; _manualPatientId=null;
+    window._app.renderPatientReport?.();
+    window._app.updateResumenBadge();
+    toastOk('Sesión manual guardada en historial clínico ✓');
+  } finally { _savingSession=false; _setSaveBtn(false); }
+}
+
+// ── Editar sesión existente (desde la tabla Detalle del Informe Paciente) ──
+export function editSession(patientId, date, hour) {
+  if(!hasPermission('registerSession')){toastErr('No tienes permisos para editar sesiones.');return;}
+  const pt=getPatient(patientId);
+  const s=pt&&pt.log?pt.log.find(x=>x.date===date&&normHour(x.hour)===normHour(hour)):null;
+  if(!s){toastErr('Sesión no encontrada.');return;}
+  _editMode=true; _editRef={patientId,date:s.date,hour:s.hour}; _manualMode=false; _pendingSessionAppt=null;
+  document.getElementById('session-modal-title').textContent='Editar sesión — '+pt.name.split(' ').slice(0,2).join(' ');
+  document.getElementById('session-modal-sub').textContent='Corregí los datos de la sesión';
+  const di=document.getElementById('sess-manual-date');
+  const df=document.getElementById('sess-manual-date-field');
+  const today=fmtDate(new Date());
+  if(di){ di.max=today; di.value=s.date; }
+  if(df) df.style.display='';
+  const cancelBtn=document.getElementById('session-cancel-btn');
+  if(cancelBtn) cancelBtn.textContent='Cancelar';
+  renderEvaButtons('eva-before-btns','sess-eva-before-val',s.pb!=null?s.pb:5,'#E24B4A');
+  renderEvaButtons('eva-after-btns','sess-eva-after-val',s.pa!=null?s.pa:5,'#1D9E75');
+  document.getElementById('sess-note').value=s.note||'';
+  document.getElementById('sess-note').style.borderColor='';
+  document.getElementById('sess-type').value=s.type||'';
+  if(document.getElementById('sess-next')) document.getElementById('sess-next').value='';
+  proTecnicasSel=Array.isArray(s.tags)?[...s.tags]:[];
+  renderProTecnicas();
+  document.getElementById('session-modal').classList.add('open');
+}
+
+async function saveSessionEdit() {
+  if(_savingSession) return;
+  const ref=_editRef;
+  const pt=ref?getPatient(ref.patientId):null;
+  if(!ref||!pt){toastErr('Sesión no encontrada.');return;}
+  const newDate=document.getElementById('sess-manual-date').value;
+  const today=fmtDate(new Date());
+  if(!newDate){toastErr('Elegí la fecha de la sesión');return;}
+  if(newDate>today){toastErr('La fecha no puede ser futura');return;}
+  const note=document.getElementById('sess-note').value.trim();
+  if(!note){
+    document.getElementById('sess-note').style.borderColor='rgba(224,80,80,.6)';
+    document.getElementById('sess-note').focus();
+    toastErr('Describe brevemente qué se realizó en la sesión');
+    return;
+  }
+  document.getElementById('sess-note').style.borderColor='';
+  // GUARDA del edge de fecha: si mover la fecha cambia la pertenencia al episodio actual, abortar
+  // (done debe quedar exacto; mover entre episodios = eliminar y recrear).
+  if(newDate!==ref.date){
+    const finDates=(pt.log||[]).filter(x=>x.type==='Fin de episodio').map(x=>x.date).sort();
+    const lastFin=finDates.length?finDates[finDates.length-1]:null;
+    const wasCurrent =!lastFin||ref.date>lastFin;
+    const willCurrent=!lastFin||newDate>lastFin;
+    if(wasCurrent!==willCurrent){
+      toastErr('Para mover la sesión a otro episodio, eliminála y creála de nuevo');
+      return;
+    }
+  }
+  const pb=parseInt(document.getElementById('sess-eva-before-val').textContent)||0;
+  const pa=parseInt(document.getElementById('sess-eva-after-val').textContent)||0;
+  const type=document.getElementById('sess-type').value;
+  _savingSession=true; _setSaveBtn(true);
+  try {
+    const {data:upd,error}=await supa.from('session_log')
+      .update({date:newDate,type,pain_before:pb,pain_after:pa,note,tags:proTecnicasSel})
+      .eq('patient_id',ref.patientId).eq('date',ref.date).eq('hour',ref.hour).select();
+    if(error){toastErr('No se pudo guardar el cambio. Intenta de nuevo.');return;}
+    if(!upd||!upd.length){toastErr('No se pudo editar (sin permiso o la sesión ya cambió). Refrescá la página.');return;}
+    // memoria: actualizar la entrada por la clave ORIGINAL. done NO se toca (sigue siendo la misma sesión).
+    const i=pt.log.findIndex(x=>x.date===ref.date&&normHour(x.hour)===normHour(ref.hour));
+    if(i>=0) pt.log[i]={...pt.log[i],date:newDate,type,pb,pa,note,tags:[...proTecnicasSel]};
+    window._app.closeModal('session-modal');
+    _editMode=false; _editRef=null;
+    window._app.renderPatientReport?.();
+    window._app.updateResumenBadge();
+    toastOk('Sesión actualizada ✓');
+  } finally { _savingSession=false; _setSaveBtn(false); }
+}
+
+// ── Eliminar sesión (solo admin) ──
+export async function deleteSession(patientId, date, hour) {
+  if(!hasPermission('deleteSession')){toastErr('No tienes permisos para eliminar sesiones.');return;}
+  const pt=getPatient(patientId);
+  const idx=pt&&pt.log?pt.log.findIndex(x=>x.date===date&&normHour(x.hour)===normHour(hour)):-1;
+  if(idx<0){toastErr('Sesión no encontrada.');return;}
+  const s=pt.log[idx];
+  if(s.type==='Evaluación inicial'){toastErr('La evaluación inicial no se elimina desde aquí.');return;}
+  if(!confirm('¿Eliminar esta sesión del historial clínico? No se puede deshacer.')) return;
+  // DELETE con verificación de filas afectadas: un delete bloqueado por RLS devuelve 0 filas SIN error.
+  const {data:del,error}=await supa.from('session_log').delete()
+    .eq('patient_id',patientId).eq('date',date).eq('hour',hour).select();
+  if(error){toastErr('No se pudo eliminar la sesión. Intenta de nuevo.');return;}
+  if(!del||!del.length){toastErr('No se pudo eliminar (sin permiso o ya no existe). Refrescá la página.');return;}
+  // done −1 SOLO si la fila aportó su propio +1 (sesión manual): asistió + episodio actual + sin cita que matchee.
+  const finDates=(pt.log||[]).filter(x=>x.type==='Fin de episodio').map(x=>x.date).sort();
   const lastFin=finDates.length?finDates[finDates.length-1]:null;
   const inCurrentEpisode=!lastFin||date>lastFin;
-  if(inCurrentEpisode){
-    const newDone=(pt.done||0)+1;
-    const {error:dErr}=await supa.from('patients').update({done:newDone}).eq('id',pt.id);
-    if(dErr) toastErr('Sesión guardada, pero no se pudo actualizar el contador. Refresca la página.');
+  const tieneCita=state.appointments.some(a=>a.patientId===patientId&&a.date===date&&normHour(fmtTime(a.hour))===normHour(hour));
+  if(s.status==='asistió'&&s.type!=='Fin de episodio'&&inCurrentEpisode&&!tieneCita){
+    const newDone=Math.max(0,(pt.done||0)-1);
+    const {error:dErr}=await supa.from('patients').update({done:newDone}).eq('id',patientId);
+    if(dErr) toastErr('Sesión eliminada, pero no se pudo actualizar el contador. Refrescá la página.');
     else pt.done=newDone;
   }
-  if(!pt.log) pt.log=[];
-  pt.log.push({date,type,hour,status:'asistió',pb,pa,note,tags:[...proTecnicasSel]});
-  window._app.closeModal('session-modal');
-  _manualMode=false; _manualPatientId=null;
+  pt.log.splice(idx,1);
   window._app.renderPatientReport?.();
   window._app.updateResumenBadge();
-  toastOk('Sesión manual guardada en historial clínico ✓');
+  toastOk('Sesión eliminada del historial ✓');
 }
 
 export async function saveSession() {
+  if(_editMode) return saveSessionEdit();
   if(_manualMode) return saveSessionManual();
+  if(_savingSession) return;                 // candado: ignora re-entradas mientras guarda
   const appt=_pendingSessionAppt;if(!appt)return;
   const pb=parseInt(document.getElementById('sess-eva-before-val').textContent)||0;
   const pa=parseInt(document.getElementById('sess-eva-after-val').textContent)||0;
@@ -183,44 +307,48 @@ export async function saveSession() {
     return;
   }
   document.getElementById('sess-note').style.borderColor='';
-  if(appt.id&&appt.patientId){
-    const apptHourFmt=fmtTime(appt.hour);
-    const existingInDB=await supa.from('session_log').select('id').eq('patient_id',appt.patientId).eq('date',appt.date).eq('hour',apptHourFmt).maybeSingle();
-    let dbError;
-    if(existingInDB.data){
-      const {error}=await supa.from('session_log').update({type,pain_before:pb,pain_after:pa,note,tags:proTecnicasSel}).eq('id',existingInDB.data.id);
-      dbError=error;
-    } else {
-      const {error}=await supa.from('session_log').insert({
-        patient_id:appt.patientId,date:appt.date,type,hour:apptHourFmt,status:'asistió',
-        pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,
-        next_plan:document.getElementById('sess-next')?.value||''
-      });
-      dbError=error;
+  _savingSession=true; _setSaveBtn(true);
+  try {
+    if(appt.id&&appt.patientId){
+      const apptHourFmt=fmtTime(appt.hour);
+      const existingInDB=await supa.from('session_log').select('id').eq('patient_id',appt.patientId).eq('date',appt.date).eq('hour',apptHourFmt).maybeSingle();
+      let dbError;
+      if(existingInDB.data){
+        const {error}=await supa.from('session_log').update({type,pain_before:pb,pain_after:pa,note,tags:proTecnicasSel}).eq('id',existingInDB.data.id);
+        dbError=error;
+      } else {
+        const {error}=await supa.from('session_log').insert({
+          patient_id:appt.patientId,date:appt.date,type,hour:apptHourFmt,status:'asistió',
+          pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,
+          next_plan:document.getElementById('sess-next')?.value||''
+        });
+        dbError=error;
+      }
+      if(dbError){toastErr('No se pudo guardar la sesión. Intenta de nuevo.');return;}
     }
-    if(dbError){toastErr('No se pudo guardar la sesión. Intenta de nuevo.');return;}
-  }
-  const a=state.appointments.find(x=>x.id===appt.id);
-  if(a) a.hasSession=true;
-  const pt2=getPatient(appt.patientId);
-  if(pt2){
-    if(!pt2.log) pt2.log=[];
-    const hh=fmtTime(appt.hour);
-    const existIdx=pt2.log.findIndex(s=>s.date===appt.date&&s.hour===hh);
-    const newEntry={date:appt.date,type,hour:hh,status:'asistió',pb,pa,note,tags:[...proTecnicasSel]};
-    if(existIdx>=0) pt2.log[existIdx]=newEntry;
-    else pt2.log.push(newEntry);
-  }
-  window._app.closeModal('session-modal');
-  _pendingSessionAppt=null;
-  window._app.renderGrid();
-  window._app.updateResumenBadge();
-  toastOk('Sesión guardada en historial clínico ✓');
+    const a=state.appointments.find(x=>x.id===appt.id);
+    if(a) a.hasSession=true;
+    const pt2=getPatient(appt.patientId);
+    if(pt2){
+      if(!pt2.log) pt2.log=[];
+      const hh=fmtTime(appt.hour);
+      const existIdx=pt2.log.findIndex(s=>s.date===appt.date&&s.hour===hh);
+      const newEntry={date:appt.date,type,hour:hh,status:'asistió',pb,pa,note,tags:[...proTecnicasSel]};
+      if(existIdx>=0) pt2.log[existIdx]=newEntry;
+      else pt2.log.push(newEntry);
+    }
+    window._app.closeModal('session-modal');
+    _pendingSessionAppt=null;
+    window._app.renderGrid();
+    window._app.updateResumenBadge();
+    toastOk('Sesión guardada en historial clínico ✓');
+  } finally { _savingSession=false; _setSaveBtn(false); }
 }
 
 export function skipSession() {
   window._app.closeModal('session-modal');
   _pendingSessionAppt=null;
+  if(_editMode){ _editMode=false; _editRef=null; return; }
   if(_manualMode){ _manualMode=false; _manualPatientId=null; return; }
   toastInfo('Sesión omitida — puedes registrarla desde Informe paciente');
 }

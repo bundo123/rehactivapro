@@ -472,16 +472,27 @@ export function renderPatientReport() {
   const sesLog=[...log].reverse().filter(s=>s.type!=='Fin de episodio');
   if(sesLog.length){
     const thc=(t,al)=>`<th style="text-align:${al||'left'};font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#6b6a64;padding:6px 8px;border-bottom:1px solid rgba(29,158,117,.15)">${t}</th>`;
+    const canEdit=hasPermission('registerSession');
+    const canDelete=hasPermission('deleteSession');
+    const showAcc=canEdit||canDelete;
     html+=`<div class="full-card"><div class="card-title" style="margin-bottom:10px">Detalle por sesión (${sesLog.length})</div>
-      <table style="width:100%;border-collapse:collapse"><thead><tr>${thc('Fecha')}${thc('EVA','center')}${thc('Técnicas')}${thc('Observación')}</tr></thead><tbody>`;
+      <table style="width:100%;border-collapse:collapse"><thead><tr>${thc('Fecha')}${thc('EVA','center')}${thc('Técnicas')}${thc('Observación')}${showAcc?thc('Acciones','center'):''}</tr></thead><tbody>`;
     sesLog.forEach(s=>{
       const eva=s.pb!=null?`${s.pb}→${s.pa!=null?s.pa:'?'}`:'—';
       const tec=(s.tags&&s.tags.length)?s.tags.join(', '):'—';
       const td='padding:7px 8px;border-bottom:1px solid rgba(29,158,117,.07);font-size:11px';
+      let acc='';
+      if(showAcc){
+        const btn='font-size:10px;padding:3px 9px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;border:1px solid';
+        const eBtn=canEdit?`<button onclick="editSession('${esc(p.id)}','${esc(s.date)}','${esc(s.hour||'')}')" style="${btn} rgba(41,171,226,.3);background:rgba(41,171,226,.1);color:#155b7a">Editar</button>`:'';
+        const dBtn=(canDelete&&s.type!=='Evaluación inicial')?`<button onclick="deleteSession('${esc(p.id)}','${esc(s.date)}','${esc(s.hour||'')}')" style="${btn} rgba(224,75,74,.3);background:rgba(224,75,74,.08);color:#E24B4A">Eliminar</button>`:'';
+        const inner=(eBtn+dBtn)||'<span style="color:#c8c6c0">—</span>';
+        acc=`<td style="${td};text-align:center;white-space:nowrap"><div style="display:flex;gap:5px;justify-content:center">${inner}</div></td>`;
+      }
       html+=`<tr><td style="${td};color:#1a1917;white-space:nowrap">${s.date}<div style="font-size:10px;color:#9c9a92">${s.hour||''}</div></td>
         <td style="${td};text-align:center;color:#1a1917">${eva}</td>
         <td style="${td};color:#6b6a64">${esc(tec)}</td>
-        <td style="${td};color:#6b6a64">${s.note?esc(s.note):'—'}</td></tr>`;
+        <td style="${td};color:#6b6a64">${s.note?esc(s.note):'—'}</td>${acc}</tr>`;
     });
     html+=`</tbody></table></div>`;
   } else {

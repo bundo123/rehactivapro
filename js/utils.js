@@ -57,6 +57,12 @@ export function relativeTime(ts){
 }
 export function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 export function fmtTime(h){const hh=Math.floor(h);return `${hh}:${h%1===0.5?'30':'00'}`;}
+// Normaliza una hora a 'HH:MM:SS' para comparar de forma robusta el valor en memoria ('9:00','00:00')
+// contra el de la DB ('09:00:00' si la columna es time). Conserva segundos (id técnico de sesiones manuales).
+export function normHour(h){
+  const p=String(h||'').split(':');
+  return `${String(parseInt(p[0]||'0',10)).padStart(2,'0')}:${(p[1]||'00').padStart(2,'0')}:${(p[2]||'00').padStart(2,'0')}`;
+}
 export function getColor(id){return COLOR_OPTIONS.find(c=>c.id===id)||COLOR_OPTIONS[0]}
 export function getTherapist(id){return state.therapists.find(t=>t.id===id)}
 export function getPatient(id){return state.patients.find(p=>p.id===id)}
