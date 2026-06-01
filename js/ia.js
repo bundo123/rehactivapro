@@ -64,7 +64,13 @@ DATOS CLÍNICOS DEL PACIENTE (anonimizado, sin datos personales):
 HISTORIAL DE SESIONES (EVA dolor antes→después):
 ${sesiones}
 
-Redacta un informe clínico de evolución en español, formato profesional médico, máximo 300 palabras. Refiérete siempre al "paciente", sin nombres propios. Incluye: estado actual, evolución del dolor (EVA), respuesta al tratamiento y recomendaciones.`;
+Redacta SOLO dos secciones cortas, en español, tono clínico profesional, máximo 150 palabras EN TOTAL. Refiérete siempre al "paciente", sin nombres propios. Usa exactamente estos encabezados y nada más:
+
+Evolución general:
+(2-3 frases sobre la respuesta al tratamiento y la evolución del dolor EVA)
+
+Conclusión y recomendaciones:
+(2-3 frases con el estado actual y los próximos pasos sugeridos)`;
   const outputEl=document.getElementById('patient-rpt-ai-output');
   if(outputEl){outputEl.style.display='block';callAI(prompt,'patient-rpt-ai-output');}
 }

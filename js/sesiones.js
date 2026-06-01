@@ -91,12 +91,12 @@ export async function saveSession() {
     const existingInDB=await supa.from('session_log').select('id').eq('patient_id',appt.patientId).eq('date',appt.date).eq('hour',apptHourFmt).maybeSingle();
     let dbError;
     if(existingInDB.data){
-      const {error}=await supa.from('session_log').update({type,pain_before:pb,pain_after:pa,note}).eq('id',existingInDB.data.id);
+      const {error}=await supa.from('session_log').update({type,pain_before:pb,pain_after:pa,note,tags:proTecnicasSel}).eq('id',existingInDB.data.id);
       dbError=error;
     } else {
       const {error}=await supa.from('session_log').insert({
         patient_id:appt.patientId,date:appt.date,type,hour:apptHourFmt,status:'asistió',
-        pain_before:pb,pain_after:pa,note,
+        pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,
         next_plan:document.getElementById('sess-next')?.value||''
       });
       dbError=error;
@@ -110,7 +110,7 @@ export async function saveSession() {
     if(!pt2.log) pt2.log=[];
     const hh=fmtTime(appt.hour);
     const existIdx=pt2.log.findIndex(s=>s.date===appt.date&&s.hour===hh);
-    const newEntry={date:appt.date,type,hour:hh,status:'asistió',pb,pa,note,tags:[]};
+    const newEntry={date:appt.date,type,hour:hh,status:'asistió',pb,pa,note,tags:[...proTecnicasSel]};
     if(existIdx>=0) pt2.log[existIdx]=newEntry;
     else pt2.log.push(newEntry);
   }
