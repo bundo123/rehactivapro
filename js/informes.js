@@ -271,6 +271,7 @@ export function renderMensual() {
 
   setTimeout(() => {
     const ctx = document.getElementById('monthly-chart'); if (!ctx) return;
+    Chart.getChart(ctx)?.destroy();   // destruir chart previo del mismo canvas (evita "Canvas already in use")
     Chart.defaults.color = '#6b6a64';
     new Chart(ctx, { type: 'bar', data: { labels: chartLabels, datasets: [
       { label: 'Sesiones', data: cs.map(s => s.conf), backgroundColor: '#1D9E75', borderRadius: 4 },
@@ -321,6 +322,7 @@ export function renderAnual() {
   document.getElementById('anual-content').innerHTML = html;
   setTimeout(() => {
     const ctx = document.getElementById('anual-chart'); if (!ctx) return;
+    Chart.getChart(ctx)?.destroy();   // destruir chart previo del mismo canvas (evita "Canvas already in use")
     Chart.defaults.color = '#6b6a64';
     new Chart(ctx, { type: 'bar', data: { labels: MES_CORTO, datasets: [{ label: 'Sesiones', data: sArr, backgroundColor: sArr.map(v => v > 0 ? '#1D9E75' : '#1a1917'), borderRadius: 4 }] },
       options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { color: '#6b6a64', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }, x: { ticks: { color: '#6b6a64' }, grid: { display: false } } } } });
@@ -497,6 +499,7 @@ export function renderPatientReport() {
   if(evaSes.length){
     setTimeout(()=>{
       const ctx=document.getElementById('eva-evolution-chart'); if(!ctx) return;
+      Chart.getChart(ctx)?.destroy();   // destruir chart previo del mismo canvas (evita "Canvas already in use")
       new Chart(ctx,{type:'line',data:{labels:evaSes.map(s=>s.date),datasets:[
         {label:'Dolor antes',data:evaSes.map(s=>s.pb),borderColor:'#E24B4A',tension:.3,fill:false},
         {label:'Dolor después',data:evaSes.map(s=>s.pa!=null?s.pa:null),borderColor:'#1D9E75',tension:.3,fill:false,spanGaps:true}

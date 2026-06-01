@@ -87,6 +87,13 @@ function _mapPatient(r) {
 function _mapTherapist(r){return{id:r.id,name:r.name,initials:r.initials||r.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),spec:r.spec||'',startH:r.start_h,endH:r.end_h,colorId:r.color_id||'ca'};}
 function _mapDoctor(r){return{id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'};}
 function _mapSession(s){return{date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[]};}
+// Normaliza hora a 'HH:MM:SS' para comparar de forma robusta el push local ('9:00','00:00')
+// contra el valor del eco realtime ('09:00:00' si la columna es time). Conserva segundos
+// (clave para que dos sesiones manuales del mismo minuto no colisionen en el dedup).
+function _normHour(h){
+  const p=String(h||'').split(':');
+  return `${String(parseInt(p[0]||'0',10)).padStart(2,'0')}:${(p[1]||'00').padStart(2,'0')}:${(p[2]||'00').padStart(2,'0')}`;
+}
 
 function _refreshTabAfterAppt() {
   const {renderGrid,renderResumen,renderFacturacion,updateResumenBadge,updateFacturaBadge}=window._app;
@@ -144,15 +151,15 @@ function _onSessionLog(payload) {
   const p=getPatient(pid);if(!p)return;
   if(!p.log)p.log=[];
   if(ev==='INSERT'){
-    if(!p.log.find(s=>s.date===payload.new.date&&s.hour===payload.new.hour)){p.log.push(_mapSession(payload.new));queueRemoteToast('session_log','Sesión clínica registrada');}
+    if(!p.log.find(s=>s.date===payload.new.date&&_normHour(s.hour)===_normHour(payload.new.hour))){p.log.push(_mapSession(payload.new));queueRemoteToast('session_log','Sesión clínica registrada');}
     const a=state.appointments.find(x=>x.patientId===pid&&x.date===payload.new.date&&fmtTime(x.hour)===(payload.new.hour||''));
     if(a)a.hasSession=true;
   } else if(ev==='UPDATE'){
-    const idx=p.log.findIndex(s=>s.date===payload.new.date&&s.hour===payload.new.hour);
+    const idx=p.log.findIndex(s=>s.date===payload.new.date&&_normHour(s.hour)===_normHour(payload.new.hour));
     if(idx>=0)p.log[idx]=_mapSession(payload.new);else p.log.push(_mapSession(payload.new));
     queueRemoteToast('session_log','Sesión actualizada');
   } else if(ev==='DELETE'){
-    p.log=p.log.filter(s=>!(s.date===payload.old.date&&s.hour===payload.old.hour));
+    p.log=p.log.filter(s=>!(s.date===payload.old.date&&_normHour(s.hour)===_normHour(payload.old.hour)));
     queueRemoteToast('session_log','Sesión eliminada');
   }
   const {renderPatientReport,renderGrid}=window._app;
