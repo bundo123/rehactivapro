@@ -28,7 +28,7 @@ import {
   openEvalInicial, renderEvEva, saveEvalInicial, initPatientValidation
 } from './pacientes.js';
 import {
-  openSessionModal, saveSession, skipSession,
+  openSessionModal, openSessionModalManual, saveSession, skipSession,
   renderProTecnicas, toggleProTecnica, renderEvaButtons, setEva
 } from './sesiones.js';
 import {
@@ -205,7 +205,7 @@ Object.assign(window, {
   doLogin, doLogout, showTab, closeModal,
   openApptModal, openApptModalAt, openEditApptModal, openPatientModal, openTherapistModal, openDoctorModal,
   openProtocolModal, openEditTherapist, openEditPatient,
-  openSessionModal, openEvalInicial, openDatePicker,
+  openSessionModal, openSessionModalManual, openEvalInicial, openDatePicker,
   agendarCitaParaPaciente, nuevoEpisodio,
   saveAppt, savePatient, saveTherapist, saveDoctor, saveProtocol,
   saveSession, saveEvalInicial, guardarNuevoEpisodio,

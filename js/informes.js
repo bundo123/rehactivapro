@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, COLOR_OPTIONS, getDisplayAge } from './utils.js';
 import { genSemanalAI, genPatientAI, callAI } from './ia.js';
 import { hasEvalInicial } from './resumen.js';
+import { hasPermission } from './permissions.js';
 
 export { genSemanalAI, genPatientAI };
 
@@ -392,6 +393,9 @@ export function renderPatientReport() {
       epDone=log.filter(s=>s.status==='asistió').length;
     }
   }
+  // Orden cronológico por fecha (estable para empates) — necesario para que las sesiones
+  // retroactivas/manuales aparezcan en su posición correcta en el gráfico EVA, el detalle y las métricas.
+  log=[...log].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
   const isCurrentEpisode=epVal==='current';
   const th=getTherapist(p.therapistId);
   const doc=p.doctorId?getDoctor(p.doctorId):null;
@@ -435,6 +439,7 @@ export function renderPatientReport() {
           <button class="ai-btn" onclick="genPatientAI()">Informe IA</button>
           <button class="exp-btn" onclick="exportarPDF()">Exportar PDF</button>
           <button onclick="agendarCitaParaPaciente('${esc(p.id)}')" style="padding:6px 14px;background:rgba(29,158,117,.12);color:#1D9E75;border:1px solid rgba(29,158,117,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">+ Agendar cita</button>
+          ${hasPermission('registerSession')?`<button onclick="openSessionModalManual('${esc(p.id)}')" style="padding:6px 14px;background:rgba(41,171,226,.1);color:#155b7a;border:1px solid rgba(41,171,226,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">+ Sesión manual</button>`:''}
           ${isCurrentEpisode?`<button onclick="nuevoEpisodio('${esc(p.id)}')" style="padding:6px 14px;background:rgba(186,117,23,.1);color:#BA7517;border:1px solid rgba(186,117,23,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">🔄 Nuevo episodio</button>`:''}
         </div>
       </div>

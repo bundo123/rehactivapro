@@ -605,7 +605,13 @@
 <div class="modal" style="max-width:460px">
   <h3 id="session-modal-title">Registrar sesión</h3>
   <div style="font-size:12px;color:#5a5a56;margin-bottom:20px" id="session-modal-sub">Completa los datos de esta sesión</div>
-  
+
+  <!-- FECHA (solo en modo sesión manual / carga retroactiva) -->
+  <div class="field" id="sess-manual-date-field" style="margin-bottom:20px;display:none">
+    <label>Fecha de la sesión</label>
+    <input type="date" id="sess-manual-date" style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:8px;padding:11px 13px;font-size:14px;color:#1a1a1a;font-family:inherit">
+  </div>
+
   <!-- EVA ANTES -->
   <div class="field" style="margin-bottom:20px">
     <label style="display:flex;justify-content:space-between;align-items:center">
@@ -645,7 +651,7 @@
   </div>
 
   <div class="modal-actions">
-    <button class="btn-cancel" onclick="skipSession()">Omitir</button>
+    <button class="btn-cancel" id="session-cancel-btn" onclick="skipSession()">Omitir</button>
     <button class="add-btn" onclick="saveSession()">Guardar sesión</button>
   </div>
 </div>

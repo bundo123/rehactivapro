@@ -13,6 +13,8 @@ export const PRO_TECNICAS = [
 ];
 let proTecnicasSel = [];
 let _pendingSessionAppt = null;
+let _manualMode = false;       // true cuando el modal se abre como "sesión manual" (carga retroactiva)
+let _manualPatientId = null;
 
 export function renderProTecnicas() {
   const grid=document.getElementById('pro-tecnicas-grid');if(!grid)return;
@@ -54,6 +56,11 @@ export function openSessionModal(appt) {
   if(!appt)return;
   if(!hasPermission('registerSession')){toastErr('No tienes permisos para registrar sesiones.');return;}
   _pendingSessionAppt=appt;
+  _manualMode=false; _manualPatientId=null;
+  const _df=document.getElementById('sess-manual-date-field');
+  if(_df) _df.style.display='none';
+  const _cancel=document.getElementById('session-cancel-btn');
+  if(_cancel) _cancel.textContent='Omitir';
   const pt=getPatient(appt.patientId);
   const apptHour=fmtTime(appt.hour);
   const existing=pt&&pt.log?pt.log.find(s=>s.date===appt.date&&s.hour===apptHour):null;
@@ -73,7 +80,97 @@ export function openSessionModal(appt) {
   document.getElementById('session-modal').classList.add('open');
 }
 
+// ── Sesión manual (carga histórica/retroactiva) ──
+// Abre el mismo modal de sesión en "modo manual": muestra el campo Fecha (editable, ≤ hoy)
+// y no depende de una cita. La hora es un identificador técnico autogenerado (no se pide al usuario).
+export function openSessionModalManual(patientId) {
+  if(!hasPermission('registerSession')){toastErr('No tienes permisos para registrar sesiones.');return;}
+  const pt=getPatient(patientId);
+  if(!pt){toastErr('Paciente no encontrado.');return;}
+  _manualMode=true; _manualPatientId=patientId; _pendingSessionAppt=null;
+  document.getElementById('session-modal-title').textContent='Registrar sesión manual — '+pt.name.split(' ').slice(0,2).join(' ');
+  document.getElementById('session-modal-sub').textContent='Carga retroactiva — elegí la fecha de la sesión';
+  const di=document.getElementById('sess-manual-date');
+  const df=document.getElementById('sess-manual-date-field');
+  const today=fmtDate(new Date());
+  if(di){ di.max=today; di.value=today; }
+  if(df) df.style.display='';
+  const cancelBtn=document.getElementById('session-cancel-btn');
+  if(cancelBtn) cancelBtn.textContent='Cancelar';
+  renderEvaButtons('eva-before-btns','sess-eva-before-val',5,'#E24B4A');
+  renderEvaButtons('eva-after-btns','sess-eva-after-val',5,'#1D9E75');
+  document.getElementById('sess-note').value='';
+  document.getElementById('sess-note').style.borderColor='';
+  document.getElementById('sess-type').value='';
+  if(document.getElementById('sess-next')) document.getElementById('sess-next').value='';
+  proTecnicasSel=[];
+  renderProTecnicas();
+  document.getElementById('session-modal').classList.add('open');
+}
+
+// Hora autogenerada (HH:MM:SS) que garantiza la unicidad del dedup (patient_id+date+hour).
+// Usa la hora actual; si ya existe una sesión con esa hora ese día, incrementa los segundos.
+async function genUniqueHour(patientId, date) {
+  const pad=n=>String(n).padStart(2,'0');
+  const n=new Date();
+  let h=n.getHours(), m=n.getMinutes(), s=n.getSeconds();
+  const {data}=await supa.from('session_log').select('hour').eq('patient_id',patientId).eq('date',date);
+  const taken=new Set((data||[]).map(r=>r.hour));
+  let hour=`${pad(h)}:${pad(m)}:${pad(s)}`, guard=0;
+  while(taken.has(hour)&&guard<86400){
+    s++; if(s>59){s=0;m++;} if(m>59){m=0;h=(h+1)%24;}
+    hour=`${pad(h)}:${pad(m)}:${pad(s)}`; guard++;
+  }
+  return hour;
+}
+
+async function saveSessionManual() {
+  const pt=getPatient(_manualPatientId);
+  if(!pt){toastErr('Paciente no encontrado.');return;}
+  const date=document.getElementById('sess-manual-date').value;
+  const today=fmtDate(new Date());
+  if(!date){toastErr('Elegí la fecha de la sesión');return;}
+  if(date>today){toastErr('La fecha no puede ser futura');return;}
+  const pb=parseInt(document.getElementById('sess-eva-before-val').textContent)||0;
+  const pa=parseInt(document.getElementById('sess-eva-after-val').textContent)||0;
+  const type=document.getElementById('sess-type').value;
+  const note=document.getElementById('sess-note').value.trim();
+  if(!note){
+    document.getElementById('sess-note').style.borderColor='rgba(224,80,80,.6)';
+    document.getElementById('sess-note').focus();
+    toastErr('Describe brevemente qué se realizó en la sesión');
+    return;
+  }
+  document.getElementById('sess-note').style.borderColor='';
+  const hour=await genUniqueHour(pt.id,date);
+  const {error}=await supa.from('session_log').insert({
+    patient_id:pt.id,date,type,hour,status:'asistió',
+    pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,
+    next_plan:document.getElementById('sess-next')?.value||''
+  });
+  if(error){toastErr('No se pudo guardar la sesión. Intenta de nuevo.');return;}
+  // +1 a done SOLO en INSERT nuevo y SOLO si la fecha cae en el episodio actual.
+  // Frontera del episodio actual = MAX(date) de session_log type='Fin de episodio' (mismo criterio que informes.js).
+  const finDates=(pt.log||[]).filter(s=>s.type==='Fin de episodio').map(s=>s.date).sort();
+  const lastFin=finDates.length?finDates[finDates.length-1]:null;
+  const inCurrentEpisode=!lastFin||date>lastFin;
+  if(inCurrentEpisode){
+    const newDone=(pt.done||0)+1;
+    const {error:dErr}=await supa.from('patients').update({done:newDone}).eq('id',pt.id);
+    if(dErr) toastErr('Sesión guardada, pero no se pudo actualizar el contador. Refresca la página.');
+    else pt.done=newDone;
+  }
+  if(!pt.log) pt.log=[];
+  pt.log.push({date,type,hour,status:'asistió',pb,pa,note,tags:[...proTecnicasSel]});
+  window._app.closeModal('session-modal');
+  _manualMode=false; _manualPatientId=null;
+  window._app.renderPatientReport?.();
+  window._app.updateResumenBadge();
+  toastOk('Sesión manual guardada en historial clínico ✓');
+}
+
 export async function saveSession() {
+  if(_manualMode) return saveSessionManual();
   const appt=_pendingSessionAppt;if(!appt)return;
   const pb=parseInt(document.getElementById('sess-eva-before-val').textContent)||0;
   const pa=parseInt(document.getElementById('sess-eva-after-val').textContent)||0;
@@ -124,5 +221,6 @@ export async function saveSession() {
 export function skipSession() {
   window._app.closeModal('session-modal');
   _pendingSessionAppt=null;
+  if(_manualMode){ _manualMode=false; _manualPatientId=null; return; }
   toastInfo('Sesión omitida — puedes registrarla desde Informe paciente');
 }
