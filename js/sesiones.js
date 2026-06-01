@@ -18,7 +18,7 @@ export function renderProTecnicas() {
   const grid=document.getElementById('pro-tecnicas-grid');if(!grid)return;
   grid.innerHTML=PRO_TECNICAS.map(t=>{
     const sel=proTecnicasSel.includes(t);
-    return`<button type="button" class="pro-tec-btn${sel?' selected':''}" onclick="toggleProTecnica(this)" data-tec="${t}" style="font-size:10px;padding:4px 8px;border-radius:99px;cursor:pointer;font-family:inherit;border:1px solid ${sel?'rgba(29,158,117,.5)':'rgba(255,255,255,.08)'};background:${sel?'rgba(29,158,117,.15)':'transparent'};color:${sel?'#1D9E75':'#6b6a64'}">${t}</button>`;
+    return`<button type="button" class="pro-tec-btn${sel?' selected':''}" onclick="toggleProTecnica(this)" data-tec="${t}" style="font-size:13px;padding:9px 8px;min-height:42px;border-radius:9px;cursor:pointer;font-family:inherit;font-weight:500;line-height:1.25;display:flex;align-items:center;justify-content:center;text-align:center;border:1.5px solid ${sel?'rgba(29,158,117,.55)':'rgba(41,171,226,.22)'};background:${sel?'rgba(29,158,117,.15)':'#fff'};color:${sel?'#1D9E75':'#5a5a56'}">${t}</button>`;
   }).join('');
 }
 
@@ -36,10 +36,10 @@ export function renderEvaButtons(containerId, valId, cur, col) {
     const btn=document.createElement('button');
     btn.type='button'; btn.textContent=i;
     const active=i===cur;
-    btn.style.cssText='flex:1;padding:6px 2px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;'
-      +'border:2px solid '+(active?col:'transparent')+';'
-      +'background:'+(active?col+'22':'transparent')+';'
-      +'color:'+(active?col:'#6b6a64');
+    btn.style.cssText='flex:1;padding:0;min-height:44px;border-radius:8px;cursor:pointer;font-size:15px;font-weight:700;font-family:inherit;'
+      +'border:2px solid '+(active?col:'rgba(41,171,226,.22)')+';'
+      +'background:'+(active?col+'22':'#fff')+';'
+      +'color:'+(active?col:'#5a5a56');
     btn.onclick=()=>setEva(containerId,valId,i,col);
     container.appendChild(btn);
   }
