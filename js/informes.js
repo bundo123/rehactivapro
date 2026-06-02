@@ -598,7 +598,7 @@ export function renderPatientReport() {
         });
       }};
       new Chart(ctx,{type:'line',
-        data:{labels:evaLabels,datasets:[{label:'Dolor EVA',data:evaData,borderColor:'#29ABE2',pointBackgroundColor:'#29ABE2',pointRadius:3,pointHoverRadius:4,borderWidth:2,tension:.25,fill:false,spanGaps:true}]},
+        data:{labels:evaLabels,datasets:[{label:'Dolor EVA',data:evaData,borderColor:'#D85A30',pointBackgroundColor:'#D85A30',pointRadius:3,pointHoverRadius:4,borderWidth:2,tension:.25,fill:false,spanGaps:true}]},
         options:{responsive:true,animation:false,
           plugins:{legend:{display:false},tooltip:{callbacks:{label:it=>'EVA '+it.parsed.y}}},
           scales:{y:{min:0,max:10,ticks:{stepSize:2,color:'#6b6a64',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},
