@@ -36,7 +36,7 @@ import {
   changeWeek, updateWeekLabel, showSubTab, renderMensual, renderAnual,
   changeMensualMonth,
   renderPatientReportSelect, updateEpisodes, renderPatientReport,
-  filterPatientRptSelect, exportarPDF, genSemanalAI, genPatientAI
+  filterPatientRptSelect, selectRptPatient, rptSearchKeydown, exportarPDF, genSemanalAI, genPatientAI
 } from './informes.js';
 import {
   renderFacturacion, emitirFactura, marcarTodosFacturados, simEmailFactura
@@ -212,7 +212,7 @@ Object.assign(window, {
   delAppt, deletePatient, deleteTherapist, deleteDoctor, deleteProtocol,
   cycleStatus, changeDay, changeWeek, goToDate,
   showSubTab, changeMensualMonth, showDoctoresTab, selectColor, selectDocColor,
-  filterApptPatient, filterPatientRptSelect, updateEpisodes, updateTimeSlots,
+  filterApptPatient, filterPatientRptSelect, selectRptPatient, rptSearchKeydown, updateEpisodes, updateTimeSlots,
   renderPatientReport, renderProtocols, protPage,
   toggleNotif, toggleRecurrencia, toggleProTecnica,
   skipSession, simWA, simEmail, emitirFactura,

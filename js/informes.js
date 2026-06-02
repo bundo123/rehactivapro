@@ -329,23 +329,92 @@ export function renderAnual() {
   }, 50);
 }
 
-// ── Informe Paciente ──
+// ── Informe Paciente — combobox unificado (buscar + elegir en un solo control) ──
+// #patient-rpt-select es un <input type="hidden"> cuyo .value = id del paciente (contrato preservado
+// para verPaciente/selectGlobalResult/agenda/ia/realtime). El texto visible vive en #patient-rpt-search.
+let _rptResults = [];   // pacientes listados ahora (para navegación con ↑/↓/Enter)
+let _rptHi = -1;        // índice resaltado en la lista
+
 export function renderPatientReportSelect() {
-  const sel=document.getElementById('patient-rpt-select');
-  sel.innerHTML=state.patients.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
-  if(state.patients.length>0) sel.value=String(state.patients[0].id);
-  updateEpisodes();
+  const first=state.patients[0];
+  const hidden=document.getElementById('patient-rpt-select');
+  if(hidden) hidden.value=first?String(first.id):'';
+  syncRptSearchInput(); hideRptResults(); updateEpisodes();
 }
 
 export function filterPatientRptSelect() {
-  const q=(document.getElementById('patient-rpt-search').value||'').toLowerCase();
-  const sel=document.getElementById('patient-rpt-select');
-  sel.innerHTML=state.patients.filter(p=>p.name.toLowerCase().includes(q)||p.diag.toLowerCase().includes(q))
-    .map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
-  if(sel.options.length>0) updateEpisodes();
+  const inp=document.getElementById('patient-rpt-search');
+  const res=document.getElementById('patient-rpt-results');
+  if(!inp||!res) return;
+  const q=(inp.value||'').toLowerCase().trim();
+  let list=q ? state.patients.filter(p=>(p.name||'').toLowerCase().includes(q)||(p.diag||'').toLowerCase().includes(q)) : state.patients;
+  list=[...list].sort((a,b)=>a.name.localeCompare(b.name)).slice(0,50);
+  _rptResults=list; _rptHi=-1;
+  if(!list.length){
+    res.style.display='block';
+    res.innerHTML='<div style="padding:12px;font-size:12px;color:#9c9a92;text-align:center">Sin resultados</div>';
+    return;
+  }
+  res.style.display='block';
+  res.innerHTML=list.map((p,i)=>{
+    const th=getTherapist(p.therapistId);
+    return `<div data-i="${i}" onmousedown="selectRptPatient('${esc(String(p.id))}')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(0,0,0,.06);display:flex;align-items:center;gap:10px">
+      <div style="width:32px;height:32px;border-radius:50%;background:#e8f5f0;color:#1D9E75;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0">${esc(p.name.split(' ').map(n=>n[0]).join('').slice(0,2))}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#1a1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name)}</div>
+      <div style="font-size:10px;color:#9c9a92">${esc(p.diag||'Sin diagnóstico')}${th?' · '+esc(th.name):''}</div></div>
+    </div>`;
+  }).join('');
 }
 
+export function selectRptPatient(id) {
+  const hidden=document.getElementById('patient-rpt-select');
+  if(hidden) hidden.value=String(id);
+  syncRptSearchInput(); hideRptResults(); updateEpisodes();
+}
+
+function syncRptSearchInput() {
+  const inp=document.getElementById('patient-rpt-search');
+  const hidden=document.getElementById('patient-rpt-select');
+  if(!inp||!hidden) return;
+  const p=state.patients.find(x=>String(x.id)===String(hidden.value));
+  inp.value=p?p.name:'';
+}
+
+function hideRptResults() {
+  const r=document.getElementById('patient-rpt-results');
+  if(r) r.style.display='none';
+  _rptHi=-1;
+}
+
+function _paintRptHi() {
+  const res=document.getElementById('patient-rpt-results');
+  if(!res) return;
+  res.querySelectorAll('[data-i]').forEach(el=>{
+    const on=parseInt(el.getAttribute('data-i'),10)===_rptHi;
+    el.style.background=on?'#f5f5f0':'';
+    if(on) el.scrollIntoView({block:'nearest'});
+  });
+}
+
+export function rptSearchKeydown(e) {
+  const res=document.getElementById('patient-rpt-results');
+  const open=res&&res.style.display!=='none';
+  if(e.key==='ArrowDown'){ if(!open){filterPatientRptSelect();return;} _rptHi=Math.min(_rptHi+1,_rptResults.length-1); _paintRptHi(); e.preventDefault(); }
+  else if(e.key==='ArrowUp'){ _rptHi=Math.max(_rptHi-1,0); _paintRptHi(); e.preventDefault(); }
+  else if(e.key==='Enter'){ if(open&&_rptResults[_rptHi]){ selectRptPatient(String(_rptResults[_rptHi].id)); e.preventDefault(); } }
+  else if(e.key==='Escape'){ hideRptResults(); }
+}
+
+// Cerrar el desplegable al hacer click fuera del combo (espejo de search.js)
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#patient-rpt-combo')){
+    const r=document.getElementById('patient-rpt-results');
+    if(r) r.style.display='none';
+  }
+});
+
 export function updateEpisodes() {
+  syncRptSearchInput();
   const id=document.getElementById('patient-rpt-select').value;
   const p=state.patients.find(x=>String(x.id)===String(id));
   const ep=document.getElementById('patient-rpt-episode');

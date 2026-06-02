@@ -315,8 +315,8 @@
   }
 
   /* ── Informe paciente: selects en columna ── */
+  #patient-rpt-combo,
   #patient-rpt-search,
-  #patient-rpt-select,
   #patient-rpt-episode {
     width: 100% !important;
     min-width: 0 !important;
