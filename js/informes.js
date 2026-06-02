@@ -497,7 +497,7 @@ export function renderPatientReport() {
 
   let html=avisoEpisodio
   +`<div class="full-card" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px">
-      <div><div style="font-size:15px;font-weight:700;color:#1D9E75">Rehactiva <span style="font-weight:500;color:#6b6a64">— Rehabilitación y Fisioterapia</span></div>
+      <div><div style="font-size:15px;font-weight:700;color:var(--rh-blue)">Rehactiva <span style="font-weight:500;color:#6b6a64">— Rehabilitación y Fisioterapia</span></div>
       <div style="font-size:13px;font-weight:600;color:#1a1917;margin-top:2px">Informe de evolución</div></div>
       <div style="text-align:right;flex-shrink:0;font-size:11px;color:#6b6a64"><div>N.º ${rptNo}</div><div>${fechaLarga}</div></div>
     </div>`
@@ -580,10 +580,30 @@ export function renderPatientReport() {
     setTimeout(()=>{
       const ctx=document.getElementById('eva-evolution-chart'); if(!ctx) return;
       Chart.getChart(ctx)?.destroy();   // destruir chart previo del mismo canvas (evita "Canvas already in use")
-      new Chart(ctx,{type:'line',data:{labels:evaSes.map(s=>s.date),datasets:[
-        {label:'Dolor antes',data:evaSes.map(s=>s.pb),borderColor:'#E24B4A',tension:.3,fill:false},
-        {label:'Dolor después',data:evaSes.map(s=>s.pa!=null?s.pa:null),borderColor:'#1D9E75',tension:.3,fill:false,spanGaps:true}
-      ]},options:{responsive:true,animation:false,plugins:{legend:{labels:{font:{size:11},color:'#6b6a64'}}},scales:{y:{min:0,max:10,ticks:{stepSize:2,color:'#6b6a64',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}},x:{ticks:{color:'#6b6a64',font:{size:9}},grid:{display:false}}}}});
+      const ddmm=d=>String(d||'').slice(8,10)+'/'+String(d||'').slice(5,7);
+      // Línea ÚNICA consistente con la tarjeta "Dolor EVA inicial→actual":
+      // inicia en el dolor inicial (fp.pb) y termina en el dolor actual (lp.pa); en medio, el dolor tras cada sesión.
+      const startVal=(fp&&fp.pb!=null)?fp.pb:evaSes[0].pb;
+      const endVal=(lp&&lp.pa!=null)?lp.pa:evaSes[evaSes.length-1].pa;
+      const mid=evaSes.map(s=>s.pa!=null?s.pa:s.pb);
+      if(endVal!=null&&mid.length) mid[mid.length-1]=endVal;
+      const evaData=[startVal,...mid];
+      const evaLabels=['Inicio',...evaSes.map(s=>ddmm(s.date))];
+      // Bandas de referencia MUY tenues: leve (0-4) / moderado (5-7) / severo (8-10)
+      const evaBands={id:'evaBands',beforeDraw(c){
+        const a=c.chartArea, y=c.scales.y; if(!a) return;
+        [[7.5,10,'rgba(226,75,74,.06)'],[4.5,7.5,'rgba(224,168,80,.06)'],[0,4.5,'rgba(29,158,117,.06)']].forEach(b=>{
+          const yHi=y.getPixelForValue(b[1]),yLo=y.getPixelForValue(b[0]);
+          c.ctx.save();c.ctx.fillStyle=b[2];c.ctx.fillRect(a.left,yHi,a.right-a.left,yLo-yHi);c.ctx.restore();
+        });
+      }};
+      new Chart(ctx,{type:'line',
+        data:{labels:evaLabels,datasets:[{label:'Dolor EVA',data:evaData,borderColor:'#29ABE2',pointBackgroundColor:'#29ABE2',pointRadius:3,pointHoverRadius:4,borderWidth:2,tension:.25,fill:false,spanGaps:true}]},
+        options:{responsive:true,animation:false,
+          plugins:{legend:{display:false},tooltip:{callbacks:{label:it=>'EVA '+it.parsed.y}}},
+          scales:{y:{min:0,max:10,ticks:{stepSize:2,color:'#6b6a64',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},
+            x:{ticks:{color:'#6b6a64',font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{display:false}}}},
+        plugins:[evaBands]});
     },50);
   }
 }
@@ -614,7 +634,7 @@ export function exportarPDF() {
   });
   const tabla=sesLogPDF.length?'<table><thead><tr><th>Fecha</th><th>EVA (antes→después)</th><th>Técnicas</th><th>Observación</th></tr></thead><tbody>'+filas+'</tbody></table>':'<div style="color:#6b6a64;padding:12px 0">Sin sesiones registradas.</div>';
   const html='<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Informe — '+esc(p?.name||'Paciente')+'</title>'
-    +'<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;color:#1a1917;padding:30px;max-width:800px;margin:0 auto}h2{font-size:13px;font-weight:600;color:#1D9E75;margin:18px 0 8px;border-bottom:1px solid #e0efe8;padding-bottom:4px}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}.logo{font-size:18px;font-weight:700}.logo span{color:#1D9E75}.fecha{font-size:10px;color:#6b6a64}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.stat-box{background:#f5f5f0;border-radius:8px;padding:10px 12px;text-align:center}.stat-num{font-size:24px;font-weight:700;color:#1D9E75}.stat-lbl{font-size:10px;color:#6b6a64;text-transform:uppercase;letter-spacing:.05em}.info-row{display:flex;gap:6px;margin-bottom:4px}.info-lbl{font-size:10px;font-weight:600;color:#6b6a64;text-transform:uppercase;min-width:120px}.info-val{font-size:12px;color:#1a1917}table{width:100%;border-collapse:collapse;margin-top:8px}th{background:#f0f0e8;padding:7px 10px;font-size:10px;text-align:left;text-transform:uppercase;letter-spacing:.05em;color:#6b6a64}td{padding:7px 10px;border-bottom:1px solid #f0efe8;font-size:11px;color:#1a1917}.firma{margin-top:40px;text-align:center;width:240px;margin-left:auto}.firma .ln{border-top:1px solid #1a1917;padding-top:4px;font-size:11px;color:#6b6a64}@media print{body{padding:15px}button{display:none}}</style></head><body>'
+    +'<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;color:#1a1917;padding:30px;max-width:800px;margin:0 auto}h2{font-size:13px;font-weight:600;color:#1D9E75;margin:18px 0 8px;border-bottom:1px solid #e0efe8;padding-bottom:4px}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}.logo{font-size:18px;font-weight:700}.logo span{color:#29ABE2}.fecha{font-size:10px;color:#6b6a64}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.stat-box{background:#f5f5f0;border-radius:8px;padding:10px 12px;text-align:center}.stat-num{font-size:24px;font-weight:700;color:#1D9E75}.stat-lbl{font-size:10px;color:#6b6a64;text-transform:uppercase;letter-spacing:.05em}.info-row{display:flex;gap:6px;margin-bottom:4px}.info-lbl{font-size:10px;font-weight:600;color:#6b6a64;text-transform:uppercase;min-width:120px}.info-val{font-size:12px;color:#1a1917}table{width:100%;border-collapse:collapse;margin-top:8px}th{background:#f0f0e8;padding:7px 10px;font-size:10px;text-align:left;text-transform:uppercase;letter-spacing:.05em;color:#6b6a64}td{padding:7px 10px;border-bottom:1px solid #f0efe8;font-size:11px;color:#1a1917}.firma{margin-top:40px;text-align:center;width:240px;margin-left:auto}.firma .ln{border-top:1px solid #1a1917;padding-top:4px;font-size:11px;color:#6b6a64}@media print{body{padding:15px}button{display:none}}</style></head><body>'
     +'<div class="header"><div><div class="logo">Reha<span>ctiva</span></div><div style="font-size:10px;color:#6b6a64">Rehabilitación y Fisioterapia · Quito, Ecuador</div></div>'
     +'<div style="text-align:right"><div style="font-size:14px;font-weight:700">Informe de evolución</div><div class="fecha">N.º '+rptNo+' · '+fechaLarga+'</div>'
     +'<button onclick="window.print()" style="margin-top:8px;padding:6px 14px;background:#1D9E75;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px">🖨️ Imprimir / Guardar PDF</button></div></div>'

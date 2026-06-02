@@ -128,17 +128,6 @@ export function updateLastLoadedLabels() {
 }
 window._app.updateLastLoadedLabels = updateLastLoadedLabels;
 
-function renderRefreshControls() {
-  document.querySelectorAll('.main-header').forEach(header=>{
-    if(header.querySelector('.refresh-meta'))return;
-    const meta=document.createElement('div');
-    meta.className='refresh-meta';
-    meta.innerHTML='<button class="refresh-btn" onclick="refreshData()">Actualizar</button><span class="last-updated-label">Última actualización: nunca</span>';
-    header.appendChild(meta);
-  });
-  updateLastLoadedLabels();
-}
-
 export async function refreshData() {
   const result=await loadAll(true);
   if(result?.error)return;
@@ -236,9 +225,7 @@ initMobileMenu();
 initPatientValidation();
 initDoctorValidation();
 initProtocolValidation();
-renderRefreshControls();
 setupPatientSearch();
-setInterval(updateLastLoadedLabels,30000);
 renderGrid();
 updateFacturaBadge();
 initApp();
