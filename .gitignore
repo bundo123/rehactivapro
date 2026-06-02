@@ -25,5 +25,4 @@ dist-ssr
 
 .env
 .claude/
-   node_modules.zip
-   PROYECTO_ESTADO.md
+node_modules.zip
