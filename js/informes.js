@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, COLOR_OPTIONS, getDisplayAge } from './utils.js';
+import { apptSlots } from './agenda.js';
 import { genSemanalAI, genPatientAI, callAI } from './ia.js';
 import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';
@@ -66,28 +67,55 @@ export function hmCol(p){
   return '#0F6E56';
 }
 
+// Fuente ÚNICA de la semana visible (Lun–Vie) derivada de state.currentWeek.
+// La usan renderSemanal, renderTherapistUtil, renderHeatmap y renderInsights para que
+// las flechas de navegación muevan DATOS y rótulo de forma consistente.
+function semanaVisible() {
+  const base = new Date();
+  const s = new Date(base);
+  s.setDate(base.getDate() + state.currentWeek * 7 - (base.getDay() || 7) + 1);
+  const dates = [];
+  for (let i = 0; i < 5; i++) { const d = new Date(s); d.setDate(s.getDate() + i); dates.push(fmtDate(d)); }
+  return { start: s, dates };
+}
+
 export function renderHeatmap() {
+  const {dates:semDates}=semanaVisible();
+  // Ocupan agenda esta semana: confirmadas + pendientes (excluye no-asistencias).
+  const semAppts=state.appointments.filter(a=>semDates.includes(a.date)&&(a.status==='conf'||a.status==='pend'));
   let html=`<div class="heatmap-grid" style="grid-template-columns:50px repeat(5,1fr)"><div class="hm-hdr"></div>`;
   DAYS.forEach(d=>{html+=`<div class="hm-hdr">${d}</div>`;});
   ALL_HOURS.forEach(hr=>{
     html+=`<div class="hm-lbl">${hr}:00</div>`;
-    DAYS.forEach(d=>{
-      const av=state.therapists.filter(t=>hr>=t.startH&&hr<t.endH).length;
-      if(!av){html+=`<div class="hm-cell" style="background:#f0efe8"><span style="font-size:9px;color:#444">—</span></div>`;return;}
-      const occ=Math.min(av,Math.floor(hr>=9&&hr<=11?av*0.9:hr>=7&&hr<=8?av*0.75:hr===12||hr===13?av*0.4:av*0.55));
-      const p=Math.round(occ/av*100);
+    DAYS.forEach((d,di)=>{
+      const date=semDates[di];
+      // Capacidad = sub-slots de 30min cubiertos por los terapeutas en [hr, hr+1).
+      let cap=0;
+      state.therapists.forEach(t=>{ if(hr>=t.startH&&hr<t.endH)cap++; if(hr+0.5>=t.startH&&hr+0.5<t.endH)cap++; });
+      if(!cap){ html+=`<div class="hm-cell" style="background:#f0efe8"><span style="font-size:9px;color:#444">—</span></div>`; return; }
+      // Ocupados = sub-slots de citas (conf+pend) de ese día que caen en [hr, hr+1).
+      let occ=0;
+      semAppts.forEach(a=>{ if(a.date!==date)return; apptSlots(a).forEach(s=>{ if(s===hr||s===hr+0.5)occ++; }); });
+      const p=Math.round(occ/cap*100);
       const tc=p>=60?'#fff':'#1a1917';
-      html+=`<div class="hm-cell" style="background:${hmCol(p)};color:${tc}">${p}%<div class="tooltip-val">${d} ${hr}:00 — ${occ}/${av} · ${p}%</div></div>`;
+      html+=`<div class="hm-cell" style="background:${hmCol(p)};color:${tc}">${p}%<div class="tooltip-val">${d} ${hr}:00 — ${occ}/${cap} · ${p}%</div></div>`;
     });
   });
-  html+='</div>';document.getElementById('heatmap-container').innerHTML=html;
+  html+='</div>';
+  document.getElementById('heatmap-container').innerHTML=html;
+  renderHeatmapLegend();
+}
+
+// Leyenda derivada de hmCol() (un valor representativo por tramo) para que los swatches
+// concuerden SIEMPRE con lo pintado en las celdas.
+function renderHeatmapLegend() {
+  const el=document.getElementById('heatmap-legend'); if(!el) return;
+  const vals=[20,40,55,70,80,90,100];
+  el.innerHTML='<span>0%</span>'+vals.map(v=>`<div style="width:10px;height:10px;border-radius:2px;background:${hmCol(v)}"></div>`).join('')+'<span>100%</span>';
 }
 
 export function renderTherapistUtil() {
-  const semStart=new Date(state.currentDate);
-  semStart.setDate(semStart.getDate()-semStart.getDay()+1);
-  const semDates=[];
-  for(let i=0;i<5;i++){const d=new Date(semStart);d.setDate(semStart.getDate()+i);semDates.push(fmtDate(d));}
+  const {dates:semDates}=semanaVisible();
   document.getElementById('th-util-report').innerHTML=state.therapists.map(th=>{
     const ts=therapistHours(th).length*5;
     const us=state.appointments.filter(a=>a.therapistId===th.id&&semDates.includes(a.date)&&a.status==='conf').length;
@@ -105,24 +133,50 @@ export function renderTherapistUtil() {
 }
 
 export function renderInsights() {
-  const items=[
-    {bg:'#271d0e',tc:'#e0a850',icon:'!',t:'12:00-13:00 bajo el 40%',s:'Mediodía con baja ocupación.'},
-    {bg:'#0d2a21',tc:'#5ecfa0',icon:'↑',t:'09:00-11:00 al 90%+',s:'Mayor demanda. Evalúa otro terapeuta.'},
-    {bg:'#2b0f0f',tc:'#f07070',icon:'✕',t:'2 inasistencias sin aviso',s:'Lucía Herrera y Carlos Mendoza.'},
-    {bg:'#0d1e2e',tc:'#7ab8e8',icon:'i',t:'Turno mañana más ocupado',s:'Mixtos tienen más horas libres.'},
-  ];
-  document.getElementById('insights').innerHTML=items.map(x=>`<div class="insight-row"><div class="insight-icon" style="background:${x.bg};color:${x.tc}">${x.icon}</div><div><div class="insight-text">${x.t}</div><div class="insight-sub">${x.s}</div></div></div>`).join('');
+  const el=document.getElementById('insights'); if(!el) return;
+  const {dates:semDates}=semanaVisible();
+  const wk=state.appointments.filter(a=>semDates.includes(a.date));
+  const occ=wk.filter(a=>a.status==='conf'||a.status==='pend');
+  const noas=wk.filter(a=>a.status==='noas');
+  const items=[];
+
+  // Hora con más citas agendadas (conf+pend), por hora de inicio.
+  if(occ.length){
+    const byHour={};
+    occ.forEach(a=>{const h=Math.floor(a.hour);byHour[h]=(byHour[h]||0)+1;});
+    const top=Object.entries(byHour).sort((a,b)=>b[1]-a[1])[0];
+    if(top){
+      const h=+top[0], n=top[1];
+      items.push({bg:'#0d2a21',tc:'#1D9E75',icon:'↑',t:`${h}:00–${h+1}:00 es la franja con más citas`,s:`${n} cita${n>1?'s':''} agendada${n>1?'s':''} en ese horario.`});
+    }
+  }
+
+  // Terapeuta con más citas (iterando terapeutas para no perder el tipo del id).
+  if(occ.length&&state.therapists.length){
+    const top=state.therapists.map(th=>({th,n:occ.filter(a=>a.therapistId===th.id).length})).sort((a,b)=>b.n-a.n)[0];
+    if(top&&top.n>0) items.push({bg:'#0d1e2e',tc:'#7ab8e8',icon:'i',t:`${esc(top.th.name)} lidera la agenda`,s:`${top.n} cita${top.n>1?'s':''} esta semana.`});
+  }
+
+  // Inasistencias reales de la semana.
+  if(noas.length){
+    const pac=new Set(noas.map(a=>a.patientId)).size;
+    items.push({bg:'#2b0f0f',tc:'#E24B4A',icon:'✕',t:`${noas.length} inasistencia${noas.length>1?'s':''} esta semana`,s:`${pac} paciente${pac>1?'s':''} no asistió.`});
+  }
+
+  if(!items.length){
+    el.innerHTML='<div style="font-size:12px;color:#9c9a92;padding:8px 0">Sin datos suficientes para generar insights esta semana.</div>';
+    return;
+  }
+  el.innerHTML=items.map(x=>`<div class="insight-row"><div class="insight-icon" style="background:${x.bg};color:${x.tc}">${x.icon}</div><div><div class="insight-text">${x.t}</div><div class="insight-sub">${x.s}</div></div></div>`).join('');
 }
 
 export function changeWeek(d) {
   state.currentWeek+=d;
-  updateWeekLabel(); renderHeatmap(); renderTherapistUtil();
+  updateWeekLabel(); renderHeatmap(); renderTherapistUtil(); renderInsights();
 }
 
 export function updateWeekLabel() {
-  const base=new Date();
-  const s=new Date(base);
-  s.setDate(base.getDate()+state.currentWeek*7-(base.getDay()||7)+1);
+  const {start:s}=semanaVisible();
   const e=new Date(s);e.setDate(s.getDate()+4);
   const f=x=>`${x.getDate()}/${x.getMonth()+1}`;
   document.getElementById('week-lbl').textContent=`Semana ${f(s)} – ${f(e)} ${e.getFullYear()}`;
@@ -130,11 +184,8 @@ export function updateWeekLabel() {
 
 export function renderSemanal() {
   updateWeekLabel();
-  const semStart=new Date(state.currentDate);
-  semStart.setDate(semStart.getDate()-semStart.getDay()+1);
+  const {start:semStart,dates:semDates}=semanaVisible();
   const semEnd=new Date(semStart);semEnd.setDate(semStart.getDate()+4);
-  const semDates=[];
-  for(let i=0;i<5;i++){const d=new Date(semStart);d.setDate(semStart.getDate()+i);semDates.push(fmtDate(d));}
   const semAppts=state.appointments.filter(a=>semDates.includes(a.date));
   const conf=semAppts.filter(a=>a.status==='conf');
   const noas=semAppts.filter(a=>a.status==='noas');

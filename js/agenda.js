@@ -6,7 +6,7 @@ import { dbUpdateApptStatus, dbUpdateBillingPendientes, dbRegistrarCobro } from 
 import { hasPermission } from './permissions.js';
 
 // ── Helpers de slots/duración ──
-function apptSlots(a) {
+export function apptSlots(a) {
   const spans = Math.max(1, Math.round((a.duration || 60) / 30));
   const slots = [];
   for (let i = 0; i < spans; i++) slots.push(+(a.hour + i * 0.5).toFixed(1));
