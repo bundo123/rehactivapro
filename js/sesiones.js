@@ -9,7 +9,8 @@ export const PRO_TECNICAS = [
   'Laser','Ultrasonido','Masoterapia','Movilidad pasiva',
   'Movilidad activa','Fortalecimiento','Estiramientos','Reeducación postural',
   'Reeducación marcha','Propiocepción','Terapia manual','Vendaje funcional',
-  'Punción seca','Tracción lumbar/cervical','Kinesioterapia','Ejercicio terapéutico'
+  'Punción seca','Tracción lumbar/cervical','Kinesioterapia',
+  'Láser de alta potencia','Ondas de choque'
 ];
 let proTecnicasSel = [];
 let _pendingSessionAppt = null;
