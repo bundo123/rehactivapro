@@ -67,6 +67,14 @@ export function hmCol(p){
   return '#0F6E56';
 }
 
+// Color por umbral del % de Sesiones (progreso): ≥66 verde / 33–65 amarillo / <33 rojo.
+// (Continuidad usa su propia escala 85/70, no esta.)
+function pctColor(v){ return v>=66?'#1D9E75':v>=33?'#BA7517':'#E24B4A'; }
+// Color del dolor EVA por valor: 6–10 rojo / 2–5 verde / 0–1 azul.
+function evaColor(v){ return v>=6?'#E24B4A':v>=2?'#1D9E75':'#29ABE2'; }
+// Fecha 'YYYY-MM-DD' → 'DD/MM/YYYY' (para el detalle del informe, sin hora).
+function dmy(d){ const p=String(d||'').split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:String(d||''); }
+
 // Fuente ÚNICA de la semana visible (Lun–Vie) derivada de state.currentWeek.
 // La usan renderSemanal, renderTherapistUtil, renderHeatmap y renderInsights para que
 // las flechas de navegación muevan DATOS y rótulo de forma consistente.
@@ -536,7 +544,7 @@ export function renderPatientReport() {
   const epThIds=[...new Set(log.filter(s=>s.therapistId).map(s=>String(s.therapistId)))];
   const thHeader=epThIds.length===0?'—':epThIds.length===1?(getTherapist(epThIds[0])?.name||'—'):'Varios';
   const withThLog=log.filter(s=>s.therapistId);
-  const thFirma=withThLog.length?(getTherapist(withThLog[withThLog.length-1].therapistId)?.name||'Terapeuta tratante'):'Terapeuta tratante';
+  const thFirma=withThLog.length?(getTherapist(withThLog[withThLog.length-1].therapistId)?.name||''):'';
   const sesCompletas=doneNow>=(p.sessions||1)&&p.sessions>0;
   let sp='';
   if(p.status==='alta'||sesCompletas) sp='<span class="pill pb">Alta médica</span>';
@@ -558,8 +566,9 @@ export function renderPatientReport() {
 
   let html=avisoEpisodio
   +`<div class="full-card" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px">
-      <div><div style="font-size:15px;font-weight:700;color:var(--rh-blue)">Rehactiva <span style="font-weight:500;color:#6b6a64">— Rehabilitación y Fisioterapia</span></div>
-      <div style="font-size:13px;font-weight:600;color:#1a1917;margin-top:2px">Informe de evolución</div></div>
+      <div><div class="logo-text"><span class="w">Rehactiva</span><span class="g">Pro</span></div>
+      <div style="font-size:11px;color:#6b6a64;margin-top:3px">Rehabilitación y Fisioterapia · Quito, Ecuador</div>
+      <div style="font-size:13px;font-weight:600;color:#1a1917;margin-top:6px">Informe de evolución</div></div>
       <div style="text-align:right;flex-shrink:0;font-size:11px;color:#6b6a64"><div>N.º ${rptNo}</div><div>${fechaLarga}</div></div>
     </div>`
   +`<div class="full-card" style="margin-bottom:14px">
@@ -582,24 +591,27 @@ export function renderPatientReport() {
     </div>`
   +`<div class="three-col" style="margin-bottom:14px">
       <div class="card"><div class="card-title">Sesiones</div><div style="text-align:center">
-        <div style="font-size:28px;font-weight:600;color:#1D9E75">${pct}%</div>
+        <div style="font-size:28px;font-weight:600;color:${pctColor(pct)}">${pct}%</div>
         <div style="font-size:11px;color:#6b6a64;margin:3px 0 8px">${epDone} de ${epSessions} sesiones</div>
-        <div class="bar-wrap" style="height:6px"><div class="bar-fill" style="width:${pct}%;background:#1D9E75"></div></div></div></div>
+        <div class="bar-wrap" style="height:6px"><div class="bar-fill" style="width:${pct}%;background:${pctColor(pct)}"></div></div></div></div>
       <div class="card"><div class="card-title">Continuidad</div><div style="text-align:center">
         <div style="font-size:28px;font-weight:600;color:${ac}">${adh}%</div>
         <div style="font-size:11px;color:#6b6a64;margin:3px 0 8px">${attended.length} asist. / ${log.length} citas</div></div></div>
       <div class="card"><div class="card-title">Dolor EVA</div><div style="text-align:center">${fp&&lp&&fp.pb!=null?`
         <div style="display:flex;justify-content:center;align-items:center;gap:14px;padding:6px 0">
-          <div><div style="font-size:26px;font-weight:600;color:#E24B4A">${fp.pb}</div><div style="font-size:10px;color:#6b6a64">Inicial</div></div>
+          <div><div style="font-size:26px;font-weight:600;color:${evaColor(fp.pb)}">${fp.pb}</div><div style="font-size:10px;color:#6b6a64">Inicial</div></div>
           <div style="color:#6b6a64;font-size:18px">→</div>
-          <div><div style="font-size:26px;font-weight:600;color:#1D9E75">${lp.pa!=null?lp.pa:'?'}</div><div style="font-size:10px;color:#6b6a64">Actual</div></div>
+          <div><div style="font-size:26px;font-weight:600;color:${lp.pa!=null?evaColor(lp.pa):'#6b6a64'}">${lp.pa!=null?lp.pa:'?'}</div><div style="font-size:10px;color:#6b6a64">Actual</div></div>
         </div>`:'<div style="font-size:13px;color:#6b6a64;padding:16px 0">Sin datos EVA</div>'}</div></div>
     </div>`
   +(evaSes.length?`<div class="full-card" style="margin-bottom:14px"><div class="card-title" style="margin-bottom:8px">Evolución del dolor (EVA)</div><canvas id="eva-evolution-chart" height="90"></canvas></div>`:'')
   +`<div class="full-card" style="margin-bottom:14px"><div class="card-title" style="margin-bottom:8px">Narrativa clínica (IA)</div>
       <div id="patient-rpt-ai-output" style="font-size:13px;color:#6b6a64">— <span style="font-size:11px">(usá «Informe IA» para generar la evolución)</span></div></div>`;
 
-  const sesLog=[...log].reverse().filter(s=>s.type!=='Fin de episodio');
+  // Orden del detalle: 'Evaluación inicial' SIEMPRE primero (punto de partida), luego el resto
+  // cronológico ascendente (log ya viene ordenado por fecha). Sin reverse.
+  const sesAsc=log.filter(s=>s.type!=='Fin de episodio');
+  const sesLog=[...sesAsc.filter(s=>s.type==='Evaluación inicial'),...sesAsc.filter(s=>s.type!=='Evaluación inicial')];
   if(sesLog.length){
     const thc=(t,al)=>`<th style="text-align:${al||'left'};font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#6b6a64;padding:6px 8px;border-bottom:1px solid rgba(29,158,117,.15)">${t}</th>`;
     const canEdit=hasPermission('registerSession');
@@ -620,7 +632,7 @@ export function renderPatientReport() {
         const inner=(eBtn+dBtn)||'<span style="color:#c8c6c0">—</span>';
         acc=`<td style="${td};text-align:center;white-space:nowrap"><div style="display:flex;gap:5px;justify-content:center">${inner}</div></td>`;
       }
-      html+=`<tr><td style="${td};color:#1a1917;white-space:nowrap">${s.date}<div style="font-size:10px;color:#9c9a92">${s.hour||''}</div></td>
+      html+=`<tr><td style="${td};color:#1a1917;white-space:nowrap">${dmy(s.date)}</td>
         <td style="${td};color:#1a1917;white-space:nowrap">${esc(thName)}</td>
         <td style="${td};text-align:center;color:#1a1917">${eva}</td>
         <td style="${td};color:#6b6a64">${esc(tec)}</td>
@@ -651,10 +663,11 @@ export function renderPatientReport() {
       if(endVal!=null&&mid.length) mid[mid.length-1]=endVal;
       const evaData=[startVal,...mid];
       const evaLabels=['Inicio',...evaSes.map(s=>ddmm(s.date))];
-      // Bandas de referencia MUY tenues: leve (0-4) / moderado (5-7) / severo (8-10)
+      // Bandas de referencia: leve (0-4) / moderado (5-7) / severo (8-10). Alpha más marcado
+      // (~.13-.16) para que el terapeuta las distinga, sin tapar la curva coral (2px saturada).
       const evaBands={id:'evaBands',beforeDraw(c){
         const a=c.chartArea, y=c.scales.y; if(!a) return;
-        [[7.5,10,'rgba(226,75,74,.06)'],[4.5,7.5,'rgba(224,168,80,.06)'],[0,4.5,'rgba(29,158,117,.06)']].forEach(b=>{
+        [[7.5,10,'rgba(226,75,74,.16)'],[4.5,7.5,'rgba(224,168,80,.15)'],[0,4.5,'rgba(29,158,117,.13)']].forEach(b=>{
           const yHi=y.getPixelForValue(b[1]),yLo=y.getPixelForValue(b[0]);
           c.ctx.save();c.ctx.fillStyle=b[2];c.ctx.fillRect(a.left,yHi,a.right-a.left,yLo-yHi);c.ctx.restore();
         });
@@ -684,21 +697,25 @@ export function exportarPDF() {
 
   const win=window.open('','_blank');
   if(!win){window._app.toastErr('Permite ventanas emergentes para exportar PDF');return;}
-  // Mismo filtrado y conteo que la pantalla: sin marcadores 'Fin de episodio'
-  const sesLogPDF=[...log].reverse().filter(s=>s.type!=='Fin de episodio');
-  const evaTxt=fp&&lp&&fp.pb!=null?(fp.pb+'→'+(lp.pa!=null?lp.pa:'?')):'—';
+  // Mismo orden que la pantalla: 'Evaluación inicial' primero, luego el resto ascendente. Sin reverse.
+  const sesAscPDF=log.filter(s=>s.type!=='Fin de episodio');
+  const sesLogPDF=[...sesAscPDF.filter(s=>s.type==='Evaluación inicial'),...sesAscPDF.filter(s=>s.type!=='Evaluación inicial')];
+  // Dolor EVA con cada número coloreado por valor (6-10 rojo / 2-5 verde / 0-1 azul).
+  const evaTxt=fp&&lp&&fp.pb!=null
+    ?'<span style="color:'+evaColor(fp.pb)+'">'+fp.pb+'</span><span style="color:#6b6a64">→</span><span style="color:'+(lp.pa!=null?evaColor(lp.pa):'#6b6a64')+'">'+(lp.pa!=null?lp.pa:'?')+'</span>'
+    :'—';
   const adhCol=adh>=85?'#1D9E75':adh>=70?'#BA7517':'#E24B4A';
   let filas='';
   sesLogPDF.forEach(function(s){
     const eva=s.pb!=null?s.pb+'→'+(s.pa!=null?s.pa:'?'):'—';
     const tec=(s.tags&&s.tags.length)?esc(s.tags.join(', ')):'—';
     const thName=getTherapist(s.therapistId)?.name||'—';
-    filas+='<tr><td>'+s.date+(s.hour?' '+s.hour:'')+'</td><td>'+esc(thName)+'</td><td style="text-align:center">'+eva+'</td><td>'+tec+'</td><td style="font-size:10px;color:#6b6a64">'+(s.note?esc(s.note):'—')+'</td></tr>';
+    filas+='<tr><td>'+dmy(s.date)+'</td><td>'+esc(thName)+'</td><td style="text-align:center">'+eva+'</td><td>'+tec+'</td><td style="font-size:10px;color:#6b6a64">'+(s.note?esc(s.note):'—')+'</td></tr>';
   });
   const tabla=sesLogPDF.length?'<table><thead><tr><th>Fecha</th><th>Terapeuta</th><th>EVA (antes→después)</th><th>Técnicas</th><th>Observación</th></tr></thead><tbody>'+filas+'</tbody></table>':'<div style="color:#6b6a64;padding:12px 0">Sin sesiones registradas.</div>';
   const html='<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Informe — '+esc(p?.name||'Paciente')+'</title>'
-    +'<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;color:#1a1917;padding:30px;max-width:800px;margin:0 auto}h2{font-size:13px;font-weight:600;color:#1D9E75;margin:18px 0 8px;border-bottom:1px solid #e0efe8;padding-bottom:4px}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}.logo{font-size:18px;font-weight:700}.logo span{color:#29ABE2}.fecha{font-size:10px;color:#6b6a64}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.stat-box{background:#f5f5f0;border-radius:8px;padding:10px 12px;text-align:center}.stat-num{font-size:24px;font-weight:700;color:#1D9E75}.stat-lbl{font-size:10px;color:#6b6a64;text-transform:uppercase;letter-spacing:.05em}.info-row{display:flex;gap:6px;margin-bottom:4px}.info-lbl{font-size:10px;font-weight:600;color:#6b6a64;text-transform:uppercase;min-width:120px}.info-val{font-size:12px;color:#1a1917}table{width:100%;border-collapse:collapse;margin-top:8px}th{background:#f0f0e8;padding:7px 10px;font-size:10px;text-align:left;text-transform:uppercase;letter-spacing:.05em;color:#6b6a64}td{padding:7px 10px;border-bottom:1px solid #f0efe8;font-size:11px;color:#1a1917}.firma{margin-top:40px;text-align:center;width:240px;margin-left:auto}.firma .ln{border-top:1px solid #1a1917;padding-top:4px;font-size:11px;color:#6b6a64}@media print{body{padding:15px}button{display:none}}</style></head><body>'
-    +'<div class="header"><div><div class="logo">Reha<span>ctiva</span></div><div style="font-size:10px;color:#6b6a64">Rehabilitación y Fisioterapia · Quito, Ecuador</div></div>'
+    +'<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;color:#1a1917;padding:30px;max-width:800px;margin:0 auto}h2{font-size:13px;font-weight:600;color:#1a1917;margin:18px 0 8px;border-bottom:1px solid #d8d8d2;padding-bottom:4px}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}.logo{font-size:18px;font-weight:700}.logo span{color:#29ABE2}.fecha{font-size:10px;color:#6b6a64}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.stat-box{background:#f5f5f0;border-radius:8px;padding:10px 12px;text-align:center}.stat-num{font-size:24px;font-weight:700;color:#1D9E75}.stat-lbl{font-size:10px;color:#6b6a64;text-transform:uppercase;letter-spacing:.05em}.info-row{display:flex;gap:6px;margin-bottom:4px}.info-lbl{font-size:10px;font-weight:600;color:#6b6a64;text-transform:uppercase;min-width:120px}.info-val{font-size:12px;color:#1a1917}table{width:100%;border-collapse:collapse;margin-top:8px}th{background:#f0f0e8;padding:7px 10px;font-size:10px;text-align:left;text-transform:uppercase;letter-spacing:.05em;color:#6b6a64}td{padding:7px 10px;border-bottom:1px solid #f0efe8;font-size:11px;color:#1a1917}.firma{margin-top:40px;text-align:center;width:240px;margin-left:auto}.firma .ln{border-top:1px solid #1a1917;padding-top:4px;font-size:11px;color:#6b6a64}@media print{body{padding:15px}button{display:none}}</style></head><body>'
+    +'<div class="header"><div><div class="logo"><span style="color:#29ABE2">Rehactiva</span> <span style="font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#F5A623;background:rgba(245,166,35,.14);padding:2px 7px;border-radius:5px;line-height:1">PRO</span></div><div style="font-size:10px;color:#6b6a64;margin-top:3px">Rehabilitación y Fisioterapia · Quito, Ecuador</div></div>'
     +'<div style="text-align:right"><div style="font-size:14px;font-weight:700">Informe de evolución</div><div class="fecha">N.º '+rptNo+' · '+fechaLarga+'</div>'
     +'<button onclick="window.print()" style="margin-top:8px;padding:6px 14px;background:#1D9E75;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px">🖨️ Imprimir / Guardar PDF</button></div></div>'
     +'<h2>Datos del paciente</h2>'
@@ -710,7 +727,7 @@ export function exportarPDF() {
     +'<div class="info-row"><span class="info-lbl">Doctor referente</span><span class="info-val">'+(doc?esc(doc.name+' ('+doc.spec+')'):'Independiente')+'</span></div>'
     +'<div class="info-row"><span class="info-lbl">Inicio de tratamiento</span><span class="info-val">'+inicio+'</span></div>'
     +'<h2>Resumen de evolución</h2>'
-    +'<div class="grid3"><div class="stat-box"><div class="stat-num">'+pct+'%</div><div class="stat-lbl">Sesiones</div><div style="font-size:10px;color:#6b6a64">'+doneActual(p)+' de '+(p?.sessions||0)+'</div></div>'
+    +'<div class="grid3"><div class="stat-box"><div class="stat-num" style="color:'+pctColor(pct)+'">'+pct+'%</div><div class="stat-lbl">Sesiones</div><div style="font-size:10px;color:#6b6a64">'+doneActual(p)+' de '+(p?.sessions||0)+'</div></div>'
     +'<div class="stat-box"><div class="stat-num" style="color:'+adhCol+'">'+adh+'%</div><div class="stat-lbl">Continuidad</div><div style="font-size:10px;color:#6b6a64">'+attended.length+' / '+log.length+'</div></div>'
     +'<div class="stat-box"><div class="stat-num">'+evaTxt+'</div><div class="stat-lbl">Dolor EVA</div><div style="font-size:10px;color:#6b6a64">inicial → actual</div></div></div>'
     +(evaImg?'<h2>Evolución del dolor (EVA)</h2><img src="'+evaImg+'" style="max-width:100%;border:1px solid #eee;border-radius:6px">':'')
