@@ -111,3 +111,36 @@ export function getFullAge(p) {
   if (p.age) return `${p.age} año${p.age === 1 ? '' : 's'}`;
   return 'Sin edad';
 }
+
+// ── FUENTE ÚNICA de done/pendientes (derivados de session_log, nunca de columnas almacenadas) ──
+// Frontera del episodio actual = fecha del último 'Fin de episodio' en session_log (null si no hay).
+function lastFinDate(p) {
+  const fins = (p?.log || []).filter(s => s.type === 'Fin de episodio').map(s => s.date).sort();
+  return fins.length ? fins[fins.length - 1] : null;
+}
+
+// Sesiones realizadas en el episodio ACTUAL. Función pura, fuente única = session_log.
+// = filas status 'asistió', excluyendo los marcadores 'Evaluación inicial' y 'Fin de episodio',
+//   con date posterior al último 'Fin de episodio'.
+export function doneActual(p) {
+  if (!p) return 0;
+  const lastFin = lastFinDate(p);
+  return (p.log || []).filter(s =>
+    s.status === 'asistió' &&
+    s.type !== 'Evaluación inicial' &&
+    s.type !== 'Fin de episodio' &&
+    (!lastFin || s.date > lastFin)
+  ).length;
+}
+
+// Sesiones del episodio actual pendientes de cobro. Función pura, derivada.
+// = max(0, doneActual − sesiones ya cobradas en el episodio actual).
+// "Cobradas del episodio" = facturas cuya fecha cae después del último 'Fin de episodio'.
+export function pendientesActual(p) {
+  if (!p || !p.billing) return 0;
+  const lastFin = lastFinDate(p);
+  const cobradasEp = (p.billing.facturas || [])
+    .filter(f => !lastFin || (f.fecha || '') > lastFin)
+    .reduce((s, f) => s + (f.n || 0), 0);
+  return Math.max(0, doneActual(p) - cobradasEp);
+}

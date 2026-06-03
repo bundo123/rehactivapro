@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { esc, getPatient } from './utils.js';
+import { esc, getPatient, doneActual } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { dbSaveProtocol, dbDeleteProtocol } from './auth.js';
@@ -160,7 +160,7 @@ export function getProtocolRows() {
       const kw=prot.diag.toLowerCase().split(',').map(k=>k.trim());
       if(!kw.some(k=>p.diag.toLowerCase().includes(k)))return;
       const adh=p.log.length>0?Math.round(p.log.filter(s=>s.status==='asistió').length/p.log.length*100):0;
-      const exp=Math.min(100,Math.round((p.done/prot.sessions)*100));
+      const exp=Math.min(100,Math.round((doneActual(p)/prot.sessions)*100));
       rows.push({p,prot,adh,exp,fl});
     });
   });

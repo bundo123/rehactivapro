@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { esc, getPatient, getTherapist, getDoctor, fmtDate, getInitials } from './utils.js';
+import { esc, getPatient, getTherapist, getDoctor, fmtDate, getInitials, pendientesActual } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { dbRegistrarCobro } from './auth.js';
@@ -13,7 +13,7 @@ let _sort    = 'urgente';
 function billingInfo(p, spf) {
   const sesTotal        = p.sessions || 0;
   const sesYaCobradas   = (p.billing.facturas || []).reduce((s, f) => s + f.n, 0);
-  const sesPend         = p.billing.pendientes || 0;
+  const sesPend         = pendientesActual(p);
   const cobrosRealizados = (p.billing.facturas || []).length;
   const totalCobros     = Math.floor(sesTotal / spf) + (sesTotal % spf > 0 ? 1 : 0);
   const esCierre        = sesPend > 0 && sesPend < spf && (sesYaCobradas + sesPend) >= sesTotal;
@@ -29,7 +29,7 @@ function matchesSearch(p) {
 function applySort(list) {
   if (_sort === 'nombre')   return [...list].sort((a, b) => a.name.localeCompare(b.name, 'es'));
   if (_sort === 'sesiones') return [...list].sort((a, b) => (b.sessions || 0) - (a.sessions || 0));
-  return [...list].sort((a, b) => (b.billing?.pendientes || 0) - (a.billing?.pendientes || 0));
+  return [...list].sort((a, b) => pendientesActual(b) - pendientesActual(a));
 }
 
 function renderAlertCard(count, visibleCount) {
@@ -209,13 +209,15 @@ export function renderFacturacion() {
   updateFacturaBadge();
   const spf = parseInt(document.getElementById('global-spf').value) || 5;
 
-  const listos = state.patients.filter(p => p.billing && p.billing.pendientes >= spf);
+  const listos = state.patients.filter(p => p.billing && pendientesActual(p) >= spf);
   const cierre = state.patients.filter(p => {
-    if (!p.billing || p.billing.pendientes <= 0 || p.billing.pendientes >= spf) return false;
+    const pend = pendientesActual(p);
+    if (!p.billing || pend <= 0 || pend >= spf) return false;
     return billingInfo(p, spf).esCierre;
   });
   const enCurso = state.patients.filter(p => {
-    if (!p.billing || p.billing.pendientes <= 0 || p.billing.pendientes >= spf) return false;
+    const pend = pendientesActual(p);
+    if (!p.billing || pend <= 0 || pend >= spf) return false;
     return !billingInfo(p, spf).esCierre;
   });
 
@@ -307,16 +309,15 @@ export function renderFacturacion() {
 export async function emitirFactura(patientId) {
   if (!hasPermission('emitirFactura')) { toastErr('No tienes permisos para emitir cobros.'); return; }
   const p = getPatient(patientId); if (!p || !p.billing) return;
-  const n = p.billing.pendientes;
+  const n = pendientesActual(p);
   const fId = 'F' + (++state.facturaCounter).toString().padStart(3, '0');
   const today = fmtDate(new Date());
+  // Registrar el cobro mueve pendientesActual a 0 por sí solo (cobradas del episodio += n).
   p.billing.facturas.push({ id: fId, n, fecha: today, estado: 'cobrada' });
-  p.billing.pendientes = 0;
   updateFacturaBadge(); renderFacturacion();
   const { error } = await dbRegistrarCobro(p.id, n, fId);
   if (error) {
     p.billing.facturas = p.billing.facturas.filter(f => f.id !== fId);
-    p.billing.pendientes = n;
     state.facturaCounter--;
     updateFacturaBadge(); renderFacturacion();
     toastErr('Error al registrar el cobro. Refresca la página.');
@@ -329,10 +330,12 @@ export async function emitirFactura(patientId) {
 export async function marcarTodosFacturados() {
   if (!hasPermission('emitirFactura')) { toastErr('No tienes permisos para emitir cobros.'); return; }
   const spf = parseInt(document.getElementById('global-spf').value) || 5;
-  const listos = state.patients.filter(p => p.billing && (
-    p.billing.pendientes >= spf ||
-    (p.billing.pendientes > 0 && (p.billing.facturas.reduce((s, f) => s + f.n, 0) + p.billing.pendientes) >= p.sessions)
-  ));
+  const listos = state.patients.filter(p => {
+    if (!p.billing) return false;
+    const pend = pendientesActual(p);
+    return pend >= spf ||
+      (pend > 0 && (p.billing.facturas.reduce((s, f) => s + f.n, 0) + pend) >= p.sessions);
+  });
   const paracobrar = listos.filter(matchesSearch);
   if (!paracobrar.length) return;
   if (!confirm(`¿Cobrar a ${paracobrar.length} paciente${paracobrar.length !== 1 ? 's' : ''}?`)) return;

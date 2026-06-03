@@ -1,8 +1,8 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor } from './utils.js';
+import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor, pendientesActual } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
-import { dbUpdateApptStatus, dbUpdateBillingPendientes, dbRegistrarCobro } from './auth.js';
+import { dbUpdateApptStatus } from './auth.js';
 import { hasPermission } from './permissions.js';
 
 // ── Helpers de slots/duración ──
@@ -28,9 +28,16 @@ export function renderRefLegend() {
 }
 
 export function updateFacturaBadge() {
-  const n=state.patients.filter(p=>p.billing&&p.billing.pendientes>=p.billing.sesPerFactura).length;
+  const n=state.patients.filter(p=>p.billing&&pendientesActual(p)>=p.billing.sesPerFactura).length;
   const b=document.getElementById('factura-badge');if(!b)return;
   b.textContent=n; b.style.display=n>0?'':'none';
+}
+
+// Aviso "paciente listo para facturar". Se dispara desde las rutas de sesión (saveSession/
+// saveSessionManual) SOLO al cruzar el umbral sesPerFactura (no en cada sesión por encima).
+export function showBillingAlert(pt) {
+  const msg=`🧾 ${pt.name} llegó a ${pt.billing.sesPerFactura} citas — ¡hora de facturar!\n\nCI: ${pt.cedula||'—'}  ·  ${pt.email||'sin correo'}\n\n¿Ir a Facturación ahora?`;
+  if(confirm(msg)) window._app.showTab('facturacion');
 }
 
 export function checkAutoNoas() {
@@ -127,10 +134,9 @@ export function renderGrid() {
             const a=state.appointments.find(x=>x.id===state.dragData);
             if(a){
               if(!conflictsWithExisting(a.date,th.id,hr,a.duration||60,a.id)){
-                const prevStatus=a.status;
                 a.therapistId=th.id;a.hour=hr;renderGrid();
-                // Reubicación: status sin cambio -> commit solo persiste posición, NO toca contadores.
-                await commitApptChange(a, prevStatus, {hour:hr, therapist_id:th.id});
+                // Reubicación: commit solo persiste la nueva posición de la fila.
+                await commitApptChange(a, {hour:hr, therapist_id:th.id});
               } else alert('Conflicto: el terapeuta ya tiene una cita en ese horario.');
             }
           }
@@ -187,86 +193,30 @@ export function renderGrid() {
 // ¿Es un id real de DB? Excluye numéricos optimistas Y los 'rec-' (M2: no matchean ninguna fila).
 const esRealApptId = id => typeof id === 'string' && !id.startsWith('rec-');
 
-// Primitivo único: ajusta done + billing de UN paciente por un delta (±1).
-// Memoria SIEMPRE (UI coherente en la sesión); DB solo si la cita es id real (rec = memoria sí, DB no).
-function adjustCounters(patientId, delta, realAppt) {
-  const pt = getPatient(patientId); if (!pt) return;
-  if (pt.billing) {
-    pt.billing.pendientes = Math.max(0, (pt.billing.pendientes || 0) + delta);
-    if (delta > 0 && pt.billing.pendientes >= pt.billing.sesPerFactura) showBillingAlert(pt);
-    if (realAppt) dbUpdateBillingPendientes(patientId, pt.billing.pendientes);
-  }
-  pt.done = Math.max(0, (pt.done || 0) + delta);
-  if (realAppt) {
-    supa.from('patients').update({ done: pt.done }).eq('id', patientId)
-      .then(({ error }) => { if (error) toastErr('No se pudo actualizar las sesiones. Refresca la página.'); });
-  }
-}
-
-// Side-effects de un cambio de status SOBRE EL MISMO paciente: ±1 solo al cruzar 'conf'.
-function applyStatusSideEffects(appt, prevStatus, realAppt) {
-  const enteringConf = appt.status === 'conf' && prevStatus !== 'conf';
-  const leavingConf  = appt.status !== 'conf' && prevStatus === 'conf';
-  if (enteringConf)      adjustCounters(appt.patientId, +1, realAppt);
-  else if (leavingConf)  adjustCounters(appt.patientId, -1, realAppt);
-}
-
-// ÚNICO punto de cambio de una cita: persiste los campos dados + aplica done/billing.
-// prevPatientId permite la TRANSFERENCIA cuando el modal cambia el paciente (default: mismo paciente).
-async function commitApptChange(appt, prevStatus, dbFields, prevPatientId = appt.patientId) {
-  const real = esRealApptId(appt.id);
-  // 1) Persistir la fila (solo ids reales). El wrapper supa.from auto-marca markLocalChange (anti-eco).
-  if (real) {
-    try {
-      const { error } = await supa.from('appointments').update(dbFields).eq('id', appt.id);
-      if (error) { toastErr('No se pudo guardar el cambio de la cita: ' + error.message); return false; }
-    } catch (e) { toastErr('Error de conexión al guardar el cambio de la cita.'); return false; }
-  }
-  // 2) done + billing
-  if (String(prevPatientId) === String(appt.patientId)) {
-    applyStatusSideEffects(appt, prevStatus, real);            // mismo paciente: cruce de conf
-  } else {
-    // Cambió el paciente: cada uno recibe el delta de SU pertenencia a conf (sin doble-conteo).
-    if (prevStatus === 'conf')   adjustCounters(prevPatientId, -1, real);
-    if (appt.status === 'conf')  adjustCounters(appt.patientId, +1, real);
-  }
+// ÚNICO punto de cambio de una cita: persiste los campos dados en la fila (solo ids reales).
+// done/billing NO se tocan aquí: derivan de session_log vía doneActual/pendientesActual.
+async function commitApptChange(appt, dbFields) {
+  if (!esRealApptId(appt.id)) return true;   // numéricos optimistas / 'rec-': solo memoria
+  try {
+    const { error } = await supa.from('appointments').update(dbFields).eq('id', appt.id);
+    if (error) { toastErr('No se pudo guardar el cambio de la cita: ' + error.message); return false; }
+  } catch (e) { toastErr('Error de conexión al guardar el cambio de la cita.'); return false; }
   return true;
-}
-
-export function showBillingAlert(pt) {
-  const msg=`🧾 ${pt.name} llegó a ${pt.billing.sesPerFactura} citas — ¡hora de facturar!\n\nCI: ${pt.cedula||'—'}  ·  ${pt.email||'sin correo'}\n\n¿Ir a Facturación ahora?`;
-  if(confirm(msg)) window._app.showTab('facturacion');
 }
 
 export async function cycleStatus(id) {
   const a=state.appointments.find(x=>x.id===id);if(!a)return;
-  const prevStatus=a.status;
   const c=['conf','pend','noas'];
   a.status=c[(c.indexOf(a.status)+1)%3];
   renderGrid(); window._app.updateResumenBadge(); updateFacturaBadge();
-  await commitApptChange(a, prevStatus, {status:a.status});   // mismo paciente -> prevPatientId default
+  await commitApptChange(a, {status:a.status});   // solo persiste la fila
 }
 
 export async function delAppt(id,e) {
   if(e) e.stopPropagation();
   if(!hasPermission('deleteAppt')){toastErr('No tienes permisos para eliminar citas.');return;}
   if(!confirm('¿Eliminar esta cita?')) return;
-  const cita=state.appointments.find(a=>a.id===id);
-  if(cita&&cita.status==='conf'&&cita.patientId){
-    const pt=getPatient(cita.patientId);
-    if(pt){
-      const newDone=Math.max(0,(pt.done||0)-1);
-      pt.done=newDone;
-      if(typeof cita.patientId==='string'){
-        const{error:_doneErr}=await supa.from('patients').update({done:newDone}).eq('id',cita.patientId);
-        if(_doneErr) toastErr('No se pudo actualizar las sesiones. Refresca la página.');
-      }
-      if(pt.billing&&pt.billing.pendientes>0){
-        pt.billing.pendientes=Math.max(0,pt.billing.pendientes-1);
-        if(typeof cita.patientId==='string') dbUpdateBillingPendientes(cita.patientId,pt.billing.pendientes);
-      }
-    }
-  }
+  // Eliminar la cita NO altera done/billing: esos derivan de session_log (la fila clínica, si existe, persiste).
   state.appointments=state.appointments.filter(a=>a.id!==id);
   renderGrid(); updateFacturaBadge();
   if(typeof id==='string'){
@@ -414,16 +364,14 @@ export async function saveAppt() {
   if(isEdit){
     const existing=state.appointments.find(a=>String(a.id)===editingId);
     if(!existing){toastErr('Cita no encontrada.');return;}
-    const prevStatus=existing.status;          // delta de status (C4)
-    const prevPatientId=existing.patientId;    // para la transferencia si cambia el paciente
     existing.therapistId=thId;existing.hour=hr;existing.duration=dur;
     existing.patientId=patId;existing.type=document.getElementById('m-type').value;
     existing.status=document.getElementById('m-status').value;existing.note=document.getElementById('m-note').value;existing.date=ds;
     window._app.closeModal('appt-modal'); renderGrid();
-    const ok=await commitApptChange(existing, prevStatus, {
+    const ok=await commitApptChange(existing, {
       date:ds,therapist_id:thId,patient_id:patId,hour:hr,duration:dur,
       type:existing.type,status:existing.status,note:existing.note||''
-    }, prevPatientId);
+    });
     if(ok) toastOk('Cita actualizada');
     updateFacturaBadge();
     return;

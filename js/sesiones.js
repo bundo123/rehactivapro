@@ -1,8 +1,9 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { getPatient, fmtDate, fmtTime, normHour } from './utils.js';
+import { getPatient, fmtDate, fmtTime, normHour, pendientesActual } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasPermission } from './permissions.js';
+import { updateFacturaBadge, showBillingAlert } from './agenda.js';
 
 export const PRO_TECNICAS = [
   'Compresa caliente','Crioterapia','Electroterapia','Magnetoterapia',
@@ -163,24 +164,19 @@ async function saveSessionManual() {
       next_plan:document.getElementById('sess-next')?.value||''
     });
     if(error){toastErr('No se pudo guardar la sesión. Intenta de nuevo.');return;}
-    // +1 a done SOLO en INSERT nuevo y SOLO si la fecha cae en el episodio actual.
-    // Frontera del episodio actual = MAX(date) de session_log type='Fin de episodio' (mismo criterio que informes.js).
-    const finDates=(pt.log||[]).filter(s=>s.type==='Fin de episodio').map(s=>s.date).sort();
-    const lastFin=finDates.length?finDates[finDates.length-1]:null;
-    const inCurrentEpisode=!lastFin||date>lastFin;
-    if(inCurrentEpisode){
-      const newDone=(pt.done||0)+1;
-      const {error:dErr}=await supa.from('patients').update({done:newDone}).eq('id',pt.id);
-      if(dErr) toastErr('Sesión guardada, pero no se pudo actualizar el contador. Refresca la página.');
-      else pt.done=newDone;
-    }
+    // La fila en session_log ES el dato: doneActual/pendientesActual la cuentan sin contadores aparte.
     if(!pt.log) pt.log=[];
+    const spf=pt.billing?.sesPerFactura||0;
+    const pendBefore=pendientesActual(pt);                // umbral: medir antes de agregar la fila
     pt.log.push({date,type,hour,status:'asistió',pb,pa,note,tags:[...proTecnicasSel]});
+    const crossed=spf>0&&pendBefore<spf&&pendientesActual(pt)>=spf;
     window._app.closeModal('session-modal');
     _manualMode=false; _manualPatientId=null;
     window._app.renderPatientReport?.();
     window._app.updateResumenBadge();
+    updateFacturaBadge();
     toastOk('Sesión manual guardada en historial clínico ✓');
+    if(crossed) showBillingAlert(pt);
   } finally { _savingSession=false; _setSaveBtn(false); }
 }
 
@@ -257,6 +253,7 @@ async function saveSessionEdit() {
     _editMode=false; _editRef=null;
     window._app.renderPatientReport?.();
     window._app.updateResumenBadge();
+    updateFacturaBadge();
     toastOk('Sesión actualizada ✓');
   } finally { _savingSession=false; _setSaveBtn(false); }
 }
@@ -275,20 +272,11 @@ export async function deleteSession(patientId, date, hour) {
     .eq('patient_id',patientId).eq('date',date).eq('hour',hour).select();
   if(error){toastErr('No se pudo eliminar la sesión. Intenta de nuevo.');return;}
   if(!del||!del.length){toastErr('No se pudo eliminar (sin permiso o ya no existe). Refrescá la página.');return;}
-  // done −1 SOLO si la fila aportó su propio +1 (sesión manual): asistió + episodio actual + sin cita que matchee.
-  const finDates=(pt.log||[]).filter(x=>x.type==='Fin de episodio').map(x=>x.date).sort();
-  const lastFin=finDates.length?finDates[finDates.length-1]:null;
-  const inCurrentEpisode=!lastFin||date>lastFin;
-  const tieneCita=state.appointments.some(a=>a.patientId===patientId&&a.date===date&&normHour(fmtTime(a.hour))===normHour(hour));
-  if(s.status==='asistió'&&s.type!=='Fin de episodio'&&inCurrentEpisode&&!tieneCita){
-    const newDone=Math.max(0,(pt.done||0)-1);
-    const {error:dErr}=await supa.from('patients').update({done:newDone}).eq('id',patientId);
-    if(dErr) toastErr('Sesión eliminada, pero no se pudo actualizar el contador. Refrescá la página.');
-    else pt.done=newDone;
-  }
+  // Quitar la fila del log basta: doneActual/pendientesActual se recalculan solos (fuente única).
   pt.log.splice(idx,1);
   window._app.renderPatientReport?.();
   window._app.updateResumenBadge();
+  updateFacturaBadge();
   toastOk('Sesión eliminada del historial ✓');
 }
 
@@ -330,19 +318,25 @@ export async function saveSession() {
     const a=state.appointments.find(x=>x.id===appt.id);
     if(a) a.hasSession=true;
     const pt2=getPatient(appt.patientId);
+    let crossed=false;
     if(pt2){
       if(!pt2.log) pt2.log=[];
+      const spf=pt2.billing?.sesPerFactura||0;
+      const pendBefore=pendientesActual(pt2);             // umbral: medir antes de tocar el log
       const hh=fmtTime(appt.hour);
       const existIdx=pt2.log.findIndex(s=>s.date===appt.date&&s.hour===hh);
       const newEntry={date:appt.date,type,hour:hh,status:'asistió',pb,pa,note,tags:[...proTecnicasSel]};
-      if(existIdx>=0) pt2.log[existIdx]=newEntry;
+      if(existIdx>=0) pt2.log[existIdx]=newEntry;          // re-registro: doneActual no cambia -> no cruza
       else pt2.log.push(newEntry);
+      crossed=spf>0&&pendBefore<spf&&pendientesActual(pt2)>=spf;
     }
     window._app.closeModal('session-modal');
     _pendingSessionAppt=null;
     window._app.renderGrid();
     window._app.updateResumenBadge();
+    updateFacturaBadge();
     toastOk('Sesión guardada en historial clínico ✓');
+    if(crossed) showBillingAlert(pt2);
   } finally { _savingSession=false; _setSaveBtn(false); }
 }
 

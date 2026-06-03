@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { getPatient, getDisplayAge, esc } from './utils.js';
+import { getPatient, getDisplayAge, esc, doneActual } from './utils.js';
 import { toastErr } from './toast.js';
 import { supa } from './supabase-client.js';
 
@@ -94,7 +94,7 @@ export function genPatientAI() {
 DATOS CLÍNICOS (anonimizado, sin nombres):
 - Edad: ${getDisplayAge(p)}
 - Diagnóstico: ${p.diag||'No especificado'}
-- Sesiones realizadas/prescritas: ${p.done||0}/${p.sessions||0}
+- Sesiones realizadas/prescritas: ${doneActual(p)}/${p.sessions||0}
 - Estado: ${estado}
 HISTORIAL POR SESIÓN (fecha, EVA antes→después, técnicas aplicadas, observación):
 ${sesiones}

@@ -62,9 +62,10 @@ export async function loadAll(force=false) {
     state.patients = (pat.data||[]).map(r=>({
       id:r.id,createdAt:r.created_at||null,name:r.name,age:r.age||null,birth_date:r.birth_date||null,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
       diag:r.diag||'Sin diagnóstico',therapistId:r.therapist_id,doctorId:r.doctor_id,
-      sessions:r.sessions||10,done:r.done||0,status:r.status||'active',
+      sessions:r.sessions||10,status:r.status||'active',
       log:(r.session_log||[]).map(s=>({date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[]})),
-      billing:{sesPerFactura:r.billing_ses_per_factura||5,pendientes:r.billing_pendientes||0,
+      // done/pendientes NO se leen de columnas (vestigiales): derivan de session_log vía doneActual/pendientesActual.
+      billing:{sesPerFactura:r.billing_ses_per_factura||5,
         facturas:cobData.filter(c=>c.patient_id===r.id).map(c=>({id:c.cobro_ref,n:c.n_sessions,fecha:c.date,estado:'cobrada'}))}
     }));
     state.protocols = (prot.data||[]).map(r=>({id:r.id,name:r.name,diag:r.diag_keywords||'',sessions:r.sessions||20,freq:r.freq||3,alta:r.discharge_criteria||''}));
@@ -247,8 +248,7 @@ export async function dbRegistrarCobro(patientId,nSessions,cobroRef){
   try{
     const{error:e1}=await supa.from('cobros').insert({cobro_ref:cobroRef,patient_id:patientId,n_sessions:nSessions,date:fmtDate(new Date())});
     if(e1) return{error:e1};
-    const{error:e2}=await supa.from('patients').update({billing_pendientes:0}).eq('id',patientId);
-    if(e2) return{error:e2};
+    // billing_pendientes ya no se escribe: pendientes deriva de session_log/cobros (pendientesActual).
     return{error:null};
   }catch(e){return{error:e};}
 }

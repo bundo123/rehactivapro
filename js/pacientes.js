@@ -1,6 +1,6 @@
 ﻿import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, COLOR_OPTIONS, patientMatchesSearch, highlightMatch, getFullAge } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, COLOR_OPTIONS, patientMatchesSearch, highlightMatch, getFullAge, doneActual, pendientesActual } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';
@@ -287,7 +287,7 @@ export function openEditPatient(id) {
   document.getElementById('pm-diag').value=p.diag||'';
   document.getElementById('pm-sessions').value=p.sessions||10;
   document.getElementById('pm-status').value=p.status||'active';
-  document.getElementById('pm-billing-start').value=p.billing?.pendientes||0;
+  document.getElementById('pm-billing-start').value=pendientesActual(p);
   state.editingPatientId=id;
   populateDiagList();
   document.querySelector('#patient-modal h3').textContent='Editar paciente';
@@ -316,15 +316,21 @@ export async function guardarNuevoEpisodio() {
   const abrirEval=document.querySelector('input[name="ne-eval"]:checked').value==='si';
   if(!newDiag){toastErr('Ingresa el nuevo diagnóstico');return;}
   const oldDiag=p.diag;
+  const hoy=fmtDate(new Date());
+  const finNote=`Episodio anterior: ${oldDiag} · ${doneActual(p)} sesiones completadas`;
+  // El marcador 'Fin de episodio' en session_log ES la frontera del episodio: a partir de su fecha,
+  // doneActual/pendientesActual cuentan desde cero. No hace falta resetear columnas en memoria/DB.
   await supa.from('session_log').insert({
-    patient_id:_nePatientId,date:fmtDate(new Date()),type:'Fin de episodio',
-    hour:'00:00',status:'asistió',pain_before:0,pain_after:0,
-    note:`Episodio anterior: ${oldDiag} · ${p.done||0} sesiones completadas`
+    patient_id:_nePatientId,date:hoy,type:'Fin de episodio',
+    hour:'00:00',status:'asistió',pain_before:0,pain_after:0,note:finNote
   });
-  const {error}=await supa.from('patients').update({diag:newDiag,sessions:newSessions,done:0,status:'active',billing_pendientes:0}).eq('id',_nePatientId);
+  const {error}=await supa.from('patients').update({diag:newDiag,sessions:newSessions,status:'active'}).eq('id',_nePatientId);
   if(error){toastErr('Error: '+error.message);return;}
-  p.diag=newDiag; p.sessions=newSessions; p.done=0; p.status='active';
-  if(p.billing) p.billing.pendientes=0;
+  p.diag=newDiag; p.sessions=newSessions; p.status='active';
+  // El log en memoria aún no tiene la fila recién insertada (el wrapper supa anti-eco no la reenvía).
+  // Agregarla para que doneActual/pendientesActual reflejen el corte de inmediato (sin esperar recarga).
+  if(!p.log) p.log=[];
+  p.log.push({date:hoy,type:'Fin de episodio',hour:'00:00',status:'asistió',pb:0,pa:0,note:finNote});
   window._app.closeModal('nuevo-episodio-modal');
   toastOk('✓ Nuevo episodio iniciado — '+newDiag);
   renderPatients();

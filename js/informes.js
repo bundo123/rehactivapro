@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, COLOR_OPTIONS, getDisplayAge } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, COLOR_OPTIONS, getDisplayAge, doneActual } from './utils.js';
 import { apptSlots } from './agenda.js';
 import { genSemanalAI, genPatientAI, callAI } from './ia.js';
 import { hasEvalInicial } from './resumen.js';
@@ -199,7 +199,7 @@ export function renderSemanal() {
   const diagCount={};
   conf.forEach(a=>{const pt=getPatient(a.patientId);if(pt&&pt.diag){const d=pt.diag.split(/[,;]/)[0].trim();diagCount[d]=(diagCount[d]||0)+1;}});
   const topDiag=Object.entries(diagCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const proxAlta=state.patients.filter(p=>p.status==='active'&&p.sessions>0&&Math.round((p.done/p.sessions)*100)>=80).slice(0,5);
+  const proxAlta=state.patients.filter(p=>p.status==='active'&&p.sessions>0&&Math.round((doneActual(p)/p.sessions)*100)>=80).slice(0,5);
 
   const statsHtml=`
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -239,7 +239,7 @@ export function renderSemanal() {
     </div>
     <div class="card">
       <div class="card-title" style="margin-bottom:8px">Próximos a alta ≥80%</div>
-      ${proxAlta.length?proxAlta.map(p=>{const pct=Math.round(p.done/p.sessions*100);return'<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05)"><span style="font-size:11px;color:#1a1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%">'+p.name.split(' ').slice(0,2).join(' ')+'</span><span style="font-size:11px;font-weight:700;color:#BA7517;background:rgba(186,117,23,.1);padding:1px 7px;border-radius:99px;flex-shrink:0">'+pct+'%</span></div>';}).join(''):'<div style="font-size:12px;color:#9c9a92;padding:8px 0">Ninguno cerca del alta</div>'}
+      ${proxAlta.length?proxAlta.map(p=>{const pct=Math.round(doneActual(p)/p.sessions*100);return'<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05)"><span style="font-size:11px;color:#1a1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%">'+p.name.split(' ').slice(0,2).join(' ')+'</span><span style="font-size:11px;font-weight:700;color:#BA7517;background:rgba(186,117,23,.1);padding:1px 7px;border-radius:99px;flex-shrink:0">'+pct+'%</span></div>';}).join(''):'<div style="font-size:12px;color:#9c9a92;padding:8px 0">Ninguno cerca del alta</div>'}
     </div>
   </div>
   ${(function(){
@@ -494,7 +494,7 @@ export function renderPatientReport() {
   const epVal=document.getElementById('patient-rpt-episode')?.value||'current';
   const fullLog=(p.log||[]).filter(s=>s&&s.date);
   const finMarkers=fullLog.filter(s=>s.type==='Fin de episodio').sort((a,b)=>a.date>b.date?1:-1);
-  let log,epDiag=p.diag,epSessions=p.sessions,epDone=p.done;
+  let log,epDiag=p.diag,epSessions=p.sessions,epDone=doneActual(p);
   if(epVal==='current'||finMarkers.length===0){
     const lastFin=finMarkers.slice(-1)[0];
     log=lastFin?fullLog.filter(s=>s.date>lastFin.date&&s.type!=='Fin de episodio'):fullLog.filter(s=>s.type!=='Fin de episodio');
@@ -527,10 +527,11 @@ export function renderPatientReport() {
   const lp=attended.slice(-1)[0];const fp=attended[0];
   const thC=th?getColor(th.colorId):COLOR_OPTIONS[0];
   const citasConf=state.appointments.filter(a=>String(a.patientId)===String(p.id)&&a.status==='conf').length;
-  const sesCompletas=(p.done||0)>=(p.sessions||1)&&p.sessions>0;
+  const doneNow=doneActual(p);
+  const sesCompletas=doneNow>=(p.sessions||1)&&p.sessions>0;
   let sp='';
   if(p.status==='alta'||sesCompletas) sp='<span class="pill pb">Alta médica</span>';
-  else if(citasConf>=1||(p.done||0)>=1) sp='<span class="pill pg">En tratamiento</span>';
+  else if(citasConf>=1||doneNow>=1) sp='<span class="pill pg">En tratamiento</span>';
   const ac=adh>=85?'#1D9E75':adh>=70?'#BA7517':'#E24B4A';
   const avisoEpisodio=sesCompletas&&p.status!=='alta'
     ?`<div style="background:#fef3c7;border:1px solid rgba(186,117,23,.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
@@ -698,7 +699,7 @@ export function exportarPDF() {
     +'<div class="info-row"><span class="info-lbl">Doctor referente</span><span class="info-val">'+(doc?esc(doc.name+' ('+doc.spec+')'):'Independiente')+'</span></div>'
     +'<div class="info-row"><span class="info-lbl">Inicio de tratamiento</span><span class="info-val">'+inicio+'</span></div>'
     +'<h2>Resumen de evolución</h2>'
-    +'<div class="grid3"><div class="stat-box"><div class="stat-num">'+pct+'%</div><div class="stat-lbl">Sesiones</div><div style="font-size:10px;color:#6b6a64">'+(p?.done||0)+' de '+(p?.sessions||0)+'</div></div>'
+    +'<div class="grid3"><div class="stat-box"><div class="stat-num">'+pct+'%</div><div class="stat-lbl">Sesiones</div><div style="font-size:10px;color:#6b6a64">'+doneActual(p)+' de '+(p?.sessions||0)+'</div></div>'
     +'<div class="stat-box"><div class="stat-num" style="color:'+adhCol+'">'+adh+'%</div><div class="stat-lbl">Continuidad</div><div style="font-size:10px;color:#6b6a64">'+attended.length+' / '+log.length+'</div></div>'
     +'<div class="stat-box"><div class="stat-num">'+evaTxt+'</div><div class="stat-lbl">Dolor EVA</div><div style="font-size:10px;color:#6b6a64">inicial → actual</div></div></div>'
     +(evaImg?'<h2>Evolución del dolor (EVA)</h2><img src="'+evaImg+'" style="max-width:100%;border:1px solid #eee;border-radius:6px">':'')
