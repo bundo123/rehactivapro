@@ -522,9 +522,12 @@ export function renderPatientReport() {
   const th=getTherapist(p.therapistId);
   const doc=p.doctorId?getDoctor(p.doctorId):null;
   const attended=log.filter(s=>s.status==='asistió');
+  // Solo sesiones de TRATAMIENTO para EVA (fp/lp/gráfico): la 'Evaluación inicial' no es una sesión
+  // y, si se carga con fecha posterior a las sesiones, distorsionaría la curva y el "dolor actual".
+  const attendedTrat=attended.filter(s=>s.type!=='Evaluación inicial');
   const adh=log.length>0?Math.round(attended.length/log.length*100):0;
   const pct=epSessions>0?Math.round(epDone/epSessions*100):0;
-  const lp=attended.slice(-1)[0];const fp=attended[0];
+  const lp=attendedTrat.slice(-1)[0];const fp=attendedTrat[0];
   const thC=th?getColor(th.colorId):COLOR_OPTIONS[0];
   const citasConf=state.appointments.filter(a=>String(a.patientId)===String(p.id)&&a.status==='conf').length;
   const doneNow=doneActual(p);
@@ -544,7 +547,7 @@ export function renderPatientReport() {
   const ymd=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
   const rptNo=`INF-${ymd}-${(String(p.id).replace(/\D/g,'').slice(-4)||'0000').padStart(4,'0')}`;
   const fechaLarga=now.toLocaleDateString('es-EC',{day:'2-digit',month:'long',year:'numeric'});
-  const evaSes=attended.filter(s=>s.pb!=null);
+  const evaSes=attendedTrat.filter(s=>s.pb!=null);
   const cell=(lbl,val)=>`<div><div style="font-size:10px;font-weight:600;color:#6b6a64;text-transform:uppercase;letter-spacing:.04em">${lbl}</div><div style="font-size:13px;color:#1a1917;margin-top:1px">${esc(val)}</div></div>`;
 
   let html=avisoEpisodio
@@ -620,8 +623,7 @@ export function renderPatientReport() {
     html+=`<div class="full-card" style="text-align:center;padding:24px 0"><div style="font-size:13px;color:#6b6a64">Sin sesiones registradas en este episodio.</div></div>`;
   }
 
-  html+=`<div class="full-card" style="margin-top:14px;display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap">
-      <div style="font-size:10px;color:#9c9a92">Generado por RehactivaPro · ${fechaLarga}</div>
+  html+=`<div class="full-card" style="margin-top:14px;display:flex;justify-content:flex-end;align-items:flex-end;gap:20px;flex-wrap:wrap">
       <div style="text-align:center;min-width:200px"><div style="border-top:1px solid #1a1917;padding-top:4px;font-size:11px;color:#6b6a64">${th?esc(th.name):'Terapeuta tratante'}</div>
       <div style="font-size:10px;color:#9c9a92">Firma del terapeuta</div></div></div>`;
 
@@ -706,7 +708,6 @@ export function exportarPDF() {
     +(aiHTML?'<h2>Narrativa clínica</h2><div style="font-size:11px;line-height:1.6;white-space:pre-wrap">'+aiHTML+'</div>':'')
     +'<h2>Detalle por sesión ('+sesLogPDF.length+')</h2>'+tabla
     +'<div class="firma"><div class="ln">'+esc(th?th.name:'Terapeuta tratante')+'</div><div style="font-size:10px;color:#9c9a92">Firma del terapeuta</div></div>'
-    +'<div style="margin-top:24px;font-size:10px;color:#9c9a92;text-align:center">Generado por RehactivaPro · '+fechaLarga+'</div>'
     +'</body></html>';
   win.document.write(html);win.document.close();
 }

@@ -332,7 +332,10 @@ export async function saveSession() {
     }
     window._app.closeModal('session-modal');
     _pendingSessionAppt=null;
-    window._app.renderGrid();
+    // Redibujar la pantalla desde la que se abrió el modal: el botón "Completar sesión" debe pasar
+    // a "✓ Sesión OK" al instante en el Resumen del día; en Agenda se refresca la grilla.
+    if(state.currentTab==='resumen') window._app.renderResumen?.();
+    else window._app.renderGrid();
     window._app.updateResumenBadge();
     updateFacturaBadge();
     toastOk('Sesión guardada en historial clínico ✓');
