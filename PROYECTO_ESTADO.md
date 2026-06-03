@@ -4,6 +4,19 @@
 
 ---
 
+## 🔜 PRÓXIMO: ajustes finales del informe (mañana)
+
+> Anotado 2026-06-02 al cierre. Pendiente de implementar — NO tocado todavía. Todo en el Informe Paciente (`informes.js`, `sesiones.js`, `ia.js`, `index.html`).
+
+1. **BUG (investigar) — EVA no precarga al EDITAR sesión.** Al editar una sesión desde el Informe Paciente, el EVA antes/después **no** muestra los valores actuales de esa sesión: edito una "4→3" y el modal aparece con "8→7". Precarga incorrecta de `pb`/`pa` en `editSession` (o en cómo el modal toma los valores). **Investigar de dónde saca esos números** antes de tocar nada.
+2. **BUG color EVA — umbral mal calibrado.** Con los cortes actuales (10–6 rojo / 5–2 verde / 0–1 azul), el **5 y el 2 salen ambos verdes** y no se distingue dolor **medio** de **bajo**. Reajustar la escala (ej. agregar tramo **5–6 amarillo/naranja**) en `evaColor`.
+3. **Quitar del todo "Firma del terapeuta"** (incluido el caption), en **pantalla y PDF**. (Ojo: distinto del placeholder "Terapeuta tratante" que ya se quitó; ahora se quita el bloque/caption de firma completo.)
+4. **Narrativa clínica — jerarquía visual.** Los títulos de sección (CONDICIÓN INICIAL, etc.) deben ir en **negro/negrita más fuerte** y con **más espaciado entre secciones**; hoy el párrafo corrido se pierde.
+5. **Detalle por sesión — destacar la evaluación inicial.** La primera fila (Evaluación inicial) debe verse como **bloque aparte más vistoso**, no amontonada como una fila normal.
+6. **Quitar los círculos de iniciales** en el Informe Paciente: el del **buscador/combobox** Y el **círculo grande** junto al nombre del paciente — consistencia con la pantalla Pacientes (que es plana).
+
+---
+
 ## 🗓️ Sesión 2026-06-02
 
 ### ✅ Cerrado hoy — en producción (push a `origin/main`, Vercel verde verificado)
