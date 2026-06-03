@@ -320,17 +320,17 @@ export async function guardarNuevoEpisodio() {
   const finNote=`Episodio anterior: ${oldDiag} · ${doneActual(p)} sesiones completadas`;
   // El marcador 'Fin de episodio' en session_log ES la frontera del episodio: a partir de su fecha,
   // doneActual/pendientesActual cuentan desde cero. No hace falta resetear columnas en memoria/DB.
-  await supa.from('session_log').insert({
+  const {data:insFin}=await supa.from('session_log').insert({
     patient_id:_nePatientId,date:hoy,type:'Fin de episodio',
     hour:'00:00',status:'asistió',pain_before:0,pain_after:0,note:finNote
-  });
+  }).select('id').single();
   const {error}=await supa.from('patients').update({diag:newDiag,sessions:newSessions,status:'active'}).eq('id',_nePatientId);
   if(error){toastErr('Error: '+error.message);return;}
   p.diag=newDiag; p.sessions=newSessions; p.status='active';
   // El log en memoria aún no tiene la fila recién insertada (el wrapper supa anti-eco no la reenvía).
   // Agregarla para que doneActual/pendientesActual reflejen el corte de inmediato (sin esperar recarga).
   if(!p.log) p.log=[];
-  p.log.push({date:hoy,type:'Fin de episodio',hour:'00:00',status:'asistió',pb:0,pa:0,note:finNote});
+  p.log.push({id:insFin?.id??null,date:hoy,type:'Fin de episodio',hour:'00:00',status:'asistió',pb:0,pa:0,note:finNote});
   window._app.closeModal('nuevo-episodio-modal');
   toastOk('✓ Nuevo episodio iniciado — '+newDiag);
   renderPatients();
@@ -426,16 +426,16 @@ export async function saveEvalInicial() {
     document.getElementById('ev-notas').value||''
   ].filter(Boolean).join(' | ');
   const eva=_evEvaVal;
-  const {error}=await supa.from('session_log').insert({
+  const {data:ins,error}=await supa.from('session_log').insert({
     patient_id:_evalPatientId,date:fmtDate(new Date()),type:'Evaluación inicial',
     hour:'00:00',status:'asistió',pain_before:eva,pain_after:eva,
     note:anamnesis+(nota?' | '+nota:'')
-  });
+  }).select('id').single();
   if(error){toastErr('Error al guardar: '+error.message);return;}
   const p=getPatient(_evalPatientId);
   if(p){
     if(!p.log) p.log=[];
-    p.log.unshift({date:fmtDate(new Date()),type:'Evaluación inicial',hour:'00:00',status:'asistió',pb:eva,pa:eva,note:anamnesis+(nota?' | '+nota:'')});
+    p.log.unshift({id:ins?.id??null,date:fmtDate(new Date()),type:'Evaluación inicial',hour:'00:00',status:'asistió',pb:eva,pa:eva,note:anamnesis+(nota?' | '+nota:'')});
   }
   window._app.closeModal('eval-modal');
   renderPatients();

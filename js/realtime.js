@@ -87,7 +87,7 @@ function _mapPatient(r) {
 }
 function _mapTherapist(r){return{id:r.id,name:r.name,initials:r.initials||r.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),spec:r.spec||'',startH:r.start_h,endH:r.end_h,colorId:r.color_id||'ca'};}
 function _mapDoctor(r){return{id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'};}
-function _mapSession(s){return{date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null};}
+function _mapSession(s){return{id:s.id,date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null};}
 
 function _refreshTabAfterAppt() {
   const {renderGrid,renderResumen,renderFacturacion,updateResumenBadge,updateFacturaBadge}=window._app;

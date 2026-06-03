@@ -627,8 +627,8 @@ export function renderPatientReport() {
       let acc='';
       if(showAcc){
         const btn='font-size:10px;padding:3px 9px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;border:1px solid';
-        const eBtn=canEdit?`<button onclick="editSession('${esc(p.id)}','${esc(s.date)}','${esc(s.hour||'')}')" style="${btn} rgba(41,171,226,.3);background:rgba(41,171,226,.1);color:#155b7a">Editar</button>`:'';
-        const dBtn=(canDelete&&s.type!=='Evaluación inicial')?`<button onclick="deleteSession('${esc(p.id)}','${esc(s.date)}','${esc(s.hour||'')}')" style="${btn} rgba(224,75,74,.3);background:rgba(224,75,74,.08);color:#E24B4A">Eliminar</button>`:'';
+        const eBtn=canEdit?`<button onclick="editSession('${esc(p.id)}','${esc(s.id)}')" style="${btn} rgba(41,171,226,.3);background:rgba(41,171,226,.1);color:#155b7a">Editar</button>`:'';
+        const dBtn=(canDelete&&s.type!=='Evaluación inicial')?`<button onclick="deleteSession('${esc(p.id)}','${esc(s.id)}')" style="${btn} rgba(224,75,74,.3);background:rgba(224,75,74,.08);color:#E24B4A">Eliminar</button>`:'';
         const inner=(eBtn+dBtn)||'<span style="color:#c8c6c0">—</span>';
         acc=`<td style="${td};text-align:center;white-space:nowrap"><div style="display:flex;gap:5px;justify-content:center">${inner}</div></td>`;
       }

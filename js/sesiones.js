@@ -174,17 +174,17 @@ async function saveSessionManual() {
   _savingSession=true; _setSaveBtn(true);
   try {
     const hour=await genUniqueHour(pt.id,date);
-    const {error}=await supa.from('session_log').insert({
+    const {data:ins,error}=await supa.from('session_log').insert({
       patient_id:pt.id,date,type,hour,status:'asistió',therapist_id:therapistId,
       pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,
       next_plan:document.getElementById('sess-next')?.value||''
-    });
+    }).select('id').single();
     if(error){toastErr('No se pudo guardar la sesión. Intenta de nuevo.');return;}
     // La fila en session_log ES el dato: doneActual/pendientesActual la cuentan sin contadores aparte.
     if(!pt.log) pt.log=[];
     const spf=pt.billing?.sesPerFactura||0;
     const pendBefore=pendientesActual(pt);                // umbral: medir antes de agregar la fila
-    pt.log.push({date,type,hour,status:'asistió',pb,pa,note,tags:[...proTecnicasSel],therapistId});
+    pt.log.push({id:ins?.id??null,date,type,hour,status:'asistió',pb,pa,note,tags:[...proTecnicasSel],therapistId});
     const crossed=spf>0&&pendBefore<spf&&pendientesActual(pt)>=spf;
     window._app.closeModal('session-modal');
     _manualMode=false; _manualPatientId=null;
@@ -197,12 +197,13 @@ async function saveSessionManual() {
 }
 
 // ── Editar sesión existente (desde la tabla Detalle del Informe Paciente) ──
-export function editSession(patientId, date, hour) {
+export function editSession(patientId, id) {
   if(!hasPermission('registerSession')){toastErr('No tienes permisos para editar sesiones.');return;}
   const pt=getPatient(patientId);
-  const s=pt&&pt.log?pt.log.find(x=>x.date===date&&normHour(x.hour)===normHour(hour)):null;
+  // El id del onclick llega como string; en memoria puede ser entero -> comparar coercionando.
+  const s=pt&&pt.log?pt.log.find(x=>x.id!=null&&String(x.id)===String(id)):null;
   if(!s){toastErr('Sesión no encontrada.');return;}
-  _editMode=true; _editRef={patientId,date:s.date,hour:s.hour}; _manualMode=false; _pendingSessionAppt=null;
+  _editMode=true; _editRef={patientId,id:s.id,date:s.date,hour:s.hour}; _manualMode=false; _pendingSessionAppt=null;
   document.getElementById('session-modal-title').textContent='Editar sesión — '+pt.name.split(' ').slice(0,2).join(' ');
   document.getElementById('session-modal-sub').textContent='Corregí los datos de la sesión';
   const di=document.getElementById('sess-manual-date');
@@ -261,11 +262,11 @@ async function saveSessionEdit() {
   try {
     const {data:upd,error}=await supa.from('session_log')
       .update({date:newDate,type,pain_before:pb,pain_after:pa,note,tags:proTecnicasSel})
-      .eq('patient_id',ref.patientId).eq('date',ref.date).eq('hour',ref.hour).select();
+      .eq('id',ref.id).select();
     if(error){toastErr('No se pudo guardar el cambio. Intenta de nuevo.');return;}
     if(!upd||!upd.length){toastErr('No se pudo editar (sin permiso o la sesión ya cambió). Refrescá la página.');return;}
-    // memoria: actualizar la entrada por la clave ORIGINAL. done NO se toca (sigue siendo la misma sesión).
-    const i=pt.log.findIndex(x=>x.date===ref.date&&normHour(x.hour)===normHour(ref.hour));
+    // memoria: actualizar la entrada por su id. done NO se toca (sigue siendo la misma sesión).
+    const i=pt.log.findIndex(x=>x.id!=null&&String(x.id)===String(ref.id));
     if(i>=0) pt.log[i]={...pt.log[i],date:newDate,type,pb,pa,note,tags:[...proTecnicasSel]};
     window._app.closeModal('session-modal');
     _editMode=false; _editRef=null;
@@ -277,17 +278,17 @@ async function saveSessionEdit() {
 }
 
 // ── Eliminar sesión (solo admin) ──
-export async function deleteSession(patientId, date, hour) {
+export async function deleteSession(patientId, id) {
   if(!hasPermission('deleteSession')){toastErr('No tienes permisos para eliminar sesiones.');return;}
   const pt=getPatient(patientId);
-  const idx=pt&&pt.log?pt.log.findIndex(x=>x.date===date&&normHour(x.hour)===normHour(hour)):-1;
+  const idx=pt&&pt.log?pt.log.findIndex(x=>x.id!=null&&String(x.id)===String(id)):-1;
   if(idx<0){toastErr('Sesión no encontrada.');return;}
   const s=pt.log[idx];
   if(s.type==='Evaluación inicial'){toastErr('La evaluación inicial no se elimina desde aquí.');return;}
   if(!confirm('¿Eliminar esta sesión del historial clínico? No se puede deshacer.')) return;
   // DELETE con verificación de filas afectadas: un delete bloqueado por RLS devuelve 0 filas SIN error.
   const {data:del,error}=await supa.from('session_log').delete()
-    .eq('patient_id',patientId).eq('date',date).eq('hour',hour).select();
+    .eq('id',id).select();
   if(error){toastErr('No se pudo eliminar la sesión. Intenta de nuevo.');return;}
   if(!del||!del.length){toastErr('No se pudo eliminar (sin permiso o ya no existe). Refrescá la página.');return;}
   // Quitar la fila del log basta: doneActual/pendientesActual se recalculan solos (fuente única).
@@ -317,19 +318,22 @@ export async function saveSession() {
   document.getElementById('sess-note').style.borderColor='';
   _savingSession=true; _setSaveBtn(true);
   try {
+    let savedId=null;                                        // id real de la fila (para llevarlo a memoria)
     if(appt.id&&appt.patientId){
       const apptHourFmt=fmtTime(appt.hour);
       const existingInDB=await supa.from('session_log').select('id').eq('patient_id',appt.patientId).eq('date',appt.date).eq('hour',apptHourFmt).maybeSingle();
       let dbError;
       if(existingInDB.data){
+        savedId=existingInDB.data.id;
         const {error}=await supa.from('session_log').update({type,pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,therapist_id:therapistId}).eq('id',existingInDB.data.id);
         dbError=error;
       } else {
-        const {error}=await supa.from('session_log').insert({
+        const {data:ins,error}=await supa.from('session_log').insert({
           patient_id:appt.patientId,date:appt.date,type,hour:apptHourFmt,status:'asistió',therapist_id:therapistId,
           pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,
           next_plan:document.getElementById('sess-next')?.value||''
-        });
+        }).select('id').single();
+        savedId=ins?.id??null;
         dbError=error;
       }
       if(dbError){toastErr('No se pudo guardar la sesión. Intenta de nuevo.');return;}
@@ -343,8 +347,11 @@ export async function saveSession() {
       const spf=pt2.billing?.sesPerFactura||0;
       const pendBefore=pendientesActual(pt2);             // umbral: medir antes de tocar el log
       const hh=fmtTime(appt.hour);
-      const existIdx=pt2.log.findIndex(s=>s.date===appt.date&&s.hour===hh);
-      const newEntry={date:appt.date,type,hour:hh,status:'asistió',pb,pa,note,tags:[...proTecnicasSel],therapistId};
+      // normHour: la hora recargada desde DB es 'HH:MM:SS' y hh es 'H:MM' -> comparar normalizado
+      // para que el re-registro REEMPLACE la fila existente en vez de duplicarla.
+      const existIdx=pt2.log.findIndex(s=>s.date===appt.date&&normHour(s.hour)===normHour(hh));
+      const keepId=existIdx>=0?pt2.log[existIdx].id:null;  // conservar id si reemplazamos
+      const newEntry={id:savedId??keepId,date:appt.date,type,hour:hh,status:'asistió',pb,pa,note,tags:[...proTecnicasSel],therapistId};
       if(existIdx>=0) pt2.log[existIdx]=newEntry;          // re-registro: doneActual no cambia -> no cruza
       else pt2.log.push(newEntry);
       crossed=spf>0&&pendBefore<spf&&pendientesActual(pt2)>=spf;
