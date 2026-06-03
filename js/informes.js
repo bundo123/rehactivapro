@@ -531,6 +531,12 @@ export function renderPatientReport() {
   const thC=th?getColor(th.colorId):COLOR_OPTIONS[0];
   const citasConf=state.appointments.filter(a=>String(a.patientId)===String(p.id)&&a.status==='conf').length;
   const doneNow=doneActual(p);
+  // Terapeuta(s) del episodio: modelo POR-SESIÓN (patient.therapistId no se usa en este app).
+  // Encabezado: único nombre / 'Varios' / '—'. Firma: terapeuta de la última sesión con dato.
+  const epThIds=[...new Set(log.filter(s=>s.therapistId).map(s=>String(s.therapistId)))];
+  const thHeader=epThIds.length===0?'—':epThIds.length===1?(getTherapist(epThIds[0])?.name||'—'):'Varios';
+  const withThLog=log.filter(s=>s.therapistId);
+  const thFirma=withThLog.length?(getTherapist(withThLog[withThLog.length-1].therapistId)?.name||'Terapeuta tratante'):'Terapeuta tratante';
   const sesCompletas=doneNow>=(p.sessions||1)&&p.sessions>0;
   let sp='';
   if(p.status==='alta'||sesCompletas) sp='<span class="pill pb">Alta médica</span>';
@@ -570,7 +576,7 @@ export function renderPatientReport() {
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;border-top:1px solid rgba(29,158,117,.1);padding-top:12px">
-        ${cell('Diagnóstico',epDiag||p.diag||'—')}${cell('Terapeuta',th?th.name:'No asignado')}
+        ${cell('Diagnóstico',epDiag||p.diag||'—')}${cell('Terapeuta',thHeader)}
         ${cell('Doctor referente',doc?doc.name+' ('+doc.spec+')':'Independiente')}${cell('Inicio de tratamiento',inicio)}
       </div>
     </div>`
@@ -600,10 +606,11 @@ export function renderPatientReport() {
     const canDelete=hasPermission('deleteSession');
     const showAcc=canEdit||canDelete;
     html+=`<div class="full-card"><div class="card-title" style="margin-bottom:10px">Detalle por sesión (${sesLog.length})</div>
-      <table style="width:100%;border-collapse:collapse"><thead><tr>${thc('Fecha')}${thc('EVA','center')}${thc('Técnicas')}${thc('Observación')}${showAcc?thc('Acciones','center'):''}</tr></thead><tbody>`;
+      <table style="width:100%;border-collapse:collapse"><thead><tr>${thc('Fecha')}${thc('Terapeuta')}${thc('EVA','center')}${thc('Técnicas')}${thc('Observación')}${showAcc?thc('Acciones','center'):''}</tr></thead><tbody>`;
     sesLog.forEach(s=>{
       const eva=s.pb!=null?`${s.pb}→${s.pa!=null?s.pa:'?'}`:'—';
       const tec=(s.tags&&s.tags.length)?s.tags.join(', '):'—';
+      const thName=getTherapist(s.therapistId)?.name||'—';
       const td='padding:7px 8px;border-bottom:1px solid rgba(29,158,117,.07);font-size:11px';
       let acc='';
       if(showAcc){
@@ -614,6 +621,7 @@ export function renderPatientReport() {
         acc=`<td style="${td};text-align:center;white-space:nowrap"><div style="display:flex;gap:5px;justify-content:center">${inner}</div></td>`;
       }
       html+=`<tr><td style="${td};color:#1a1917;white-space:nowrap">${s.date}<div style="font-size:10px;color:#9c9a92">${s.hour||''}</div></td>
+        <td style="${td};color:#1a1917;white-space:nowrap">${esc(thName)}</td>
         <td style="${td};text-align:center;color:#1a1917">${eva}</td>
         <td style="${td};color:#6b6a64">${esc(tec)}</td>
         <td style="${td};color:#6b6a64">${s.note?esc(s.note):'—'}</td>${acc}</tr>`;
@@ -624,11 +632,11 @@ export function renderPatientReport() {
   }
 
   html+=`<div class="full-card" style="margin-top:14px;display:flex;justify-content:flex-end;align-items:flex-end;gap:20px;flex-wrap:wrap">
-      <div style="text-align:center;min-width:200px"><div style="border-top:1px solid #1a1917;padding-top:4px;font-size:11px;color:#6b6a64">${th?esc(th.name):'Terapeuta tratante'}</div>
+      <div style="text-align:center;min-width:200px"><div style="border-top:1px solid #1a1917;padding-top:4px;font-size:11px;color:#6b6a64">${esc(thFirma)}</div>
       <div style="font-size:10px;color:#9c9a92">Firma del terapeuta</div></div></div>`;
 
   out.innerHTML=html;
-  _rptCtx={p,log,attended,pct,adh,fp,lp,th,doc,epDiag,epDone,epSessions,inicio,rptNo,fechaLarga};
+  _rptCtx={p,log,attended,pct,adh,fp,lp,th,doc,epDiag,epDone,epSessions,inicio,rptNo,fechaLarga,thHeader,thFirma};
 
   if(evaSes.length){
     setTimeout(()=>{
@@ -664,7 +672,7 @@ export function renderPatientReport() {
 
 export function exportarPDF() {
   if(!_rptCtx){window._app.toastErr('Abrí primero el informe de un paciente');return;}
-  const {p,log,attended,pct,adh,fp,lp,th,doc,inicio,rptNo,fechaLarga}=_rptCtx;
+  const {p,log,attended,pct,adh,fp,lp,th,doc,inicio,rptNo,fechaLarga,thHeader,thFirma}=_rptCtx;
   // Captura del gráfico EVA ya dibujado en pantalla (antes de abrir la ventana) — evita el canvas en blanco por timing
   const evaCanvas=document.getElementById('eva-evolution-chart');
   const evaImg=evaCanvas?evaCanvas.toDataURL('image/png'):'';
@@ -684,9 +692,10 @@ export function exportarPDF() {
   sesLogPDF.forEach(function(s){
     const eva=s.pb!=null?s.pb+'→'+(s.pa!=null?s.pa:'?'):'—';
     const tec=(s.tags&&s.tags.length)?esc(s.tags.join(', ')):'—';
-    filas+='<tr><td>'+s.date+(s.hour?' '+s.hour:'')+'</td><td style="text-align:center">'+eva+'</td><td>'+tec+'</td><td style="font-size:10px;color:#6b6a64">'+(s.note?esc(s.note):'—')+'</td></tr>';
+    const thName=getTherapist(s.therapistId)?.name||'—';
+    filas+='<tr><td>'+s.date+(s.hour?' '+s.hour:'')+'</td><td>'+esc(thName)+'</td><td style="text-align:center">'+eva+'</td><td>'+tec+'</td><td style="font-size:10px;color:#6b6a64">'+(s.note?esc(s.note):'—')+'</td></tr>';
   });
-  const tabla=sesLogPDF.length?'<table><thead><tr><th>Fecha</th><th>EVA (antes→después)</th><th>Técnicas</th><th>Observación</th></tr></thead><tbody>'+filas+'</tbody></table>':'<div style="color:#6b6a64;padding:12px 0">Sin sesiones registradas.</div>';
+  const tabla=sesLogPDF.length?'<table><thead><tr><th>Fecha</th><th>Terapeuta</th><th>EVA (antes→después)</th><th>Técnicas</th><th>Observación</th></tr></thead><tbody>'+filas+'</tbody></table>':'<div style="color:#6b6a64;padding:12px 0">Sin sesiones registradas.</div>';
   const html='<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Informe — '+esc(p?.name||'Paciente')+'</title>'
     +'<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;color:#1a1917;padding:30px;max-width:800px;margin:0 auto}h2{font-size:13px;font-weight:600;color:#1D9E75;margin:18px 0 8px;border-bottom:1px solid #e0efe8;padding-bottom:4px}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}.logo{font-size:18px;font-weight:700}.logo span{color:#29ABE2}.fecha{font-size:10px;color:#6b6a64}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.stat-box{background:#f5f5f0;border-radius:8px;padding:10px 12px;text-align:center}.stat-num{font-size:24px;font-weight:700;color:#1D9E75}.stat-lbl{font-size:10px;color:#6b6a64;text-transform:uppercase;letter-spacing:.05em}.info-row{display:flex;gap:6px;margin-bottom:4px}.info-lbl{font-size:10px;font-weight:600;color:#6b6a64;text-transform:uppercase;min-width:120px}.info-val{font-size:12px;color:#1a1917}table{width:100%;border-collapse:collapse;margin-top:8px}th{background:#f0f0e8;padding:7px 10px;font-size:10px;text-align:left;text-transform:uppercase;letter-spacing:.05em;color:#6b6a64}td{padding:7px 10px;border-bottom:1px solid #f0efe8;font-size:11px;color:#1a1917}.firma{margin-top:40px;text-align:center;width:240px;margin-left:auto}.firma .ln{border-top:1px solid #1a1917;padding-top:4px;font-size:11px;color:#6b6a64}@media print{body{padding:15px}button{display:none}}</style></head><body>'
     +'<div class="header"><div><div class="logo">Reha<span>ctiva</span></div><div style="font-size:10px;color:#6b6a64">Rehabilitación y Fisioterapia · Quito, Ecuador</div></div>'
@@ -697,7 +706,7 @@ export function exportarPDF() {
     +'<div class="info-row"><span class="info-lbl">Cédula</span><span class="info-val">'+esc(p?.cedula||'—')+'</span></div>'
     +'<div class="info-row"><span class="info-lbl">Edad</span><span class="info-val">'+getDisplayAge(p, true)+'</span></div>'
     +'<div class="info-row"><span class="info-lbl">Diagnóstico</span><span class="info-val">'+esc(p?.diag||'—')+'</span></div>'
-    +'<div class="info-row"><span class="info-lbl">Terapeuta</span><span class="info-val">'+esc(th?th.name:'No asignado')+'</span></div>'
+    +'<div class="info-row"><span class="info-lbl">Terapeuta</span><span class="info-val">'+esc(thHeader)+'</span></div>'
     +'<div class="info-row"><span class="info-lbl">Doctor referente</span><span class="info-val">'+(doc?esc(doc.name+' ('+doc.spec+')'):'Independiente')+'</span></div>'
     +'<div class="info-row"><span class="info-lbl">Inicio de tratamiento</span><span class="info-val">'+inicio+'</span></div>'
     +'<h2>Resumen de evolución</h2>'
@@ -707,7 +716,7 @@ export function exportarPDF() {
     +(evaImg?'<h2>Evolución del dolor (EVA)</h2><img src="'+evaImg+'" style="max-width:100%;border:1px solid #eee;border-radius:6px">':'')
     +(aiHTML?'<h2>Narrativa clínica</h2><div style="font-size:11px;line-height:1.6;white-space:pre-wrap">'+aiHTML+'</div>':'')
     +'<h2>Detalle por sesión ('+sesLogPDF.length+')</h2>'+tabla
-    +'<div class="firma"><div class="ln">'+esc(th?th.name:'Terapeuta tratante')+'</div><div style="font-size:10px;color:#9c9a92">Firma del terapeuta</div></div>'
+    +'<div class="firma"><div class="ln">'+esc(thFirma)+'</div><div style="font-size:10px;color:#9c9a92">Firma del terapeuta</div></div>'
     +'</body></html>';
   win.document.write(html);win.document.close();
 }

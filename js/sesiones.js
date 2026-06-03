@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { getPatient, fmtDate, fmtTime, normHour, pendientesActual } from './utils.js';
+import { getPatient, getTherapist, esc, fmtDate, fmtTime, normHour, pendientesActual } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { updateFacturaBadge, showBillingAlert } from './agenda.js';
@@ -70,6 +70,8 @@ export function openSessionModal(appt) {
   _editMode=false; _editRef=null;
   const _df=document.getElementById('sess-manual-date-field');
   if(_df) _df.style.display='none';
+  const _thf=document.getElementById('sess-therapist-field');
+  if(_thf) _thf.style.display='none';   // el terapeuta sale de la cita, no se pide aquí
   const _cancel=document.getElementById('session-cancel-btn');
   if(_cancel) _cancel.textContent='Omitir';
   const pt=getPatient(appt.patientId);
@@ -107,6 +109,18 @@ export function openSessionModalManual(patientId) {
   const today=fmtDate(new Date());
   if(di){ di.max=today; di.value=today; }
   if(df) df.style.display='';
+  // Selector de terapeuta (modo manual): no hay cita, así que se elige a mano.
+  // Default = terapeuta de la última sesión registrada con dato (continuidad).
+  const thSel=document.getElementById('sess-therapist');
+  const thf=document.getElementById('sess-therapist-field');
+  if(thSel){
+    thSel.innerHTML=state.therapists.map(t=>`<option value="${esc(String(t.id))}">${esc(t.name)}</option>`).join('');
+    const withTh=(pt.log||[]).filter(s=>s.therapistId);
+    withTh.sort((a,b)=>{const ka=a.date+'T'+normHour(a.hour),kb=b.date+'T'+normHour(b.hour);return ka<kb?1:ka>kb?-1:0;});
+    const lastTh=withTh.length?withTh[0].therapistId:null;
+    if(lastTh) thSel.value=String(lastTh);
+  }
+  if(thf) thf.style.display='';
   const cancelBtn=document.getElementById('session-cancel-btn');
   if(cancelBtn) cancelBtn.textContent='Cancelar';
   renderEvaButtons('eva-before-btns','sess-eva-before-val',5,'#E24B4A');
@@ -146,8 +160,10 @@ async function saveSessionManual() {
   if(date>today){toastErr('La fecha no puede ser futura');return;}
   const pb=parseInt(document.getElementById('sess-eva-before-val').textContent)||0;
   const pa=parseInt(document.getElementById('sess-eva-after-val').textContent)||0;
-  const type=document.getElementById('sess-type').value;
+  const type='Fisioterapia';                              // I1: tipo fijo (las técnicas van en tags)
+  const therapistId=document.getElementById('sess-therapist')?.value||'';
   const note=document.getElementById('sess-note').value.trim();
+  if(!therapistId){toastErr('Elegí el terapeuta que atendió la sesión');return;}
   if(!note){
     document.getElementById('sess-note').style.borderColor='rgba(224,80,80,.6)';
     document.getElementById('sess-note').focus();
@@ -159,7 +175,7 @@ async function saveSessionManual() {
   try {
     const hour=await genUniqueHour(pt.id,date);
     const {error}=await supa.from('session_log').insert({
-      patient_id:pt.id,date,type,hour,status:'asistió',
+      patient_id:pt.id,date,type,hour,status:'asistió',therapist_id:therapistId,
       pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,
       next_plan:document.getElementById('sess-next')?.value||''
     });
@@ -168,7 +184,7 @@ async function saveSessionManual() {
     if(!pt.log) pt.log=[];
     const spf=pt.billing?.sesPerFactura||0;
     const pendBefore=pendientesActual(pt);                // umbral: medir antes de agregar la fila
-    pt.log.push({date,type,hour,status:'asistió',pb,pa,note,tags:[...proTecnicasSel]});
+    pt.log.push({date,type,hour,status:'asistió',pb,pa,note,tags:[...proTecnicasSel],therapistId});
     const crossed=spf>0&&pendBefore<spf&&pendientesActual(pt)>=spf;
     window._app.closeModal('session-modal');
     _manualMode=false; _manualPatientId=null;
@@ -194,6 +210,8 @@ export function editSession(patientId, date, hour) {
   const today=fmtDate(new Date());
   if(di){ di.max=today; di.value=s.date; }
   if(df) df.style.display='';
+  const thf=document.getElementById('sess-therapist-field');
+  if(thf) thf.style.display='none';     // al editar se conserva el terapeuta original de la sesión
   const cancelBtn=document.getElementById('session-cancel-btn');
   if(cancelBtn) cancelBtn.textContent='Cancelar';
   renderEvaButtons('eva-before-btns','sess-eva-before-val',s.pb!=null?s.pb:5,'#E24B4A');
@@ -287,7 +305,8 @@ export async function saveSession() {
   const appt=_pendingSessionAppt;if(!appt)return;
   const pb=parseInt(document.getElementById('sess-eva-before-val').textContent)||0;
   const pa=parseInt(document.getElementById('sess-eva-after-val').textContent)||0;
-  const type=document.getElementById('sess-type').value;
+  const type='Fisioterapia';                              // I1: tipo fijo (las técnicas van en tags)
+  const therapistId=appt.therapistId||null;               // I3: quién atendió = terapeuta de la cita
   const note=document.getElementById('sess-note').value.trim();
   if(!note){
     document.getElementById('sess-note').style.borderColor='rgba(224,80,80,.6)';
@@ -303,11 +322,11 @@ export async function saveSession() {
       const existingInDB=await supa.from('session_log').select('id').eq('patient_id',appt.patientId).eq('date',appt.date).eq('hour',apptHourFmt).maybeSingle();
       let dbError;
       if(existingInDB.data){
-        const {error}=await supa.from('session_log').update({type,pain_before:pb,pain_after:pa,note,tags:proTecnicasSel}).eq('id',existingInDB.data.id);
+        const {error}=await supa.from('session_log').update({type,pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,therapist_id:therapistId}).eq('id',existingInDB.data.id);
         dbError=error;
       } else {
         const {error}=await supa.from('session_log').insert({
-          patient_id:appt.patientId,date:appt.date,type,hour:apptHourFmt,status:'asistió',
+          patient_id:appt.patientId,date:appt.date,type,hour:apptHourFmt,status:'asistió',therapist_id:therapistId,
           pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,
           next_plan:document.getElementById('sess-next')?.value||''
         });
@@ -325,7 +344,7 @@ export async function saveSession() {
       const pendBefore=pendientesActual(pt2);             // umbral: medir antes de tocar el log
       const hh=fmtTime(appt.hour);
       const existIdx=pt2.log.findIndex(s=>s.date===appt.date&&s.hour===hh);
-      const newEntry={date:appt.date,type,hour:hh,status:'asistió',pb,pa,note,tags:[...proTecnicasSel]};
+      const newEntry={date:appt.date,type,hour:hh,status:'asistió',pb,pa,note,tags:[...proTecnicasSel],therapistId};
       if(existIdx>=0) pt2.log[existIdx]=newEntry;          // re-registro: doneActual no cambia -> no cruza
       else pt2.log.push(newEntry);
       crossed=spf>0&&pendBefore<spf&&pendientesActual(pt2)>=spf;
