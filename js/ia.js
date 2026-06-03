@@ -58,22 +58,45 @@ function _cleanAIMarkdown(t) {
     .replace(/\*/g,'')                          // asteriscos sueltos
     .trim();
 }
+// Las 4 secciones del informe de evolución (orden canónico). re = etiqueta como la emite la IA
+// (MAYÚSCULAS, con/sin acento); title = encabezado que pinta la app.
+const _NARR_SECTIONS=[
+  {key:'condicion',  title:'Condición inicial',         re:/CONDICI[ÓO]N\s+INICIAL/i},
+  {key:'evolucion',  title:'Evolución del tratamiento', re:/EVOLUCI[ÓO]N\s+DEL\s+TRATAMIENTO/i},
+  {key:'resultados', title:'Resultados obtenidos',      re:/RESULTADOS\s+OBTENIDOS/i},
+  {key:'recomend',   title:'Recomendaciones',           re:/RECOMENDACIONES/i},
+];
 // Quita un encabezado/etiqueta al inicio de un párrafo (la app pone su propio título).
 function _stripLabel(s) {
-  return String(s||'').replace(/^\s*(Evolución general|Evolución|Conclusión y recomendaciones|Conclusión)\s*:?\s*/i,'').trim();
+  return String(s||'').replace(/^\s*(CONDICI[ÓO]N\s+INICIAL|EVOLUCI[ÓO]N\s+DEL\s+TRATAMIENTO|RESULTADOS\s+OBTENIDOS|RECOMENDACIONES|Evolución general|Evolución|Conclusión y recomendaciones|Conclusión)\s*:?\s*/i,'').trim();
 }
-// Render de la narrativa: 2 párrafos bajo encabezados con estilo propio de la app.
+// Render de la narrativa: hasta 4 secciones bajo encabezados con estilo propio de la app.
+// Parte el texto por las etiquetas; si la IA no las emite, cae a un bloque único sin romper.
 function _renderPatientNarrative(text) {
   const clean=_cleanAIMarkdown(text);
-  let parts=clean.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean);
-  if(parts.length<2){                            // sin línea en blanco: partir por salto simple
-    const lines=clean.split(/\n/).map(s=>s.trim()).filter(Boolean);
-    if(lines.length>=2) parts=[lines[0],lines.slice(1).join(' ')];
+  const fmtBody=b=>esc(b).replace(/\s*\n\s*\n\s*/g,'<br><br>').replace(/\s*\n\s*/g,' ');
+  const sec=(h,body)=>body?`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#1D9E75;margin-bottom:4px">${esc(h)}</div><div style="font-size:13px;color:#1a1917;line-height:1.6">${fmtBody(body)}</div></div>`:'';
+  const wrap=inner=>`<div style="background:rgba(29,158,117,.06);border:1px solid rgba(29,158,117,.2);border-radius:8px;padding:14px">${inner}</div>`;
+
+  // Localizar cada etiqueta; el cuerpo va desde el fin de su etiqueta hasta la etiqueta siguiente.
+  const hits=_NARR_SECTIONS.map(s=>{
+    const m=s.re.exec(clean);
+    return m?{key:s.key,title:s.title,start:m.index,end:m.index+m[0].length}:null;
+  }).filter(Boolean).sort((a,b)=>a.start-b.start);
+
+  if(hits.length){
+    const bodies={};
+    hits.forEach((h,i)=>{
+      const to=i+1<hits.length?hits[i+1].start:clean.length;
+      bodies[h.key]=_stripLabel(clean.slice(h.end,to).replace(/^\s*:\s*/,'').trim());
+    });
+    // Render SIEMPRE en orden canónico; sec() omite las secciones sin cuerpo.
+    const inner=_NARR_SECTIONS.map(s=>sec(s.title,bodies[s.key]||'')).join('');
+    return wrap(inner||sec('Informe de evolución',_stripLabel(clean)));
   }
-  const p1=_stripLabel(parts[0]||clean||'');
-  const p2=_stripLabel(parts[1]||'');
-  const sec=(h,body)=>body?`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#1D9E75;margin-bottom:4px">${h}</div><div style="font-size:13px;color:#1a1917;line-height:1.6">${esc(body)}</div></div>`:'';
-  return `<div style="background:rgba(29,158,117,.06);border:1px solid rgba(29,158,117,.2);border-radius:8px;padding:14px">${sec('Evolución',p1)}${sec('Conclusión y recomendaciones',p2)}</div>`;
+
+  // Fallback: sin etiquetas reconocibles → mostrar el texto tal cual (sin etiquetas crudas, sin romper).
+  return wrap(sec('Informe de evolución',_stripLabel(clean)));
 }
 
 export function genPatientAI() {
@@ -81,34 +104,47 @@ export function genPatientAI() {
   const id=selEl.value;
   const p=state.patients.find(x=>x.id===id||String(x.id)===id);
   if(!p){toastErr('Selecciona un paciente primero');return;}
-  const sesLog=(p.log||[]).filter(s=>s.type!=='Fin de episodio');
-  const sesiones=sesLog.length?sesLog.map(s=>{
+  const log=(p.log||[]).filter(s=>s.type!=='Fin de episodio');
+  const evalRow=log.find(s=>s.type==='Evaluación inicial');
+  const evalText=evalRow
+    ?`EVA inicial ${evalRow.pb!=null?evalRow.pb:'?'}/10. Hallazgos: ${evalRow.note||'sin detalle registrado'}`
+    :'No hay evaluación inicial registrada';
+  const trat=log.filter(s=>s.type!=='Evaluación inicial');
+  const sesiones=trat.length?trat.map(s=>{
     const eva=(s.pb!=null?s.pb:'?')+'→'+(s.pa!=null?s.pa:'?');
     const tec=(s.tags&&s.tags.length)?s.tags.join(', '):'sin técnicas registradas';
     const obs=s.note?s.note:'sin observación';
     return `- ${s.date}: EVA ${eva}; técnicas: ${tec}; observación: ${obs}`;
-  }).join('\n'):'Sin sesiones registradas aún';
+  }).join('\n'):'Sin sesiones de tratamiento registradas aún';
   const estado=p.status==='active'?'En tratamiento':p.status==='alta'?'Alta médica':'Inactivo';
-  const prompt=`Eres un fisioterapeuta redactando la narrativa de un informe clínico de evolución para Ecuador. Va dirigido principalmente al médico referente, y también puede leerlo el paciente. Tono formal y profesional, pero claro y comprensible.
+  const prompt=`Eres un fisioterapeuta colegiado redactando un informe de evolución clínica en Ecuador, dirigido al médico que refirió al paciente y que también puede leer el propio paciente. Escribe con tono formal y profesional, pero claro. RESPETA estas reglas de redacción de forma estricta:
+- TEXTO PLANO: prohibido markdown, asteriscos, numerales (#), guiones de viñeta o cualquier símbolo de formato. Solo prosa en párrafos.
+- NO repitas cifras crudas que ya están en las tablas y el gráfico del informe (no listes los valores EVA de cada sesión ni el número de sesiones). En su lugar, INTERPRÉTALOS clínicamente.
+- Sé específico y concreto. Prohibidas frases vagas o de relleno como 'respuesta favorable', 'abordaje multimodal', 'evolución satisfactoria', 'se recomienda continuar el tratamiento'. Cada oración debe aportar información clínica real y verificable.
+- Enfócate en la FUNCIÓN: dolor, rango de movimiento, fuerza, y sobre todo el impacto en las actividades de la vida diaria del paciente.
+- Refiérete siempre al 'paciente', nunca con nombre propio.
+- Basa todo en los datos provistos (evaluación inicial, técnicas aplicadas, observaciones, EVA). No inventes hallazgos que no estén en los datos.
 
-DATOS CLÍNICOS (anonimizado, sin nombres):
+DATOS CLÍNICOS (anonimizado):
 - Edad: ${getDisplayAge(p)}
 - Diagnóstico: ${p.diag||'No especificado'}
+- Estado actual: ${estado}
 - Sesiones realizadas/prescritas: ${doneActual(p)}/${p.sessions||0}
-- Estado: ${estado}
-HISTORIAL POR SESIÓN (fecha, EVA antes→después, técnicas aplicadas, observación):
+- EVALUACIÓN INICIAL (anamnesis, inspección, palpación, movilidad, fuerza): ${evalText}
+- HISTORIAL POR SESIÓN (fecha; EVA antes→después; técnicas aplicadas; observación):
 ${sesiones}
 
-REGLAS DE REDACCIÓN:
-- TEXTO PLANO. Prohibido markdown, asteriscos, numerales (#), viñetas o títulos. Solo prosa.
-- NO repitas las cifras crudas (valores EVA, nº de sesiones): ya están en las tablas y el gráfico. En su lugar, INTERPRÉTALAS clínicamente.
-- Sé específico. Prohibidas frases vagas o de relleno como 'respuesta favorable', 'abordaje multimodal', 'es fundamental mantener la consistencia'. Cada oración debe aportar info clínica real.
-- Enfócate en la FUNCIÓN: movilidad, dolor, actividades cotidianas, limitaciones. Menciona las técnicas aplicadas y cómo respondió el paciente.
-- Refiérete siempre al 'paciente', sin nombres.
+Redacta el informe en EXACTAMENTE estas cuatro secciones, cada una empezando con su etiqueta en MAYÚSCULAS seguida de dos puntos, separadas por una línea en blanco:
 
-Devuelve EXACTAMENTE dos párrafos en texto plano, separados por una línea en blanco, máximo ~130 palabras en total, SIN títulos:
-Párrafo 1: evolución e interpretación de la respuesta al tratamiento.
-Párrafo 2: estado funcional actual y recomendaciones concretas para las próximas sesiones.`;
+CONDICIÓN INICIAL: Resume el estado del paciente al iniciar el tratamiento según la evaluación inicial: diagnóstico, hallazgos físicos relevantes, nivel de dolor y limitaciones funcionales de partida (qué no podía hacer).
+
+EVOLUCIÓN DEL TRATAMIENTO: Describe el progreso a lo largo de las sesiones. Relaciona las técnicas aplicadas con la respuesta del paciente. Explica cómo evolucionaron el dolor, la movilidad y la fuerza, y en qué momento se dieron los cambios más relevantes.
+
+RESULTADOS OBTENIDOS: Compara el estado funcional ACTUAL con el inicial. Detalla concretamente qué mejoró (rango articular recuperado, reducción del dolor, funciones que el paciente ya puede realizar). Sé específico.
+
+RECOMENDACIONES: Plan a seguir de forma concreta: tipo de ejercicios o fortalecimiento sugerido, continuidad del tratamiento, manejo o cuidados en casa, y signos de alerta a vigilar si aplica. Adapta las recomendaciones al diagnóstico y la ocupación/actividad del paciente.
+
+Extensión total del informe: entre 280 y 380 palabras (completo, que llene aproximadamente dos páginas con el resto del documento, pero SIN relleno). Cada sección de 2 a 4 frases sustanciales.`;
   const outputEl=document.getElementById('patient-rpt-ai-output');
   if(outputEl){outputEl.style.display='block';callAI(prompt,'patient-rpt-ai-output',_renderPatientNarrative);}
 }
