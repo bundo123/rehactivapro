@@ -70,33 +70,51 @@ const _NARR_SECTIONS=[
 function _stripLabel(s) {
   return String(s||'').replace(/^\s*(CONDICI[ÓO]N\s+INICIAL|EVOLUCI[ÓO]N\s+DEL\s+TRATAMIENTO|RESULTADOS\s+OBTENIDOS|RECOMENDACIONES|Evolución general|Evolución|Conclusión y recomendaciones|Conclusión)\s*:?\s*/i,'').trim();
 }
-// Render de la narrativa: hasta 4 secciones bajo encabezados con estilo propio de la app.
-// Parte el texto por las etiquetas; si la IA no las emite, cae a un bloque único sin romper.
-function _renderPatientNarrative(text) {
+// Parsea el texto crudo de la IA en secciones estructuradas [{title, body}] en orden canónico.
+// El cuerpo de cada etiqueta va desde el fin de su etiqueta hasta la etiqueta siguiente. Si la IA
+// no emite etiquetas reconocibles (o ninguna tiene cuerpo), cae a una única sección con todo el texto.
+function _parseNarrative(text) {
   const clean=_cleanAIMarkdown(text);
-  const fmtBody=b=>esc(b).replace(/\s*\n\s*\n\s*/g,'<br><br>').replace(/\s*\n\s*/g,' ');
-  const sec=(h,body)=>body?`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#1D9E75;margin-bottom:4px">${esc(h)}</div><div style="font-size:13px;color:#1a1917;line-height:1.6">${fmtBody(body)}</div></div>`:'';
-  const wrap=inner=>`<div style="background:rgba(29,158,117,.06);border:1px solid rgba(29,158,117,.2);border-radius:8px;padding:14px">${inner}</div>`;
-
-  // Localizar cada etiqueta; el cuerpo va desde el fin de su etiqueta hasta la etiqueta siguiente.
   const hits=_NARR_SECTIONS.map(s=>{
     const m=s.re.exec(clean);
     return m?{key:s.key,title:s.title,start:m.index,end:m.index+m[0].length}:null;
   }).filter(Boolean).sort((a,b)=>a.start-b.start);
 
+  let secs=[];
   if(hits.length){
     const bodies={};
     hits.forEach((h,i)=>{
       const to=i+1<hits.length?hits[i+1].start:clean.length;
       bodies[h.key]=_stripLabel(clean.slice(h.end,to).replace(/^\s*:\s*/,'').trim());
     });
-    // Render SIEMPRE en orden canónico; sec() omite las secciones sin cuerpo.
-    const inner=_NARR_SECTIONS.map(s=>sec(s.title,bodies[s.key]||'')).join('');
-    return wrap(inner||sec('Informe de evolución',_stripLabel(clean)));
+    // Orden canónico; descarta las secciones sin cuerpo.
+    secs=_NARR_SECTIONS.map(s=>({title:s.title,body:bodies[s.key]||''})).filter(s=>s.body);
   }
+  if(!secs.length){
+    const whole=_stripLabel(clean);
+    secs=whole?[{title:'Informe de evolución',body:whole}]:[];
+  }
+  return secs;
+}
 
-  // Fallback: sin etiquetas reconocibles → mostrar el texto tal cual (sin etiquetas crudas, sin romper).
-  return wrap(sec('Informe de evolución',_stripLabel(clean)));
+// Última narrativa parseada (estructurada) — la consume informes.js para el PDF (títulos en
+// negrita y secciones separadas, sin depender de copiar el innerText de la pantalla).
+let _lastNarrative=[];
+export function getLastNarrative(){ return _lastNarrative; }
+// Se llama al re-renderizar el informe (cambio de paciente/episodio) para que el PDF no arrastre
+// la narrativa del paciente anterior cuando no se generó una nueva.
+export function clearLastNarrative(){ _lastNarrative=[]; }
+
+// Render en pantalla: secciones bajo encabezados negros/negrita con separación clara entre ellas.
+function _renderPatientNarrative(text) {
+  _lastNarrative=_parseNarrative(text);
+  const fmtBody=b=>esc(b).replace(/\s*\n\s*\n\s*/g,'<br><br>').replace(/\s*\n\s*/g,' ');
+  const sec=(h,body)=>body?`<div style="margin-bottom:18px">`
+    +`<div style="font-size:12px;font-weight:800;color:#1a1917;letter-spacing:.02em;`
+    +`margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(0,0,0,.1)">${esc(h)}</div>`
+    +`<div style="font-size:13px;color:#1a1917;line-height:1.6">${fmtBody(body)}</div></div>`:'';
+  const wrap=inner=>`<div style="background:rgba(29,158,117,.06);border:1px solid rgba(29,158,117,.2);border-radius:8px;padding:14px">${inner}</div>`;
+  return wrap(_lastNarrative.map(s=>sec(s.title,s.body)).join(''));
 }
 
 export function genPatientAI() {
