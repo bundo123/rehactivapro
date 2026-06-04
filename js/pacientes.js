@@ -72,7 +72,9 @@ export function populateDiagList() {
 export function openPatientModal() {
   _patientDirty.reset();
   clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email', 'pm-birth', 'pm-sessions']);
-  ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir'].forEach(id=>document.getElementById(id).value='');
+  // pm-age (hidden, retrocompat) DEBE limpiarse: si no, queda la edad del último paciente editado
+  // y savePatient la escribiría al paciente nuevo (fuga de datos entre pacientes).
+  ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir','pm-age'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm-birth').value='';
   document.getElementById('pm-sessions').value='12';
   document.getElementById('pm-status').value='active';
@@ -167,7 +169,8 @@ export async function savePatient() {
       if (!_p.birth_date) toastInfo('Sin fecha de nacimiento. Algunos reportes mostrarán edad como "no registrada".');
     }
   } catch(e){toastErr('Error de conexión al guardar paciente.');}
-  ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir'].forEach(id=>document.getElementById(id).value='');
+  // Incluye pm-age para que el reset post-guardado no deje la edad pegada al siguiente alta.
+  ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir','pm-age'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm-birth').value='';
   document.getElementById('pm-billing-start').value='0';
   state.editingPatientId=null;
