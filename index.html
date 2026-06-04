@@ -497,14 +497,7 @@
   <div class="field">
     <div class="field"><label>Doctor referente</label><select id="pm-doctor"><option value="">Independiente</option></select></div>
   </div>
-  <div class="field-row two">
-    <div class="field"><label>Sesiones prescritas</label><input type="number" id="pm-sessions" value="12" min="1" max="100"></div>
-    <div class="field">
-      <label>Citas ya acumuladas</label>
-      <input type="number" id="pm-billing-start" value="0" min="0" max="100" style="font-weight:500">
-      <div style="font-size:10px;color:#7a7a76;margin-top:4px">Si ya viene con citas previas, indícalo aquí</div>
-    </div>
-  </div>
+  <div class="field"><label>Sesiones prescritas</label><input type="number" id="pm-sessions" value="12" min="1" max="100"></div>
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal('patient-modal')">Cancelar</button>
     <button class="btn-save" onclick="savePatient()">Guardar paciente</button>

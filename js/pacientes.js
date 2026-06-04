@@ -78,7 +78,6 @@ export function openPatientModal() {
   document.getElementById('pm-birth').value='';
   document.getElementById('pm-sessions').value='12';
   document.getElementById('pm-status').value='active';
-  document.getElementById('pm-billing-start').value='0';
   document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
   state.editingPatientId=null;
   document.getElementById('pm-doctor').innerHTML='<option value="">Sin doctor referente</option>'+state.doctors.map(d=>`<option value="${esc(d.id)}">${esc(d.name)} (${esc(d.spec)})</option>`).join('');
@@ -150,7 +149,7 @@ export async function savePatient() {
     doctorId:document.getElementById('pm-doctor').value||null,
     sessions:parseInt(document.getElementById('pm-sessions').value)||12,
     done:0,status:document.getElementById('pm-status').value,log:[],
-    billing:{sesPerFactura:parseInt(document.getElementById('global-spf').value)||5,facturas:[],pendientes:parseInt(document.getElementById('pm-billing-start').value)||0}
+    billing:{sesPerFactura:parseInt(document.getElementById('global-spf').value)||5,facturas:[]}
   });
   const _p=state.patients[state.patients.length-1];
   window._app.closeModal('patient-modal');
@@ -158,7 +157,7 @@ export async function savePatient() {
     const {data,error}=await supa.from('patients').insert({
       name:_p.name,age:_p.age,birth_date:_p.birth_date,cedula:_p.cedula,tel:_p.tel,email:_p.email,dir:_p.dir,diag:_p.diag,
       doctor_id:_p.doctorId||null,sessions:_p.sessions,done:0,status:_p.status,
-      billing_ses_per_factura:_p.billing.sesPerFactura,billing_pendientes:_p.billing.pendientes
+      billing_ses_per_factura:_p.billing.sesPerFactura,billing_pendientes:0
     }).select().single();
     if(error) toastErr('Error al guardar paciente: '+error.message);
     else {
@@ -172,7 +171,6 @@ export async function savePatient() {
   // Incluye pm-age para que el reset post-guardado no deje la edad pegada al siguiente alta.
   ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir','pm-age'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm-birth').value='';
-  document.getElementById('pm-billing-start').value='0';
   state.editingPatientId=null;
   document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
 }
@@ -290,7 +288,6 @@ export function openEditPatient(id) {
   document.getElementById('pm-diag').value=p.diag||'';
   document.getElementById('pm-sessions').value=p.sessions||10;
   document.getElementById('pm-status').value=p.status||'active';
-  document.getElementById('pm-billing-start').value=pendientesActual(p);
   state.editingPatientId=id;
   populateDiagList();
   document.querySelector('#patient-modal h3').textContent='Editar paciente';
