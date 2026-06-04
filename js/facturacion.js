@@ -103,7 +103,7 @@ function renderListoRow(p, info) {
         </div>
       </div>
       <div class="fact-fp-actions">
-        <button class="fact-mark-btn" onclick="emitirFactura(${JSON.stringify(p.id)})">✓ Cobrado</button>
+        <button class="fact-mark-btn" onclick="emitirFactura('${esc(String(p.id))}')">✓ Cobrado</button>
       </div>
     </div>`;
 }
@@ -149,26 +149,31 @@ function renderCursoRow(p, info, spf) {
 function renderCobrosRecientes() {
   // Cobros are embedded in state.patients[].billing.facturas (no state.cobros array exists)
   // Schema: { id: cobro_ref, n: n_sessions, fecha: 'YYYY-MM-DD', estado: 'cobrada' }
-  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const allCobros = state.patients
+  const months     = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const fullMonths = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const now      = new Date();
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // 'YYYY-MM'
+  const mesNombre = fullMonths[now.getMonth()];
+
+  const cobrosMes = state.patients
     .flatMap(p => (p.billing?.facturas || []).map(f => ({
       fecha: f.fecha || '',
       name:  p.name,
       n:     f.n || 0,
     })))
-    .sort((a, b) => b.fecha.localeCompare(a.fecha))
-    .slice(0, 8);
+    .filter(c => c.fecha.startsWith(monthKey))
+    .sort((a, b) => b.fecha.localeCompare(a.fecha)); // reciente primero
 
-  if (!allCobros.length) {
+  if (!cobrosMes.length) {
     return `<div class="fact-empty">
       <div class="fact-empty-icon">📋</div>
-      <div class="fact-empty-title">Aún no hay cobros registrados</div>
-      <div class="fact-empty-sub">Aparecerán aquí cuando emitas la primera factura.</div>
+      <div class="fact-empty-title">No hay cobros en ${esc(mesNombre)}</div>
+      <div class="fact-empty-sub">Aparecerán aquí los cobros que emitas este mes.</div>
     </div>`;
   }
 
-  const totalN  = allCobros.reduce((s, c) => s + c.n, 0);
-  const items   = allCobros.map(c => {
+  const totalN  = cobrosMes.reduce((s, c) => s + c.n, 0);
+  const items   = cobrosMes.map(c => {
     const [, mon, day] = (c.fecha || '--').split('-');
     const fechaDisplay = mon
       ? `${parseInt(day, 10)} ${months[parseInt(mon, 10) - 1]}`
@@ -185,7 +190,7 @@ function renderCobrosRecientes() {
       <div class="fact-history-head">
         <span class="fact-sec-dot" style="background:var(--rh-green)"></span>
         <div class="fact-history-title">Cobros recientes</div>
-        <div class="fact-history-sub">últimos ${allCobros.length} cobros · ${totalN} sesiones</div>
+        <div class="fact-history-sub">Cobros de ${esc(mesNombre)} · ${cobrosMes.length} cobro${cobrosMes.length !== 1 ? 's' : ''} · ${totalN} sesiones</div>
       </div>
       <div class="fact-history-list">${items}</div>
     </div>`;
