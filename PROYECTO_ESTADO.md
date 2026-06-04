@@ -1,19 +1,37 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-06-02
+> Generado: 2026-05-18 · Última actualización: 2026-06-03
 
 ---
 
-## 🔜 PRÓXIMO: ajustes finales del informe (mañana)
+## 🔜 PRÓXIMO: Protocolos asignables al paciente (plato fuerte)
 
-> Anotado 2026-06-02 al cierre. Pendiente de implementar — NO tocado todavía. Todo en el Informe Paciente (`informes.js`, `sesiones.js`, `ia.js`, `index.html`).
+> Plan detallado en **`PLAN_PROXIMO.md` (PARTE 2)**. Es la feature grande para el "reemplazo de Reliv" (historia clínica/informe). **Toca DB con `ALTER TABLE`** (aditivo, columnas nullable). NO tocado todavía.
 
-1. **BUG (investigar) — EVA no precarga al EDITAR sesión.** Al editar una sesión desde el Informe Paciente, el EVA antes/después **no** muestra los valores actuales de esa sesión: edito una "4→3" y el modal aparece con "8→7". Precarga incorrecta de `pb`/`pa` en `editSession` (o en cómo el modal toma los valores). **Investigar de dónde saca esos números** antes de tocar nada.
-2. **BUG color EVA — umbral mal calibrado.** Con los cortes actuales (10–6 rojo / 5–2 verde / 0–1 azul), el **5 y el 2 salen ambos verdes** y no se distingue dolor **medio** de **bajo**. Reajustar la escala (ej. agregar tramo **5–6 amarillo/naranja**) en `evaColor`.
-3. **Quitar del todo "Firma del terapeuta"** (incluido el caption), en **pantalla y PDF**. (Ojo: distinto del placeholder "Terapeuta tratante" que ya se quitó; ahora se quita el bloque/caption de firma completo.)
-4. **Narrativa clínica — jerarquía visual.** Los títulos de sección (CONDICIÓN INICIAL, etc.) deben ir en **negro/negrita más fuerte** y con **más espaciado entre secciones**; hoy el párrafo corrido se pierde.
-5. **Detalle por sesión — destacar la evaluación inicial.** La primera fila (Evaluación inicial) debe verse como **bloque aparte más vistoso**, no amontonada como una fila normal.
-6. **Quitar los círculos de iniciales** en el Informe Paciente: el del **buscador/combobox** Y el **círculo grande** junto al nombre del paciente — consistencia con la pantalla Pacientes (que es plana).
+- **Decisión ya tomada (v1 simple):** protocolo **por paciente** → columna `patients.protocol_id` = protocolo del **episodio actual**; al iniciar nuevo episodio se vuelve a elegir/limpiar.
+- **Migración (Supabase SQL):** `protocols.clinical_context text` (markdown), `protocols.img text` (zona corporal → arregla el ícono de rodilla, bug I3), `patients.protocol_id uuid` FK `on delete set null`.
+- **PR-A (sin IA):** mapear campos nuevos en `auth.js`/`realtime.js`, guardar `img`+`clinical_context` en `dbSaveProtocol`, selector de zona + textarea en el modal de protocolo, `<select>` de protocolo + auto-relleno en el modal de paciente, link explícito con fallback a keyword en adherencia.
+- **PR-B (IA + contexto):** inyectar el `clinicalContext` del protocolo en el prompt de `genPatientAI` como **referencia de plantilla** (no historia clínica), con **barrera anti-alucinación reforzada** y tope de tokens — para que la IA no redacte la plantilla como si le hubiera pasado al paciente.
+
+**Después de protocolos** (resto en `PLAN_PROXIMO.md`): **I2** facturación por episodio (las etiquetas de cobro no se resetean al iniciar episodio), **I5** borrado en cascada sin transacción (`ON DELETE CASCADE`/RPC), y menores de limpieza (código muerto `protocolSVG`/`dbUpdateBillingPendientes`, `next_plan` write-only, `alert()`→toasts, higiene del repo).
+
+---
+
+## 🗓️ Sesión 2026-06-03
+
+### ✅ Cerrado hoy — todo en producción (push a `origin/main`, Vercel verde verificado)
+
+- **Fix de raíz — sesiones identificadas por `id` único, no por fecha/hora (`c1da7bc`):** al editar una sesión, el EVA antes/después y **todos los campos** mostraban los de otra sesión (p.ej. editar "4→3" abría "8→7"). Causa: las sesiones se matcheaban por fecha/hora (colisionaban). Ahora se **captura el `id` en los 4 puntos de creación** y se identifica por `id` → arregla EVA y campos al editar **y elimina los duplicados en memoria**.
+- **PARTE 1 del informe (`0eb443f`)** — los 5 ajustes pedidos (detalle de verificación en `VERIFICACION.md`):
+  - **Color EVA escala A** (estándar clínico): 7–10 rojo / 4–6 amarillo / 1–3 verde / 0 azul, con el **número y las bandas del gráfico alineados** a los mismos cortes (0–3.5 / 3.5–6.5 / 6.5–10) → ya no discrepan (cerró un bug que no se había notado: un EVA 6 salía rojo como número pero caía en banda amarilla).
+  - **Quitada la "Firma del terapeuta"** de pantalla y PDF (limpieza de `thFirma`/`withThLog`/CSS `.firma`; `thHeader` del encabezado intacto).
+  - **Narrativa clínica con títulos en negrita** (negro `#1a1917`, peso 800, más espaciado) + **PDF por camino robusto**: narrativa **estructurada compartida** (`getLastNarrative` en `ia.js`) en vez del hack `innerText` → los títulos salen en negrita de verdad y las secciones bien separadas. Incluye **`clearLastNarrative`** al re-render del informe para **no arrastrar la narrativa entre pacientes/episodios** (buena cazada: sin esto, exportar el PDF de un paciente B tras generar la IA de A habría incluido la de A).
+  - **Evaluación inicial como callout** destacado **fuera de la tabla** (bloque verde con sus partes anamnesis/antecedentes/zonas/inspección + botón Editar), tanto en pantalla como en PDF; el conteo "Detalle por sesión (N)" cuenta solo las de tratamiento.
+  - **Quitados los círculos de iniciales** (el del buscador/combobox y el grande junto al nombre); limpieza de `thC` y del import `COLOR_OPTIONS`. La clase `.avatar` se conserva (la usan otras pantallas).
+- **Bug `pm-age` (`5535d08`):** `openPatientModal` no limpiaba el `pm-age` (input hidden, retrocompat) → tras editar un paciente con edad y abrir "Nuevo paciente", el alta nueva **heredaba la edad del anterior**. Se agrega `pm-age` a la limpieza de `openPatientModal` **y** al reset post-guardado de `savePatient` → el paciente nuevo ya no hereda edad.
+
+### 📄 Docs
+- Se sumaron al repo (`d35882a`): **`PLAN_PROXIMO.md`** (análisis de las 3 partes y el plan de protocolos), **`AUDITORIA.md`**, **`VERIFICACION.md`** (verificación estática de la PARTE 1 + checklist manual pendiente de navegador/PDF) y **`diagnostico_done.sql`**.
 
 ---
 
