@@ -165,80 +165,110 @@ Quitar ese `<div>`. El header es `display:flex;align-items:center;gap:14px` → 
 
 ---
 
-# PARTE 2 — Protocolos asignables al paciente (feature grande)
+# PARTE 2 — Protocolos asignables al paciente (feature grande) · PLAN v2 FINALIZADO
+
+> **Estado:** plan cerrado (decisiones D2–D5 tomadas, ver §2.4). Se ejecuta en 2 commits:
+> **PR-A** "asignar protocolo al paciente + arreglar íconos (img y def)" — sin IA.
+> **PR-B** "contexto del protocolo → IA" — con barrera anti-alucinación y tope de tope de contexto.
+> El **SQL lo corre David** en Supabase ANTES de aplicar PR-A (las escrituras 404ean sin las columnas).
 
 ## 2.1 — Cómo está hoy (estructura real)
 
-**Tabla `protocols`** (de `auth.js:71` y `auth.js:235`): columnas `id, name, diag_keywords, sessions, freq, discharge_criteria` (+ `created_at`). En memoria: `{id, name, diag, sessions, freq, alta}`.
+**Tabla `protocols`** (de `auth.js:72` y `auth.js:235`): columnas `id, name, diag_keywords, sessions, freq, discharge_criteria` (+ `created_at`). En memoria: `{id, name, diag, sessions, freq, alta}`.
 
-**Importante:** los campos `img` (ícono de zona corporal) y `def` (descripción) **solo existen en `DEFAULT_PROTOCOLS`** (`auth.js:27-42`, hardcodeados). **No se mapean desde la DB ni se guardan** (`dbSaveProtocol` no los escribe). Consecuencia ya visible en producción → **bug 3.3** (todos los protocolos guardados muestran el ícono de rodilla).
+**Importante:** los campos `img` (ícono de zona corporal) y `def` (descripción breve) **solo existen en `DEFAULT_PROTOCOLS`** (`auth.js:26-42`, hardcodeados). **No se mapean desde la DB ni se guardan** (`dbSaveProtocol`, `auth.js:235-240`, no los escribe). Doble consecuencia ya visible en producción:
+- **I3 (`img`):** todo protocolo creado/editado en la app cae al fallback `svgsSmall[p.img]||svgsSmall.knee` (`protocolos.js:132`) → se ve como **Rodilla**.
+- **Bug gemelo de `def` (D5):** `renderProtocols` (`protocolos.js:137`) muestra `p.def` pero, al no mapearse ni guardarse, **la definición nunca aparece** para protocolos reales (solo para los DEFAULT). Mismo patrón que `img`; se arregla junto en PR-A.
 
-**Asociación protocolo↔paciente: hoy NO existe de forma explícita.** Es **implícita y frágil**: `getProtocolRows()` (`protocolos.js:155-168`) recorre pacientes × protocolos y los matchea por **substring** del `diag` del paciente contra las `diag_keywords` del protocolo. Eso solo alimenta el widget de "Adherencia a protocolos". Un paciente puede matchear 0, 1 o varios protocolos por coincidencia de texto.
+**Asociación protocolo↔paciente: hoy NO existe de forma explícita.** Es **implícita y frágil**: `getProtocolRows()` (`protocolos.js:155-168`) recorre pacientes × protocolos y los matchea por **substring** del `diag` del paciente contra las `diag_keywords` del protocolo. Eso solo alimenta el widget de "Adherencia a protocolos". Un paciente puede matchear 0, 1 o varios protocolos. **Bug latente:** una `diag_keyword` vacía (`''`) hace `includes('')===true` → matchea a todos; se corrige con guard `k&&` en PR-A.
 
-**Tabla `patients`** (`pacientes.js:156-160`): no tiene ninguna columna que apunte a un protocolo.
+**Tabla `patients`** (`pacientes.js`): no tiene ninguna columna que apunte a un protocolo.
 
-## 2.2 — La idea: contexto rico (markdown) para que la IA escriba mejor
+## 2.2 — La idea: contexto rico (markdown) para que la IA escriba mejor (PR-B)
 
-El informe IA (`ia.js:genPatientAI`, `:102-150`) hoy arma el prompt **solo** con datos del paciente (edad, diagnóstico, eval inicial, historial de sesiones). No sabe nada del "protocolo esperado". Si cada protocolo llevara un **contexto clínico en markdown** (objetivos por fase, técnicas típicas, hitos esperados, criterios de alta, señales de alarma), la IA podría:
+El informe IA (`ia.js:genPatientAI`) hoy arma el prompt **solo** con datos del paciente (edad, diagnóstico, eval inicial, historial de sesiones). No sabe nada del "protocolo esperado". Si cada protocolo llevara un **contexto clínico** (objetivos por fase, técnicas típicas, hitos esperados, criterios de alta, señales de alarma), la IA podría:
 - contrastar la evolución real contra los hitos esperados del protocolo,
 - redactar recomendaciones alineadas a la fase del tratamiento,
 - usar terminología y criterios de alta consistentes.
 
-## 2.3 — Plan de implementación (orden sugerido)
+⚠️ Riesgo central de PR-B: que la IA **redacte la plantilla como si le hubiera pasado al paciente**. Mitigación = barrera anti-alucinación reforzada + marcar el bloque como **referencia, no historia clínica** + tope duro de **1.200 caracteres** (D4) sobre el contexto inyectado.
 
-**A. Migración DB (Supabase SQL editor):**
+## 2.3 — Plan de implementación
+
+### A. Migración DB (Supabase SQL editor) — **la corre David, ANTES de PR-A**
+
 ```sql
-alter table public.protocols add column if not exists clinical_context text;  -- markdown
-alter table public.protocols add column if not exists img text;               -- zona corporal (arregla 3.3)
+alter table public.protocols add column if not exists clinical_context text;  -- markdown (PR-B)
+alter table public.protocols add column if not exists img text;               -- zona corporal (arregla I3)
+alter table public.protocols add column if not exists definition text;        -- descripción breve (arregla bug def, D5)
 alter table public.patients  add column if not exists protocol_id uuid
      references public.protocols(id) on delete set null;
 ```
+> 4 columnas, todas aditivas/nullable. Las **lecturas** (mappers `select('*')`) son seguras aun sin correr el SQL (las columnas inexistentes llegan `undefined`). Las **escrituras** (`dbSaveProtocol`, insert/update de `patients`) **fallan con 404 hasta que existan** → por eso PR-A no se pushea hasta "SQL listo".
 
-**B. `auth.js` `loadAll` (`:71`):** mapear los campos nuevos:
+---
+
+### PR-A — asignar protocolo al paciente + arreglar íconos (img y def) · SIN IA
+
+**B. Mappers leen columnas nuevas:**
+- `auth.js:72` (protocolos): agregar `img:r.img||''`, `def:r.definition||''`, `clinicalContext:r.clinical_context||''`. *(el `clinicalContext` se mapea ya en PR-A aunque solo lo use PR-B — es lectura inocua).*
+- `auth.js:63-71` (pacientes): agregar `protocolId:r.protocol_id||null`.
+- `realtime.js:_mapPatient` (`:78-86`): agregar `protocolId:r.protocol_id||null`. **NO** agregar mapper de protocolo: realtime no trackea `protocols`.
+
+**C. `auth.js dbSaveProtocol` (`:237`):** persistir las 3 columnas nuevas en el upsert:
 ```js
-state.protocols = (prot.data||[]).map(r=>({id:r.id,name:r.name,diag:r.diag_keywords||'',
-  sessions:r.sessions||20,freq:r.freq||3,alta:r.discharge_criteria||'',
-  img:r.img||'knee', clinicalContext:r.clinical_context||''}));
-```
-Y en el mapeo de pacientes (`:62-70`) agregar `protocolId:r.protocol_id||null`. Espejo en `realtime.js:_mapPatient` (`:76`).
-
-**C. `auth.js` `dbSaveProtocol` (`:235`):** incluir `img` y `clinical_context` en el upsert.
-
-**D. Modal de protocolo (`index.html` ~`prot-*`) + `protocolos.js`:**
-- Agregar `<select>` de zona corporal (`img`: shoulder/hip/hand/arm/head/elbow/spine/knee/ankle) → arregla el ícono.
-- Agregar `<textarea>` "Contexto clínico (para la IA)" → `clinical_context`.
-- Leer/escribir ambos en `openProtocolModal` (`:42`) y `saveProtocol` (`:63`).
-
-**E. Modal de paciente (`index.html:489-499`) + `pacientes.js`:**
-- Insertar `<select id="pm-protocol">` entre Diagnóstico (`:489`) y Doctor referente (`:498`).
-- Poblarlo en `openPatientModal`/`openEditPatient` con `state.protocols`.
-- **Auto-relleno al elegir protocolo** (UX clave): `onchange` → si los campos están vacíos, precargar `pm-diag` (= `protocol.name`), `pm-sessions` (= `protocol.sessions`). Mantener **editable**.
-- En `savePatient` (insert `:156` y update `:129`): incluir `protocol_id: protocolId||null`.
-
-**F. `ia.js` `genPatientAI` (`:120-147`):** si el paciente tiene `protocolId`, inyectar el `clinicalContext` del protocolo como **contexto de referencia** (con barrera anti-alucinación, ver riesgos):
-```
-CONTEXTO DEL PROTOCOLO (información de referencia de la plantilla, NO son hallazgos de este paciente; úsalo solo para enmarcar objetivos y recomendaciones): {clinicalContext}
+const d={name:p.name,diag_keywords:p.diag,sessions:p.sessions,freq:p.freq,discharge_criteria:p.alta,
+  img:p.img||null,definition:p.def||null,clinical_context:p.clinicalContext||null};
 ```
 
-**G. (Opcional) `informes.js renderPatientReport`:** mostrar el protocolo asignado en la grilla del encabezado (`:587-590`), una celda `Protocolo`.
+**D. Modal de protocolo (`index.html` `#protocol-modal`, tras `:575`) + `protocolos.js`:**
+- `#prot-img` = `<select>` de zona corporal, valores = claves de `svgsSmall` (shoulder/hip/hand/arm/head/elbow/spine/knee/ankle). **Default `knee` `selected`** (alineado con el fallback de la tarjeta, así editar un protocolo viejo no le cambia el ícono solo).
+- `#prot-def` = `<input>` de definición breve.
+- `#prot-ctx` = `<textarea>` "Contexto clínico (para la IA)" → `clinicalContext` (se persiste en PR-A; se inyecta a la IA recién en PR-B).
+- `openProtocolModal` (`:42-61`): reset → `prot-img='knee'`, `prot-def=''`, `prot-ctx=''`; rama edición → `prot-img=p.img||'knee'`, `prot-def=p.def||''`, `prot-ctx=p.clinicalContext||''`.
+- `saveProtocol` (`:82`): leer los 3 campos al objeto (`img`, `def`, `clinicalContext`).
 
-**H. `protocolos.js getProtocolRows` (`:155`):** preferir el link explícito (`p.protocolId`) y dejar el match por keyword como **fallback** cuando `protocolId` es null (retrocompatibilidad con los pacientes ya cargados).
+**E. Modal de paciente (`index.html`) + `pacientes.js`:**
+- Insertar `<select id="pm-protocol" onchange="onPatientProtocolChange()">` entre Diagnóstico (cierra `:496`) y Doctor referente (`:497`), con opción `""` = "Sin protocolo".
+- Poblarlo en `openPatientModal` (`:72-85`, junto a `pm-doctor` y sumarlo al array de reset `:77`) y en `openEditPatient` (`:276-294`, preseleccionando `p.protocolId`).
+- **Auto-relleno `onchange` (D2):** `onPatientProtocolChange()` precarga `pm-diag` desde **`protocol.name`** (D2: el nombre, no las keywords) y `pm-sessions` desde `protocol.sessions`, **solo si están vacíos** (tratando `'12'` como default de sesiones). **Editable** después.
+- `savePatient`: escribir `protocol_id` en el **insert** (`:157-160`, vía `_p.protocolId`) y en el **update** (`:130-133`); sumar `'pm-protocol'` al reset post-guardado (`:172`).
+- `main.js`: exponer `onPatientProtocolChange` (import desde `pacientes.js` + `Object.assign(window,…)`).
 
-## 2.4 — Decisiones que David debe tomar ANTES de implementar
+**F. `protocolos.js getProtocolRows` (`:155`):** preferir el link explícito (`p.protocolId` → solo ese protocolo, sin fallback); si el paciente no tiene link, fallback al match por keyword **con guard `k&&`** (no matchear con keyword vacía). Retrocompat con pacientes ya cargados.
 
-1. **¿Protocolo por paciente o por episodio?** `done` es **por episodio** (se resetea con 'Fin de episodio'). Un paciente que vuelve por otra lesión tendría otro protocolo. Opciones:
-   - **(v1 simple, recomendado):** `patients.protocol_id` = protocolo del **episodio actual**. Al iniciar nuevo episodio (modal `nuevoEpisodio`, `pacientes.js:300`), pedir/limpiar el protocolo. Pierde el historial de "qué protocolo tuvo el episodio anterior".
-   - **(correcto pero más caro):** guardar el `protocol_id` en el marcador 'Fin de episodio' de `session_log`, o introducir una tabla `episodes`. Más fiel, más trabajo.
+**G. `informes.js renderPatientReport` (`:586-589`):** mostrar el protocolo asignado como celda `Protocolo` en la grilla del encabezado (condicional: solo si `p.protocolId` resuelve). **Incluido en PR-A** (decidido).
 
-2. **Barrera anti-alucinación (la más importante):** si metés texto de plantilla en el prompt, la IA puede **redactar la plantilla como si le hubiera pasado al paciente** ("se aplicó fortalecimiento excéntrico…" aunque no se registró). El prompt actual ya dice "no inventes hallazgos". Hay que **reforzarlo** y marcar el contexto del protocolo como **referencia, no historia clínica**. Decidir cuánto contexto inyectar.
+**Cierre PR-A:** un commit `feat: protocolo asignable al paciente + fix íconos img/def`. `node --check` en los archivos editados. Verificar Vercel verde vía GitHub commit-status API.
 
-3. **Costo de tokens / LOPDP del contexto:** el `clinical_context` es **plantilla** (no PII) → no es dato sensible, puede quedar fuera del `audit_log` (los protocolos ya están fuera, ver `audit_log.sql:7`). Pero suma tokens al prompt pago. Definir un tope de longitud razonable.
+---
 
-4. **¿Reemplazar o convivir con el match por keyword?** Si los pacientes existentes quedan con `protocol_id` null, el widget de adherencia debe seguir funcionando por keyword hasta que se asignen. Recomiendo **convivir** (link explícito con fallback a keyword).
+### PR-B — contexto del protocolo → IA (commit aparte, después de PR-A)
 
-**Notas menores:** `protocols` **no** está en realtime (`realtime.js:8`), así que editar un protocolo no se sincroniza en vivo entre usuarios (requiere recargar). `createProtocol` es **solo admin** (`permissions.js:12`); asignar a paciente cae bajo `editPatient` (admin/secretaria/terapeuta) — coherente.
+**`ia.js genPatientAI`:** si el paciente tiene `protocolId` con `clinicalContext`, inyectar como **contexto de referencia** (D3: SOLO por link explícito `protocol_id`, **sin** fallback por keyword), truncado a **1.200 caracteres** (D4), con barrera reforzada:
+```
+CONTEXTO DEL PROTOCOLO (plantilla de referencia, NO son hallazgos de este paciente;
+úsalo solo para enmarcar objetivos y recomendaciones, jamás como algo que se le hizo/registró): {clinicalContext[:1200]}
+```
+Probar la barrera antes de soltar (que la IA no narre la plantilla como historia real).
 
-**Riesgo global PARTE 2:** medio. La migración es aditiva (columnas nullable, sin romper nada). El grueso del riesgo está en (1) semántica de episodios y (2) que la IA no invente. Sugiero hacerlo en 2 PRs: **PR-A** "asignar protocolo + arreglar ícono" (DB + modales + auto-relleno, sin IA), **PR-B** "contexto clínico → IA" (con la barrera bien probada).
+## 2.4 — Decisiones cerradas
+
+1. **Protocolo por paciente o por episodio →** ✅ **por paciente (v1 simple)**: `patients.protocol_id` = protocolo del **episodio actual**. Al iniciar nuevo episodio (`nuevoEpisodio`, `pacientes.js:300`) se vuelve a elegir/limpiar. Se acepta perder el historial de "qué protocolo tuvo el episodio anterior".
+
+2. **D2 — Auto-relleno del diagnóstico →** ✅ se precarga `pm-diag` desde el **NOMBRE del protocolo** (`protocol.name`), no desde las keywords. Editable. `pm-sessions` desde `protocol.sessions`. Ambos **solo si el campo está vacío** (`'12'` cuenta como default de sesiones).
+
+3. **D3 — Contexto de IA →** ✅ se inyecta **SOLO por link explícito** (`protocol_id`). **Sin** fallback por keyword para la IA (el fallback por keyword queda solo para el widget de adherencia, §2.3-F).
+
+4. **D4 — Tope del contexto inyectado →** ✅ **1.200 caracteres** del `clinicalContext` al prompt. Es plantilla (no PII) → fuera del `audit_log` (los protocolos ya están fuera, `audit_log.sql:7`).
+
+5. **D5 — Bug gemelo de `def` →** ✅ se arregla **dentro de PR-A**, mismo patrón que `img` (columna `definition`, mapper `def:r.definition||''`, persistencia en `dbSaveProtocol`, input `#prot-def` en el modal).
+
+6. **Adherencia: convivir con keyword →** ✅ link explícito con fallback a keyword (guard `k&&`). Los pacientes existentes (sin `protocol_id`) siguen matcheando por keyword hasta que se les asigne protocolo.
+
+**Notas menores:** `protocols` **no** está en realtime (`realtime.js`), así que editar un protocolo no se sincroniza en vivo (requiere recargar) — aceptable, es plantilla. `createProtocol` es **solo admin** (`permissions.js:12`); asignar a paciente cae bajo `editPatient` (admin/secretaria/terapeuta) — coherente.
+
+**Riesgo global:** medio. La migración es aditiva (columnas nullable). El grueso del riesgo está en PR-B (que la IA no invente), por eso va en commit aparte con la barrera probada.
 
 ---
 
