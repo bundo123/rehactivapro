@@ -47,13 +47,14 @@ export async function loadAll(force=false) {
     return {cached:true};
   }
   try {
-    const [th,doc,pat,appt,prot,cob] = await Promise.all([
+    const [th,doc,pat,appt,prot,cob,inf] = await Promise.all([
       supa.from('therapists').select('*').order('created_at'),
       supa.from('doctors').select('*').order('created_at'),
       supa.from('patients').select('*,session_log(*)').order('created_at'),
       supa.from('appointments').select('*,patients(name)').order('date').order('hour'),
       supa.from('protocols').select('*').order('created_at'),
       supa.from('cobros').select('*').order('created_at'),
+      supa.from('informes').select('*').eq('deleted',false).order('created_at',{ascending:false}),
     ]);
     if(th.error) throw th.error;
     state.therapists = (th.data||[]).map(r=>({id:r.id,name:r.name,initials:r.initials||r.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),spec:r.spec||'',startH:r.start_h,endH:r.end_h,colorId:r.color_id||'ca'}));
@@ -70,6 +71,7 @@ export async function loadAll(force=false) {
     }));
     state.protocols = (prot.data||[]).map(r=>({id:r.id,name:r.name,diag:r.diag_keywords||'',sessions:r.sessions||20,freq:r.freq||3,alta:r.discharge_criteria||''}));
     state.appointments = (appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:(r.patients&&r.patients.name)||null,hour:r.hour,duration:r.duration||60,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''}));
+    state.informes = (inf.data||[]).map(r=>({id:r.id,patientId:r.patient_id,createdAt:r.created_at,createdBy:r.created_by,numero:r.numero,episodio:r.episodio,fechaEmision:r.fecha_emision,narrativa:r.narrativa||[],snapshot:r.snapshot||{}}));
     if(!state.protocols.length) state.protocols = [...DEFAULT_PROTOCOLS];
 
     let maxFact = 0;

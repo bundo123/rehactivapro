@@ -108,6 +108,9 @@ export function clearLastNarrative(){ _lastNarrative=[]; }
 // Render en pantalla: secciones bajo encabezados negros/negrita con separación clara entre ellas.
 function _renderPatientNarrative(text) {
   _lastNarrative=_parseNarrative(text);
+  // Revela el botón "Guardar informe" recién cuando hay narrativa generada (PR-A).
+  const _sb=document.getElementById('save-informe-btn');
+  if(_sb) _sb.style.display=_lastNarrative.length?'':'none';
   const fmtBody=b=>esc(b).replace(/\s*\n\s*\n\s*/g,'<br><br>').replace(/\s*\n\s*/g,' ');
   const sec=(h,body)=>body?`<div style="margin-bottom:18px">`
     +`<div style="font-size:12px;font-weight:800;color:#1a1917;letter-spacing:.02em;`

@@ -4,6 +4,7 @@ export const state = {
   patients: [],
   appointments: [],
   protocols: [],
+  informes: [],
   notifSettings: [
     {id:'wa_rec',label:'Recordatorio WhatsApp 24h antes',desc:'Envía mensaje automático al paciente 24h antes de su cita.',icon:'📱',on:true},
     {id:'email_th',label:'Email al terapeuta al asignar cita',desc:'Notifica al terapeuta cuando se le agenda una nueva cita.',icon:'✉️',on:true},
