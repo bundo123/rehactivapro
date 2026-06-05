@@ -1,6 +1,6 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-06-03
+> Generado: 2026-05-18 · Última actualización: 2026-06-05
 
 ---
 
@@ -14,6 +14,26 @@
 - **PR-B (IA + contexto):** inyectar el `clinicalContext` del protocolo en el prompt de `genPatientAI` como **referencia de plantilla** (no historia clínica), con **barrera anti-alucinación reforzada** y tope de tokens — para que la IA no redacte la plantilla como si le hubiera pasado al paciente.
 
 **Después de protocolos** (resto en `PLAN_PROXIMO.md`): **I2** facturación por episodio (las etiquetas de cobro no se resetean al iniciar episodio), **I5** borrado en cascada sin transacción (`ON DELETE CASCADE`/RPC), y menores de limpieza (código muerto `protocolSVG`/`dbUpdateBillingPendientes`, `next_plan` write-only, `alert()`→toasts, higiene del repo).
+
+---
+
+## 🗓️ Sesión 2026-06-04 / 05
+
+### ✅ Cerrado — todo en producción (push a `origin/main`, Vercel verde verificado)
+
+- **Quita el campo "pendientes al iniciar" (`467693a`):** el input `pm-billing-start` quedó huérfano tras el refactor de fuente única (la facturación deriva de `pendientesActual`/`session_log`, ya no lee `billing.pendientes`). Se eliminó del modal de paciente y de los 4 puntos en `pacientes.js`; el insert ahora fija `billing_pendientes:0` (columna vestigial). Layout del modal reacomodado (Sesiones prescritas a ancho completo).
+- **Fixes de facturación (`a80259f`):**
+  - **Cobrar individual roto:** el botón "✓ Cobrado" usaba `onclick="emitirFactura(${JSON.stringify(p.id)})"` → con IDs UUID (string), las comillas dobles anidadas rompían el atributo HTML y el botón no disparaba ("Cobrar todos" sí andaba porque llama desde JS). Ahora `emitirFactura('${esc(String(p.id))}')`.
+  - **Cobros recientes por mes:** `renderCobrosRecientes` mostraba los últimos 8 de todos los tiempos; ahora filtra por **mes en curso**, subtítulo "Cobros de [mes]", estado vacío y orden reciente primero.
+- **★ Feature grande — Guardar informes IA en histórico (PR-A `cbec1ea` + PR-B `4026b82`):** resuelve el "error fatal" (la narrativa IA vivía solo en memoria → exportar el PDF sin regenerar salía sin narrativa, y regenerar malgastaba créditos). Decisión de David: **histórico** (varios por paciente, ~uno por episodio), con **ver inline / exportar / eliminar**.
+  - **DB:** tabla nueva **`informes`** (`id` uuid, `patient_id` FK `on delete cascade`, `created_by`, `numero`, `episodio`, `fecha_emision`, **`narrativa` jsonb** = `[{title,body}]`, **`snapshot` jsonb** = render-model completo, `deleted`/`deleted_at`/`deleted_by`). RLS estilo resto: **lectura abierta** a autenticados, **insert/update solo admin+terapeuta** (chequeo `profiles.role`); **DELETE físico revocado → borrado lógico**. Auditada vía el trigger genérico `audit_trigger_fn` (dato clínico). **Corrida a mano en el SQL Editor de Supabase** (no versionada en el repo todavía).
+  - **PR-A (guardar + exportar reproducible):** `state.informes` + fetch en `loadAll` (`deleted=false`, reciente primero). Refactor de `exportarPDF` → **`buildPdfHtml(model)` pura** (render-model → HTML, sin tocar state/`_rptCtx`/canvas) + `openPdfWindow`; `_buildRenderModel` arma el snapshot (métricas, eval inicial, filas de sesión, **`evaChartImg` base64**, nombres ya resueltos). `guardarInforme()` persiste (gated por `viewAI`); botón **"💾 Guardar informe"** visible recién al generar narrativa; card **"Informes guardados"** tras la narrativa; `exportarInformeGuardado(id)` rearma el PDF **idéntico desde el snapshot, sin IA**.
+  - **PR-B (ver inline + eliminar):** `permissions.js` nueva acción **`deleteInforme`** (admin+terapeuta). `renderNarrativeHtml` extraído como renderizador puro en `ia.js`. **`verInformeGuardado(id)`** inyecta la narrativa guardada en el bloque on-screen (sin re-llamar IA, sin tocar `_lastNarrative`/`_rptCtx` → export vivo intacto). **`eliminarInformeGuardado(id)`** = borrado lógico (`deleted=true,…`) con confirmación, gated por `deleteInforme`. Lista con **Ver · Exportar PDF · Eliminar** (este último según permiso).
+
+### ⚠️ Pendiente / notas
+- **`informes` no está versionada en el repo:** el SQL se corrió en Supabase pero falta agregar un `.sql` de la tabla al repo y sumar `'informes'` al array canónico de tablas auditadas en `audit_log.sql` (hoy el trigger está enganchado en la DB, pero no documentado en git).
+- **Realtime de `informes`:** no cableado (fase posterior). Hoy la lista se llena al guardar localmente y al recargar; no sincroniza entre sesiones en vivo.
+- **UX menor:** tras guardar, la narrativa sigue en pantalla; si se cambia de paciente/episodio se limpia (esperado). "Ver inline" la recupera desde el histórico.
 
 ---
 
