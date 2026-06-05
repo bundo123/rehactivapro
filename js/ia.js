@@ -105,19 +105,25 @@ export function getLastNarrative(){ return _lastNarrative; }
 // la narrativa del paciente anterior cuando no se generó una nueva.
 export function clearLastNarrative(){ _lastNarrative=[]; }
 
-// Render en pantalla: secciones bajo encabezados negros/negrita con separación clara entre ellas.
-function _renderPatientNarrative(text) {
-  _lastNarrative=_parseNarrative(text);
-  // Revela el botón "Guardar informe" recién cuando hay narrativa generada (PR-A).
-  const _sb=document.getElementById('save-informe-btn');
-  if(_sb) _sb.style.display=_lastNarrative.length?'':'none';
+// Renderizador PURO de la narrativa estructurada ([{title,body}]) → HTML on-screen. Lo reusa el
+// "Ver inline" de un informe guardado (informes.js) para mostrar la misma maqueta sin re-llamar a la IA.
+export function renderNarrativeHtml(sections) {
   const fmtBody=b=>esc(b).replace(/\s*\n\s*\n\s*/g,'<br><br>').replace(/\s*\n\s*/g,' ');
   const sec=(h,body)=>body?`<div style="margin-bottom:18px">`
     +`<div style="font-size:12px;font-weight:800;color:#1a1917;letter-spacing:.02em;`
     +`margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(0,0,0,.1)">${esc(h)}</div>`
     +`<div style="font-size:13px;color:#1a1917;line-height:1.6">${fmtBody(body)}</div></div>`:'';
   const wrap=inner=>`<div style="background:rgba(29,158,117,.06);border:1px solid rgba(29,158,117,.2);border-radius:8px;padding:14px">${inner}</div>`;
-  return wrap(_lastNarrative.map(s=>sec(s.title,s.body)).join(''));
+  return wrap((sections||[]).map(s=>sec(s.title,s.body)).join(''));
+}
+
+// Render en pantalla: secciones bajo encabezados negros/negrita con separación clara entre ellas.
+function _renderPatientNarrative(text) {
+  _lastNarrative=_parseNarrative(text);
+  // Revela el botón "Guardar informe" recién cuando hay narrativa generada (PR-A).
+  const _sb=document.getElementById('save-informe-btn');
+  if(_sb) _sb.style.display=_lastNarrative.length?'':'none';
+  return renderNarrativeHtml(_lastNarrative);
 }
 
 export function genPatientAI() {

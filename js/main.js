@@ -37,7 +37,7 @@ import {
   changeMensualMonth,
   renderPatientReportSelect, updateEpisodes, renderPatientReport,
   filterPatientRptSelect, selectRptPatient, rptSearchKeydown, exportarPDF, genSemanalAI, genPatientAI,
-  guardarInforme, exportarInformeGuardado
+  guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado
 } from './informes.js';
 import {
   renderFacturacion, emitirFactura, marcarTodosFacturados, simEmailFactura
@@ -89,7 +89,7 @@ window._app = {
   // ia
   callAI,
   // informes guardados
-  guardarInforme, exportarInformeGuardado,
+  guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado,
 };
 
 // ── Listener: citas recurrentes ──
@@ -209,7 +209,7 @@ Object.assign(window, {
   toggleNotif, toggleRecurrencia, toggleProTecnica,
   skipSession, simWA, simEmail, emitirFactura,
   marcarTodosFacturados, exportarPDF, genSemanalAI, genResumenDiaAI,
-  genPatientAI, guardarInforme, exportarInformeGuardado, globalSearch, selectGlobalResult,
+  genPatientAI, guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado, globalSearch, selectGlobalResult,
   updateGlobalSPF, updateRecPreview, populateDiagList,
   goToPatientPage, refreshData, toggleEvalFilter, setPatientStatusFilter, verPaciente,
   setAgendaView, setTherapistFilter, goToDateAndSelect, exportAgendaCSV,

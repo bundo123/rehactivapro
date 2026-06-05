@@ -9,10 +9,10 @@ const ROLE_TABS = {
 const ROLE_ACTIONS = {
   admin:     ['createAppt','deleteAppt','cycleStatus','createPatient','editPatient','deletePatient',
               'registerSession','deleteSession','evalInicial','createTherapist','createDoctor','createProtocol',
-              'emitirFactura','viewAI'],
+              'emitirFactura','viewAI','deleteInforme'],
   secretaria:['createAppt','deleteAppt','cycleStatus','createPatient','editPatient',
               'createDoctor','emitirFactura'],
-  terapeuta: ['cycleStatus','editPatient','registerSession','evalInicial','viewAI'],
+  terapeuta: ['cycleStatus','editPatient','registerSession','evalInicial','viewAI','deleteInforme'],
 };
 
 export function hasPermission(action) {

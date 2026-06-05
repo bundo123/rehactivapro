@@ -2,7 +2,7 @@ import { state } from './state.js';
 import { supa } from './supabase-client.js';
 import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual } from './utils.js';
 import { apptSlots } from './agenda.js';
-import { genSemanalAI, genPatientAI, callAI, getLastNarrative, clearLastNarrative } from './ia.js';
+import { genSemanalAI, genPatientAI, callAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';
 
@@ -812,12 +812,17 @@ export function renderInformesGuardados() {
   const lista=(state.informes||[]).filter(x=>String(x.patientId)===String(id));
   let inner=`<div class="card-title" style="margin-bottom:10px">Informes guardados</div>`;
   if(lista.length){
+    const btnBase='padding:6px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0';
     inner+=lista.map(inf=>{
       const fecha=inf.fechaEmision||(inf.createdAt?String(inf.createdAt).slice(0,10):'—');
+      const idEsc=esc(String(inf.id));
+      const verBtn=`<button onclick="verInformeGuardado('${idEsc}')" style="${btnBase};background:rgba(41,171,226,.1);color:#155b7a;border:1px solid rgba(41,171,226,.3)">Ver</button>`;
+      const expBtn=`<button onclick="exportarInformeGuardado('${idEsc}')" style="${btnBase};background:rgba(29,158,117,.12);color:#1D9E75;border:1px solid rgba(29,158,117,.3)">Exportar PDF</button>`;
+      const delBtn=hasPermission('deleteInforme')?`<button onclick="eliminarInformeGuardado('${idEsc}')" style="${btnBase};background:rgba(224,75,74,.08);color:#E24B4A;border:1px solid rgba(224,75,74,.3)">Eliminar</button>`:'';
       return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(29,158,117,.08)">
         <div style="min-width:0"><div style="font-size:12px;font-weight:600;color:#1a1917">${esc(inf.numero||'INF')}</div>
         <div style="font-size:10px;color:#6b6a64">${esc(fecha)}</div></div>
-        <button onclick="exportarInformeGuardado('${esc(String(inf.id))}')" style="padding:6px 14px;background:rgba(29,158,117,.12);color:#1D9E75;border:1px solid rgba(29,158,117,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">Exportar PDF</button>
+        <div style="display:flex;gap:6px;flex-shrink:0">${verBtn}${expBtn}${delBtn}</div>
       </div>`;
     }).join('');
   } else {
@@ -856,4 +861,33 @@ export function exportarInformeGuardado(id) {
   const inf=(state.informes||[]).find(x=>String(x.id)===String(id));
   if(!inf){window._app.toastErr('No se encontró el informe guardado');return;}
   openPdfWindow(buildPdfHtml({...inf.snapshot,narrativa:inf.narrativa}));
+}
+
+// Ver inline: inyecta la narrativa guardada en el bloque on-screen para leerla sin abrir el PDF.
+// NO re-llama a la IA y NO toca _lastNarrative/_rptCtx → el export vivo queda intacto.
+export function verInformeGuardado(id) {
+  const inf=(state.informes||[]).find(x=>String(x.id)===String(id));
+  if(!inf){window._app.toastErr('No se encontró el informe guardado');return;}
+  const el=document.getElementById('patient-rpt-ai-output');
+  if(!el) return;
+  el.style.display='block';
+  el.innerHTML=renderNarrativeHtml(inf.narrativa||[]);
+}
+
+// Borrado LÓGICO (deleted=true). Gated por deleteInforme (admin/terapeuta), con confirmación.
+// La RLS de informes solo permite UPDATE a admin/terapeuta → coincide con el gate del cliente.
+export async function eliminarInformeGuardado(id) {
+  if(!hasPermission('deleteInforme')){window._app.toastErr('No tienes permisos para eliminar informes.');return;}
+  const inf=(state.informes||[]).find(x=>String(x.id)===String(id));
+  if(!inf){window._app.toastErr('No se encontró el informe guardado');return;}
+  if(!confirm('¿Eliminar este informe guardado del histórico?'))return;
+  try{
+    const {error}=await supa.from('informes').update({
+      deleted:true,deleted_at:new Date().toISOString(),deleted_by:state.currentUserId||null,
+    }).eq('id',inf.id);
+    if(error){window._app.toastErr('Error al eliminar el informe: '+error.message);return;}
+    state.informes=state.informes.filter(x=>String(x.id)!==String(inf.id));
+    window._app.toastOk('Informe eliminado');
+    renderInformesGuardados();
+  }catch(e){window._app.toastErr('Error de conexión al eliminar el informe.');}
 }
