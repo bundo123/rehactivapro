@@ -25,7 +25,7 @@ import {
   renderPatients, openPatientModal, savePatient, deletePatient,
   openEditPatient, populateDiagList, nuevoEpisodio, guardarNuevoEpisodio,
   setupPatientSearch, goToPatientPage, toggleEvalFilter, setPatientStatusFilter, verPaciente,
-  openEvalInicial, renderEvEva, saveEvalInicial, initPatientValidation
+  openEvalInicial, renderEvEva, saveEvalInicial, initPatientValidation, onPatientProtocolChange
 } from './pacientes.js';
 import {
   openSessionModal, openSessionModalManual, editSession, deleteSession, saveSession, skipSession,
@@ -211,7 +211,7 @@ Object.assign(window, {
   marcarTodosFacturados, exportarPDF, genSemanalAI, genResumenDiaAI,
   genPatientAI, guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado, globalSearch, selectGlobalResult,
   updateGlobalSPF, updateRecPreview, populateDiagList,
-  goToPatientPage, refreshData, toggleEvalFilter, setPatientStatusFilter, verPaciente,
+  goToPatientPage, refreshData, toggleEvalFilter, setPatientStatusFilter, verPaciente, onPatientProtocolChange,
   setAgendaView, setTherapistFilter, goToDateAndSelect, exportAgendaCSV,
   applyRolePermissions, hasPermission,
   // referencias a datos accesibles desde HTML (onclick strings)

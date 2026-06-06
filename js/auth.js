@@ -63,13 +63,14 @@ export async function loadAll(force=false) {
     state.patients = (pat.data||[]).map(r=>({
       id:r.id,createdAt:r.created_at||null,name:r.name,age:r.age||null,birth_date:r.birth_date||null,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
       diag:r.diag||'Sin diagnóstico',therapistId:r.therapist_id,doctorId:r.doctor_id,
-      sessions:r.sessions||10,status:r.status||'active',
+      sessions:r.sessions||10,status:r.status||'active',protocolId:r.protocol_id||null,
       log:(r.session_log||[]).map(s=>({id:s.id,date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null})),
       // done/pendientes NO se leen de columnas (vestigiales): derivan de session_log vía doneActual/pendientesActual.
       billing:{sesPerFactura:r.billing_ses_per_factura||5,
         facturas:cobData.filter(c=>c.patient_id===r.id).map(c=>({id:c.cobro_ref,n:c.n_sessions,fecha:c.date,estado:'cobrada'}))}
     }));
-    state.protocols = (prot.data||[]).map(r=>({id:r.id,name:r.name,diag:r.diag_keywords||'',sessions:r.sessions||20,freq:r.freq||3,alta:r.discharge_criteria||''}));
+    state.protocols = (prot.data||[]).map(r=>({id:r.id,name:r.name,diag:r.diag_keywords||'',sessions:r.sessions||20,freq:r.freq||3,alta:r.discharge_criteria||'',
+      img:r.img||'',def:r.definition||'',clinicalContext:r.clinical_context||''}));
     state.appointments = (appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:(r.patients&&r.patients.name)||null,hour:r.hour,duration:r.duration||60,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''}));
     state.informes = (inf.data||[]).map(r=>({id:r.id,patientId:r.patient_id,createdAt:r.created_at,createdBy:r.created_by,numero:r.numero,episodio:r.episodio,fechaEmision:r.fecha_emision,narrativa:r.narrativa||[],snapshot:r.snapshot||{}}));
     if(!state.protocols.length) state.protocols = [...DEFAULT_PROTOCOLS];
@@ -234,7 +235,8 @@ export async function dbDeleteDoctor(id){
 }
 export async function dbSaveProtocol(p){
   markLocalChange('protocols');
-  const d={name:p.name,diag_keywords:p.diag,sessions:p.sessions,freq:p.freq,discharge_criteria:p.alta};
+  const d={name:p.name,diag_keywords:p.diag,sessions:p.sessions,freq:p.freq,discharge_criteria:p.alta,
+    img:p.img||null,definition:p.def||null,clinical_context:p.clinicalContext||null};
   if(typeof p.id==='string') d.id=p.id;
   return supa.from('protocols').upsert(d).select().single();
 }

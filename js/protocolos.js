@@ -45,6 +45,9 @@ export function openProtocolModal(eid=null) {
   ['prot-name','prot-diag','prot-alta'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('prot-sessions').value=20;
   document.getElementById('prot-freq').value=3;
+  document.getElementById('prot-img').value='knee';
+  document.getElementById('prot-def').value='';
+  document.getElementById('prot-ctx').value='';
   state.editingProtocolId=null;
   document.querySelector('#protocol-modal h3').textContent='Nuevo protocolo';
   if(eid){
@@ -54,6 +57,9 @@ export function openProtocolModal(eid=null) {
     document.getElementById('prot-sessions').value=p.sessions;
     document.getElementById('prot-freq').value=p.freq;
     document.getElementById('prot-alta').value=p.alta;
+    document.getElementById('prot-img').value=p.img||'knee';
+    document.getElementById('prot-def').value=p.def||'';
+    document.getElementById('prot-ctx').value=p.clinicalContext||'';
     state.editingProtocolId=eid;
     document.querySelector('#protocol-modal h3').textContent='Editar protocolo';
   }
@@ -79,7 +85,8 @@ export async function saveProtocol() {
   if(!hasPermission('createProtocol')){toastErr('No tienes permisos para guardar protocolos.');return;}
   const diag=document.getElementById('prot-diag').value.trim();
   const name=document.getElementById('prot-name').value.trim();
-  const d={diag,name,sessions:parseInt(document.getElementById('prot-sessions').value),freq:parseInt(document.getElementById('prot-freq').value),alta:document.getElementById('prot-alta').value};
+  const d={diag,name,sessions:parseInt(document.getElementById('prot-sessions').value),freq:parseInt(document.getElementById('prot-freq').value),alta:document.getElementById('prot-alta').value,
+    img:document.getElementById('prot-img').value,def:document.getElementById('prot-def').value.trim(),clinicalContext:document.getElementById('prot-ctx').value.trim()};
   const _isNew=!state.editingProtocolId;
   if(state.editingProtocolId) Object.assign(state.protocols.find(p=>p.id===state.editingProtocolId),d);
   else state.protocols.push({id:++state.protCounter,...d});
@@ -154,14 +161,24 @@ export function deleteProtocol(id) {
 
 export function getProtocolRows() {
   const rows=[];const fl={7:'Diaria',5:'5×/sem',3:'3×/sem',2:'2×/sem',1:'1×/sem'};
+  const mkRow=(p,prot)=>{
+    const adh=p.log.length>0?Math.round(p.log.filter(s=>s.status==='asistió').length/p.log.length*100):0;
+    const exp=Math.min(100,Math.round((doneActual(p)/prot.sessions)*100));
+    rows.push({p,prot,adh,exp,fl});
+  };
   state.patients.forEach(p=>{
     if(p.status==='alta')return;
+    if(p.protocolId){
+      // Link explícito: solo el protocolo asignado, sin fallback por keyword.
+      const prot=state.protocols.find(x=>x.id===p.protocolId);
+      if(prot) mkRow(p,prot);
+      return;
+    }
+    // Retrocompat: pacientes sin link → match por keyword (guard k&& evita matchear con keyword vacía).
     state.protocols.forEach(prot=>{
       const kw=prot.diag.toLowerCase().split(',').map(k=>k.trim());
-      if(!kw.some(k=>p.diag.toLowerCase().includes(k)))return;
-      const adh=p.log.length>0?Math.round(p.log.filter(s=>s.status==='asistió').length/p.log.length*100):0;
-      const exp=Math.min(100,Math.round((doneActual(p)/prot.sessions)*100));
-      rows.push({p,prot,adh,exp,fl});
+      if(!kw.some(k=>k&&p.diag.toLowerCase().includes(k)))return;
+      mkRow(p,prot);
     });
   });
   return rows;

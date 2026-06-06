@@ -494,6 +494,9 @@
     </div>
     <div style="font-size:10px;color:#7a7a76;margin-top:4px">Escribe para buscar entre diagnósticos existentes o ingresa uno nuevo</div>
   </div>
+  <div class="field"><label>Protocolo de tratamiento</label>
+    <select id="pm-protocol" onchange="onPatientProtocolChange()"><option value="">Sin protocolo</option></select>
+  </div>
   <div class="field">
     <div class="field"><label>Doctor referente</label><select id="pm-doctor"><option value="">Independiente</option></select></div>
   </div>
@@ -573,6 +576,19 @@
     </div>
   </div>
   <div class="field"><label>Criterio de alta</label><textarea id="prot-alta" rows="2" placeholder="Ej: Rango articular completo, EVA 0-1/10"></textarea></div>
+  <div class="field-row two">
+    <div class="field"><label>Zona corporal (ícono)</label>
+      <select id="prot-img">
+        <option value="shoulder">Hombro</option><option value="hip">Cadera</option>
+        <option value="hand">Muñeca/Mano</option><option value="arm">Brazo/Bíceps</option>
+        <option value="head">Cabeza/Cuello</option><option value="elbow">Codo</option>
+        <option value="spine">Columna</option><option value="knee" selected>Rodilla</option>
+        <option value="ankle">Tobillo</option>
+      </select>
+    </div>
+    <div class="field"><label>Definición breve</label><input type="text" id="prot-def" placeholder="Ej: Postoperatorio de reparación meniscal"></div>
+  </div>
+  <div class="field"><label>Contexto clínico (para la IA)</label><textarea id="prot-ctx" rows="3" placeholder="Objetivos por fase, técnicas típicas, hitos, criterios de alta… (plantilla de referencia)"></textarea></div>
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal('protocol-modal')">Cancelar</button>
     <button class="btn-save" onclick="saveProtocol()">Guardar</button>

@@ -78,7 +78,7 @@ function _mapPatient(r) {
   return{
     id:r.id,createdAt:r.created_at||null,name:r.name,age:r.age||null,birth_date:r.birth_date||null,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
     diag:r.diag||'Sin diagnóstico',therapistId:r.therapist_id,doctorId:r.doctor_id,
-    sessions:r.sessions||10,status:r.status||'active',
+    sessions:r.sessions||10,status:r.status||'active',protocolId:r.protocol_id||null,
     log:existing?existing.log:[],
     // done/pendientes NO se leen de columnas (vestigiales): derivan de session_log vía doneActual/pendientesActual.
     billing:{sesPerFactura:r.billing_ses_per_factura||5,

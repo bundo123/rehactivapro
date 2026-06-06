@@ -562,6 +562,7 @@ export function renderPatientReport() {
   const fechaLarga=now.toLocaleDateString('es-EC',{day:'2-digit',month:'long',year:'numeric'});
   const evaSes=attendedTrat.filter(s=>s.pb!=null);
   const cell=(lbl,val)=>`<div><div style="font-size:10px;font-weight:600;color:#6b6a64;text-transform:uppercase;letter-spacing:.04em">${lbl}</div><div style="font-size:13px;color:#1a1917;margin-top:1px">${esc(val)}</div></div>`;
+  const prot=p.protocolId?state.protocols.find(x=>x.id===p.protocolId):null;
 
   let html=avisoEpisodio
   +`<div class="full-card" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px">
@@ -586,6 +587,7 @@ export function renderPatientReport() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;border-top:1px solid rgba(29,158,117,.1);padding-top:12px">
         ${cell('Diagnóstico',epDiag||p.diag||'—')}${cell('Terapeuta',thHeader)}
         ${cell('Doctor referente',doc?doc.name+' ('+doc.spec+')':'Independiente')}${cell('Inicio de tratamiento',inicio)}
+        ${prot?cell('Protocolo',prot.name):''}
       </div>
     </div>`
   +`<div class="three-col" style="margin-bottom:14px">

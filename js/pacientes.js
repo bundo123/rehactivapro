@@ -74,14 +74,27 @@ export function openPatientModal() {
   clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email', 'pm-birth', 'pm-sessions']);
   // pm-age (hidden, retrocompat) DEBE limpiarse: si no, queda la edad del último paciente editado
   // y savePatient la escribiría al paciente nuevo (fuga de datos entre pacientes).
-  ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir','pm-age'].forEach(id=>document.getElementById(id).value='');
+  ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir','pm-age','pm-protocol'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm-birth').value='';
   document.getElementById('pm-sessions').value='12';
   document.getElementById('pm-status').value='active';
   document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
   state.editingPatientId=null;
   document.getElementById('pm-doctor').innerHTML='<option value="">Sin doctor referente</option>'+state.doctors.map(d=>`<option value="${esc(d.id)}">${esc(d.name)} (${esc(d.spec)})</option>`).join('');
+  document.getElementById('pm-protocol').innerHTML='<option value="">Sin protocolo</option>'+state.protocols.map(pr=>`<option value="${esc(pr.id)}">${esc(pr.name)}</option>`).join('');
   document.getElementById('patient-modal').classList.add('open');
+}
+
+// Auto-relleno al elegir protocolo (D2): precarga diagnóstico desde el NOMBRE del protocolo y
+// sesiones desde el protocolo, SOLO si están vacíos ('12' = default de sesiones). Queda editable.
+export function onPatientProtocolChange() {
+  const sel=document.getElementById('pm-protocol');
+  const prot=state.protocols.find(x=>String(x.id)===sel.value);
+  if(!prot)return;
+  const diagEl=document.getElementById('pm-diag');
+  if(!diagEl.value.trim()) diagEl.value=prot.name;
+  const sesEl=document.getElementById('pm-sessions');
+  if(!sesEl.value.trim()||sesEl.value==='12') sesEl.value=prot.sessions;
 }
 
 export async function savePatient() {
@@ -119,6 +132,7 @@ export async function savePatient() {
     p.dir=document.getElementById('pm-dir').value||'';
     p.diag=document.getElementById('pm-diag').value||'';
     p.doctorId=document.getElementById('pm-doctor').value||null;
+    p.protocolId=document.getElementById('pm-protocol').value||null;
     p.sessions=parseInt(document.getElementById('pm-sessions').value)||10;
     p.status=document.getElementById('pm-status').value;
     window._app.closeModal('patient-modal');
@@ -129,7 +143,7 @@ export async function savePatient() {
     if(typeof p.id==='string'){
       const {error}=await supa.from('patients').update({
         name:p.name,age:p.age,birth_date:p.birth_date,cedula:p.cedula,tel:p.tel,email:p.email,
-        dir:p.dir,diag:p.diag,doctor_id:p.doctorId||null,sessions:p.sessions,status:p.status
+        dir:p.dir,diag:p.diag,doctor_id:p.doctorId||null,protocol_id:p.protocolId||null,sessions:p.sessions,status:p.status
       }).eq('id',p.id);
       if(error) toastErr('Error al actualizar paciente: '+error.message);
       else { toastOk('Paciente actualizado correctamente'); if(!p.birth_date) toastInfo('Sin fecha de nacimiento. Algunos reportes mostrarán edad como "no registrada".'); }
@@ -147,6 +161,7 @@ export async function savePatient() {
     diag:document.getElementById('pm-diag').value||'Sin diagnóstico',
     therapistId:null,
     doctorId:document.getElementById('pm-doctor').value||null,
+    protocolId:document.getElementById('pm-protocol').value||null,
     sessions:parseInt(document.getElementById('pm-sessions').value)||12,
     done:0,status:document.getElementById('pm-status').value,log:[],
     billing:{sesPerFactura:parseInt(document.getElementById('global-spf').value)||5,facturas:[]}
@@ -156,7 +171,7 @@ export async function savePatient() {
   try {
     const {data,error}=await supa.from('patients').insert({
       name:_p.name,age:_p.age,birth_date:_p.birth_date,cedula:_p.cedula,tel:_p.tel,email:_p.email,dir:_p.dir,diag:_p.diag,
-      doctor_id:_p.doctorId||null,sessions:_p.sessions,done:0,status:_p.status,
+      doctor_id:_p.doctorId||null,protocol_id:_p.protocolId||null,sessions:_p.sessions,done:0,status:_p.status,
       billing_ses_per_factura:_p.billing.sesPerFactura,billing_pendientes:0
     }).select().single();
     if(error) toastErr('Error al guardar paciente: '+error.message);
@@ -169,7 +184,7 @@ export async function savePatient() {
     }
   } catch(e){toastErr('Error de conexión al guardar paciente.');}
   // Incluye pm-age para que el reset post-guardado no deje la edad pegada al siguiente alta.
-  ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir','pm-age'].forEach(id=>document.getElementById(id).value='');
+  ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir','pm-age','pm-protocol'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm-birth').value='';
   state.editingPatientId=null;
   document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
@@ -278,6 +293,7 @@ export function openEditPatient(id) {
   clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email', 'pm-birth', 'pm-sessions']);
   const p=getPatient(id);if(!p)return;
   document.getElementById('pm-doctor').innerHTML='<option value="">Independiente</option>'+state.doctors.map(d=>`<option value="${esc(d.id)}" ${d.id===p.doctorId?'selected':''}>${esc(d.name)} (${esc(d.spec)})</option>`).join('');
+  document.getElementById('pm-protocol').innerHTML='<option value="">Sin protocolo</option>'+state.protocols.map(pr=>`<option value="${esc(pr.id)}" ${pr.id===p.protocolId?'selected':''}>${esc(pr.name)}</option>`).join('');
   document.getElementById('pm-name').value=p.name;
   document.getElementById('pm-age').value=p.age||'';
   document.getElementById('pm-birth').value=p.birth_date||'';
