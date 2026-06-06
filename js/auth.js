@@ -56,7 +56,7 @@ export async function loadAll(force=false) {
       supa.from('cobros').select('*').order('created_at'),
       supa.from('informes').select('*').eq('deleted',false).order('created_at',{ascending:false}),
     ]);
-    if(th.error) throw th.error;
+    for(const q of [th,doc,pat,appt,prot,cob,inf]){ if(q.error) throw q.error; }
     state.therapists = (th.data||[]).map(r=>({id:r.id,name:r.name,initials:r.initials||r.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),spec:r.spec||'',startH:r.start_h,endH:r.end_h,colorId:r.color_id||'ca'}));
     state.doctors = (doc.data||[]).map(r=>({id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'}));
     const cobData = cob.data||[];

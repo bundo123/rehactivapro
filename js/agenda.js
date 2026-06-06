@@ -364,6 +364,8 @@ export async function saveAppt() {
   if(isEdit){
     const existing=state.appointments.find(a=>String(a.id)===editingId);
     if(!existing){toastErr('Cita no encontrada.');return;}
+    const today=fmtDate(new Date());
+    if(ds<today && ds!==existing.date){toastErr('No se pueden mover citas a días pasados.');return;}
     existing.therapistId=thId;existing.hour=hr;existing.duration=dur;
     existing.patientId=patId;existing.type=document.getElementById('m-type').value;
     existing.status=document.getElementById('m-status').value;existing.note=document.getElementById('m-note').value;existing.date=ds;

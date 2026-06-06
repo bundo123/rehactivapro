@@ -235,8 +235,8 @@ export function renderSemanal() {
       const c=getColor(th.colorId);
       const uc=util>=80?'#1D9E75':util>=60?'#BA7517':'#E24B4A';
       return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06)">'
-        +'<div class="avatar" style="background:'+c.border+'22;color:'+c.text+';width:32px;height:32px;font-size:11px;flex-shrink:0">'+th.initials+'</div>'
-        +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#1a1917">'+th.name+'</div>'
+        +'<div class="avatar" style="background:'+c.border+'22;color:'+c.text+';width:32px;height:32px;font-size:11px;flex-shrink:0">'+esc(th.initials)+'</div>'
+        +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#1a1917">'+esc(th.name)+'</div>'
         +'<div style="display:flex;gap:10px;margin-top:2px"><span style="font-size:11px;color:#1D9E75">✓ '+thConf+'</span><span style="font-size:11px;color:#E24B4A">✗ '+thNoas+'</span></div>'
         +'<div style="margin-top:4px;height:4px;background:#f0efe8;border-radius:2px"><div style="height:4px;width:'+Math.min(util,100)+'%;background:'+uc+';border-radius:2px"></div></div>'
         +'</div><div style="font-size:15px;font-weight:700;color:'+uc+';flex-shrink:0">'+util+'%</div></div>';
@@ -245,11 +245,11 @@ export function renderSemanal() {
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
     <div class="card">
       <div class="card-title" style="margin-bottom:8px">Top diagnósticos</div>
-      ${topDiag.length?topDiag.map(([d,n])=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05)"><span style="font-size:11px;color:#1a1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%">'+d+'</span><span style="font-size:11px;font-weight:700;color:#1D9E75;background:rgba(29,158,117,.1);padding:1px 7px;border-radius:99px;flex-shrink:0">'+n+'</span></div>').join(''):'<div style="font-size:12px;color:#9c9a92;padding:8px 0">Sin datos esta semana</div>'}
+      ${topDiag.length?topDiag.map(([d,n])=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05)"><span style="font-size:11px;color:#1a1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%">'+esc(d)+'</span><span style="font-size:11px;font-weight:700;color:#1D9E75;background:rgba(29,158,117,.1);padding:1px 7px;border-radius:99px;flex-shrink:0">'+n+'</span></div>').join(''):'<div style="font-size:12px;color:#9c9a92;padding:8px 0">Sin datos esta semana</div>'}
     </div>
     <div class="card">
       <div class="card-title" style="margin-bottom:8px">Próximos a alta ≥80%</div>
-      ${proxAlta.length?proxAlta.map(p=>{const pct=Math.round(doneActual(p)/p.sessions*100);return'<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05)"><span style="font-size:11px;color:#1a1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%">'+p.name.split(' ').slice(0,2).join(' ')+'</span><span style="font-size:11px;font-weight:700;color:#BA7517;background:rgba(186,117,23,.1);padding:1px 7px;border-radius:99px;flex-shrink:0">'+pct+'%</span></div>';}).join(''):'<div style="font-size:12px;color:#9c9a92;padding:8px 0">Ninguno cerca del alta</div>'}
+      ${proxAlta.length?proxAlta.map(p=>{const pct=Math.round(doneActual(p)/p.sessions*100);return'<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05)"><span style="font-size:11px;color:#1a1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%">'+esc(p.name.split(' ').slice(0,2).join(' '))+'</span><span style="font-size:11px;font-weight:700;color:#BA7517;background:rgba(186,117,23,.1);padding:1px 7px;border-radius:99px;flex-shrink:0">'+pct+'%</span></div>';}).join(''):'<div style="font-size:12px;color:#9c9a92;padding:8px 0">Ninguno cerca del alta</div>'}
     </div>
   </div>
   ${(function(){
@@ -260,8 +260,8 @@ export function renderSemanal() {
       var tel=pt&&pt.tel?'593'+pt.tel.replace(/[^0-9]/g,'').slice(-9):'';
       var waBtn=tel?'<button onclick="window.open(\'https://wa.me/'+tel+'\',\'_blank\')" style="font-size:10px;padding:3px 10px;background:rgba(37,211,102,.12);color:#25d366;border:none;border-radius:99px;cursor:pointer;font-weight:600">WA</button>':'';
       r+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(224,80,80,.08)">'
-        +'<div><div style="font-size:12px;font-weight:500;color:#1a1917">'+(pt?pt.name:'Paciente')+'</div>'
-        +'<div style="font-size:10px;color:#9c9a92">'+a.date+(th?' · '+th.name:'')+'</div></div>'
+        +'<div><div style="font-size:12px;font-weight:500;color:#1a1917">'+esc(pt?pt.name:'Paciente')+'</div>'
+        +'<div style="font-size:10px;color:#9c9a92">'+a.date+(th?' · '+esc(th.name):'')+'</div></div>'
         +waBtn+'</div>';
     });
     r+='</div>';return r;

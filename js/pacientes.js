@@ -66,7 +66,7 @@ export function populateDiagList() {
   state.protocols.forEach(p=>p.name&&diags.push(p.name));
   const unique=[...new Set(diags)].sort();
   const dl=document.getElementById('diag-list');
-  if(dl) dl.innerHTML=unique.map(d=>`<option value="${d}">`).join('');
+  if(dl) dl.innerHTML=unique.map(d=>`<option value="${esc(d)}">`).join('');
 }
 
 export function openPatientModal() {
