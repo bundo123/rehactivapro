@@ -144,13 +144,18 @@ export function genPatientAI() {
     return `- ${s.date}: EVA ${eva}; técnicas: ${tec}; observación: ${obs}`;
   }).join('\n'):'Sin sesiones de tratamiento registradas aún';
   const estado=p.status==='active'?'En tratamiento':p.status==='alta'?'Alta médica':'Inactivo';
+  // PR-B: contexto del protocolo SOLO por link explícito (protocol_id), sin fallback por keyword (D3).
+  // Plantilla de referencia (no PII, no historia clínica) → tope duro de 1.200 caracteres (D4).
+  const prot=p.protocolId?state.protocols.find(x=>x.id===p.protocolId):null;
+  const protCtx=(prot&&prot.clinicalContext)?prot.clinicalContext.trim().slice(0,1200):'';
   const prompt=`Eres un fisioterapeuta colegiado redactando un informe de evolución clínica en Ecuador, dirigido al médico que refirió al paciente y que también puede leer el propio paciente. Escribe con tono formal y profesional, pero claro. RESPETA estas reglas de redacción de forma estricta:
 - TEXTO PLANO: prohibido markdown, asteriscos, numerales (#), guiones de viñeta o cualquier símbolo de formato. Solo prosa en párrafos.
 - NO repitas cifras crudas que ya están en las tablas y el gráfico del informe (no listes los valores EVA de cada sesión ni el número de sesiones). En su lugar, INTERPRÉTALOS clínicamente.
 - Sé específico y concreto. Prohibidas frases vagas o de relleno como 'respuesta favorable', 'abordaje multimodal', 'evolución satisfactoria', 'se recomienda continuar el tratamiento'. Cada oración debe aportar información clínica real y verificable.
 - Enfócate en la FUNCIÓN: dolor, rango de movimiento, fuerza, y sobre todo el impacto en las actividades de la vida diaria del paciente.
 - Refiérete siempre al 'paciente', nunca con nombre propio.
-- Basa todo en los datos provistos (evaluación inicial, técnicas aplicadas, observaciones, EVA). No inventes hallazgos que no estén en los datos.
+- Basa todo en los datos provistos (evaluación inicial, técnicas aplicadas, observaciones, EVA). No inventes hallazgos que no estén en los datos.${protCtx?`
+- BARRERA: más abajo se incluye un CONTEXTO DEL PROTOCOLO. Es una PLANTILLA DE REFERENCIA (objetivos e hitos típicos de este tipo de tratamiento), NO la historia clínica de este paciente. Jamás afirmes que algo de esa plantilla se le aplicó, se le encontró o le ocurrió al paciente: SOLO lo listado en DATOS CLÍNICOS ocurrió realmente. Úsala únicamente para enmarcar objetivos y recomendaciones.`:''}
 
 DATOS CLÍNICOS (anonimizado):
 - Edad: ${getDisplayAge(p)}
@@ -159,7 +164,10 @@ DATOS CLÍNICOS (anonimizado):
 - Sesiones realizadas/prescritas: ${doneActual(p)}/${p.sessions||0}
 - EVALUACIÓN INICIAL (anamnesis, inspección, palpación, movilidad, fuerza): ${evalText}
 - HISTORIAL POR SESIÓN (fecha; EVA antes→después; técnicas aplicadas; observación):
-${sesiones}
+${sesiones}${protCtx?`
+
+CONTEXTO DEL PROTOCOLO (plantilla de referencia, NO son hallazgos de este paciente; úsalo solo para enmarcar objetivos y recomendaciones, jamás como algo que se le hizo o registró):
+${protCtx}`:''}
 
 Redacta el informe en EXACTAMENTE estas cuatro secciones, cada una empezando con su etiqueta en MAYÚSCULAS seguida de dos puntos, separadas por una línea en blanco:
 
