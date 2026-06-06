@@ -3,8 +3,8 @@
 -- Migracion append-only / inmutable. Correr en el SQL editor de Supabase.
 --
 -- Alcance: solo escrituras (INSERT/UPDATE/DELETE). Lecturas -> fase posterior.
--- Tablas auditadas (7): patients, session_log, appointments, cobros,
---                       profiles, therapists, doctors.  (protocols queda FUERA)
+-- Tablas auditadas (8): patients, session_log, appointments, cobros,
+--                       profiles, therapists, doctors, informes.  (protocols queda FUERA)
 -- Re-ejecutable: usa IF NOT EXISTS / CREATE OR REPLACE / DROP IF EXISTS.
 --
 -- Inmutabilidad garantizada por 3 capas:
@@ -123,7 +123,7 @@ begin
     v_old := to_jsonb(old);
   end if;
 
-  -- Extraccion uniforme del id para las 7 tablas (TEXT).
+  -- Extraccion uniforme del id para las 8 tablas (TEXT).
   v_record_id := coalesce(v_new ->> 'id', v_old ->> 'id');
 
   insert into public.audit_log (
@@ -167,14 +167,14 @@ create trigger trg_audit_block_truncate
 
 
 -- ---------------------------------------------------------------------
--- 6. Enganchar el trigger AFTER en las 7 tablas auditadas.
+-- 6. Enganchar el trigger AFTER en las 8 tablas auditadas.
 --    (protocols queda FUERA por decision de FASE 1.)
 -- ---------------------------------------------------------------------
 do $$
 declare
   t text;
   tablas text[] := array[
-    'patients','session_log','appointments','cobros','profiles','therapists','doctors'
+    'patients','session_log','appointments','cobros','profiles','therapists','doctors','informes'
   ];
 begin
   foreach t in array tablas loop
