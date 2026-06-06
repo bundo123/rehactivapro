@@ -43,6 +43,7 @@ export function toggleProTecnica(btn) {
 
 export function renderEvaButtons(containerId, valId, cur, col) {
   const container=document.getElementById(containerId);if(!container)return;
+  const valEl=document.getElementById(valId); if(valEl) valEl.textContent=cur;
   container.innerHTML='';
   for(let i=0;i<=10;i++){
     const btn=document.createElement('button');
