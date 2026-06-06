@@ -392,9 +392,9 @@ Probar la barrera antes de soltar (que la IA no narre la plantilla como historia
    [[6.5,10,'rgba(226,75,74,.16)'],[3.5,6.5,'rgba(224,168,80,.15)'],[0,3.5,'rgba(29,158,117,.13)']]
    ```
 2. **Protocolo:** ✅ **DECIDIDO — por paciente (v1 simple)**: columna `patients.protocol_id` = protocolo del episodio actual; al iniciar nuevo episodio se vuelve a elegir/limpiar. Ver PARTE 2.3/2.4 opción (v1 simple).
-3. **Narrativa en PDF:** pendiente — ¿hack regex (rápido) o narrativa estructurada compartida (robusto)? → recomiendo robusto.
-4. **IA + contexto de protocolo:** pendiente — confirmar el refuerzo anti-alucinación y el tope de tokens antes de inyectar plantilla.
-5. **`age` de paciente:** pendiente — ¿lo arreglamos (limpiar `pm-age`) o lo retiramos definitivamente en favor de `birth_date`?
+3. **Narrativa en PDF:** ✅ **HECHO** — se implementó el camino robusto (narrativa estructurada compartida `getLastNarrative` en `ia.js`, títulos en negrita real en PDF). Commit `0eb443f`.
+4. **IA + contexto de protocolo:** ✅ **DECIDIDO** (ver §2.4): se inyecta **solo por link explícito** (`protocol_id`), **sin** fallback por keyword, con tope de **1.200 caracteres** y barrera anti-alucinación reforzada. Se implementa en **PR-B**.
+5. **`age` de paciente:** ✅ **HECHO** — se limpia `pm-age` en `openPatientModal` y en el reset post-guardado de `savePatient` (fuga de edad entre pacientes cerrada). Commit `5535d08`.
 
 ---
 
