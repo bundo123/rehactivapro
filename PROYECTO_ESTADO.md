@@ -1,19 +1,39 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-06-05
+> Generado: 2026-05-18 · Última actualización: 2026-06-06
 
 ---
 
-## 🔜 PRÓXIMO: Protocolos asignables al paciente (plato fuerte)
+## 🔜 PRÓXIMO: I2 — Facturación por episodio + I5 cascade + limpieza
 
-> Plan detallado en **`PLAN_PROXIMO.md` (PARTE 2)**. Es la feature grande para el "reemplazo de Reliv" (historia clínica/informe). **Toca DB con `ALTER TABLE`** (aditivo, columnas nullable). NO tocado todavía.
+> Protocolos asignables quedó **COMPLETO** (ver sesión 2026-06-06). Resto del roadmap detallado en **`PLAN_PROXIMO.md` (PARTE 3)**.
 
-- **Decisión ya tomada (v1 simple):** protocolo **por paciente** → columna `patients.protocol_id` = protocolo del **episodio actual**; al iniciar nuevo episodio se vuelve a elegir/limpiar.
-- **Migración (Supabase SQL):** `protocols.clinical_context text` (markdown), `protocols.img text` (zona corporal → arregla el ícono de rodilla, bug I3), `patients.protocol_id uuid` FK `on delete set null`.
-- **PR-A (sin IA):** mapear campos nuevos en `auth.js`/`realtime.js`, guardar `img`+`clinical_context` en `dbSaveProtocol`, selector de zona + textarea en el modal de protocolo, `<select>` de protocolo + auto-relleno en el modal de paciente, link explícito con fallback a keyword en adherencia.
-- **PR-B (IA + contexto):** inyectar el `clinicalContext` del protocolo en el prompt de `genPatientAI` como **referencia de plantilla** (no historia clínica), con **barrera anti-alucinación reforzada** y tope de tokens — para que la IA no redacte la plantilla como si le hubiera pasado al paciente.
+- **I2 — Facturación por episodio:** las etiquetas y la numeración de cobro **no se resetean** al iniciar nuevo episodio. `billingInfo` (`facturacion.js:13-21`) suma **TODAS** las facturas históricas contra `p.sessions` (que sí es episodio-aware) → "Cobro X de Y" y la numeración salen inflados. Fix: que `sesYaCobradas`/`totalCobros` se calculen sobre el **episodio actual** (misma frontera que `pendientesActual`).
+- **I5 — Borrado en cascada sin transacción:** `deletePatient` (`pacientes.js`) borra session_log/cobros/appointments/patients en 4 llamadas secuenciales; si una falla a media, quedan huérfanos. Fix: RPC transaccional o `ON DELETE CASCADE` en las FKs.
+- **Limpieza menor:** **M-a** (código muerto `protocolSVG` + su import en `main.js`), **M-b** (`dbUpdateBillingPendientes` sin callers), **M-c** (`next_plan` write-only: surfacearlo en informe/IA o quitarlo del modal), **M-f** (`console.log` de producción en `auth.js`/`realtime.js`), **M-h** (`alert()`/`confirm()` bloqueantes → toasts/modales).
 
-**Después de protocolos** (resto en `PLAN_PROXIMO.md`): **I2** facturación por episodio (las etiquetas de cobro no se resetean al iniciar episodio), **I5** borrado en cascada sin transacción (`ON DELETE CASCADE`/RPC), y menores de limpieza (código muerto `protocolSVG`/`dbUpdateBillingPendientes`, `next_plan` write-only, `alert()`→toasts, higiene del repo).
+### Pendientes salidos del QA de protocolos (chicos)
+- **Celda "Protocolo" no aparece en el PDF:** PR-A solo agregó la celda a la **pantalla** (`renderPatientReport`). El encabezado del PDF se arma aparte (`buildPdfHtml`, `informes.js:777-784`, bloque "Datos del paciente") desde el render-model `m`, que **no** incluye protocolo. Falta: pasar el protocolo al snapshot (`_buildRenderModel`) y agregar la fila al PDF.
+- **Buscador de diagnóstico con UX pobre:** el `<input list="diag-list">` del modal de paciente es poco usable; revisar (combobox type-ahead como el del Informe Paciente, o limpiar el datalist).
+- **`": "` suelto al inicio del bloque "Evaluación inicial"** del informe: el split del `note` deja un separador colgando al principio del callout; limpiar el primer elemento vacío.
+
+---
+
+## 🗓️ Sesión 2026-06-06
+
+### ✅ Cerrado — todo en producción (push a `origin/main`, Vercel verde verificado)
+
+- **★ Feature grande — Protocolos asignables al paciente (COMPLETA: PR-A `a24789d` + PR-B `0b30b41`).** Cubre el gap de "reemplazo de Reliv" del lado del protocolo de tratamiento. Migración **aditiva** (4 columnas nullable) corrida a mano en Supabase por David: `protocols.clinical_context`, `protocols.img`, `protocols.definition`, `patients.protocol_id` (FK `on delete set null`).
+  - **PR-A (asignar protocolo + fix íconos, sin IA):** mappers leen las columnas nuevas (`auth.js`: protocolos → `img`/`def`/`clinicalContext`, pacientes → `protocolId`; `realtime.js` `_mapPatient` → `protocolId`, **sin** mapper de protocolo porque `protocols` no está en realtime); `dbSaveProtocol` persiste `img`/`definition`/`clinical_context`. Modal de protocolo: selector de zona (`#prot-img`, default **knee** alineado al fallback de la tarjeta), definición (`#prot-def`) y contexto clínico (`#prot-ctx`). Modal de paciente: `<select id="pm-protocol">` con **auto-relleno** (D2: diagnóstico desde el **NOMBRE** del protocolo + sesiones, solo si están vacíos; `'12'` = default). `getProtocolRows` prefiere el **link explícito** (`protocol_id`) y deja el match por keyword como **fallback con guard `k&&`** (no matchea con keyword vacía). Celda "Protocolo" en el encabezado del informe **(pantalla)**. **Arregla I3** (todos los protocolos se veían como rodilla) y el **bug gemelo de `def`** (D5: nunca se mostraba en protocolos reales, mismo patrón que `img`).
+  - **PR-B (contexto → IA):** `genPatientAI` inyecta el `clinicalContext` del protocolo **solo por link explícito** (D3, sin fallback por keyword), truncado a **1.200 caracteres** (D4), marcado como **plantilla de referencia** + regla-barrera anti-alucinación reforzada para que la IA no narre la plantilla como hallazgos del paciente. Si el paciente no tiene protocolo enlazado o el protocolo no tiene contexto → prompt **idéntico al previo** (regresión cero). Solo `ia.js`, sin SQL nuevo.
+  - **QA validado (3/3 + control negativo):** trampa de alucinación (protocolo con técnicas/hitos que el paciente **no** recibió) → la IA enmarcó objetivos/recomendaciones según el protocolo **sin** narrar la plantilla como algo aplicado/encontrado; el control negativo (paciente sin protocolo) salió como antes de PR-B. Barrera anti-alucinación **validada**.
+  - **Docs:** `89fa330` reescribió la PARTE 2 de `PLAN_PROXIMO.md` (plan v2, SQL a 4 columnas, decisiones **D2–D5 cerradas**); `54e300a` sincronizó la sección "Decisiones para David".
+- **Fix EVA en sesiones (`3d04527`):** `renderEvaButtons` (`sesiones.js:44`) resaltaba el botón según `cur` pero **no** actualizaba el label numérico (solo `setEva` lo hacía). Como el guardado lee el label (`:162-163`), abrir/resetear/editar una sesión podía **grabar un EVA distinto** al botón mostrado. Fix de 1 línea: el label se fija a `cur` al re-render (corrige abrir, sesión manual y editar).
+
+### ⚠️ Pendientes salidos del QA (detalle en el bloque 🔜 PRÓXIMO)
+- Celda "Protocolo" falta en el **PDF** (el encabezado del PDF se arma aparte, `informes.js:777-784`).
+- Buscador de diagnóstico (modal de paciente) con UX pobre.
+- `": "` suelto al inicio del bloque "Evaluación inicial" del informe.
 
 ---
 
