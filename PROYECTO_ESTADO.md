@@ -1,21 +1,61 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-06-06
+> Generado: 2026-05-18 · Última actualización: 2026-06-17
 
 ---
 
-## 🔜 PRÓXIMO: I2 — Facturación por episodio + I5 cascade + limpieza
+## 🔜 PRÓXIMO: cerrar el LOTE B — meta audit final con 0 críticos / 0 importantes
 
-> Protocolos asignables quedó **COMPLETO** (ver sesión 2026-06-06). Resto del roadmap detallado en **`PLAN_PROXIMO.md` (PARTE 3)**.
+> Sesión 2026-06-17: cerrados **I-5, LOTE A, I-4 e I-6** — todo en prod, Vercel verde (detalle abajo). Análisis completo en `AUDITORIA_PRELANZAMIENTO.md`. La RLS está versionada (`rls_policies.md`) y la "lectura abierta" de PHI es decisión consciente (los terapeutas se cubren entre sí; la protección es el `audit_log`).
 
-- **I2 — Facturación por episodio:** las etiquetas y la numeración de cobro **no se resetean** al iniciar nuevo episodio. `billingInfo` (`facturacion.js:13-21`) suma **TODAS** las facturas históricas contra `p.sessions` (que sí es episodio-aware) → "Cobro X de Y" y la numeración salen inflados. Fix: que `sesYaCobradas`/`totalCobros` se calculen sobre el **episodio actual** (misma frontera que `pendientesActual`).
-- **I5 — Borrado en cascada sin transacción:** `deletePatient` (`pacientes.js`) borra session_log/cobros/appointments/patients en 4 llamadas secuenciales; si una falla a media, quedan huérfanos. Fix: RPC transaccional o `ON DELETE CASCADE` en las FKs.
-- **Limpieza menor:** **M-a** (código muerto `protocolSVG` + su import en `main.js`), **M-b** (`dbUpdateBillingPendientes` sin callers), **M-c** (`next_plan` write-only: surfacearlo en informe/IA o quitarlo del modal), **M-f** (`console.log` de producción en `auth.js`/`realtime.js`), **M-h** (`alert()`/`confirm()` bloqueantes → toasts/modales).
+**Abierto del LOTE B:**
+- **Necesita SQL primero — I-7 (`cobro_ref` server-side):** el N° de factura se genera en memoria del cliente (`facturacion.js:318`) → dos usuarios cobrando a la vez duplican `F00X`. Fix: secuencia + trigger `BEFORE INSERT` en `cobros` (ignora el valor del cliente); luego `emitirFactura` lee el `cobro_ref` del insert.
+- **JS puro:**
+  - **I-12** — modales sin focus-trap ni cierre con Escape: helper con atrapado de Tab + Escape + restaurar foco.
+  - **I-13** — `alert()`/`confirm()` → toasts/modales (5 `alert` + 9 `confirm`; incluye el loop de "Cobrar todos", `facturacion.js:347→352`, que dispara N `alert` en cadena).
+  - **I-15** — tests con `node --test` (cero deps): cédula, `doneActual`/`pendientesActual` con frontera de episodio, `billingInfo` post-episodio.
+  - **P-6** — `checkAutoNoas` (`agenda.js:44-59`) solo cubre hoy: las citas `pend` vencidas de días pasados nunca pasan a `noas`.
+- **Decisiones pendientes:**
+  - **P-2** — frontera de episodio `>` vs `>=` (`utils.js` vs `diagnostico_done.sql`). Hoy todo usa `>` consistente (incl. I-4); decidir y alinear el `.sql`.
+  - **P-11** — CSP parcial (`connect-src`/`img-src` a Supabase+Anthropic; `script-src` sigue con `unsafe-inline` por los `onclick`).
+  - **Auto-logout** — ✅ **DECIDIDO: 15 min de inactividad → `doLogout()`. Falta implementar** (PCs compartidas de recepción).
+  - **Rate-limit IA** (`api/informe.js`) — role-check server-side (`viewAI`, cero infra) vs Vercel KV. El tope de 20k ya está.
+  - **`npm audit fix`** — 2 high en `vite` (solo dev-server) + `ws` (transitivo Node); el fix es semver-safe.
+- **No-código (LOPDP):** documentar la decisión de "lectura abierta" de PHI (modelo "se cubren entre sí + todo auditado en `audit_log`") con base de licitud, y a Anthropic como sub-encargado.
+- **Mayor valor en producción:** redactar el `clinical_context` de los protocolos reales (alimenta la calidad del informe IA — corazón del "reemplazo de Reliv").
 
-### Pendientes salidos del QA de protocolos (chicos)
-- **Celda "Protocolo" no aparece en el PDF:** PR-A solo agregó la celda a la **pantalla** (`renderPatientReport`). El encabezado del PDF se arma aparte (`buildPdfHtml`, `informes.js:777-784`, bloque "Datos del paciente") desde el render-model `m`, que **no** incluye protocolo. Falta: pasar el protocolo al snapshot (`_buildRenderModel`) y agregar la fila al PDF.
-- **Buscador de diagnóstico con UX pobre:** el `<input list="diag-list">` del modal de paciente es poco usable; revisar (combobox type-ahead como el del Informe Paciente, o limpiar el datalist).
-- **`": "` suelto al inicio del bloque "Evaluación inicial"** del informe: el split del `note` deja un separador colgando al principio del callout; limpiar el primer elemento vacío.
+**Pulidos opcionales remanentes (no bloquean):** buscador de diagnóstico del modal de paciente con UX pobre; `": "` suelto al inicio de "Evaluación inicial" (ya inocuo en altas nuevas por el `filter(Boolean)`).
+
+### 🗓️ Plan a julio — meta: audit final con 0 críticos / 0 importantes (solo pulidos opcionales)
+- **Semana 1** (cerrada hoy, salvo I-7): I-5 · LOTE A · I-4 · I-6 ✅. Queda **I-7** (necesita el SQL de la secuencia).
+- **Semana 2:** auto-logout (15 min) · I-13 (alerts→toasts) · P-11 (CSP parcial).
+- **Semana 3:** I-12 (focus-trap/Escape) · I-15 (tests `node --test`) · `npm audit fix` · decisión P-2/P-6.
+- **Semana 4:** `clinical_context` de protocolos reales · papeleo LOPDP (lectura abierta + sub-encargado Anthropic) · **audit final**.
+
+---
+
+## 🗓️ Sesión 2026-06-17
+
+### ✅ Cerrado hoy — todo en producción (push a `origin/main`, Vercel verde verificado por commit-status)
+
+Revisión pre-lanzamiento completa (ingeniero senior + atacante) cruzada contra `AUDITORIA_PRELANZAMIENTO.md`, `PLAN_PROXIMO.md` y `rls_policies.md`. Se cerraron 4 grupos, cada uno verificado verde en Vercel de forma aislada:
+
+- **I-5 — Borrado de paciente atómico (`81946ed`):** SQL `ON DELETE CASCADE` en las **4 FK que dependen de `patients`** (`session_log`, `cobros`, `appointments`, `informes`) aplicado en Supabase por David (**SQL primero**). `deletePatient` (`pacientes.js`) ahora hace **solo** `delete from patients` (los 3 deletes manuales previos sobraban) → borrado atómico sin huérfanos. `confirm()` **reforzado** con advertencia de que borra al paciente y TODO su historial (sesiones, cobros, citas, informes) e **irreversibilidad**; el delete **chequea `.error`** y avisa por toast. Limpieza de `state.informes` en memoria al borrar.
+- **LOTE A — Limpieza pre-lanzamiento (`fa1515e` código+CI, `0a1de8a` scaffolding):**
+  - **Código muerto:** `protocolSVG` (+import), `dbUpdateBillingPendientes`, `next_plan`/`#sess-next`, `updateGlobalSPF`, `billing_pendientes`, ~15 imports sin uso en `main.js`.
+  - **Logs de prod:** `console.log` en `auth.js`/`realtime.js`.
+  - **Endurecimiento XSS (defensa en profundidad):** `safeColor()` (nuevo en `utils.js`, valida hex) en colores de doctor (`agenda`/`doctores`/`pacientes`/`resumen`/`informes`) + `esc()` en los valores del PDF.
+  - **Fixes UX/bugs:** celda **"Protocolo" en el PDF** (`_buildRenderModel`+`buildPdfHtml` — cierra el pendiente del QA de protocolos), `populateDiagList` al **crear** paciente con `esc()` (I-11), **validadores cableados** en cita (`agenda.saveAppt`) y sesión, `<title>`/icono duplicados en `index.html`, botón **WhatsApp deshabilitado sin teléfono**.
+  - **Endpoint IA:** tope de **20k chars → 413** en `api/informe.js` (la key paga no se quema con prompts gigantes).
+  - **CI:** `.github/workflows/ci.yml` corre `node --check js/*.js api/*.js` en push/PR (22/22 OK).
+  - **Repo:** eliminado el scaffolding **no usado** de Vite (`src/`, `public/`) — verificado que nada lo referencia y que `npm run build` pasa (72 módulos, `dist/` ok); commit aparte para aislar Vercel (quedó verde, sin revert).
+- **I-4 — Facturación por episodio (`5cb5725`):** `billingInfo` cuenta **solo las facturas del episodio actual** (`fecha > último 'Fin de episodio'`, vía `lastFinDate` ahora exportada — **fuente única** con `pendientesActual`). `sesYaCobradas` (numeración de cajitas) y `cobrosRealizados` (rótulo "Cobro X de Y") dejan de inflarse tras un nuevo episodio. Las stats de cabecera "Total cobros hechos / Sesiones cobradas" quedan **sin tocar a propósito** (rotuladas "Histórico"). Sin regresión en el primer episodio (`lastFin=null` incluye todo).
+- **I-6 — PDF de episodio pasado (`3402608`):** `_buildRenderModel` usa `epDiag`/`epDone`/`epSessions` (ya estaban en `_rptCtx`) en vez de `p.diag`/`doneActual(p)`/`p.sessions` → diagnóstico, "X de Y" y % (ya episodio-aware) **concuerdan** al exportar un episodio anterior. La celda Protocolo queda al nivel del paciente (no hay historial de protocolo por episodio, §2.4).
+
+### 📌 Nota de proceso
+- Cadencia estricta: cada grupo en su(s) propio(s) commit(s), pusheados por separado y verificados en Vercel uno por uno (commit-status de GitHub `state: success`). El commit del LOTE A se hizo con **`npm run build` previo**; el de `src/`/`public/` se **aisló** para poder revertir si Vercel quedaba rojo (quedó verde).
+- El SQL del CASCADE (I-5) lo corrió David en Supabase **antes** del cambio de código (regla "SQL primero").
+- De arrastre se pusheó también `a8d8950` (docs: RLS versionada + `informes` en `audit_log` — solo docs/SQL, sin código de app), que estaba commiteado local pero sin pushear.
 
 ---
 
