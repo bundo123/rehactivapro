@@ -12,8 +12,7 @@ import {
   renderGrid, renderRefLegend, cycleStatus, updateFacturaBadge,
   changeDay, openApptModal, openApptModalAt, openEditApptModal, updateTimeSlots, saveAppt, delAppt,
   goToDate, openDatePicker, agendarCitaParaPaciente, checkAutoNoas,
-  toggleRecurrencia, updateRecPreview, getRecDates, filterApptPatient,
-  updateGlobalSPF,
+  toggleRecurrencia, updateRecPreview, filterApptPatient,
   setAgendaView, setTherapistFilter, renderWeekView, renderMonthView,
   goToDateAndSelect, exportAgendaCSV
 } from './agenda.js';
@@ -25,33 +24,31 @@ import {
   renderPatients, openPatientModal, savePatient, deletePatient,
   openEditPatient, populateDiagList, nuevoEpisodio, guardarNuevoEpisodio,
   setupPatientSearch, goToPatientPage, toggleEvalFilter, setPatientStatusFilter, verPaciente,
-  openEvalInicial, renderEvEva, saveEvalInicial, initPatientValidation, onPatientProtocolChange
+  openEvalInicial, saveEvalInicial, initPatientValidation, onPatientProtocolChange
 } from './pacientes.js';
 import {
   openSessionModal, openSessionModalManual, editSession, deleteSession, saveSession, skipSession,
-  renderProTecnicas, toggleProTecnica, renderEvaButtons, setEva
+  toggleProTecnica
 } from './sesiones.js';
 import {
-  renderSemanal, renderHeatmap, renderTherapistUtil, renderInsights,
-  changeWeek, updateWeekLabel, showSubTab, renderMensual, renderAnual,
-  changeMensualMonth,
+  renderSemanal, changeWeek, showSubTab, changeMensualMonth,
   renderPatientReportSelect, updateEpisodes, renderPatientReport,
   filterPatientRptSelect, selectRptPatient, rptSearchKeydown, exportarPDF, genSemanalAI, genPatientAI,
   guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado
 } from './informes.js';
 import {
-  renderFacturacion, emitirFactura, marcarTodosFacturados, simEmailFactura
+  renderFacturacion, emitirFactura, marcarTodosFacturados
 } from './facturacion.js';
 import {
   openProtocolModal, saveProtocol, renderProtocols, deleteProtocol,
-  protPage, renderProtocolAdherence, protocolSVG, initProtocolValidation
+  protPage, initProtocolValidation
 } from './protocolos.js';
 import {
   renderTherapistList, openTherapistModal, openEditTherapist,
-  renderColorPicker, selectColor, saveTherapist, deleteTherapist
+  selectColor, saveTherapist, deleteTherapist
 } from './terapeutas.js';
 import {
-  renderDoctorsList, openDoctorModal, renderDocColorPicker, selectDocColor,
+  renderDoctorsList, openDoctorModal, selectDocColor,
   saveDoctor, deleteDoctor, showDoctoresTab, renderNotifList, toggleNotif, initDoctorValidation
 } from './doctores.js';
 import { callAI } from './ia.js';
@@ -210,7 +207,7 @@ Object.assign(window, {
   skipSession, simWA, simEmail, emitirFactura,
   marcarTodosFacturados, exportarPDF, genSemanalAI, genResumenDiaAI,
   genPatientAI, guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado, globalSearch, selectGlobalResult,
-  updateGlobalSPF, updateRecPreview, populateDiagList,
+  updateRecPreview, populateDiagList,
   goToPatientPage, refreshData, toggleEvalFilter, setPatientStatusFilter, verPaciente, onPatientProtocolChange,
   setAgendaView, setTherapistFilter, goToDateAndSelect, exportAgendaCSV,
   applyRolePermissions, hasPermission,

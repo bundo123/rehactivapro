@@ -1,6 +1,6 @@
 ﻿import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, COLOR_OPTIONS, patientMatchesSearch, highlightMatch, getFullAge, doneActual, pendientesActual } from './utils.js';
+import { esc, fmtDate, getPatient, getDoctor, patientMatchesSearch, highlightMatch, getFullAge, doneActual, pendientesActual, safeColor } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';
@@ -82,6 +82,7 @@ export function openPatientModal() {
   state.editingPatientId=null;
   document.getElementById('pm-doctor').innerHTML='<option value="">Sin doctor referente</option>'+state.doctors.map(d=>`<option value="${esc(d.id)}">${esc(d.name)} (${esc(d.spec)})</option>`).join('');
   document.getElementById('pm-protocol').innerHTML='<option value="">Sin protocolo</option>'+state.protocols.map(pr=>`<option value="${esc(pr.id)}">${esc(pr.name)}</option>`).join('');
+  populateDiagList();   // I-11: el datalist de diagnósticos también debe poblarse al CREAR (no solo al editar)
   document.getElementById('patient-modal').classList.add('open');
 }
 
@@ -172,7 +173,7 @@ export async function savePatient() {
     const {data,error}=await supa.from('patients').insert({
       name:_p.name,age:_p.age,birth_date:_p.birth_date,cedula:_p.cedula,tel:_p.tel,email:_p.email,dir:_p.dir,diag:_p.diag,
       doctor_id:_p.doctorId||null,protocol_id:_p.protocolId||null,sessions:_p.sessions,done:0,status:_p.status,
-      billing_ses_per_factura:_p.billing.sesPerFactura,billing_pendientes:0
+      billing_ses_per_factura:_p.billing.sesPerFactura
     }).select().single();
     if(error) toastErr('Error al guardar paciente: '+error.message);
     else {
@@ -245,8 +246,9 @@ export function renderPatients() {
       :p.status==='alta'?'<span class="pill pgr pl-badge">Alta médica</span>'
       :'<span class="pill pa pl-badge">Pendiente</span>';
     const evalBadge=!hasEvalInicial(p)?'<span class="pill pa pl-badge">Sin eval.</span>':'';
+    const dcol=doc?safeColor(doc.color):'';
     const dc=doc
-      ?`<span class="doc-pill" title="${esc(doc.name)}" style="background:${doc.color}18;border-color:${doc.color}44;color:${doc.color}">${esc(doc.name)}</span>`
+      ?`<span class="doc-pill" title="${esc(doc.name)}" style="background:${dcol}18;border-color:${dcol}44;color:${dcol}">${esc(doc.name)}</span>`
       :'<span class="pl-indep">Independiente</span>';
     const ageStr=getFullAge(p);
     const ageCell=ageStr==='Sin edad'?'<span class="pl-muted">Sin edad</span>':esc(ageStr);

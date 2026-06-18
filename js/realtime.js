@@ -275,7 +275,6 @@ export function subscribeRealtime() {
     .on('postgres_changes',{event:'*',schema:'public',table:'doctors'},_onDoctor)
     .subscribe(status=>{
       if(status==='SUBSCRIBED'){
-        console.log('[Realtime] conectado');
         _setConnState('connected');
         if(realtimeReconnectTimer){clearTimeout(realtimeReconnectTimer);realtimeReconnectTimer=null;}
       } else if(status==='CHANNEL_ERROR'||status==='CLOSED'||status==='TIMED_OUT'){

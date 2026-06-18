@@ -31,6 +31,11 @@ export default async function handler(req, res) {
   if (!prompt || typeof prompt !== 'string') {
     return res.status(400).json({ error: 'Falta el prompt' });
   }
+  // Tope de tamaño: el prompt clínico real ronda 3-6k chars (historial + contexto de protocolo
+  // capado a 1.200). 20k es techo holgado; más que eso es abuso o bug y no debe gastar la key paga.
+  if (prompt.length > 20000) {
+    return res.status(413).json({ error: 'Prompt demasiado largo' });
+  }
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

@@ -25,6 +25,13 @@ export function escapeHtml(v){
 }
 export const esc = escapeHtml;
 export function escapeRegex(v){return String(v||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+// Colores que vienen de la DB e interpolan en HTML/atributos style: solo se acepta hex
+// (#rgb/#rrggbb/#rrggbbaa); cualquier otro valor cae al gris neutro. Va más allá de esc():
+// también bloquea payloads CSS válidos (p.ej. url(...) exfiltrante) si la RLS dejara
+// escribir un color arbitrario.
+export function safeColor(c, fallback='#9c9a92'){
+  return /^#[0-9a-fA-F]{3,8}$/.test(String(c||'')) ? c : fallback;
+}
 export function normalizeSearch(v){
   return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 }

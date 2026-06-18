@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { getPatient, getDisplayAge, esc, doneActual } from './utils.js';
+import { getDisplayAge, esc, doneActual } from './utils.js';
 import { toastErr } from './toast.js';
 import { supa } from './supabase-client.js';
 

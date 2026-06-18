@@ -1,9 +1,10 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor, pendientesActual } from './utils.js';
-import { toastOk, toastErr, toastInfo } from './toast.js';
+import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor, pendientesActual, safeColor } from './utils.js';
+import { toastOk, toastErr } from './toast.js';
 import { dbUpdateApptStatus } from './auth.js';
 import { hasPermission } from './permissions.js';
+import { showFieldError, clearAllErrors } from './validators.js';
 
 // ── Helpers de slots/duración ──
 export function apptSlots(a) {
@@ -23,7 +24,7 @@ function conflictsWithExisting(date, thId, startHour, duration, excludeId) {
 
 export function renderRefLegend() {
   if(!state.doctors.length){document.getElementById('ref-legend-bar').innerHTML='';return;}
-  const items=state.doctors.map(d=>`<span class="ref-legend-item"><span class="ref-stripe" style="background:${d.color}"></span>${esc(d.name)}<span style="color:#7a7a76;font-size:10px;margin-left:3px">(${esc(d.spec)})</span></span>`).join('');
+  const items=state.doctors.map(d=>`<span class="ref-legend-item"><span class="ref-stripe" style="background:${safeColor(d.color)}"></span>${esc(d.name)}<span style="color:#7a7a76;font-size:10px;margin-left:3px">(${esc(d.spec)})</span></span>`).join('');
   document.getElementById('ref-legend-bar').innerHTML=`<div class="ref-legend"><span class="ref-legend-lbl">Borde = doctor ref.:</span>${items}</div>`;
 }
 
@@ -274,6 +275,7 @@ export function openApptModalAt(thId, hr) {
 export function openApptModal() {
   if(!state.therapists.length){toastErr('Primero agrega al menos un terapeuta.');window._app.showTab('terapeutas');return;}
   if(!state.patients.length){toastErr('Primero agrega al menos un paciente.');window._app.showTab('pacientes');return;}
+  clearAllErrors(['m-date','m-patient-search','m-therapist','m-time']);
   document.getElementById('m-editing-id').value='';
   document.getElementById('appt-modal-title').textContent='Nueva cita';
   document.getElementById('appt-modal-save-btn').textContent='Guardar cita';
@@ -294,6 +296,7 @@ export function openApptModal() {
 export function openEditApptModal(id) {
   const a=state.appointments.find(x=>x.id===id);
   if(!a){toastErr('Cita no encontrada.');return;}
+  clearAllErrors(['m-date','m-patient-search','m-therapist','m-time']);
   const pt=getPatient(a.patientId);
   document.getElementById('m-editing-id').value=String(id);
   document.getElementById('appt-modal-title').textContent='Editar cita';
@@ -344,20 +347,22 @@ export async function saveAppt() {
   const isEdit=!!editingId;
 
   if(!isEdit&&!hasPermission('createAppt')){toastErr('No tienes permisos para crear citas.');return;}
+  clearAllErrors(['m-date','m-patient-search','m-therapist','m-time']);
   const thId=document.getElementById('m-therapist').value;
   const hr=parseFloat(document.getElementById('m-time').value);
   const dur=parseInt(document.getElementById('m-duration')?.value||'60');
   let patId=document.getElementById('m-patient').value;
-  if(!thId){alert('Selecciona un terapeuta.');return;}
+  if(!thId){showFieldError('m-therapist','Selecciona un terapeuta');toastErr('Selecciona un terapeuta.');return;}
   if(!patId){
     const searchVal=document.getElementById('m-patient-search').value.trim().toLowerCase();
     const found=state.patients.find(p=>p.name.toLowerCase()===searchVal);
     if(found){patId=found.id;document.getElementById('m-patient').value=found.id;}
-    else{toastErr('Selecciona un paciente de la lista.');return;}
+    else{showFieldError('m-patient-search','Selecciona un paciente de la lista');toastErr('Selecciona un paciente de la lista.');return;}
   }
-  if(isNaN(hr)||hr<0||hr>24){alert('Selecciona una hora válida.');return;}
+  if(isNaN(hr)||hr<0||hr>24){showFieldError('m-time','Selecciona una hora válida');toastErr('Selecciona una hora válida.');return;}
   const dateVal=document.getElementById('m-date').value;
-  const ds=dateVal||fmtDate(state.currentDate);
+  if(!dateVal){showFieldError('m-date','Elegí la fecha de la cita');toastErr('Elegí la fecha de la cita.');return;}
+  const ds=dateVal;
   const excludeId=isEdit?editingId:null;
   if(conflictsWithExisting(ds,thId,hr,dur,excludeId)){toastErr('Conflicto: el terapeuta ya tiene una cita en ese horario.');return;}
 
@@ -423,13 +428,6 @@ export function agendarCitaParaPaciente(patientId) {
       if(hiddenEl) hiddenEl.value=p.id;
     }
   },200);
-}
-
-export function updateGlobalSPF(v) {
-  const n=parseInt(v)||5;
-  state.patients.forEach(p=>{if(p.billing) p.billing.sesPerFactura=n;});
-  if(document.getElementById('facturacion-content').children.length>0) window._app.renderFacturacion();
-  updateFacturaBadge();
 }
 
 export function toggleRecurrencia() {
@@ -539,7 +537,7 @@ export function renderWeekView() {
         const th = getTherapist(a.therapistId);
         const c = getColor(th?.colorId||'ca');
         const doc = pt&&pt.doctorId?getDoctor(pt.doctorId):null;
-        const borderColor = doc ? doc.color : 'rgba(0,0,0,.1)';
+        const borderColor = doc ? safeColor(doc.color) : 'rgba(0,0,0,.1)';
         const dot = dotColor(a.status);
         html += `<div style="background:${c.bg};border-left:2px solid ${borderColor};border-radius:4px;padding:4px 6px;margin-bottom:4px;font-size:10px;cursor:pointer" onclick="goToDateAndSelect('${ds}')">
           <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dot};margin-right:3px;vertical-align:middle;flex-shrink:0"></span>

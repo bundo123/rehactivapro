@@ -1,8 +1,9 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { getPatient, getTherapist, esc, fmtDate, fmtTime, normHour, pendientesActual } from './utils.js';
+import { getPatient, esc, fmtDate, fmtTime, normHour, pendientesActual } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasPermission } from './permissions.js';
+import { showFieldError, clearFieldError, clearAllErrors } from './validators.js';
 import { updateFacturaBadge, showBillingAlert } from './agenda.js';
 
 export const PRO_TECNICAS = [
@@ -66,6 +67,7 @@ export function setEva(containerId, valId, val, col) {
 export function openSessionModal(appt) {
   if(!appt)return;
   if(!hasPermission('registerSession')){toastErr('No tienes permisos para registrar sesiones.');return;}
+  clearAllErrors(['sess-manual-date','sess-therapist','sess-note']);
   _pendingSessionAppt=appt;
   _manualMode=false; _manualPatientId=null;
   _editMode=false; _editRef=null;
@@ -101,6 +103,7 @@ export function openSessionModalManual(patientId) {
   if(!hasPermission('registerSession')){toastErr('No tienes permisos para registrar sesiones.');return;}
   const pt=getPatient(patientId);
   if(!pt){toastErr('Paciente no encontrado.');return;}
+  clearAllErrors(['sess-manual-date','sess-therapist','sess-note']);
   _manualMode=true; _manualPatientId=patientId; _pendingSessionAppt=null;
   _editMode=false; _editRef=null;
   document.getElementById('session-modal-title').textContent='Registrar sesión manual — '+pt.name.split(' ').slice(0,2).join(' ');
@@ -127,9 +130,7 @@ export function openSessionModalManual(patientId) {
   renderEvaButtons('eva-before-btns','sess-eva-before-val',5,'#E24B4A');
   renderEvaButtons('eva-after-btns','sess-eva-after-val',5,'#1D9E75');
   document.getElementById('sess-note').value='';
-  document.getElementById('sess-note').style.borderColor='';
   document.getElementById('sess-type').value='';
-  if(document.getElementById('sess-next')) document.getElementById('sess-next').value='';
   proTecnicasSel=[];
   renderProTecnicas();
   document.getElementById('session-modal').classList.add('open');
@@ -157,28 +158,29 @@ async function saveSessionManual() {
   if(!pt){toastErr('Paciente no encontrado.');return;}
   const date=document.getElementById('sess-manual-date').value;
   const today=fmtDate(new Date());
-  if(!date){toastErr('Elegí la fecha de la sesión');return;}
-  if(date>today){toastErr('La fecha no puede ser futura');return;}
+  if(!date){showFieldError('sess-manual-date','Elegí la fecha de la sesión');toastErr('Elegí la fecha de la sesión');return;}
+  if(date>today){showFieldError('sess-manual-date','La fecha no puede ser futura');toastErr('La fecha no puede ser futura');return;}
+  clearFieldError('sess-manual-date');
   const pb=parseInt(document.getElementById('sess-eva-before-val').textContent)||0;
   const pa=parseInt(document.getElementById('sess-eva-after-val').textContent)||0;
   const type='Fisioterapia';                              // I1: tipo fijo (las técnicas van en tags)
   const therapistId=document.getElementById('sess-therapist')?.value||'';
   const note=document.getElementById('sess-note').value.trim();
-  if(!therapistId){toastErr('Elegí el terapeuta que atendió la sesión');return;}
+  if(!therapistId){showFieldError('sess-therapist','Elegí el terapeuta que atendió la sesión');toastErr('Elegí el terapeuta que atendió la sesión');return;}
+  clearFieldError('sess-therapist');
   if(!note){
-    document.getElementById('sess-note').style.borderColor='rgba(224,80,80,.6)';
+    showFieldError('sess-note','Describe brevemente qué se realizó en la sesión');
     document.getElementById('sess-note').focus();
     toastErr('Describe brevemente qué se realizó en la sesión');
     return;
   }
-  document.getElementById('sess-note').style.borderColor='';
+  clearFieldError('sess-note');
   _savingSession=true; _setSaveBtn(true);
   try {
     const hour=await genUniqueHour(pt.id,date);
     const {data:ins,error}=await supa.from('session_log').insert({
       patient_id:pt.id,date,type,hour,status:'asistió',therapist_id:therapistId,
-      pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,
-      next_plan:document.getElementById('sess-next')?.value||''
+      pain_before:pb,pain_after:pa,note,tags:proTecnicasSel
     }).select('id').single();
     if(error){toastErr('No se pudo guardar la sesión. Intenta de nuevo.');return;}
     // La fila en session_log ES el dato: doneActual/pendientesActual la cuentan sin contadores aparte.
@@ -204,6 +206,7 @@ export function editSession(patientId, id) {
   // El id del onclick llega como string; en memoria puede ser entero -> comparar coercionando.
   const s=pt&&pt.log?pt.log.find(x=>x.id!=null&&String(x.id)===String(id)):null;
   if(!s){toastErr('Sesión no encontrada.');return;}
+  clearAllErrors(['sess-manual-date','sess-therapist','sess-note']);
   _editMode=true; _editRef={patientId,id:s.id,date:s.date,hour:s.hour}; _manualMode=false; _pendingSessionAppt=null;
   document.getElementById('session-modal-title').textContent='Editar sesión — '+pt.name.split(' ').slice(0,2).join(' ');
   document.getElementById('session-modal-sub').textContent='Corregí los datos de la sesión';
@@ -219,9 +222,7 @@ export function editSession(patientId, id) {
   renderEvaButtons('eva-before-btns','sess-eva-before-val',s.pb!=null?s.pb:5,'#E24B4A');
   renderEvaButtons('eva-after-btns','sess-eva-after-val',s.pa!=null?s.pa:5,'#1D9E75');
   document.getElementById('sess-note').value=s.note||'';
-  document.getElementById('sess-note').style.borderColor='';
   document.getElementById('sess-type').value=s.type||'';
-  if(document.getElementById('sess-next')) document.getElementById('sess-next').value='';
   proTecnicasSel=Array.isArray(s.tags)?[...s.tags]:[];
   renderProTecnicas();
   document.getElementById('session-modal').classList.add('open');
@@ -234,16 +235,17 @@ async function saveSessionEdit() {
   if(!ref||!pt){toastErr('Sesión no encontrada.');return;}
   const newDate=document.getElementById('sess-manual-date').value;
   const today=fmtDate(new Date());
-  if(!newDate){toastErr('Elegí la fecha de la sesión');return;}
-  if(newDate>today){toastErr('La fecha no puede ser futura');return;}
+  if(!newDate){showFieldError('sess-manual-date','Elegí la fecha de la sesión');toastErr('Elegí la fecha de la sesión');return;}
+  if(newDate>today){showFieldError('sess-manual-date','La fecha no puede ser futura');toastErr('La fecha no puede ser futura');return;}
+  clearFieldError('sess-manual-date');
   const note=document.getElementById('sess-note').value.trim();
   if(!note){
-    document.getElementById('sess-note').style.borderColor='rgba(224,80,80,.6)';
+    showFieldError('sess-note','Describe brevemente qué se realizó en la sesión');
     document.getElementById('sess-note').focus();
     toastErr('Describe brevemente qué se realizó en la sesión');
     return;
   }
-  document.getElementById('sess-note').style.borderColor='';
+  clearFieldError('sess-note');
   // GUARDA del edge de fecha: si mover la fecha cambia la pertenencia al episodio actual, abortar
   // (done debe quedar exacto; mover entre episodios = eliminar y recrear).
   if(newDate!==ref.date){
@@ -311,12 +313,12 @@ export async function saveSession() {
   const therapistId=appt.therapistId||null;               // I3: quién atendió = terapeuta de la cita
   const note=document.getElementById('sess-note').value.trim();
   if(!note){
-    document.getElementById('sess-note').style.borderColor='rgba(224,80,80,.6)';
+    showFieldError('sess-note','Describe brevemente qué se realizó en la sesión');
     document.getElementById('sess-note').focus();
     toastErr('Describe brevemente qué se realizó en la sesión');
     return;
   }
-  document.getElementById('sess-note').style.borderColor='';
+  clearFieldError('sess-note');
   _savingSession=true; _setSaveBtn(true);
   try {
     let savedId=null;                                        // id real de la fila (para llevarlo a memoria)
@@ -331,8 +333,7 @@ export async function saveSession() {
       } else {
         const {data:ins,error}=await supa.from('session_log').insert({
           patient_id:appt.patientId,date:appt.date,type,hour:apptHourFmt,status:'asistió',therapist_id:therapistId,
-          pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,
-          next_plan:document.getElementById('sess-next')?.value||''
+          pain_before:pb,pain_after:pa,note,tags:proTecnicasSel
         }).select('id').single();
         savedId=ins?.id??null;
         dbError=error;

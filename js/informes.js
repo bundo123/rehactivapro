@@ -1,9 +1,8 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual, safeColor } from './utils.js';
 import { apptSlots } from './agenda.js';
-import { genSemanalAI, genPatientAI, callAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
-import { hasEvalInicial } from './resumen.js';
+import { genSemanalAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasPermission } from './permissions.js';
 
 export { genSemanalAI, genPatientAI };
@@ -320,7 +319,7 @@ export function renderMensual() {
   html += `<div class="full-card"><div class="card-title">Pacientes por doctor referente</div>`;
   state.doctors.forEach(d => {
     const n = state.patients.filter(p => p.doctorId === d.id).length;
-    html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(29,158,117,.1)"><span style="width:10px;height:10px;border-radius:50%;background:${d.color};display:inline-block;flex-shrink:0"></span><div style="flex:1;font-size:12px;color:#c8c6c0">${esc(d.name)} <span style="color:#6b6a64">(${esc(d.spec)})</span></div><div style="font-size:13px;font-weight:500;color:#1a1917">${n}</div></div>`;
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(29,158,117,.1)"><span style="width:10px;height:10px;border-radius:50%;background:${safeColor(d.color)};display:inline-block;flex-shrink:0"></span><div style="flex:1;font-size:12px;color:#c8c6c0">${esc(d.name)} <span style="color:#6b6a64">(${esc(d.spec)})</span></div><div style="font-size:13px;font-weight:500;color:#1a1917">${n}</div></div>`;
   });
   html += `</div><div class="full-card"><div class="card-title">Tendencia — últimos 3 meses</div><canvas id="monthly-chart" height="80"></canvas></div>`;
   document.getElementById('mensual-content').innerHTML = html;
@@ -664,7 +663,7 @@ export function renderPatientReport() {
   }
 
   out.innerHTML=html;
-  _rptCtx={p,log,attended,pct,adh,fp,lp,th,doc,epDiag,epDone,epSessions,inicio,rptNo,fechaLarga,thHeader};
+  _rptCtx={p,log,attended,pct,adh,fp,lp,th,doc,epDiag,epDone,epSessions,inicio,rptNo,fechaLarga,thHeader,prot};
   renderInformesGuardados();
 
   if(evaSes.length){
@@ -704,7 +703,7 @@ export function renderPatientReport() {
 // Construye el render-model del PDF desde el informe en pantalla (_rptCtx + narrativa IA + canvas EVA).
 // Es el MISMO shape que se persiste como snapshot, para que el PDF guardado salga idéntico sin re-llamar a la IA.
 function _buildRenderModel() {
-  const {p,log,attended,pct,adh,fp,lp,doc,inicio,rptNo,fechaLarga,thHeader}=_rptCtx;
+  const {p,log,attended,pct,adh,fp,lp,doc,inicio,rptNo,fechaLarga,thHeader,prot}=_rptCtx;
   // Captura del gráfico EVA ya dibujado en pantalla — evita el canvas en blanco por timing.
   const evaCanvas=document.getElementById('eva-evolution-chart');
   const evaImg=evaCanvas?evaCanvas.toDataURL('image/png'):'';
@@ -717,6 +716,7 @@ function _buildRenderModel() {
     paciente:{nombre:p?.name||'',cedula:p?.cedula||'',edad:getDisplayAge(p,true),diagnostico:p?.diag||''},
     terapeuta:thHeader,
     doctor:doc?doc.name+' ('+doc.spec+')':null,
+    protocolo:prot?.name||null,
     inicio,
     metricas:{
       pct,done:doneActual(p),sessions:p?.sessions||0,
@@ -749,14 +749,14 @@ function buildPdfHtml(m) {
     const partesPDF=m.evalInicial.partes||[];
     evalBlock='<div style="border-left:4px solid #1D9E75;background:#f3faf7;padding:10px 14px;margin-top:8px;border-radius:6px">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px">'
-      +'<div style="font-size:12px;font-weight:700;color:#1a1917">Evaluación inicial — '+dmy(m.evalInicial.fecha)+'</div>'
-      +'<div style="font-size:12px;font-weight:700;color:'+evaColor(m.evalInicial.pb)+'">EVA '+(m.evalInicial.pb!=null?m.evalInicial.pb:'—')+'/10</div></div>'
+      +'<div style="font-size:12px;font-weight:700;color:#1a1917">Evaluación inicial — '+esc(dmy(m.evalInicial.fecha))+'</div>'
+      +'<div style="font-size:12px;font-weight:700;color:'+evaColor(m.evalInicial.pb)+'">EVA '+(m.evalInicial.pb!=null?esc(m.evalInicial.pb):'—')+'/10</div></div>'
       +(partesPDF.length?partesPDF.map(x=>'<div style="font-size:11px;color:#3a3a36;line-height:1.5;margin-bottom:2px">'+esc(x)+'</div>').join(''):'<div style="font-size:11px;color:#9c9a92">Sin detalle registrado</div>')
       +'</div>';
   }
   // Dolor EVA con cada número coloreado por valor (7–10 rojo / 4–6 amarillo / 1–3 verde / 0 azul).
   const evaTxt=m.metricas.evaHas
-    ?'<span style="color:'+evaColor(m.metricas.evaInicial)+'">'+m.metricas.evaInicial+'</span><span style="color:#6b6a64">→</span><span style="color:'+(m.metricas.evaActual!=null?evaColor(m.metricas.evaActual):'#6b6a64')+'">'+(m.metricas.evaActual!=null?m.metricas.evaActual:'?')+'</span>'
+    ?'<span style="color:'+evaColor(m.metricas.evaInicial)+'">'+esc(m.metricas.evaInicial)+'</span><span style="color:#6b6a64">→</span><span style="color:'+(m.metricas.evaActual!=null?evaColor(m.metricas.evaActual):'#6b6a64')+'">'+(m.metricas.evaActual!=null?esc(m.metricas.evaActual):'?')+'</span>'
     :'—';
   const adhCol=m.metricas.adh>=85?'#1D9E75':m.metricas.adh>=70?'#BA7517':'#E24B4A';
   let filas='';
@@ -764,7 +764,7 @@ function buildPdfHtml(m) {
     const eva=s.pb!=null?s.pb+'→'+(s.pa!=null?s.pa:'?'):'—';
     const tec=s.tecnicas?esc(s.tecnicas):'—';
     const thName=s.terapeuta||'—';
-    filas+='<tr><td>'+dmy(s.fecha)+'</td><td>'+esc(thName)+'</td><td style="text-align:center">'+eva+'</td><td>'+tec+'</td><td style="font-size:10px;color:#6b6a64">'+(s.obs?esc(s.obs):'—')+'</td></tr>';
+    filas+='<tr><td>'+esc(dmy(s.fecha))+'</td><td>'+esc(thName)+'</td><td style="text-align:center">'+esc(eva)+'</td><td>'+tec+'</td><td style="font-size:10px;color:#6b6a64">'+(s.obs?esc(s.obs):'—')+'</td></tr>';
   });
   const nSes=(m.sesiones||[]).length;
   const tabla=nSes?'<table><thead><tr><th>Fecha</th><th>Terapeuta</th><th>EVA (antes→después)</th><th>Técnicas</th><th>Observación</th></tr></thead><tbody>'+filas+'</tbody></table>':'<div style="color:#6b6a64;padding:12px 0">Sin sesiones de tratamiento registradas.</div>';
@@ -772,21 +772,22 @@ function buildPdfHtml(m) {
   return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Informe — '+esc(m.paciente.nombre||'Paciente')+'</title>'
     +'<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;color:#1a1917;padding:30px;max-width:800px;margin:0 auto}h2{font-size:13px;font-weight:600;color:#1a1917;margin:18px 0 8px;border-bottom:1px solid #d8d8d2;padding-bottom:4px}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}.logo{font-size:18px;font-weight:700}.logo span{color:#29ABE2}.fecha{font-size:10px;color:#6b6a64}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.stat-box{background:#f5f5f0;border-radius:8px;padding:10px 12px;text-align:center}.stat-num{font-size:24px;font-weight:700;color:#1D9E75}.stat-lbl{font-size:10px;color:#6b6a64;text-transform:uppercase;letter-spacing:.05em}.info-row{display:flex;gap:6px;margin-bottom:4px}.info-lbl{font-size:10px;font-weight:600;color:#6b6a64;text-transform:uppercase;min-width:120px}.info-val{font-size:12px;color:#1a1917}table{width:100%;border-collapse:collapse;margin-top:8px}th{background:#f0f0e8;padding:7px 10px;font-size:10px;text-align:left;text-transform:uppercase;letter-spacing:.05em;color:#6b6a64}td{padding:7px 10px;border-bottom:1px solid #f0efe8;font-size:11px;color:#1a1917}h3.narr{font-size:12px;font-weight:700;color:#1a1917;margin:12px 0 4px;letter-spacing:.02em}.narr-body{font-size:11px;line-height:1.6;color:#1a1917;margin-bottom:6px}@media print{body{padding:15px}button{display:none}}</style></head><body>'
     +'<div class="header"><div><div class="logo"><span style="color:#29ABE2">Rehactiva</span> <span style="font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#F5A623;background:rgba(245,166,35,.14);padding:2px 7px;border-radius:5px;line-height:1">PRO</span></div><div style="font-size:10px;color:#6b6a64;margin-top:3px">Rehabilitación y Fisioterapia · Quito, Ecuador</div></div>'
-    +'<div style="text-align:right"><div style="font-size:14px;font-weight:700">Informe de evolución</div><div class="fecha">N.º '+m.numero+' · '+m.fechaLarga+'</div>'
+    +'<div style="text-align:right"><div style="font-size:14px;font-weight:700">Informe de evolución</div><div class="fecha">N.º '+esc(m.numero)+' · '+esc(m.fechaLarga)+'</div>'
     +'<button onclick="window.print()" style="margin-top:8px;padding:6px 14px;background:#1D9E75;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px">🖨️ Imprimir / Guardar PDF</button></div></div>'
     +'<h2>Datos del paciente</h2>'
     +'<div class="info-row"><span class="info-lbl">Nombre</span><span class="info-val">'+esc(m.paciente.nombre||'—')+'</span></div>'
     +'<div class="info-row"><span class="info-lbl">Cédula</span><span class="info-val">'+esc(m.paciente.cedula||'—')+'</span></div>'
-    +'<div class="info-row"><span class="info-lbl">Edad</span><span class="info-val">'+(m.paciente.edad||'—')+'</span></div>'
+    +'<div class="info-row"><span class="info-lbl">Edad</span><span class="info-val">'+esc(m.paciente.edad||'—')+'</span></div>'
     +'<div class="info-row"><span class="info-lbl">Diagnóstico</span><span class="info-val">'+esc(m.paciente.diagnostico||'—')+'</span></div>'
     +'<div class="info-row"><span class="info-lbl">Terapeuta</span><span class="info-val">'+esc(m.terapeuta||'—')+'</span></div>'
     +'<div class="info-row"><span class="info-lbl">Doctor referente</span><span class="info-val">'+(m.doctor?esc(m.doctor):'Independiente')+'</span></div>'
-    +'<div class="info-row"><span class="info-lbl">Inicio de tratamiento</span><span class="info-val">'+m.inicio+'</span></div>'
+    +'<div class="info-row"><span class="info-lbl">Inicio de tratamiento</span><span class="info-val">'+esc(m.inicio)+'</span></div>'
+    +(m.protocolo?'<div class="info-row"><span class="info-lbl">Protocolo</span><span class="info-val">'+esc(m.protocolo)+'</span></div>':'')
     +'<h2>Resumen de evolución</h2>'
-    +'<div class="grid3"><div class="stat-box"><div class="stat-num" style="color:'+pctColor(m.metricas.pct)+'">'+m.metricas.pct+'%</div><div class="stat-lbl">Sesiones</div><div style="font-size:10px;color:#6b6a64">'+m.metricas.done+' de '+m.metricas.sessions+'</div></div>'
-    +'<div class="stat-box"><div class="stat-num" style="color:'+adhCol+'">'+m.metricas.adh+'%</div><div class="stat-lbl">Continuidad</div><div style="font-size:10px;color:#6b6a64">'+m.metricas.asistidas+' / '+m.metricas.totalCitas+'</div></div>'
+    +'<div class="grid3"><div class="stat-box"><div class="stat-num" style="color:'+pctColor(m.metricas.pct)+'">'+esc(m.metricas.pct)+'%</div><div class="stat-lbl">Sesiones</div><div style="font-size:10px;color:#6b6a64">'+esc(m.metricas.done)+' de '+esc(m.metricas.sessions)+'</div></div>'
+    +'<div class="stat-box"><div class="stat-num" style="color:'+adhCol+'">'+esc(m.metricas.adh)+'%</div><div class="stat-lbl">Continuidad</div><div style="font-size:10px;color:#6b6a64">'+esc(m.metricas.asistidas)+' / '+esc(m.metricas.totalCitas)+'</div></div>'
     +'<div class="stat-box"><div class="stat-num">'+evaTxt+'</div><div class="stat-lbl">Dolor EVA</div><div style="font-size:10px;color:#6b6a64">inicial → actual</div></div></div>'
-    +(evaImg?'<h2>Evolución del dolor (EVA)</h2><img src="'+evaImg+'" style="max-width:100%;border:1px solid #eee;border-radius:6px">':'')
+    +(evaImg?'<h2>Evolución del dolor (EVA)</h2><img src="'+esc(evaImg)+'" style="max-width:100%;border:1px solid #eee;border-radius:6px">':'')
     +(aiHTML?'<h2>Narrativa clínica</h2>'+aiHTML:'')
     +(evalBlock?'<h2>Evaluación inicial</h2>'+evalBlock:'')
     +'<h2>Detalle por sesión ('+nSes+')</h2>'+tabla

@@ -1,5 +1,6 @@
 import { state } from './state.js';
-import { esc, fmtDate, fmtTime, getPatient, getTherapist, getDoctor, getInitials } from './utils.js';
+import { esc, fmtDate, fmtTime, getPatient, getTherapist, getDoctor, getInitials, safeColor } from './utils.js';
+import { toastErr } from './toast.js';
 
 export function hasEvalInicial(p) {
   return (p.log || []).some(s => s.type === 'Evaluación inicial');
@@ -34,8 +35,9 @@ function row(a, kind) {
   const pt     = getPatient(a.patientId);
   const th     = getTherapist(a.therapistId);
   const doc    = pt?.doctorId ? getDoctor(pt.doctorId) : null;
+  const dcol   = doc ? safeColor(doc.color) : '';
   const refTag = doc
-    ? `<span class="resd-ref-tag" style="background:${doc.color}22;color:${doc.color};border-color:${doc.color}44">${esc(doc.name)}</span>`
+    ? `<span class="resd-ref-tag" style="background:${dcol}22;color:${dcol};border-color:${dcol}44">${esc(doc.name)}</span>`
     : '';
   const metaParts = [fmtTime(a.hour), esc(a.type || ''), th ? esc(th.name) : null];
   if (kind === 'noas' && pt?.tel) metaParts.push(esc(pt.tel));
@@ -52,8 +54,12 @@ function row(a, kind) {
       ${evalBtn}
       <span class="resd-asistio">✓ Asistió</span>`;
   } else {
+    // Sin teléfono no hay chat posible: botón deshabilitado (antes abría un número fijo de la clínica).
+    const waBtn = pt?.tel
+      ? `<button class="resd-btn-wa" onclick="simWA(${esc(JSON.stringify(pt.name || ''))},${esc(JSON.stringify(pt.tel))})">📱 WhatsApp</button>`
+      : `<button class="resd-btn-wa" disabled title="Sin teléfono registrado — agrégalo en el perfil del paciente" style="opacity:.45;cursor:not-allowed">📱 WhatsApp</button>`;
     actions = `
-      <button class="resd-btn-wa"  onclick="simWA(${esc(JSON.stringify(pt?.name || ''))},${esc(JSON.stringify(pt?.tel || ''))})">📱 WhatsApp</button>
+      ${waBtn}
       <button class="resd-btn-em"  onclick="simEmail(${esc(JSON.stringify(pt?.name || ''))},${esc(JSON.stringify(pt?.email || ''))})">✉ Email</button>
       <button class="resd-btn-rep" onclick="openApptModal()">↻ Reagendar</button>`;
   }
@@ -110,8 +116,9 @@ export function renderResumen() {
 }
 
 export function simWA(nombre, tel) {
+  const num = (tel || '').replace(/[^0-9]/g, '');
+  if (!num) { toastErr('El paciente no tiene teléfono registrado. Agrégalo en su perfil.'); return; }
   const msg = encodeURIComponent('Hola ' + nombre + ', le contactamos desde Rehactiva Rehabilitación. Notamos que no pudo asistir a su cita de hoy. ¿Le ayudamos a reagendar?');
-  const num = (tel ? tel.replace(/[^0-9]/g, '') : '593999211258');
   window.open('https://wa.me/' + num + '?text=' + msg, '_blank');
 }
 

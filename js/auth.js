@@ -93,7 +93,6 @@ export async function loadAll(force=false) {
     state.dataLoaded=true;
     state.lastLoaded={all:now,therapists:now,doctors:now,patients:now,appointments:now,protocols:now,cobros:now};
     window._app?.updateLastLoadedLabels?.();
-    console.log('Datos cargados desde Supabase');
     return {cached:false};
   } catch(e) {
     console.warn('Error cargando datos:', e.message);
@@ -255,11 +254,4 @@ export async function dbRegistrarCobro(patientId,nSessions,cobroRef){
     // billing_pendientes ya no se escribe: pendientes deriva de session_log/cobros (pendientesActual).
     return{error:null};
   }catch(e){return{error:e};}
-}
-export async function dbUpdateBillingPendientes(patientId,pendientes){
-  markLocalChange('patients');
-  if(typeof patientId!=='string') return;
-  try{const{error}=await supa.from('patients').update({billing_pendientes:pendientes}).eq('id',patientId);
-    if(error) console.warn('dbUpdateBillingPendientes:',error.message);}
-  catch(e){console.warn('dbUpdateBillingPendientes:',e);}
 }

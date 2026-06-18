@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { esc, getDoctor, DOC_COLORS } from './utils.js';
+import { esc, getDoctor, DOC_COLORS, safeColor } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { dbDeleteDoctor } from './auth.js';
@@ -13,7 +13,7 @@ export function renderDoctorsList() {
   const filtDocs=state.doctors.filter(d=>!q||d.name.toLowerCase().includes(q)||d.spec.toLowerCase().includes(q));
   document.getElementById('doctors-list').innerHTML=`<div class="full-card">${filtDocs.map(d=>`
     <div class="th-manage-row">
-      <div style="width:36px;height:36px;border-radius:50%;background:${d.color}22;border:1px solid ${d.color}44;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:${d.color};flex-shrink:0">${esc(d.name.split(' ').pop()[0])}</div>
+      <div style="width:36px;height:36px;border-radius:50%;background:${safeColor(d.color)}22;border:1px solid ${safeColor(d.color)}44;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:${safeColor(d.color)};flex-shrink:0">${esc(d.name.split(' ').pop()[0])}</div>
       <div style="flex:1">
         <div style="font-size:13px;font-weight:500;color:#1a1917">${esc(d.name)}</div>
         <div style="font-size:11px;color:#6b6a64">${esc(d.spec)}</div>
@@ -71,7 +71,9 @@ export async function saveDoctor() {
   if (_hasErrors) return;
   if(!hasPermission('createDoctor')){toastErr('No tienes permisos para gestionar doctores.');return;}
   const name=document.getElementById('doc-name').value.trim();
-  const d={name,spec:document.getElementById('doc-spec').value,email:document.getElementById('doc-email').value,tel:document.getElementById('doc-tel').value,color:state.selectedDocColor};
+  // selectDocColor está expuesta en window y acepta cualquier string: validar contra la paleta antes de persistir.
+  const _color=DOC_COLORS.includes(state.selectedDocColor)?state.selectedDocColor:DOC_COLORS[0];
+  const d={name,spec:document.getElementById('doc-spec').value,email:document.getElementById('doc-email').value,tel:document.getElementById('doc-tel').value,color:_color};
   if(state.editingDocId) Object.assign(getDoctor(state.editingDocId),d);
   else state.doctors.push({id:++state.docCounter,...d});
   const _d=state.editingDocId?getDoctor(state.editingDocId):state.doctors[state.doctors.length-1];

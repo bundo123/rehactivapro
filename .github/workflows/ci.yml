@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  syntax:
+    name: node --check (js/ y api/)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # package.json tiene "type": "module", así que node --check parsea los archivos como ESM.
+      - name: Chequeo de sintaxis de todos los módulos
+        run: |
+          set -e
+          for f in js/*.js api/*.js; do
+            node --check "$f"
+            echo "OK $f"
+          done
