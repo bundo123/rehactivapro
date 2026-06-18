@@ -271,15 +271,15 @@ export function renderPatients() {
 
 export async function deletePatient(id) {
   if(!hasPermission('deletePatient')){toastErr('No tienes permisos para eliminar pacientes.');return;}
-  if(!confirm('¿Eliminar este paciente? Se eliminarán también sus citas y cobros.')) return;
+  if(!confirm('⚠️ Vas a eliminar este paciente y TODO su historial clínico: sesiones, cobros, citas e informes. Esta acción es IRREVERSIBLE y no se puede deshacer.\n\n¿Eliminar definitivamente?')) return;
   state.patients=state.patients.filter(p=>p.id!==id);
   state.appointments=state.appointments.filter(a=>a.patientId!==id);
+  state.informes=(state.informes||[]).filter(x=>String(x.patientId)!==String(id));
   renderPatients(); window._app.renderGrid();
   if(typeof id==='string'){
     toastInfo('Eliminando...');
-    await supa.from('session_log').delete().eq('patient_id',id);
-    await supa.from('cobros').delete().eq('patient_id',id);
-    await supa.from('appointments').delete().eq('patient_id',id);
+    // FK con ON DELETE CASCADE (session_log, cobros, appointments, informes): borrar la fila de
+    // patients arrastra todo su historial en una sola operación atómica, sin huérfanos. I-5 cerrado.
     const {error}=await supa.from('patients').delete().eq('id',id);
     if(error) toastErr('Error al eliminar paciente: '+error.message);
     else toastOk('Paciente eliminado correctamente');
