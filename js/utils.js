@@ -121,7 +121,7 @@ export function getFullAge(p) {
 
 // ── FUENTE ÚNICA de done/pendientes (derivados de session_log, nunca de columnas almacenadas) ──
 // Frontera del episodio actual = fecha del último 'Fin de episodio' en session_log (null si no hay).
-function lastFinDate(p) {
+export function lastFinDate(p) {
   const fins = (p?.log || []).filter(s => s.type === 'Fin de episodio').map(s => s.date).sort();
   return fins.length ? fins[fins.length - 1] : null;
 }
