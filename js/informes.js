@@ -703,7 +703,7 @@ export function renderPatientReport() {
 // Construye el render-model del PDF desde el informe en pantalla (_rptCtx + narrativa IA + canvas EVA).
 // Es el MISMO shape que se persiste como snapshot, para que el PDF guardado salga idéntico sin re-llamar a la IA.
 function _buildRenderModel() {
-  const {p,log,attended,pct,adh,fp,lp,doc,inicio,rptNo,fechaLarga,thHeader,prot}=_rptCtx;
+  const {p,log,attended,pct,adh,fp,lp,doc,inicio,rptNo,fechaLarga,thHeader,prot,epDiag,epDone,epSessions}=_rptCtx;
   // Captura del gráfico EVA ya dibujado en pantalla — evita el canvas en blanco por timing.
   const evaCanvas=document.getElementById('eva-evolution-chart');
   const evaImg=evaCanvas?evaCanvas.toDataURL('image/png'):'';
@@ -713,13 +713,13 @@ function _buildRenderModel() {
   return {
     numero:rptNo,
     fechaLarga,
-    paciente:{nombre:p?.name||'',cedula:p?.cedula||'',edad:getDisplayAge(p,true),diagnostico:p?.diag||''},
+    paciente:{nombre:p?.name||'',cedula:p?.cedula||'',edad:getDisplayAge(p,true),diagnostico:epDiag||p?.diag||''},
     terapeuta:thHeader,
     doctor:doc?doc.name+' ('+doc.spec+')':null,
     protocolo:prot?.name||null,
     inicio,
     metricas:{
-      pct,done:doneActual(p),sessions:p?.sessions||0,
+      pct,done:epDone,sessions:epSessions||0,
       adh,asistidas:attended.length,totalCitas:log.length,
       evaHas:!!(fp&&lp&&fp.pb!=null),
       evaInicial:(fp&&fp.pb!=null)?fp.pb:null,
