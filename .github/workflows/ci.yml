@@ -22,3 +22,7 @@ jobs:
             node --check "$f"
             echo "OK $f"
           done
+      # Tests de lógica pura (validators, utils/done/pendientes, billingInfo). Sin dependencias:
+      # solo importan js/*.js entre sí, así que no requieren `npm install`.
+      - name: Tests (node --test)
+        run: npm test

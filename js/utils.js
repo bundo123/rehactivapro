@@ -151,3 +151,19 @@ export function pendientesActual(p) {
     .reduce((s, f) => s + (f.n || 0), 0);
   return Math.max(0, doneActual(p) - cobradasEp);
 }
+
+// Datos de facturación del episodio ACTUAL (I-4): "Cobro X de Y", cajitas y cierre.
+// Pura y episodio-aware (misma frontera que pendientesActual): solo cuenta las facturas con fecha
+// posterior al último 'Fin de episodio', para que al iniciar un episodio nuevo la numeración de
+// cobros vuelva a empezar y no arrastre cobros de episodios anteriores. spf = sesiones por factura.
+export function billingInfo(p, spf) {
+  const lastFin          = lastFinDate(p);
+  const facturasEp       = (p.billing.facturas || []).filter(f => !lastFin || (f.fecha || '') > lastFin);
+  const sesTotal         = p.sessions || 0;
+  const sesYaCobradas    = facturasEp.reduce((s, f) => s + (f.n || 0), 0);
+  const sesPend          = pendientesActual(p);
+  const cobrosRealizados = facturasEp.length;
+  const totalCobros      = Math.floor(sesTotal / spf) + (sesTotal % spf > 0 ? 1 : 0);
+  const esCierre         = sesPend > 0 && sesPend < spf && (sesYaCobradas + sesPend) >= sesTotal;
+  return { sesTotal, sesYaCobradas, sesPend, cobrosRealizados, totalCobros, esCierre };
+}

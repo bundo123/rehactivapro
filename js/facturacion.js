@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { esc, getPatient, getTherapist, getDoctor, fmtDate, getInitials, pendientesActual, lastFinDate } from './utils.js';
+import { esc, getPatient, getTherapist, getDoctor, fmtDate, getInitials, pendientesActual, billingInfo } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { dbRegistrarCobro } from './auth.js';
@@ -9,21 +9,6 @@ import { updateFacturaBadge } from './agenda.js';
 let _filter = 'todos';
 let _search  = '';
 let _sort    = 'urgente';
-
-function billingInfo(p, spf) {
-  // Episodio-aware (I-4): solo las facturas del episodio ACTUAL (fecha posterior al último
-  // 'Fin de episodio'), misma frontera que pendientesActual. Así "Cobro X de Y" y la numeración
-  // de cajitas no arrastran cobros de episodios anteriores tras iniciar uno nuevo.
-  const lastFin         = lastFinDate(p);
-  const facturasEp      = (p.billing.facturas || []).filter(f => !lastFin || (f.fecha || '') > lastFin);
-  const sesTotal        = p.sessions || 0;
-  const sesYaCobradas   = facturasEp.reduce((s, f) => s + (f.n || 0), 0);
-  const sesPend         = pendientesActual(p);
-  const cobrosRealizados = facturasEp.length;
-  const totalCobros     = Math.floor(sesTotal / spf) + (sesTotal % spf > 0 ? 1 : 0);
-  const esCierre        = sesPend > 0 && sesPend < spf && (sesYaCobradas + sesPend) >= sesTotal;
-  return { sesTotal, sesYaCobradas, sesPend, cobrosRealizados, totalCobros, esCierre };
-}
 
 function matchesSearch(p) {
   if (!_search.trim()) return true;
