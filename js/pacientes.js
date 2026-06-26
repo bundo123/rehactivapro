@@ -1,6 +1,6 @@
 ﻿import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { esc, fmtDate, getPatient, getDoctor, patientMatchesSearch, highlightMatch, getFullAge, doneActual, pendientesActual, safeColor } from './utils.js';
+import { esc, fmtDate, getPatient, getDoctor, patientMatchesSearch, highlightMatch, getFullAge, doneActual, safeColor } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';

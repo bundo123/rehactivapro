@@ -13,7 +13,7 @@ import {
   changeDay, openApptModal, openApptModalAt, openEditApptModal, updateTimeSlots, saveAppt, delAppt,
   goToDate, openDatePicker, agendarCitaParaPaciente, checkAutoNoas,
   toggleRecurrencia, updateRecPreview, filterApptPatient,
-  setAgendaView, setTherapistFilter, renderWeekView, renderMonthView,
+  setAgendaView, setTherapistFilter,
   goToDateAndSelect, exportAgendaCSV
 } from './agenda.js';
 import {
@@ -64,7 +64,7 @@ window._app = {
   fmtDate,
   // auth/realtime
   loadAll, subscribeRealtime, unsubscribeRealtime, markLocalChange,
-  refreshData, updateLastLoadedLabels,
+  updateLastLoadedLabels,
   // permissions
   applyRolePermissions, hasPermission,
   // ui helpers
@@ -128,26 +128,6 @@ export function updateLastLoadedLabels() {
 }
 window._app.updateLastLoadedLabels = updateLastLoadedLabels;
 
-export async function refreshData() {
-  const result=await loadAll(true);
-  if(result?.error)return;
-  if(state.currentTab==='agenda'){
-    const v=state.agendaView||'day';
-    if(v==='week')renderWeekView();else if(v==='month')renderMonthView();else renderGrid();
-  }
-  else if(state.currentTab==='pacientes')renderPatients();
-  else if(state.currentTab==='paciente_rpt')renderPatientReportSelect();
-  else if(state.currentTab==='informes')renderSemanal();
-  else if(state.currentTab==='resumen')renderResumen();
-  else if(state.currentTab==='protocolos')renderProtocols();
-  else if(state.currentTab==='terapeutas')renderTherapistList();
-  else if(state.currentTab==='doctores'){renderDoctorsList();renderNotifList();}
-  else if(state.currentTab==='facturacion')renderFacturacion();
-  updateResumenBadge(); updateFacturaBadge(); applyRolePermissions();
-  toastOk('Datos actualizados');
-}
-window._app.refreshData = refreshData;
-
 // ── initApp ──
 async function initApp() {
   document.getElementById('login-screen').style.display='flex';
@@ -208,15 +188,9 @@ Object.assign(window, {
   marcarTodosFacturados, exportarPDF, genSemanalAI, genResumenDiaAI,
   genPatientAI, guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado, globalSearch, selectGlobalResult,
   updateRecPreview, populateDiagList,
-  goToPatientPage, refreshData, toggleEvalFilter, setPatientStatusFilter, verPaciente, onPatientProtocolChange,
+  goToPatientPage, toggleEvalFilter, setPatientStatusFilter, verPaciente, onPatientProtocolChange,
   setAgendaView, setTherapistFilter, goToDateAndSelect, exportAgendaCSV,
   applyRolePermissions, hasPermission,
-  // referencias a datos accesibles desde HTML (onclick strings)
-  get appointments(){ return state.appointments; },
-  get patients(){ return state.patients; },
-  supa, getPatient: (id)=>state.patients.find(p=>p.id===id),
-  hasEvalInicial,
-  openSessionModal,
   doSendRecoveryEmail, doSetNewPassword, showForgotPassword, showLoginForm, cancelRecovery,
 });
 
