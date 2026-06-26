@@ -333,8 +333,7 @@ export async function emitirFactura(patientId) {
     toastErr('Error al registrar el cobro. Refresca la página.');
     return;
   }
-  toastOk(`Cobro ${fId} registrado — ${n} sesiones de ${p.name}`);
-  simEmailFactura(p.name, p.email || '', fId, n);
+  toastOk(`Cobrado · Factura ${fId} · ${n} ${n === 1 ? 'sesión' : 'sesiones'}`);
 }
 
 export async function marcarTodosFacturados() {
@@ -350,9 +349,4 @@ export async function marcarTodosFacturados() {
   if (!paracobrar.length) return;
   if (!confirm(`¿Cobrar a ${paracobrar.length} paciente${paracobrar.length !== 1 ? 's' : ''}?`)) return;
   for (const p of paracobrar) { await emitirFactura(p.id); }
-}
-
-export function simEmailFactura(nombre, email, fId = '', n = 5) {
-  const correo = email ? `📧 ${email}` : '📧 Sin correo registrado — agrégalo en el perfil';
-  alert(`✅ ${nombre} marcado como cobrado\n\nFactura ${fId}  ·  ${n} sesiones\n${correo}\n\n💡 Con backend: genera XML/SRI y envía comprobante automáticamente.`);
 }

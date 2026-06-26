@@ -107,24 +107,27 @@ export async function deleteDoctor(id) {
 }
 
 export function renderNotifList() {
-  document.getElementById('notif-list').innerHTML=state.notifSettings.map(n=>`
-    <div class="notif-row">
-      <label class="toggle-wrap">
-        <input type="checkbox" ${n.on?'checked':''} onchange="toggleNotif('${n.id}',this.checked)">
+  // Próximamente (requiere backend): estas automatizaciones aún NO están conectadas a nada.
+  // Los toggles se conservan como roadmap visible, pero deshabilitados, para que nadie crea
+  // que están activos. (Por eso ya no hay handler toggleNotif ni se lee n.on en el render.)
+  const banner = `
+    <div style="background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#7a4900">
+      🔧 <strong>Próximamente (requiere backend)</strong> — Estas notificaciones todavía no están activas. Hoy ninguna se envía automáticamente.
+    </div>`;
+  const rows = state.notifSettings.map(n=>`
+    <div class="notif-row" style="opacity:.6">
+      <label class="toggle-wrap" style="cursor:not-allowed" title="Próximamente — requiere backend">
+        <input type="checkbox" disabled aria-disabled="true">
         <div class="toggle-track"></div>
         <div class="toggle-thumb"></div>
       </label>
       <div style="flex:1">
         <div style="font-size:12px;font-weight:500;color:#1a1917">${n.icon} ${n.label}</div>
         <div style="font-size:11px;color:#5a5a56;margin-top:2px">${n.desc}</div>
-        <span class="pill ${n.on?'pg':'pgr'}" style="margin-top:5px">${n.on?'Activo':'Inactivo'}</span>
+        <span class="pill pgr" style="margin-top:5px">Próximamente</span>
       </div>
     </div>`).join('');
-}
-
-export function toggleNotif(id,v) {
-  const n=state.notifSettings.find(x=>x.id===id);
-  if(n){n.on=v;renderNotifList();}
+  document.getElementById('notif-list').innerHTML = banner + rows;
 }
 
 export function initDoctorValidation() {

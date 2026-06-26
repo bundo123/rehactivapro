@@ -49,7 +49,7 @@ import {
 } from './terapeutas.js';
 import {
   renderDoctorsList, openDoctorModal, selectDocColor,
-  saveDoctor, deleteDoctor, showDoctoresTab, renderNotifList, toggleNotif, initDoctorValidation
+  saveDoctor, deleteDoctor, showDoctoresTab, renderNotifList, initDoctorValidation
 } from './doctores.js';
 import { callAI } from './ia.js';
 import { globalSearch, selectGlobalResult, checkCitasPendientes } from './search.js';
@@ -183,7 +183,7 @@ Object.assign(window, {
   showSubTab, changeMensualMonth, showDoctoresTab, selectColor, selectDocColor,
   filterApptPatient, filterPatientRptSelect, selectRptPatient, rptSearchKeydown, updateEpisodes, updateTimeSlots,
   renderPatientReport, renderProtocols, protPage,
-  toggleNotif, toggleRecurrencia, toggleProTecnica,
+  toggleRecurrencia, toggleProTecnica,
   skipSession, simWA, simEmail, emitirFactura,
   marcarTodosFacturados, exportarPDF, genSemanalAI, genResumenDiaAI,
   genPatientAI, guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado, globalSearch, selectGlobalResult,
