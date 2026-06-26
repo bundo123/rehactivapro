@@ -1,6 +1,6 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-06-17
+> Generado: 2026-05-18 · Última actualización: 2026-06-26
 
 ---
 
@@ -13,7 +13,7 @@
 - **JS puro:**
   - **I-12** — modales sin focus-trap ni cierre con Escape: helper con atrapado de Tab + Escape + restaurar foco.
   - **I-13** — `alert()`/`confirm()` → toasts/modales (5 `alert` + 9 `confirm`; incluye el loop de "Cobrar todos", `facturacion.js:347→352`, que dispara N `alert` en cadena).
-  - **I-15** — tests con `node --test` (cero deps): cédula, `doneActual`/`pendientesActual` con frontera de episodio, `billingInfo` post-episodio.
+  - ~~**I-15** — tests con `node --test`~~ ✅ **CERRADO 2026-06-26** (`54d6ec7`): 19 tests (cédula/email/teléfono, `doneActual`/`pendientesActual` con frontera de episodio, `billingInfo` "Cobro X de Y" + reinicio I-4); script `test` + paso en CI.
   - **P-6** — `checkAutoNoas` (`agenda.js:44-59`) solo cubre hoy: las citas `pend` vencidas de días pasados nunca pasan a `noas`.
 - **Decisiones pendientes:**
   - **P-2** — frontera de episodio `>` vs `>=` (`utils.js` vs `diagnostico_done.sql`). Hoy todo usa `>` consistente (incl. I-4); decidir y alinear el `.sql`.
@@ -31,6 +31,98 @@
 - **Semana 2:** auto-logout (15 min) · I-13 (alerts→toasts) · P-11 (CSP parcial).
 - **Semana 3:** I-12 (focus-trap/Escape) · I-15 (tests `node --test`) · `npm audit fix` · decisión P-2/P-6.
 - **Semana 4:** `clinical_context` de protocolos reales · papeleo LOPDP (lectura abierta + sub-encargado Anthropic) · **audit final**.
+
+---
+
+## 🗓️ Sesión 2026-06-26
+
+### ✅ Enviado hoy — 3 commits lógicos, Vercel verde en cada uno
+- **`95dc477` chore: código muerto + cableado** — quitado import sin uso `pendientesActual` (`pacientes.js`); eliminada `refreshData()` (cero callers; su UI "última actualización" ya no existe en el HTML) + imports `renderWeekView`/`renderMonthView` que quedaban huérfanos; quitada la exposición **duplicada** de `openSessionModal` y el bloque "referencias a datos accesibles desde HTML" en `window` (`appointments`/`patients`/`supa`/`getPatient`/`hasEvalInicial`) que ningún `onclick` referencia (verificado en HTML + handlers dinámicos + `window.*`).
+- **`73a4662` fix(notificaciones): dejar de fingir envíos automáticos** — `simEmailFactura` (alert que mentía "con backend se enviaría automáticamente") **eliminado**; el cobro confirma con toast limpio `Cobrado · Factura {fId} · {n} sesiones`. Toggles de notificaciones etiquetados **"Próximamente (requiere backend)"** y **deshabilitados** (banner + pill), conservados como roadmap visible; handler huérfano `toggleNotif` eliminado. `simWA`/`simEmail` (resumen) intactos (abren WhatsApp/mailto manual).
+- **`54d6ec7` test: node --test + SMOKE_TEST + CI** → **cierra I-15.** `billingInfo` movida a `utils.js` (pura, testeable — `facturacion.js` no es importable en node por `import.meta.env`). 19 tests verdes; `npm test` + paso en CI; `SMOKE_TEST.md` (checklist manual para iPad).
+
+### 🔬 Revisión integral (multi-agente) — diagnóstico para "pulir y revender"
+> **Procedencia:** 7/8 revisores especialistas + cross-check manual contra el código. El revisor de UX/iPad se colgó (esa dimensión la cubrió Claude a mano leyendo `index.html`/`render*`); la fase de verificación adversarial no llegó a correr. Los hallazgos 🔴 fueron confirmados leyendo el código; los marcados *(dep.)* dependen de confirmar algo (p. ej. tipo de columna).
+
+**Veredicto:** muy buena **app clínica** artesanal; núcleo clínico sólido. Dos huecos grandes: como **negocio** no maneja **dinero** (cuenta sesiones, no plata); como **producto** es **single-tenant de raíz**. Madurez de arquitectura ≈ **5/10**.
+
+**✅ Fortalezas (no tocar):** fuente única `done/pendientes/billing` (utils.js, pura, episodio-aware, con tests); seguridad madura (RLS real + `audit_log` inmutable + API key server-side + XSS críticos cerrados); realtime robusto (anti-eco/reconexión); flujo de recepción real ("Resumen del día", "Listos para cobrar"); médico referente de primera clase.
+
+**🔴 Bugs P0 (arreglar antes de seguir en serio):**
+- **R-1** `business`/high — "Cobrar todos" NO episodio-aware: `marcarTodosFacturados` suma **todas** las facturas históricas (`facturacion.js:~340-348`) vs `billingInfo` de la pantalla → cobra pacientes a mitad de tratamiento. *(3 revisores).* Fix: usar `billingInfo(p,spf).esCierre`.
+- **R-2** `data`/high — Informe de **episodio pasado** cuenta la Evaluación inicial como sesión → "11 de 10 · 110%" en el PDF al médico (`informes.js:524`). Fix: `epDone` excluyendo `Evaluación inicial`/`Fin de episodio`.
+- **R-3** `data`/high — `guardarNuevoEpisodio` no chequea el `.error` del insert de "Fin de episodio" (`pacientes.js:341`) → corte solo en memoria si falla; al recargar, facturación inflada. Fix: chequear error/RPC transaccional.
+- **R-4** `data`/high — Reabrir una sesión ya registrada la **sobrescribe**: `openSessionModal` detecta "existing" con hora **cruda** (`sesiones.js:82`), no `normHour` → tras recargar abre en blanco y pisa EVA/nota/técnicas. Fix: `normHour()` ambos lados.
+- **R-5** `ux`/med *(dep. tipo de `session_log.hour`)* — `hasSession` arma la clave con hora cruda vs `fmtTime` (`auth.js:90`, `realtime.js:149`) → citas hechas vuelven a "Completar sesión" tras recargar. Fix: `normHour` ambos lados (seguro igual).
+- **R-6** `business`/med — Citas **recurrentes sin chequeo de solape** (`agenda.js:406`) → doble-booking del terapeuta. Fix: `conflictsWithExisting` por fecha, saltar+reportar.
+- **R-7** `data`/med — Inserciones optimistas **sin rollback** en error (`agenda.js:397`, `pacientes.js:178`, `terapeutas.js:78`; solo `emitirFactura` revierte) → fila fantasma con id numérico. Fix: quitar la entidad del `state` en el `catch`.
+
+**🟠 Concurrencia/datos (medios):**
+- **R-8** `data` — Colisión dedup `'00:00'`: "Evaluación inicial" y "Fin de episodio" comparten hora; el flujo "Nuevo episodio" abre la eval el mismo día → entre clientes se pierde la eval o la **frontera** (`realtime.js:148`). Fix: deduplicar por `id` real del payload.
+- **R-9** `data` — Doble-cobro **enmascarado** por `Math.max(0,…)` en `pendientesActual` (`utils.js:152`). Fix: avisar si `cobradasEp > doneActual`; cerrar I-7 (cobro_ref server-side).
+- **R-10** = **P-2** (frontera `>` estricto vs `>=` del SQL, `utils.js:139,151`): una sesión/cobro el día del corte cae en el episodio anterior → riesgo de re-cobro. Decidir y unificar utils + `.sql` + test.
+
+**🏥 Falta (negocio real — clínica Quito):**
+- **R-11** high — El cobro **no registra monto** (`auth.js:252` solo `{cobro_ref,n_sessions,date}`) → el dueño no sabe cuánto cobró. *Hueco #1.*
+- **R-12** high — Cobro rígido "cada 5": `global-spf` es `<input hidden value="5">` (`index.html:380`); el `billing_ses_per_factura` por paciente existe en DB pero la UI lo ignora. Sin precios, paquetes prepagados ni pago por sesión.
+- **R-13** med — "Ingreso estimado" inventado: `$25/sesión` hardcodeado (`informes.js:206`).
+- **R-14** high — Sin **control de caja**: ni forma de pago ni cierre diario.
+- **R-15** high — **Recordatorios automáticos no existen** (toggles "Próximamente"); el no-show, principal fuga de ingresos, se gestiona a mano. Conectar 24h WhatsApp/email (Twilio/Resend).
+- **R-16** med — Sin **consentimiento informado** (tratamiento + datos LOPDP).
+- **R-17** med — Sin seguros/convenios, sin **comisión/liquidación por terapeuta**, sin **recibo/nota de venta** imprimible.
+- **R-18** med — No se registra la **gestión del no-show** (¿contactado? ¿reagendó? ¿se perdió?).
+- **R-19** med — Historia clínica **aplanada** en un texto con ` | ` (`pacientes.js:434`, re-parseado en `informes.js`); sin reevaluaciones estructuradas.
+
+**📱 UX / iPad (análisis directo):**
+- **R-20** high — **Drag-and-drop para reagendar NO funciona en iPad** (`agenda.js` usa HTML5 DnD, no soportado por touch en Safari iOS). Cubierto por el modal de edición al tocar, pero confunde. Fix: polyfill táctil o quitar la afordancia.
+- **R-21** = **I-13** — `alert()`/`confirm()` nativos por todos lados (bloqueantes/sin estilo en iPad).
+- **R-22** med — Exportar PDF usa `window.open` (`informes.js`) → Safari iPad puede **bloquear el popup**. Probar en dispositivo real.
+- **R-23** low — Sin **PWA/offline**: la carga inicial necesita red (el realtime sí reconecta).
+
+**🔐 Seguridad / LOPDP (endurecimientos):**
+- **R-24** med (amplía "Rate-limit IA") — `/api/informe` valida JWT pero **no rol ni rate-limit**, y usa el `prompt` del cliente verbatim (`api/informe.js:30`) → cualquier autenticado quema el presupuesto de Anthropic. Fix: rol server-side + rate-limit + construir prompt en el server.
+- **R-25** med — Texto clínico libre a Anthropic (EE.UU.) con anonimización **parcial** (`ia.js:151`). DPA + scrubbing del texto libre.
+- **R-26** med — `informes.snapshot` re-expone **cédula + informe** en tabla de **lectura abierta** (`informes.js:716`); acotar RLS SELECT de `informes`.
+- **R-27** low/med — Falta auto-logout (decidido), 2FA admins, `vercel.json` (headers anti-clickjacking/CSP/HSTS), política de contraseña (hoy 6 chars).
+
+**🧹 Código basura / 🏗️ arquitectura:**
+- **R-28** high — **Mappers DB→memoria duplicados** (`auth.js:60-75` vs `realtime.js:72-90`) → drift: dato bien al cargar, mal por realtime. Extraer `mappers.js`.
+- **R-29** med — `patient.therapistId` **vestigial**: 4 vistas lo leen, la app nunca lo escribe → el terapeuta nunca aparece en Facturación/búsqueda.
+- **R-30** low — `done:0` write-only (`pacientes.js:167,175`); quitar y `DROP` columna.
+- **R-31** low — ~17 `export` sin importador + exposiciones `window` redundantes + permiso `cycleStatus` muerto (definido en 3 roles, nunca chequeado).
+- **R-32** low — Meses/días duplicados en 5 archivos; "lunes de la semana" reimplementado 3 veces → centralizar (clave para i18n).
+- **R-33** low — `terapeutas.js` usa `alert()` y no `validators.js` (único formulario fuera del patrón).
+- **R-34** low — Default de sesiones inconsistente (10 vs 12) entre mappers y alta.
+- **R-35** high `arch` — Bus global `window._app` (83 refs en 13 archivos) sin verificación en build → fallos silenciosos sobre PHI.
+- **R-36** med `arch` — Cableado UI por strings (~60 fns en `window` + 62 `onclick`); migrar a delegación de eventos (`data-action`/`data-id`) → habilita CSP estricta.
+- **R-37** med `arch` — Reactividad `tab→render` duplicada en 4+ sitios (18 `currentTab===`); un solo `rerenderCurrentTab()`.
+- **R-38** med `arch` — `informes.js` god-module (896 LOC, 24 exports); dividir (PDF puro = testeable, cubre clase de bug I-6).
+- **R-39** med `arch` — Sin tipos ni linter; TS incremental (`checkJs` + JSDoc + `tsc --noEmit` en CI) + ESLint.
+- **R-40** med — Tests solo de lógica pura; faltan mappers/permisos/escape XSS/e2e (Playwright WebKit por el target Safari).
+- **R-41** med — Build sin disciplina: `package.json` = `temp-vite` v0.0.0, sin `vite.config.js`, Chart.js por **CDN** (rompe offline, bloquea CSP). Renombrar+versionar, bundlear, `vercel.json`.
+- **R-42** low — i18n inexistente (strings es incrustados en lógica/HTML/prompts).
+- **R-43** low — Logging sin abstracción (`console.*` en prod, `catch{}` vacíos); logger central + reporte de errores.
+
+**🚀 Productización → SaaS revendible (multi-tenant). Modelo recomendado: DB compartida + RLS por tenant.**
+- **S-1** 🔴 crítico — **Cero multi-tenancy**: `grep org_id|tenant_id|clinic` = 0. Añadir `organizations` + `memberships(org_id,user_id,role)` (rol pasa a ser **por org**) + `org_id` en las 8 tablas + `audit_log` (forzado por trigger).
+- **S-2** 🔴 crítico — RLS `SELECT = true` → **brecha cross-clínica el día que entra el 2º cliente**. Reescribir TODAS las policies a `org_id = current_org()` **antes** de cargar la 2ª clínica.
+- **S-3** high — Roles globales (`is_admin()`) no por org; reescalar a `is_admin_of(org)`.
+- **S-4** high — Sin **onboarding self-service** (cero `signUp`/invite; alta = manual en Supabase). Edge Functions con `service_role` (crear clínica, invitar, wizard, seed).
+- **S-5** high — Branding "Rehactiva" hardcodeado (HTML, prompts IA, plantillas WhatsApp, informes) → sin white-label. Mover a `organizations.{brand,logo,color,subdomain}`.
+- **S-6** med — Config de clínica hardcodeada (spf, tipos de cita, horarios, técnicas, protocolos) → `org_settings`.
+- **S-7** med — Sin capa de **planes/suscripción** para cobrar a las clínicas (gating por plan además de por rol).
+- **S-8** high — Key de IA **compartida sin cuota por tenant** (`api/informe.js`): una clínica quema el presupuesto de todas. Medir/limitar por org.
+- **S-9** med — Localización clavada a EC/español/USD (cédula con dígito verificador); abstraer país/moneda/documento/locale.
+- **S-10** med — Operación artesanal: migraciones a mano en el SQL editor, una sola base/Vercel sin staging. Migraciones versionadas + staging + backups/PITR + observabilidad.
+- **S-11** med — Realtime es canal global sin filtro (`realtime.js:269`) → fuga cross-tenant si no se cierra la RLS; canal por org.
+- **S-12** med — `audit_log` sin `org_id` → mezcla bitácoras de clínicas distintas; acotar y permitir export por clínica.
+- **S-13** med — Vacío legal: al revender, el dueño es **encargado** de datos de salud de terceros → DPA por clínica, sub-encargados (Supabase/Vercel/Anthropic), retención/borrado, notificación de brechas.
+
+### 🗺️ Plan por fases (orden recomendado para "pulir y revender")
+- **Fase 0 — Estabilizar:** R-1, R-2, R-3, R-4, R-5, R-6, R-7 + auto-logout + `vercel.json` + R-24 (rate-limit IA). *(Deja la app actual confiable.)*
+- **Fase 1 — "Muy buena app clínica" (negocio):** R-11 (dinero), R-12 (precios/paquetes/spf por paciente), R-14 (caja), R-13 (ingresos reales), R-17 (recibo), R-15 (recordatorios 24h), R-16 (consentimiento).
+- **Fase 2 — Andamiaje (calidad):** R-28 (mappers.js), R-36 (delegación de eventos), R-37 (re-render central), R-38 (dividir informes.js), R-39 (TS+ESLint), R-42 (i18n strings), R-41 (versionado/vite.config), R-40 (más tests + e2e).
+- **Fase 3 — SaaS multi-tenant:** S-1→S-13 (empezando por S-1/S-2; RLS por org **antes** del 2º cliente).
 
 ---
 
