@@ -389,12 +389,18 @@ export async function saveAppt() {
   const _a={id:++state.apptCounter,date:ds,therapistId:thId,hour:hr,duration:dur,patientId:patId,type:document.getElementById('m-type').value,status:document.getElementById('m-status').value,note:document.getElementById('m-note').value};
   state.appointments.push(_a);
   window._app.closeModal('appt-modal'); renderGrid();
+  const tempId=_a.id;
   try {
     const {data,error}=await supa.from('appointments').insert({
       date:_a.date,therapist_id:_a.therapistId,patient_id:_a.patientId,
       hour:_a.hour,duration:_a.duration,type:_a.type,status:_a.status,note:_a.note||''
     }).select().single();
-    if(error){toastErr('Error al guardar cita: '+error.message);}
+    if(error){
+      // Rollback del push optimista (mismo patrón que emitirFactura): la cita no existe en DB.
+      state.appointments=state.appointments.filter(x=>x.id!==_a.id);
+      renderGrid();
+      toastErr('Error al guardar cita: '+error.message);
+    }
     else {
       _a.id=data.id;
       if(document.getElementById('m-recurrente')?.checked){
@@ -417,7 +423,15 @@ export async function saveAppt() {
       }
       renderGrid(); toastOk('Cita guardada correctamente');
     }
-  } catch(e){toastErr('Error de conexión al guardar cita.');}
+  } catch(e){
+    // Rollback solo si _a sigue con el id temporal: si el insert base ya asignó el UUID real
+    // (excepción posterior, p.ej. en el loop de recurrentes), la cita SÍ existe en DB.
+    if(_a.id===tempId){
+      state.appointments=state.appointments.filter(x=>x.id!==tempId);
+      renderGrid();
+    }
+    toastErr('Error de conexión al guardar cita.');
+  }
   updateFacturaBadge();
 }
 

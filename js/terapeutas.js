@@ -71,17 +71,31 @@ export async function saveTherapist() {
   }
   const _th=state.editingTherapistId?getTherapist(state.editingTherapistId):state.therapists[state.therapists.length-1];
   window._app.closeModal('therapist-modal'); renderTherapistList(); window._app.renderGrid();
+  const tempId=_th.id;
   try {
     const payload={name:_th.name,initials:_th.initials,spec:_th.spec,start_h:_th.startH,end_h:_th.endH,color_id:_th.colorId};
     if(typeof _th.id==='string') payload.id=_th.id;
     const {data,error}=await supa.from('therapists').upsert(payload).select().single();
-    if(error) toastErr('Error al guardar terapeuta: '+error.message);
+    if(error){
+      // Rollback del push optimista solo en creación (en edición no hay fila fantasma que sacar).
+      if(!state.editingTherapistId){
+        state.therapists=state.therapists.filter(x=>x.id!==_th.id);
+        renderTherapistList(); window._app.renderGrid();
+      }
+      toastErr('Error al guardar terapeuta: '+error.message);
+    }
     else {
       if(!state.editingTherapistId) _th.id=data.id;
       renderTherapistList(); window._app.renderGrid();
       toastOk((state.editingTherapistId?'Terapeuta actualizado':'Terapeuta guardado')+' correctamente');
     }
-  } catch(e){toastErr('Error de conexión al guardar terapeuta.');}
+  } catch(e){
+    if(!state.editingTherapistId && _th.id===tempId){
+      state.therapists=state.therapists.filter(x=>x.id!==tempId);
+      renderTherapistList(); window._app.renderGrid();
+    }
+    toastErr('Error de conexión al guardar terapeuta.');
+  }
   updateFacturaBadge();
 }
 

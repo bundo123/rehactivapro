@@ -175,7 +175,12 @@ export async function savePatient() {
       doctor_id:_p.doctorId||null,protocol_id:_p.protocolId||null,sessions:_p.sessions,done:0,status:_p.status,
       billing_ses_per_factura:_p.billing.sesPerFactura
     }).select().single();
-    if(error) toastErr('Error al guardar paciente: '+error.message);
+    if(error){
+      // Rollback del push optimista (mismo patrón que emitirFactura): el paciente no existe en DB.
+      state.patients=state.patients.filter(x=>x.id!==_p.id);
+      renderPatients();
+      toastErr('Error al guardar paciente: '+error.message);
+    }
     else {
       const {loadAll}=window._app;
 	      await loadAll(true); renderPatients();
@@ -183,7 +188,11 @@ export async function savePatient() {
       if (!_cedula) toastInfo('Paciente guardado sin cédula. No podrás emitir facturas electrónicas hasta agregarla.');
       if (!_p.birth_date) toastInfo('Sin fecha de nacimiento. Algunos reportes mostrarán edad como "no registrada".');
     }
-  } catch(e){toastErr('Error de conexión al guardar paciente.');}
+  } catch(e){
+    state.patients=state.patients.filter(x=>x.id!==_p.id);
+    renderPatients();
+    toastErr('Error de conexión al guardar paciente.');
+  }
   // Incluye pm-age para que el reset post-guardado no deje la edad pegada al siguiente alta.
   ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir','pm-age','pm-protocol'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm-birth').value='';
