@@ -5,7 +5,7 @@ import { allTabs, fmtDate, relativeTime } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { loadAll, doLogin, doLogout, loadProfile,
          doSendRecoveryEmail, doSetNewPassword,
-         showForgotPassword, showLoginForm, cancelRecovery } from './auth.js';
+         showForgotPassword, showLoginForm, cancelRecovery, startIdleLogout } from './auth.js';
 import { applyRolePermissions, canAccessTab, hasPermission } from './permissions.js';
 import { markLocalChange, subscribeRealtime, unsubscribeRealtime } from './realtime.js';
 import {
@@ -166,6 +166,7 @@ async function initApp() {
     applyRolePermissions();
     checkCitasPendientes();
     subscribeRealtime();
+    startIdleLogout();
   }
 }
 

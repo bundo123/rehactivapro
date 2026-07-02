@@ -103,6 +103,31 @@ export async function loadAll(force=false) {
   }
 }
 
+// ── Auto-logout por inactividad ──
+// 15 min sin interacción → cierre de sesión (datos clínicos en pantallas compartidas de recepción).
+// Solo corre con sesión iniciada: se arranca en cada entrada (login, restore, recovery) y se
+// detiene en el logout manual.
+const IDLE_LOGOUT_MS = 15 * 60 * 1000;
+const IDLE_EVENTS = ['pointerdown','keydown','touchstart'];
+let _idleTimer = null;
+
+function _resetIdleTimer() {
+  clearTimeout(_idleTimer);
+  _idleTimer = setTimeout(() => doLogout(), IDLE_LOGOUT_MS);
+}
+
+export function startIdleLogout() {
+  stopIdleLogout();
+  IDLE_EVENTS.forEach(ev => document.addEventListener(ev, _resetIdleTimer, { passive: true }));
+  _resetIdleTimer();
+}
+
+export function stopIdleLogout() {
+  IDLE_EVENTS.forEach(ev => document.removeEventListener(ev, _resetIdleTimer));
+  clearTimeout(_idleTimer);
+  _idleTimer = null;
+}
+
 export async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-pass').value;
@@ -125,10 +150,12 @@ export async function doLogin() {
     renderGrid(); updateResumenBadge(); updateFacturaBadge();
     applyRolePermissions();
     subscribeRealtime();
+    startIdleLogout();
   }
 }
 
 export async function doLogout() {
+  stopIdleLogout();
   const {unsubscribeRealtime} = window._app;
   await unsubscribeRealtime();
   await supa.auth.signOut();
@@ -195,6 +222,7 @@ export async function doSetNewPassword() {
   const { renderGrid, updateResumenBadge, updateFacturaBadge, subscribeRealtime, applyRolePermissions } = window._app;
   renderGrid(); updateResumenBadge(); updateFacturaBadge();
   applyRolePermissions(); subscribeRealtime();
+  startIdleLogout();
   toastOk('Contraseña actualizada correctamente.');
 }
 
