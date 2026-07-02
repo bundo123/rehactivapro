@@ -324,12 +324,9 @@ export async function emitirFactura(patientId) {
 export async function marcarTodosFacturados() {
   if (!hasPermission('emitirFactura')) { toastErr('No tienes permisos para emitir cobros.'); return; }
   const spf = parseInt(document.getElementById('global-spf').value) || 5;
-  const listos = state.patients.filter(p => {
-    if (!p.billing) return false;
-    const pend = pendientesActual(p);
-    return pend >= spf ||
-      (pend > 0 && (p.billing.facturas.reduce((s, f) => s + f.n, 0) + pend) >= p.sessions);
-  });
+  // Mismo predicado que la pantalla (renderFacturacion: listos + cierre), episodio-aware.
+  const listos = state.patients.filter(p =>
+    p.billing && (pendientesActual(p) >= spf || billingInfo(p, spf).esCierre));
   const paracobrar = listos.filter(matchesSearch);
   if (!paracobrar.length) return;
   if (!confirm(`¿Cobrar a ${paracobrar.length} paciente${paracobrar.length !== 1 ? 's' : ''}?`)) return;
