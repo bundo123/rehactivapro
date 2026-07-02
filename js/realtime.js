@@ -146,7 +146,7 @@ function _onSessionLog(payload) {
   if(!p.log)p.log=[];
   if(ev==='INSERT'){
     if(!p.log.find(s=>s.date===payload.new.date&&normHour(s.hour)===normHour(payload.new.hour))){p.log.push(_mapSession(payload.new));queueRemoteToast('session_log','Sesión clínica registrada');}
-    const a=state.appointments.find(x=>x.patientId===pid&&x.date===payload.new.date&&fmtTime(x.hour)===(payload.new.hour||''));
+    const a=state.appointments.find(x=>x.patientId===pid&&x.date===payload.new.date&&normHour(fmtTime(x.hour))===normHour(payload.new.hour));
     if(a)a.hasSession=true;
   } else if(ev==='UPDATE'){
     const idx=p.log.findIndex(s=>s.date===payload.new.date&&normHour(s.hour)===normHour(payload.new.hour));

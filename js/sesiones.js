@@ -79,7 +79,9 @@ export function openSessionModal(appt) {
   if(_cancel) _cancel.textContent='Omitir';
   const pt=getPatient(appt.patientId);
   const apptHour=fmtTime(appt.hour);
-  const existing=pt&&pt.log?pt.log.find(s=>s.date===appt.date&&s.hour===apptHour):null;
+  // normHour en ambos lados: la hora del log recargado desde DB es 'HH:MM:SS' y apptHour es 'H:MM'.
+  // Sin normalizar, el modal abre en blanco y al guardar pisa la sesión real (EVA/nota/técnicas).
+  const existing=pt&&pt.log?pt.log.find(s=>s.date===appt.date&&normHour(s.hour)===normHour(apptHour)):null;
   document.getElementById('session-modal-title').textContent=(existing?'Editar sesión — ':'Registrar sesión — ')+(pt?pt.name.split(' ').slice(0,2).join(' '):'Paciente');
   document.getElementById('session-modal-sub').textContent=appt.type+' · '+appt.date+' · '+apptHour;
   const pb=existing?(existing.pb!=null?existing.pb:5):5;

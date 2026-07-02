@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { fmtDate, fmtTime } from './utils.js';
+import { fmtDate, fmtTime, normHour } from './utils.js';
 import { toastErr, toastOk } from './toast.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -82,12 +82,14 @@ export async function loadAll(force=false) {
     });
     state.facturaCounter = maxFact;
 
+    // normHour en construcción Y consulta: el hour de session_log llega 'HH:MM:SS' desde DB
+    // y fmtTime(a.hour) produce 'H:MM' — sin normalizar, hasSession nunca matchea tras recargar.
     const sessionDates = new Set();
     state.patients.forEach(p=>{
-      (p.log||[]).forEach(s=>{sessionDates.add(p.id+'|'+s.date+'|'+(s.hour||''));});
+      (p.log||[]).forEach(s=>{sessionDates.add(p.id+'|'+s.date+'|'+normHour(s.hour));});
     });
     state.appointments.forEach(a=>{
-      a.hasSession = sessionDates.has(String(a.patientId)+'|'+a.date+'|'+fmtTime(a.hour));
+      a.hasSession = sessionDates.has(String(a.patientId)+'|'+a.date+'|'+normHour(fmtTime(a.hour)));
     });
     const now=Date.now();
     state.dataLoaded=true;
