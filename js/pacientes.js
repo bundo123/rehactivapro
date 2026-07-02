@@ -338,10 +338,13 @@ export async function guardarNuevoEpisodio() {
   const finNote=`Episodio anterior: ${oldDiag} · ${doneActual(p)} sesiones completadas`;
   // El marcador 'Fin de episodio' en session_log ES la frontera del episodio: a partir de su fecha,
   // doneActual/pendientesActual cuentan desde cero. No hace falta resetear columnas en memoria/DB.
-  const {data:insFin}=await supa.from('session_log').insert({
+  const {data:insFin,error:errFin}=await supa.from('session_log').insert({
     patient_id:_nePatientId,date:hoy,type:'Fin de episodio',
     hour:'00:00',status:'asistió',pain_before:0,pain_after:0,note:finNote
   }).select('id').single();
+  // Sin el marcador no hay frontera de episodio: abortar acá deja todo consistente (ni diag nuevo,
+  // ni push a memoria, ni modal cerrado).
+  if(errFin){toastErr('Error al iniciar episodio: '+errFin.message);return;}
   const {error}=await supa.from('patients').update({diag:newDiag,sessions:newSessions,status:'active'}).eq('id',_nePatientId);
   if(error){toastErr('Error: '+error.message);return;}
   p.diag=newDiag; p.sessions=newSessions; p.status='active';
