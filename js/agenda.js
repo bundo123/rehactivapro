@@ -402,12 +402,17 @@ export async function saveAppt() {
         const semanas=parseInt(document.getElementById('m-rec-semanas')?.value||'4');
         if(dias.length){
           const fechas=getRecDates(_a.date,dias,semanas);
-          let creadas=0;
+          let creadas=0,omitidas=0;
           for(const fecha of fechas){
+            if(conflictsWithExisting(fecha,_a.therapistId,_a.hour,_a.duration,null)){omitidas++;continue;}
             const {error:re}=await supa.from('appointments').insert({date:fecha,therapist_id:_a.therapistId,patient_id:_a.patientId,hour:_a.hour,duration:_a.duration,type:_a.type,status:'pend',note:_a.note||''});
             if(!re){state.appointments.push({..._a,id:'rec-'+fecha+'-'+Math.random(),date:fecha,status:'pend'});creadas++;}
           }
-          if(creadas>0) toastOk('✓ '+(creadas+1)+' citas creadas (recurrentes)');
+          if(creadas>0||omitidas>0){
+            const tot=creadas+1;
+            toastOk('✓ '+tot+' cita'+(tot!==1?'s':'')+' creada'+(tot!==1?'s':'')+
+              (omitidas>0?' · '+omitidas+' omitida'+(omitidas!==1?'s':'')+' por conflicto de horario':''));
+          }
         }
       }
       renderGrid(); toastOk('Cita guardada correctamente');
