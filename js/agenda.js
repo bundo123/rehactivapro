@@ -41,19 +41,17 @@ export function showBillingAlert(pt) {
   if(confirm(msg)) window._app.showTab('facturacion');
 }
 
+// P-6: cubre también citas de días ANTERIORES que quedaron 'pend' (antes solo procesaba hoy,
+// y solo si el día visible era hoy). Las fechas son 'YYYY-MM-DD', comparables como string.
 export function checkAutoNoas() {
-  const ds=fmtDate(state.currentDate);
   const now=new Date();
-  const isToday=ds===fmtDate(now);
-  if(!isToday) return;
-  const currentHour=now.getHours();
-  const currentMin=now.getMinutes();
+  const todayStr=fmtDate(now);
+  const nowMin=now.getHours()*60+now.getMinutes();
   state.appointments.forEach(a=>{
-    if(a.date===ds&&a.status==='pend'){
-      if(a.hour*60+30<=currentHour*60+currentMin){
-        a.status='noas';
-        dbUpdateApptStatus(a.id,'noas');
-      }
+    if(a.status!=='pend') return;
+    if(a.date<todayStr||(a.date===todayStr&&a.hour*60+30<=nowMin)){
+      a.status='noas';
+      dbUpdateApptStatus(a.id,'noas');
     }
   });
 }
@@ -138,7 +136,7 @@ export function renderGrid() {
                 a.therapistId=th.id;a.hour=hr;renderGrid();
                 // Reubicación: commit solo persiste la nueva posición de la fila.
                 await commitApptChange(a, {hour:hr, therapist_id:th.id});
-              } else alert('Conflicto: el terapeuta ya tiene una cita en ese horario.');
+              } else toastErr('Conflicto: el terapeuta ya tiene una cita en ese horario.');
             }
           }
           state.dragData=null;
