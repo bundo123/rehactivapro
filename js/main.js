@@ -122,6 +122,31 @@ export function closeModal(id) {
 }
 window._app.closeModal = closeModal;
 
+// ── Cierre de modales con Escape y tocando el fondo (I-12) ──
+// El guard de pointerdown evita cerrar cuando el gesto EMPIEZA dentro del modal (p.ej. seleccionar
+// texto de un input) y el dedo/mouse suelta sobre el fondo: ahí el click cae en .modal-bg pero no
+// fue intención de cerrar.
+let _pointerDownOnBg = false;
+document.addEventListener('pointerdown', e => { _pointerDownOnBg = e.target.classList && e.target.classList.contains('modal-bg'); });
+document.addEventListener('click', e => {
+  if (_pointerDownOnBg && e.target.classList.contains('modal-bg') && e.target.classList.contains('open')) closeModal(e.target.id);
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const open = document.querySelector('.modal-bg.open');
+  if (open) closeModal(open.id);
+});
+
+// ── Táctil: al abrirse el teclado en pantalla, centrar el campo enfocado del modal
+// para que el teclado no tape el campo ni el botón Guardar.
+if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+  document.addEventListener('focusin', e => {
+    if (e.target.closest && e.target.closest('.modal')) {
+      setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 250);
+    }
+  });
+}
+
 export function updateLastLoadedLabels() {
   const txt='Última actualización: '+relativeTime(state.lastLoaded?.all);
   document.querySelectorAll('.last-updated-label').forEach(el=>{el.textContent=txt;});

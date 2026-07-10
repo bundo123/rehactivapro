@@ -139,7 +139,7 @@ export function renderProtocols() {
 
 export function deleteProtocol(id) {
   if(!hasPermission('createProtocol')){toastErr('No tienes permisos para eliminar protocolos.');return;}
-  if(!confirm('¿Eliminar?'))return;
+  if(!confirm('¿Eliminar este protocolo?'))return;
   state.protocols=state.protocols.filter(p=>p.id!==id);
   renderProtocols(); dbDeleteProtocol(id);
 }

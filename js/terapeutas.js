@@ -59,9 +59,9 @@ export function openEditTherapist(id) {
 
 export async function saveTherapist() {
   if(!hasPermission('createTherapist')){toastErr('No tienes permisos para gestionar terapeutas.');return;}
-  const name=document.getElementById('th-name').value.trim();if(!name){alert('Ingresa el nombre.');return;}
+  const name=document.getElementById('th-name').value.trim();if(!name){toastErr('Ingresa el nombre.');return;}
   const s=parseInt(document.getElementById('th-start').value),e=parseInt(document.getElementById('th-end').value);
-  if(e<=s){alert('La hora de fin debe ser mayor.');return;}
+  if(e<=s){toastErr('La hora de fin debe ser mayor.');return;}
   const init=name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
   if(state.editingTherapistId){
     const t=getTherapist(state.editingTherapistId);

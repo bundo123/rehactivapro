@@ -126,7 +126,7 @@ export function simEmail(nombre, email) {
   if (email) {
     window.location.href = `mailto:${email}?subject=Ausencia en cita - Rehactiva&body=Hola ${nombre},%0A%0ANotamos que no pudo asistir a su cita de hoy en Rehactiva Rehabilitación y Fisioterapia.%0A%0A¿Le podemos ayudar a reagendar? Responda este correo o llámenos.%0A%0ASaludos,%0AEquipo Rehactiva`;
   } else {
-    alert(`${nombre} no tiene correo registrado. Agrégalo en su perfil.`);
+    toastErr(`${nombre} no tiene correo registrado. Agrégalo en su perfil.`);
   }
 }
 

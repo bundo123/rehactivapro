@@ -383,3 +383,30 @@
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ===== TÁCTIL POR CAPACIDAD (pointer: coarse), NO POR ANCHO ===== */
+/* Los iPads (vertical 810-834px, horizontal 1024px+) usan el layout de escritorio y nunca entran
+   al media query de 768px: los targets táctiles y el anti-zoom se aplican aquí, por capacidad. */
+@media (pointer: coarse) {
+
+  /* Touch targets mínimo 44px en cualquier dispositivo táctil */
+  .add-btn, .ai-btn, .exp-btn, .btn-save, .btn-cancel, .th-btn, .pl-act-btn, .filter-pill {
+    min-height: 44px;
+  }
+
+  .nav-item {
+    min-height: 44px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  /* iOS hace zoom al enfocar inputs con font-size < 16px; a 16px el zoom no se dispara */
+  .field input, .field select, .field textarea, .search-input {
+    font-size: 16px;
+  }
+
+  /* Sin zoom por doble tap en controles (el pinch-zoom de la página sigue disponible) */
+  button, input, select, textarea, .nav-item, .appt, .filter-pill, .pl-act-btn {
+    touch-action: manipulation;
+  }
+}

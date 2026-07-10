@@ -301,9 +301,10 @@ export function renderFacturacion() {
   attachFilterListeners();
 }
 
-export async function emitirFactura(patientId) {
-  if (!hasPermission('emitirFactura')) { toastErr('No tienes permisos para emitir cobros.'); return; }
-  const p = getPatient(patientId); if (!p || !p.billing) return;
+// silent: usado por "Cobrar todos" para no disparar un toast por paciente (se muestra un resumen).
+export async function emitirFactura(patientId, silent) {
+  if (!hasPermission('emitirFactura')) { toastErr('No tienes permisos para emitir cobros.'); return false; }
+  const p = getPatient(patientId); if (!p || !p.billing) return false;
   const n = pendientesActual(p);
   const fId = 'F' + (++state.facturaCounter).toString().padStart(3, '0');
   const today = fmtDate(new Date());
@@ -315,10 +316,11 @@ export async function emitirFactura(patientId) {
     p.billing.facturas = p.billing.facturas.filter(f => f.id !== fId);
     state.facturaCounter--;
     updateFacturaBadge(); renderFacturacion();
-    toastErr('Error al registrar el cobro. Refresca la página.');
-    return;
+    if (!silent) toastErr('Error al registrar el cobro. Refresca la página.');
+    return false;
   }
-  toastOk(`Cobrado · Factura ${fId} · ${n} ${n === 1 ? 'sesión' : 'sesiones'}`);
+  if (!silent) toastOk(`Cobrado · Factura ${fId} · ${n} ${n === 1 ? 'sesión' : 'sesiones'}`);
+  return true;
 }
 
 export async function marcarTodosFacturados() {
@@ -330,5 +332,8 @@ export async function marcarTodosFacturados() {
   const paracobrar = listos.filter(matchesSearch);
   if (!paracobrar.length) return;
   if (!confirm(`¿Cobrar a ${paracobrar.length} paciente${paracobrar.length !== 1 ? 's' : ''}?`)) return;
-  for (const p of paracobrar) { await emitirFactura(p.id); }
+  let ok = 0, fail = 0;
+  for (const p of paracobrar) { if (await emitirFactura(p.id, true)) ok++; else fail++; }
+  if (ok) toastOk(`Cobrados ${ok} paciente${ok !== 1 ? 's' : ''}`);
+  if (fail) toastErr(`${fail} cobro${fail !== 1 ? 's fallaron' : ' falló'}. Refresca la página.`);
 }
