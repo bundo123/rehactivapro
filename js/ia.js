@@ -12,12 +12,15 @@ export async function callAI(prompt, targetId, formatHtml) {
   el.style.display='block';
   el.innerHTML='<div style="background:rgba(29,158,117,.08);border:1px solid rgba(29,158,117,.2);'
     +'border-radius:8px;padding:14px;font-size:12px;color:#6b6a64">⏳ Generando informe…</div>';
+  let errMsg='No se pudo generar el informe. Intenta de nuevo.';
   try {
     const res=await fetch('/api/informe',{
       method:'POST',
       headers:{'content-type':'application/json','Authorization':'Bearer '+session.access_token},
       body:JSON.stringify({prompt})
     });
+    if(res.status===429) errMsg='Demasiadas solicitudes de IA. Espera un minuto e intenta de nuevo.';
+    if(res.status===403) errMsg='Tu rol no permite generar informes con IA.';
     if(!res.ok) throw new Error('status '+res.status);
     const data=await res.json();
     const text=data&&data.text?data.text:'';
@@ -27,9 +30,9 @@ export async function callAI(prompt, targetId, formatHtml) {
       +'border-radius:8px;padding:14px;font-size:13px;color:#1a1917;line-height:1.6;white-space:pre-wrap">'
       +esc(text)+'</div>';
   } catch(e) {
-    toastErr('No se pudo generar el informe. Intenta de nuevo.');
+    toastErr(errMsg);
     el.innerHTML='<div style="background:rgba(226,75,74,.08);border:1px solid rgba(226,75,74,.25);'
-      +'border-radius:8px;padding:14px;font-size:12px;color:#c33a3a">No se pudo generar el informe.</div>';
+      +'border-radius:8px;padding:14px;font-size:12px;color:#c33a3a">'+esc(errMsg)+'</div>';
   }
 }
 
