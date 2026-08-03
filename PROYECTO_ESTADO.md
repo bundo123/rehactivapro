@@ -1,26 +1,28 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-06-26
+> Generado: 2026-05-18 · Última actualización: 2026-08-03
 
 ---
 
 ## 🔜 PRÓXIMO: cerrar el LOTE B — meta audit final con 0 críticos / 0 importantes
 
 > Sesión 2026-06-17: cerrados **I-5, LOTE A, I-4 e I-6** — todo en prod, Vercel verde (detalle abajo). Análisis completo en `AUDITORIA_PRELANZAMIENTO.md`. La RLS está versionada (`rls_policies.md`) y la "lectura abierta" de PHI es decisión consciente (los terapeutas se cubren entre sí; la protección es el `audit_log`).
+>
+> **Actualización 2026-08-03:** el grueso del LOTE B y de la Fase 0 se cerró en las sesiones de julio (ver «🗓️ Sesiones 2026-07» abajo). Queda abierto: **I-7** (SQL primero), **P-2**, **CSP estricta** (P-11), **agenda táctil iOS** (R-20), **R-2** (sin commit visible que lo cierre — verificar) y la deuda nueva del diagnóstico realtime (**RT-1…RT-4**, sesión 2026-08).
 
 **Abierto del LOTE B:**
 - **Necesita SQL primero — I-7 (`cobro_ref` server-side):** el N° de factura se genera en memoria del cliente (`facturacion.js:318`) → dos usuarios cobrando a la vez duplican `F00X`. Fix: secuencia + trigger `BEFORE INSERT` en `cobros` (ignora el valor del cliente); luego `emitirFactura` lee el `cobro_ref` del insert.
 - **JS puro:**
-  - **I-12** — modales sin focus-trap ni cierre con Escape: helper con atrapado de Tab + Escape + restaurar foco.
-  - **I-13** — `alert()`/`confirm()` → toasts/modales (5 `alert` + 9 `confirm`; incluye el loop de "Cobrar todos", `facturacion.js:347→352`, que dispara N `alert` en cadena).
+  - ~~**I-12** — modales sin focus-trap ni cierre con Escape~~ ✅ **CERRADO 2026-07-09** (`516088c`: Escape + click en fondo + targets táctiles `pointer:coarse`).
+  - ~~**I-13** — `alert()`/`confirm()` → toasts/modales~~ ✅ **CERRADO 2026-07-09** (`516088c`).
   - ~~**I-15** — tests con `node --test`~~ ✅ **CERRADO 2026-06-26** (`54d6ec7`): 19 tests (cédula/email/teléfono, `doneActual`/`pendientesActual` con frontera de episodio, `billingInfo` "Cobro X de Y" + reinicio I-4); script `test` + paso en CI.
-  - **P-6** — `checkAutoNoas` (`agenda.js:44-59`) solo cubre hoy: las citas `pend` vencidas de días pasados nunca pasan a `noas`.
+  - ~~**P-6** — `checkAutoNoas` solo cubre hoy~~ ✅ **CERRADO 2026-07-09** (`d6509cb`: cubre citas pendientes de días anteriores).
 - **Decisiones pendientes:**
   - **P-2** — frontera de episodio `>` vs `>=` (`utils.js` vs `diagnostico_done.sql`). Hoy todo usa `>` consistente (incl. I-4); decidir y alinear el `.sql`.
-  - **P-11** — CSP parcial (`connect-src`/`img-src` a Supabase+Anthropic; `script-src` sigue con `unsafe-inline` por los `onclick`).
-  - **Auto-logout** — ✅ **DECIDIDO: 15 min de inactividad → `doLogout()`. Falta implementar** (PCs compartidas de recepción).
-  - **Rate-limit IA** (`api/informe.js`) — role-check server-side (`viewAI`, cero infra) vs Vercel KV. El tope de 20k ya está.
-  - **`npm audit fix`** — 2 high en `vite` (solo dev-server) + `ws` (transitivo Node); el fix es semver-safe.
+  - **P-11** — CSP parcial (`script-src` sigue con `unsafe-inline` por los `onclick`). **Avance 2026-07-02:** `vercel.json` con headers de seguridad (`6c33b4a`); la CSP estricta sigue pendiente.
+  - ~~**Auto-logout** — 15 min de inactividad → `doLogout()`~~ ✅ **IMPLEMENTADO 2026-07-02** (`3986a7e`; PCs compartidas de recepción).
+  - ~~**Rate-limit IA** (`api/informe.js`)~~ ✅ **CERRADO 2026-07-09** (`2e0303a`: rol `viewAI` server-side + rate-limit).
+  - ~~**`npm audit fix`**~~ ✅ **CERRADO 2026-07-09** (`f4b276f`: vite 8.1.4 y ws parcheados, 0 vulnerabilidades).
 - **No-código (LOPDP):** documentar la decisión de "lectura abierta" de PHI (modelo "se cubren entre sí + todo auditado en `audit_log`") con base de licitud, y a Anthropic como sub-encargado.
 - **Mayor valor en producción:** redactar el `clinical_context` de los protocolos reales (alimenta la calidad del informe IA — corazón del "reemplazo de Reliv").
 
@@ -31,6 +33,39 @@
 - **Semana 2:** auto-logout (15 min) · I-13 (alerts→toasts) · P-11 (CSP parcial).
 - **Semana 3:** I-12 (focus-trap/Escape) · I-15 (tests `node --test`) · `npm audit fix` · decisión P-2/P-6.
 - **Semana 4:** `clinical_context` de protocolos reales · papeleo LOPDP (lectura abierta + sub-encargado Anthropic) · **audit final**.
+
+---
+
+## 🗓️ Sesión 2026-08-02/03
+
+### ✅ Enviado — 3 commits, Vercel verde verificado en cada uno (commit-status de GitHub)
+- **`084d6a3` fix(realtime): reconectar al volver a la pestaña (visibilitychange)** — cierra el hueco principal del realtime intermitente: al congelarse la pestaña (cambio de pestaña, laptop dormida) el WebSocket muere **en silencio** sin disparar ningún estado de error, y la reconexión por estados nunca se activaba → sin cambios hasta F5. Listener nuevo al final de `realtime.js`: guarda `_hiddenAt` al ocultarse; al volver a `visible`, si estuvo oculta **>10 s** O `_connState!=='connected'` → `_doReconnect(500)` (reutiliza el ciclo existente: `removeChannel` + `loadAll(true)` + re-render + resubscribe). Guard `!state.dataLoaded` para no disparar en login/recovery.
+  - **Probado con Playwright** (localhost, instrumentando `supa.removeChannel` y `window._app.loadAll` con contadores): guard sin sesión OK (0 ciclos) · vistazo de 3 s no recarga · oculta 12 s → punto amarillo → **exactamente 1** teardown + 1 `loadAll(force)` → verde en ~4 s. El `CLOSED` del canal viejo encola un timer de 5 s que el `SUBSCRIBED` cancela (`realtime.js:279`) — **no corre segundo ciclo en paralelo** (verificado con ventana de silencio de 9 s).
+- **`f36d629` fix(agenda): redibujar la agenda al entrar a la sección** — `showTab` (`main.js`) renderizaba todas las secciones al entrar **menos agenda**: una cita llegada por realtime estando en otra sección no se veía al volver hasta que otro evento forzara el redibujo. +1 línea: `if(tab==='agenda')renderGrid();`. Complementa el fix de visibilitychange (refresh al volver a la pestaña **y** al volver a la sección).
+- **`2786f06` chore: favicon con isotipo Rehactiva** — reemplazados los dos `<link>` data-URI (símbolo médico verde) por `img/favicon.ico` + `favicon-32/192.png` + `apple-touch-icon.png` con rutas relativas; verificado en `npm run build` que Vite los emite hasheados a `dist/assets/` y reescribe los links. No existe `meta theme-color` en el proyecto (el paso previsto de cambiarlo a blanco no aplicó). `favicon-512.png` quedó commiteado **sin referencia** — es para un futuro `manifest.json` PWA (R-23).
+
+### 🔬 Diagnóstico realtime completo (previo al fix) — deuda que quedó SIN arreglar
+Análisis a fondo de `js/realtime.js` (supabase-js `^2.104.1`). Se arregló solo visibilitychange (la causa principal); queda documentado para cuando se retome:
+- **RT-1 (el más valioso):** supabase-js reconecta el socket y re-une el canal **por su cuenta** (backoff interno); ese rejoin re-dispara `SUBSCRIBED`, que **no hace re-sync** y además **cancela** (`realtime.js:279`) un `_doReconnect` pendiente que sí lo haría → los eventos de la ventana muerta se pierden sin backfill (UI desactualizada con punto verde). Fix propuesto: flag `_needsResync` marcado en **cualquier** desconexión + `loadAll(true)` al llegar `SUBSCRIBED` si está marcado — gane quien gane la carrera.
+- **RT-2:** `_onNetworkBack` (`realtime.js:297`) hace `if(_connState==='connected') return;` con estado **stale** tras despertar (el heartbeat aún no detectó el socket muerto) → el evento `online` no reconecta justo en el caso que debía cubrir. Fix: chequear `supa.realtime.isConnected()` en vez de `_connState`.
+- **RT-3:** reintento con delay **fijo** (5 s), sin backoff ni jitter; en caída larga cada ciclo fallido repite `loadAll` completo (7 queries).
+- **RT-4 (menor):** el `removeChannel` propio emite `CLOSED` que reprograma un ciclo extra (hoy lo salva la cancelación en `SUBSCRIBED`; correría de más solo si el subscribe tarda >5 s). En el flujo `PASSWORD_RECOVERY` (sin reload) puede resuscribir zombie. Fix barato: guard de identidad de canal (`ch!==realtimeChannel → return`) en el callback.
+- **Opcional (hardening):** `createClient(..., {realtime:{worker:true}})` — heartbeat en Web Worker inmune al throttling de pestañas ocultas (soportado en la versión actual; probar aparte).
+
+### 🧪 Nota de proceso — e2e
+**No hay credenciales de prueba utilizables** en el repo ni en su historia (solo `tera@test` con `<pass>` placeholder en `AUDITORIA_PRELANZAMIENTO.md`) → los e2e con login/datos reales requieren que David provea un usuario de prueba o los corra él. Workaround validado para probar mecánica sin sesión: import dinámico de los módulos singleton de Vite desde Playwright (`await import('/js/state.js')`) + fake de `document.visibilityState`.
+
+---
+
+## 🗓️ Sesiones 2026-07 (reconstruido del git log — no se documentaron en su momento)
+
+Todo en prod. Cierran la mayor parte de la **Fase 0** y del **LOTE B**:
+- **2026-07-01:** `8b26869` R-1 ("Cobrar todos" episodio-aware) · `6b343cb` R-3 (chequear error del insert 'Fin de episodio') · `03b2224` R-4/R-5 (`normHour` para no pisar sesiones) · `c8fbca0` R-6 (solape en recurrentes) · `6841492` R-7 (rollback de inserciones optimistas).
+- **2026-07-02:** `3986a7e` auto-logout 15 min · `6c33b4a` `vercel.json` con headers de seguridad.
+- **2026-07-09:** `2e0303a` R-24 (rol `viewAI` server-side + rate-limit IA) · `f4b276f` npm audit → 0 vulnerabilidades · `516088c` I-12 + I-13 (modales Escape/fondo, alerts→toasts, táctil `pointer:coarse`) · `d6509cb` P-6 (`checkAutoNoas` días anteriores).
+- **2026-07-31:** `82e387f` feat(informes): PDF con formato de documento formal (marca, SVG EVA, paginación).
+
+De la Fase 0 queda **R-2** sin commit visible que lo cierre (informe de episodio pasado cuenta la eval como sesión) — **verificar si se resolvió dentro de `82e387f` o sigue abierto**.
 
 ---
 
