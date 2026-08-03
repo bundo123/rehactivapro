@@ -1,7 +1,7 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor, pendientesActual, safeColor, orderedTherapists } from './utils.js';
-import { toastOk, toastErr } from './toast.js';
+import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor, pendientesActual, safeColor, orderedTherapists, startOfWeek } from './utils.js';
+import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dbUpdateApptStatus } from './auth.js';
 import { hasPermission } from './permissions.js';
 import { showFieldError, clearAllErrors } from './validators.js';
@@ -60,9 +60,15 @@ export function checkAutoNoas() {
 
 export function renderGrid() {
   checkAutoNoas();
+  // Punto de entrada ÚNICO de re-render de la agenda (lo usan realtime, navegación y showTab):
+  // despacha a la vista activa para que todas se refresquen en vivo.
   const view = state.agendaView || 'day';
-  if(view === 'week' || view === 'month') return;
+  if(view === 'week'){ renderWeekView(); return; }
+  if(view === 'month'){ renderMonthView(); return; }
 
+  const wrap = document.querySelector('#tab-agenda .grid-wrap');
+  if(!wrap) return;
+  if(!document.getElementById('schedule-grid')) wrap.innerHTML = '<div class="schedule-grid" id="schedule-grid"></div>';
   const g = document.getElementById('schedule-grid');
   if(!g) return;
 
@@ -253,24 +259,15 @@ export function goToDate(ds) {
 
 export function goToToday() {
   state.currentDate=new Date();
-  const view=state.agendaView||'day';
-  if(view==='week') renderWeekView();
-  else if(view==='month') renderMonthView();
-  else renderGrid();
+  renderGrid();
 }
 
 export function changeDay(d) {
   const view = state.agendaView || 'day';
-  if(view === 'week'){
-    state.currentDate.setDate(state.currentDate.getDate() + d * 7);
-    renderWeekView();
-  } else if(view === 'month'){
-    state.currentDate.setMonth(state.currentDate.getMonth() + d);
-    renderMonthView();
-  } else {
-    state.currentDate.setDate(state.currentDate.getDate() + d);
-    renderGrid();
-  }
+  if(view === 'week') state.currentDate.setDate(state.currentDate.getDate() + d * 7);
+  else if(view === 'month') state.currentDate.setMonth(state.currentDate.getMonth() + d);
+  else state.currentDate.setDate(state.currentDate.getDate() + d);
+  renderGrid();
 }
 
 function _openApptModalBase() {
@@ -279,9 +276,10 @@ function _openApptModalBase() {
   document.getElementById('appt-modal').classList.add('open');
 }
 
-export function openApptModalAt(thId, hr) {
+export function openApptModalAt(thId, hr, ds) {
   openApptModal();
   setTimeout(()=>{
+    if(ds){const de=document.getElementById('m-date');if(de) de.value=ds;}
     const thSel=document.getElementById('m-therapist');
     if(thSel){thSel.value=String(thId);updateTimeSlots();}
     const timeSel=document.getElementById('m-time');
@@ -515,82 +513,115 @@ function populateThFilter() {
 }
 
 export function setAgendaView(mode) {
+  // La vista semanal es POR terapeuta: con "Todos" no se cambia de vista.
+  if(mode === 'week' && !state.agendaTherapistFilter){
+    toastErr('Seleccioná un terapeuta para la vista semanal');
+    return;
+  }
   state.agendaView = mode;
   ['day','week','month'].forEach(m => {
     const btn = document.getElementById('vbtn-'+m);
     if(btn) btn.classList.toggle('active', m === mode);
   });
-  populateThFilter();
-  const wrap = document.querySelector('#tab-agenda .grid-wrap');
-  if(!wrap) return;
-  if(mode === 'day'){
-    if(!document.getElementById('schedule-grid')){
-      wrap.innerHTML = '<div class="schedule-grid" id="schedule-grid"></div>';
-    }
-    renderGrid();
-  } else if(mode === 'week'){
-    renderWeekView();
-  } else if(mode === 'month'){
-    renderMonthView();
-  }
+  renderGrid();
 }
 
 export function setTherapistFilter(val) {
   state.agendaTherapistFilter = val || null;
-  const view = state.agendaView || 'day';
-  if(view === 'week') renderWeekView();
-  else if(view === 'month') renderMonthView();
-  else renderGrid();
+  if((state.agendaView || 'day') === 'week' && !state.agendaTherapistFilter){
+    toastInfo('La vista semanal necesita un terapeuta — volviendo a la vista Día');
+    setAgendaView('day');
+    return;
+  }
+  renderGrid();
 }
 
 export function renderWeekView() {
   const wrap = document.querySelector('#tab-agenda .grid-wrap');
   if(!wrap) return;
   populateThFilter();
-  const filterTh = state.agendaTherapistFilter || null;
-  const base = new Date(state.currentDate);
-  const dow = base.getDay();
-  const monday = new Date(base);
-  monday.setDate(base.getDate() - (dow === 0 ? 6 : dow - 1));
-  const days = [];
-  for(let i = 0; i < 7; i++){
-    const d = new Date(monday); d.setDate(monday.getDate() + i);
-    days.push(d);
-  }
-  const dn = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-  const mn = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-  const todayStr = fmtDate(new Date());
+  const th = getTherapist(state.agendaTherapistFilter);
+  if(!th){ setAgendaView('day'); return; }   // defensivo: setAgendaView ya impide llegar sin terapeuta
 
-  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;min-width:700px;padding:12px">';
-  days.forEach(d => {
+  const monday = startOfWeek(state.currentDate);
+  const days = [];
+  for(let i = 0; i < 7; i++){ const d = new Date(monday); d.setDate(monday.getDate() + i); days.push(d); }
+  const dayStrs = days.map(d => fmtDate(d));
+  const wkAppts = state.appointments.filter(a => a.therapistId === th.id && dayStrs.includes(a.date));
+  // Lun–Sáb siempre; Dom solo si tiene citas esa semana.
+  const visDays = wkAppts.some(a => a.date === dayStrs[6]) ? days : days.slice(0, 6);
+
+  // Rango horario: [work_start, work_end] del terapeuta (fallback: su horario de agenda)
+  // ∪ horas de todas sus citas de la semana — todo visible siempre, mismo criterio que Día.
+  const ws = th.workStart ?? th.startH, we = th.workEnd ?? th.endH;
+  const hourSet = new Set();
+  for(let h = ws; h < we; h += 0.5) hourSet.add(+h.toFixed(1));
+  wkAppts.forEach(a => apptSlots(a).forEach(s => { if(s >= 0 && s < 24) hourSet.add(s); }));
+  let vh = [...hourSet].sort((a, b) => a - b);
+  if(vh.length){ const min = vh[0], max = vh[vh.length - 1]; vh = []; for(let h = min; h <= max; h += 0.5) vh.push(+h.toFixed(1)); }
+
+  const mn = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const first = visDays[0], last = visDays[visDays.length - 1];
+  document.getElementById('day-lbl').textContent = first.getMonth() === last.getMonth()
+    ? `${first.getDate()} – ${last.getDate()} de ${mn[last.getMonth()]} ${last.getFullYear()}`
+    : `${first.getDate()} de ${mn[first.getMonth()]} – ${last.getDate()} de ${mn[last.getMonth()]} ${last.getFullYear()}`;
+
+  const conf = wkAppts.filter(a => a.status === 'conf').length;
+  const pend = wkAppts.filter(a => a.status === 'pend').length;
+  const noas = wkAppts.filter(a => a.status === 'noas').length;
+  const statsEl = document.getElementById('agenda-stats');
+  if(statsEl) statsEl.innerHTML = `
+    <span class="count-pill"><b>${wkAppts.length}</b>&nbsp;cita${wkAppts.length !== 1 ? 's' : ''} esta semana · ${esc(th.name)}</span>
+    <span class="count-item" style="color:#17865f"><span class="count-dot" style="background:#1D9E75"></span>${conf} confirmada${conf !== 1 ? 's' : ''}</span>
+    <span class="count-item" style="color:#BA7517"><span class="count-dot" style="background:#E0A850"></span>${pend} pendiente${pend !== 1 ? 's' : ''}</span>
+    <span class="count-item" style="color:#c33a3a"><span class="count-dot" style="background:#E24B4A"></span>${noas} no asistió</span>`;
+
+  wrap.innerHTML = '<div class="schedule-grid" id="schedule-grid"></div>';
+  const g = document.getElementById('schedule-grid');
+  g.style.gridTemplateColumns = `60px repeat(${visDays.length},1fr)`;
+
+  const dnCorto = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const todayStr = fmtDate(new Date());
+  const eh = document.createElement('div'); eh.className = 'grid-header'; eh.textContent = 'Hora'; g.appendChild(eh);
+  visDays.forEach(d => {
     const ds = fmtDate(d);
-    let dayAppts = state.appointments.filter(a => a.date === ds);
-    if(filterTh) dayAppts = dayAppts.filter(a => a.therapistId === filterTh);
-    dayAppts = dayAppts.sort((a,b) => a.hour - b.hour);
-    const isToday = ds === todayStr;
-    html += `<div style="border:1px solid rgba(29,158,117,${isToday?'.4':'.14'});border-radius:8px;padding:8px;min-height:80px;background:${isToday?'rgba(29,158,117,.04)':'#fff'}">
-      <div style="font-size:10px;font-weight:600;color:${isToday?'#1D9E75':'#5a5a56'};margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer" onclick="goToDateAndSelect('${ds}')">${dn[d.getDay()]} ${d.getDate()} ${mn[d.getMonth()]}</div>`;
-    if(!dayAppts.length){
-      html += `<div style="font-size:10px;color:#b0ada8">Sin citas</div>`;
-    } else {
-      dayAppts.forEach(a => {
-        const pt = getPatient(a.patientId);
-        const th = getTherapist(a.therapistId);
-        const c = getColor(th?.colorId||'ca');
-        const doc = pt&&pt.doctorId?getDoctor(pt.doctorId):null;
-        const borderColor = doc ? safeColor(doc.color) : 'rgba(0,0,0,.1)';
-        const dot = dotColor(a.status);
-        html += `<div style="background:${c.bg};border-left:2px solid ${borderColor};border-radius:4px;padding:4px 6px;margin-bottom:4px;font-size:10px;cursor:pointer" onclick="goToDateAndSelect('${ds}')">
-          <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dot};margin-right:3px;vertical-align:middle;flex-shrink:0"></span>
-          <b>${fmtTime(a.hour)}</b> ${esc(pt?pt.name:(a.patientName||'?'))}
-        </div>`;
-      });
-    }
-    html += '</div>';
+    const h = document.createElement('div'); h.className = 'th-header' + (ds === todayStr ? ' wk-today' : '');
+    h.innerHTML = `<div><div class="th-nm">${dnCorto[d.getDay()]} ${d.getDate()}</div><div class="th-sp">${ds === todayStr ? 'Hoy' : mn[d.getMonth()].slice(0, 3)}</div></div>`;
+    g.appendChild(h);
   });
-  html += '</div>';
-  wrap.innerHTML = html;
-  document.getElementById('day-lbl').textContent = `Semana del ${monday.getDate()} ${mn[monday.getMonth()]}`;
+
+  const tailSet = new Set();
+  wkAppts.forEach(a => apptSlots(a).slice(1).forEach(s => tailSet.add(`${a.date}:${s}`)));
+
+  vh.forEach(hr => {
+    const tc = document.createElement('div'); tc.className = 'time-cell' + (hr % 1 === 0.5 ? ' half-hour' : ''); tc.textContent = fmtTime(hr); g.appendChild(tc);
+    visDays.forEach(d => {
+      const ds = fmtDate(d);
+      const slot = document.createElement('div');
+      if(tailSet.has(`${ds}:${+hr.toFixed(1)}`)){ slot.className = 'slot slot-tail'; g.appendChild(slot); return; }
+      const appt = wkAppts.find(a => a.date === ds && a.hour === hr);
+      slot.className = 'slot' + (!appt ? ' avail' : '');
+      if(!appt){
+        slot.addEventListener('click', () => openApptModalAt(th.id, hr, ds));
+      } else {
+        // Tarjeta compacta: nombre + punto de estado + tinte de modalidad. Sin drag & drop (v1).
+        const spans = Math.max(1, Math.round((appt.duration || 60) / 30));
+        const pt = getPatient(appt.patientId);
+        const doc = pt && pt.doctorId ? getDoctor(pt.doctorId) : null;
+        const card = document.createElement('div');
+        let sc = ''; if(appt.status === 'pend') sc = ' status-pend'; else if(appt.status === 'noas') sc = ' status-noas';
+        const locCls = appt.location === 'domicilio' ? 'loc-domicilio' : 'loc-centro';
+        card.className = `appt ${locCls}${sc}`;
+        card.style.borderLeftColor = doc ? doc.color : 'rgba(0,0,0,.1)';
+        card.innerHTML = `<div class="appt-name">${esc(pt ? pt.name : (appt.patientName || 'Sin paciente'))}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)}"></div>`;
+        card.addEventListener('click', e => { e.stopPropagation(); openEditApptModal(appt.id); });
+        if(spans > 1){ slot.style.zIndex = '2'; card.style.bottom = 'auto'; card.style.height = `calc(${spans} * 46px - 6px)`; }
+        slot.appendChild(card);
+      }
+      g.appendChild(slot);
+    });
+  });
+  renderRefLegend();
 }
 
 export function renderMonthView() {
@@ -600,44 +631,37 @@ export function renderMonthView() {
   const filterTh = state.agendaTherapistFilter || null;
   const year = state.currentDate.getFullYear();
   const month = state.currentDate.getMonth();
-  const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
   const mn = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const todayStr = fmtDate(new Date());
-  const startDow = firstDay.getDay();
+  const startDow = new Date(year, month, 1).getDay();
   const offset = startDow === 0 ? 6 : startDow - 1;
 
   document.getElementById('day-lbl').textContent = `${mn[month]} ${year}`;
 
-  let html = `<div style="padding:12px">
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:6px;text-align:center">
-      ${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>`<div style="font-size:10px;font-weight:600;color:#7a7a76;padding:4px 0">${d}</div>`).join('')}
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">`;
+  const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+  let moAppts = state.appointments.filter(a => a.date && a.date.startsWith(prefix));
+  if(filterTh) moAppts = moAppts.filter(a => a.therapistId === filterTh);
+  const byDate = {};
+  moAppts.forEach(a => { byDate[a.date] = (byDate[a.date] || 0) + 1; });
 
+  const thName = filterTh ? (getTherapist(filterTh)?.name || null) : null;
+  const statsEl = document.getElementById('agenda-stats');
+  if(statsEl) statsEl.innerHTML = `<span class="count-pill"><b>${moAppts.length}</b>&nbsp;cita${moAppts.length !== 1 ? 's' : ''} en ${mn[month].toLowerCase()}${thName ? ' · ' + esc(thName) : ''}</span>`;
+
+  let html = `<div class="mv-wrap"><div class="mv-hd">${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d => `<div>${d}</div>`).join('')}</div><div class="mv-grid">`;
   for(let i = 0; i < offset; i++) html += '<div></div>';
-
   for(let day = 1; day <= lastDay.getDate(); day++){
-    const d = new Date(year, month, day);
-    const ds = fmtDate(d);
-    let dayAppts = state.appointments.filter(a => a.date === ds);
-    if(filterTh) dayAppts = dayAppts.filter(a => a.therapistId === filterTh);
-    const isToday = ds === todayStr;
-    const dotColors = [...new Set(dayAppts.map(a => {
-      const th = getTherapist(a.therapistId);
-      return getColor(th?.colorId||'ca').border;
-    }))].slice(0,5);
-
-    html += `<div onclick="goToDateAndSelect('${ds}')" style="border:1px solid rgba(29,158,117,${isToday?'.4':'.1'});border-radius:8px;padding:6px;min-height:52px;cursor:pointer;background:${isToday?'rgba(29,158,117,.06)':'#fff'};transition:background .12s" onmouseover="this.style.background='rgba(29,158,117,.06)'" onmouseout="this.style.background='${isToday?'rgba(29,158,117,.06)':'#fff'}'">
-      <div style="font-size:11px;font-weight:${isToday?'700':'500'};color:${isToday?'#1D9E75':'#1a1917'};margin-bottom:3px">${day}</div>
-      <div style="display:flex;gap:2px;flex-wrap:wrap;align-items:center">
-        ${dotColors.map(c=>`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c}"></span>`).join('')}
-        ${dayAppts.length>0?`<span style="font-size:9px;color:#7a7a76;line-height:8px">${dayAppts.length}</span>`:''}
-      </div>
+    const ds = `${prefix}-${String(day).padStart(2, '0')}`;
+    const n = byDate[ds] || 0;
+    html += `<div class="mv-day${ds === todayStr ? ' today' : ''}" onclick="goToDateAndSelect('${ds}')">
+      <div class="mv-num">${day}</div>
+      ${n ? `<span class="mv-count">${n} cita${n !== 1 ? 's' : ''}</span>` : ''}
     </div>`;
   }
   html += '</div></div>';
   wrap.innerHTML = html;
+  renderRefLegend();
 }
 
 export function goToDateAndSelect(ds) {
@@ -654,10 +678,7 @@ export function exportAgendaCSV() {
     const prefix = `${year}-${String(month+1).padStart(2,'0')}`;
     appts = state.appointments.filter(a => a.date.startsWith(prefix));
   } else if(view === 'week'){
-    const base = new Date(state.currentDate);
-    const dow = base.getDay();
-    const monday = new Date(base);
-    monday.setDate(base.getDate() - (dow === 0 ? 6 : dow - 1));
+    const monday = startOfWeek(state.currentDate);
     const dates = new Set();
     for(let i = 0; i < 7; i++){
       const d = new Date(monday); d.setDate(monday.getDate() + i);

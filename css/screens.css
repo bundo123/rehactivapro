@@ -30,6 +30,22 @@
 .appt-del{position:absolute;bottom:4px;right:4px;width:18px;height:18px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;background:rgba(226,75,74,.85);color:#fff;line-height:1}
 .appt:hover .appt-del{display:flex}
 
+/* Vista Semana: columna del día actual resaltada */
+.th-header.wk-today{background:rgba(41,171,226,.1)}
+.th-header.wk-today .th-sp{color:#1d8fbf;font-weight:700}
+
+/* Vista Mes */
+.mv-wrap{padding:12px}
+.mv-hd{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px;text-align:center;font-size:10px;font-weight:700;color:#7a7a76;text-transform:uppercase;letter-spacing:.05em}
+.mv-hd div{padding:4px 0}
+.mv-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.mv-day{border:1px solid rgba(41,171,226,.14);border-radius:8px;padding:6px 8px;min-height:56px;cursor:pointer;background:#fff;transition:background .12s,border-color .12s}
+.mv-day:hover{background:rgba(41,171,226,.07);border-color:rgba(41,171,226,.3)}
+.mv-day.today{border-color:#29ABE2;background:rgba(41,171,226,.08)}
+.mv-num{font-size:11px;font-weight:600;color:#1a1917}
+.mv-day.today .mv-num{color:#1d8fbf;font-weight:800}
+.mv-count{display:inline-block;margin-top:4px;font-size:10px;font-weight:700;color:#1d8fbf;background:rgba(41,171,226,.12);border-radius:99px;padding:1px 7px;white-space:nowrap}
+
 /* Compat pantallas fuera del rediseño (filtro "Sin eval." en Pacientes) */
 .view-btn{padding:5px 12px;font-size:11px;border:1px solid rgba(41,171,226,.25);background:#fff;border-radius:7px;cursor:pointer;color:#5a5a56;font-family:inherit;font-weight:500;transition:background .12s,color .12s}
 .view-btn:hover{background:rgba(41,171,226,.08);color:#1d8fbf}

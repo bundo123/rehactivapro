@@ -63,6 +63,14 @@ export function relativeTime(ts){
   return `hace ${d} dia${d===1?'':'s'}`;
 }
 export function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+// Lunes (00:00) de la semana de la fecha dada; el domingo pertenece a la semana que empezó
+// el lunes anterior. Pura: no muta el argumento.
+export function startOfWeek(d){
+  const r=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  const dow=r.getDay();
+  r.setDate(r.getDate()-(dow===0?6:dow-1));
+  return r;
+}
 export function fmtTime(h){const hh=Math.floor(h);return `${hh}:${h%1===0.5?'30':'00'}`;}
 // Normaliza una hora a 'HH:MM:SS' para comparar de forma robusta el valor en memoria ('9:00','00:00')
 // contra el de la DB ('09:00:00' si la columna es time). Conserva segundos (id técnico de sesiones manuales).
