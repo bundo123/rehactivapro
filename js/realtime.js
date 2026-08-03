@@ -300,5 +300,22 @@ function _onNetworkBack() {
   _doReconnect(1500);
 }
 
+// ── Visibilidad: al volver a la pestaña el WebSocket puede haber muerto en silencio
+// (pestaña congelada / laptop dormida) sin disparar ningún estado de error del canal,
+// así que la reconexión por estados nunca se activa. Se fuerza el ciclo completo
+// (_doReconnect: removeChannel + loadAll(true) + resubscribe) al volver.
+let _hiddenAt = 0;
+
+function _onVisibilityChange() {
+  if(document.visibilityState==='hidden'){_hiddenAt=Date.now();return;}
+  if(!state.dataLoaded) return;                    // sin sesión iniciada: nada que reconectar
+  const hiddenMs=_hiddenAt?Date.now()-_hiddenAt:0;
+  if(hiddenMs>10000||_connState!=='connected'){
+    _setConnState('reconnecting');
+    _doReconnect(500);
+  }
+}
+
 window.addEventListener('online',  _onNetworkBack);
 window.addEventListener('offline', ()=>_setConnState('disconnected'));
+document.addEventListener('visibilitychange', _onVisibilityChange);
