@@ -658,7 +658,7 @@ export function renderPatientReport() {
   +`<div class="rpt-layout">
     <div class="rpt-sheet">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #29ABE2;padding-bottom:14px;gap:16px;flex-wrap:wrap">
-        <div><img src="img/logo-rehactiva.png" alt="Rehactiva" style="width:190px;display:block"><div style="font-size:10.5px;color:#7a7a76;margin-top:4px">Rehabilitación y Fisioterapia · Quito, Ecuador · rehactivaec.com</div></div>
+        <div><img src="${LOGO_DATA_URI}" alt="Rehactiva" style="width:190px;display:block"><div style="font-size:10.5px;color:#7a7a76;margin-top:4px">Rehabilitación y Fisioterapia · Quito, Ecuador · rehactivaec.com</div></div>
         <div style="text-align:right;font-size:11px;color:#5a5a56;line-height:1.6;flex-shrink:0"><div style="font-size:13px;font-weight:700;color:#1a1917">Informe de evolución</div><div>N.º ${rptNo}</div><div>${fechaLarga}</div></div>
       </div>
       <div style="display:flex;align-items:baseline;gap:10px;margin-top:16px;flex-wrap:wrap">
