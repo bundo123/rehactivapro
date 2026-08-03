@@ -97,6 +97,14 @@ export function getAvailHours(ths){const s=new Set();(ths||state.therapists).for
 export function dotColor(s){return s==='conf'?'#1D9E75':s==='pend'?'#E0A850':'#E24B4A';}
 export function getInitials(name){return(name||'').trim().split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase()||'??';}
 
+// Duplicado de cédula al guardar paciente: devuelve OTRO paciente (id ≠ excludeId) con la misma
+// cédula (comparación con trim). Cédula vacía nunca duplica. Pura y testeable.
+export function findCedulaDuplicate(patients, cedula, excludeId=null){
+  const c=String(cedula||'').trim();
+  if(!c) return null;
+  return (patients||[]).find(p=>String(p.id)!==String(excludeId)&&String(p.cedula||'').trim()===c)||null;
+}
+
 export function getDisplayAge(p, showDate = false) {
   if (!p) return 'Sin edad';
   if (p.birth_date) {

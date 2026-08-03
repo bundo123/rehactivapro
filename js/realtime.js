@@ -71,7 +71,7 @@ function _flushRemoteToasts() {
 // ── Mappers DB row → in-memory ──
 function _mapAppt(r) {
   const pt=getPatient(r.patient_id);
-  return{id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:pt?pt.name:null,hour:r.hour,duration:r.duration||60,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||''};
+  return{id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:pt?pt.name:null,hour:r.hour,duration:r.duration||60,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||'',location:r.location||'centro'};
 }
 function _mapPatient(r) {
   const existing=state.patients.find(p=>p.id===r.id);

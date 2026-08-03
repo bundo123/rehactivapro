@@ -25,7 +25,9 @@ function conflictsWithExisting(date, thId, startHour, duration, excludeId) {
 export function renderRefLegend() {
   const el=document.getElementById('ref-legend-bar'); if(!el) return;
   const docs=state.doctors.map(d=>`<span class="leg-item"><span class="leg-stripe" style="background:${safeColor(d.color)}"></span>${esc(d.name)}</span>`).join('');
-  el.innerHTML=state.doctors.length?`<span>Franja izq. = doctor referente:</span>${docs}`:'';
+  el.innerHTML=`<span class="leg-item"><span class="leg-tint" style="background:rgba(29,158,117,.3)"></span>Centro</span>`
+    +`<span class="leg-item"><span class="leg-tint" style="background:rgba(245,166,35,.35)"></span>Domicilio</span>`
+    +(state.doctors.length?`<span style="margin-left:6px">Franja izq. = doctor referente:</span>${docs}`:'');
 }
 
 export function updateFacturaBadge() {
@@ -157,7 +159,10 @@ export function renderGrid() {
         const pt=getPatient(appt.patientId);
         const card=document.createElement('div');
         let sc='';if(appt.status==='pend')sc=' status-pend';else if(appt.status==='noas')sc=' status-noas';
-        card.className=`appt ${th.colorId}${sc}`;
+        // Tinte de fondo por MODALIDAD (centro verde / domicilio naranja); el ESTADO pisa el
+        // tinte cuando aplica (reglas .status-* posteriores en CSS).
+        const locCls=appt.location==='domicilio'?'loc-domicilio':'loc-centro';
+        card.className=`appt ${locCls}${sc}`;
         card.draggable=true;
         const doc=pt&&pt.doctorId?getDoctor(pt.doctorId):null;
         card.style.borderLeftColor=doc?doc.color:'rgba(0,0,0,.1)';
@@ -297,6 +302,8 @@ export function openApptModal() {
   document.getElementById('m-patient').value='';
   const durSel=document.getElementById('m-duration');
   if(durSel) durSel.value='60';
+  const locSel=document.getElementById('m-location');
+  if(locSel) locSel.value='centro';
   document.getElementById('m-note').value='';
   document.getElementById('m-status').value='conf';
   document.getElementById('m-recurrente').checked=false;
@@ -320,6 +327,8 @@ export function openEditApptModal(id) {
   document.getElementById('m-patient').value=String(a.patientId||'');
   const durSel=document.getElementById('m-duration');
   if(durSel) durSel.value=String(a.duration||60);
+  const locSel=document.getElementById('m-location');
+  if(locSel) locSel.value=a.location||'centro';
   document.getElementById('m-note').value=a.note||'';
   document.getElementById('m-status').value=a.status||'conf';
   document.getElementById('m-recurrente').checked=false;
@@ -363,6 +372,7 @@ export async function saveAppt() {
   const thId=document.getElementById('m-therapist').value;
   const hr=parseFloat(document.getElementById('m-time').value);
   const dur=parseInt(document.getElementById('m-duration')?.value||'60');
+  const loc=document.getElementById('m-location')?.value==='domicilio'?'domicilio':'centro';
   let patId=document.getElementById('m-patient').value;
   if(!thId){showFieldError('m-therapist','Selecciona un terapeuta');toastErr('Selecciona un terapeuta.');return;}
   if(!patId){
@@ -383,13 +393,13 @@ export async function saveAppt() {
     if(!existing){toastErr('Cita no encontrada.');return;}
     const today=fmtDate(new Date());
     if(ds<today && ds!==existing.date){toastErr('No se pueden mover citas a días pasados.');return;}
-    existing.therapistId=thId;existing.hour=hr;existing.duration=dur;
+    existing.therapistId=thId;existing.hour=hr;existing.duration=dur;existing.location=loc;
     existing.patientId=patId;existing.type=document.getElementById('m-type').value;
     existing.status=document.getElementById('m-status').value;existing.note=document.getElementById('m-note').value;existing.date=ds;
     window._app.closeModal('appt-modal'); renderGrid();
     const ok=await commitApptChange(existing, {
       date:ds,therapist_id:thId,patient_id:patId,hour:hr,duration:dur,
-      type:existing.type,status:existing.status,note:existing.note||''
+      type:existing.type,status:existing.status,note:existing.note||'',location:loc
     });
     if(ok) toastOk('Cita actualizada');
     updateFacturaBadge();
@@ -398,14 +408,14 @@ export async function saveAppt() {
 
   const today=fmtDate(new Date());
   if(ds<today){toastErr('No se pueden agendar citas en días pasados.');return;}
-  const _a={id:++state.apptCounter,date:ds,therapistId:thId,hour:hr,duration:dur,patientId:patId,type:document.getElementById('m-type').value,status:document.getElementById('m-status').value,note:document.getElementById('m-note').value};
+  const _a={id:++state.apptCounter,date:ds,therapistId:thId,hour:hr,duration:dur,location:loc,patientId:patId,type:document.getElementById('m-type').value,status:document.getElementById('m-status').value,note:document.getElementById('m-note').value};
   state.appointments.push(_a);
   window._app.closeModal('appt-modal'); renderGrid();
   const tempId=_a.id;
   try {
     const {data,error}=await supa.from('appointments').insert({
       date:_a.date,therapist_id:_a.therapistId,patient_id:_a.patientId,
-      hour:_a.hour,duration:_a.duration,type:_a.type,status:_a.status,note:_a.note||''
+      hour:_a.hour,duration:_a.duration,type:_a.type,status:_a.status,note:_a.note||'',location:_a.location
     }).select().single();
     if(error){
       // Rollback del push optimista (mismo patrón que emitirFactura): la cita no existe en DB.
@@ -423,7 +433,7 @@ export async function saveAppt() {
           let creadas=0,omitidas=0;
           for(const fecha of fechas){
             if(conflictsWithExisting(fecha,_a.therapistId,_a.hour,_a.duration,null)){omitidas++;continue;}
-            const {error:re}=await supa.from('appointments').insert({date:fecha,therapist_id:_a.therapistId,patient_id:_a.patientId,hour:_a.hour,duration:_a.duration,type:_a.type,status:'pend',note:_a.note||''});
+            const {error:re}=await supa.from('appointments').insert({date:fecha,therapist_id:_a.therapistId,patient_id:_a.patientId,hour:_a.hour,duration:_a.duration,type:_a.type,status:'pend',note:_a.note||'',location:_a.location});
             if(!re){state.appointments.push({..._a,id:'rec-'+fecha+'-'+Math.random(),date:fecha,status:'pend'});creadas++;}
           }
           if(creadas>0||omitidas>0){

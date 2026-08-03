@@ -56,3 +56,4 @@
 .count-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
 .leg-item{display:inline-flex;align-items:center;gap:5px}
 .leg-stripe{width:3px;height:12px;border-radius:2px;display:inline-block;flex-shrink:0}
+.leg-tint{width:14px;height:12px;border-radius:3px;display:inline-block;flex-shrink:0;border:1px solid rgba(0,0,0,.08)}
