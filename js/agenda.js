@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor, pendientesActual, safeColor } from './utils.js';
+import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor, pendientesActual, safeColor, orderedTherapists } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { dbUpdateApptStatus } from './auth.js';
 import { hasPermission } from './permissions.js';
@@ -23,9 +23,9 @@ function conflictsWithExisting(date, thId, startHour, duration, excludeId) {
 }
 
 export function renderRefLegend() {
-  if(!state.doctors.length){document.getElementById('ref-legend-bar').innerHTML='';return;}
-  const items=state.doctors.map(d=>`<span class="ref-legend-item"><span class="ref-stripe" style="background:${safeColor(d.color)}"></span>${esc(d.name)}<span style="color:#7a7a76;font-size:10px;margin-left:3px">(${esc(d.spec)})</span></span>`).join('');
-  document.getElementById('ref-legend-bar').innerHTML=`<div class="ref-legend"><span class="ref-legend-lbl">Borde = doctor ref.:</span>${items}</div>`;
+  const el=document.getElementById('ref-legend-bar'); if(!el) return;
+  const docs=state.doctors.map(d=>`<span class="leg-item"><span class="leg-stripe" style="background:${safeColor(d.color)}"></span>${esc(d.name)}</span>`).join('');
+  el.innerHTML=state.doctors.length?`<span>Franja izq. = doctor referente:</span>${docs}`:'';
 }
 
 export function updateFacturaBadge() {
@@ -71,81 +71,87 @@ export function renderGrid() {
 
   populateThFilter();
   const filterTh = state.agendaTherapistFilter || null;
-  const visTherapists = filterTh ? state.therapists.filter(t => t.id === filterTh) : state.therapists;
+  const allTh = orderedTherapists();
+  const visTherapists = filterTh ? allTh.filter(t => t.id === filterTh) : allTh;
 
   const ta=state.appointments.filter(a=>a.date===ds);
-  const slots=visTherapists.reduce((s,t)=>s+therapistHours(t).length,0);
+  const visTa=ta.filter(a=>visTherapists.some(t=>t.id===a.therapistId));
   const conf=ta.filter(a=>a.status==='conf').length;
   const pend=ta.filter(a=>a.status==='pend').length;
   const noas=ta.filter(a=>a.status==='noas').length;
+  const totalSlots=visTherapists.reduce((s,t)=>s+therapistHours(t).length,0);
+  const occupied=visTa.reduce((s,a)=>s+apptSlots(a).length,0);
+  const libres=Math.max(0,totalSlots-occupied);
 
-  document.getElementById('agenda-stats').innerHTML=`
-    <div class="stat"><div class="stat-lbl">Citas hoy</div><div class="stat-val">${ta.length}</div><div class="stat-chg neu">${slots} slots disponibles</div></div>
-    <div class="stat green"><div class="stat-lbl">Confirmadas</div><div class="stat-val" style="color:#1D9E75">${conf}</div><div class="stat-chg up">Listas</div></div>
-    <div class="stat yellow"><div class="stat-lbl">Pendientes</div><div class="stat-val" style="color:#BA7517">${pend}</div><div class="stat-chg neu">Por confirmar</div></div>
-    <div class="stat red"><div class="stat-lbl">No asistieron</div><div class="stat-val" style="color:#E24B4A">${noas}</div><div class="stat-chg down">Seguimiento</div></div>`;
+  const statsEl=document.getElementById('agenda-stats');
+  if(statsEl) statsEl.innerHTML=`
+    <span class="count-pill"><b>${ta.length}</b>&nbsp;cita${ta.length!==1?'s':''} hoy · ${libres} slots libres</span>
+    <span class="count-item" style="color:#17865f"><span class="count-dot" style="background:#1D9E75"></span>${conf} confirmada${conf!==1?'s':''}</span>
+    <span class="count-item" style="color:#BA7517"><span class="count-dot" style="background:#E0A850"></span>${pend} pendiente${pend!==1?'s':''}</span>
+    <span class="count-item" style="color:#c33a3a"><span class="count-dot" style="background:#E24B4A"></span>${noas} no asistió</span>`;
 
-  const vh=getAvailHours(visTherapists);
+  // Filas: unión de horarios de los terapeutas visibles + horas de citas del día.
+  // NUEVO 2: las citas fuera del horario son válidas y deben verse SIEMPRE.
+  const hourSet=new Set(getAvailHours(visTherapists));
+  visTa.forEach(a=>apptSlots(a).forEach(s=>{if(s>=0&&s<24)hourSet.add(s);}));
+  let vh=[...hourSet].sort((a,b)=>a-b);
+  if(vh.length){const min=vh[0],max=vh[vh.length-1];vh=[];for(let h=min;h<=max;h+=0.5)vh.push(+h.toFixed(1));}
+
   g.innerHTML=''; g.style.gridTemplateColumns=`60px repeat(${visTherapists.length},1fr)`;
 
   const eh=document.createElement('div');eh.className='grid-header';eh.textContent='Hora';g.appendChild(eh);
   visTherapists.forEach(th=>{
     const c=getColor(th.colorId);
     const h=document.createElement('div');h.className='th-header';
-    h.innerHTML=`<div class="avatar" style="background:${c.border}22;color:${c.text}">${esc(th.initials)}</div><div><div class="th-nm">${esc(th.name)}</div><div class="th-sp">${fmtTime(th.startH)}-${fmtTime(th.endH)}</div></div>`;
+    h.innerHTML=`<div class="avatar" style="background:${c.bg};color:${c.text}">${esc(th.initials)}</div><div><div class="th-nm">${esc(th.name)}</div><div class="th-sp">${fmtTime(th.startH)}–${fmtTime(th.endH)}</div></div>`;
     g.appendChild(h);
   });
 
   // Build set of tail slots (slots beyond the first covered by multi-slot appts)
   const tailSet = new Set();
-  ta.forEach(a => {
+  visTa.forEach(a => {
     apptSlots(a).slice(1).forEach(s => tailSet.add(`${a.therapistId}:${s}`));
   });
 
   vh.forEach(hr=>{
     const tc=document.createElement('div');tc.className='time-cell'+(hr%1===0.5?' half-hour':'');tc.textContent=fmtTime(hr);g.appendChild(tc);
     visTherapists.forEach(th=>{
-      const avail=hr>=th.startH&&hr<th.endH;
       const key=`${th.id}:${+hr.toFixed(1)}`;
       const isTail=tailSet.has(key);
 
       const slot=document.createElement('div');
 
       if(isTail){
-        slot.className='slot slot-tail'+(hr%1===0.5?' half-hour':'');
+        slot.className='slot slot-tail';
         g.appendChild(slot);
         return;
       }
 
-      const appt=ta.find(a=>a.therapistId===th.id&&a.hour===hr);
-      const hh=hr%1===0.5?' half-hour':'';
-      const isEmpty=avail&&!appt;
-      if(!avail) slot.className='slot blocked'+hh;
-      else if(isEmpty) slot.className='slot avail'+hh;
-      else slot.className='slot'+hh;
+      // Fuera de horario NO se distingue visualmente (decisión 2026-08): todos los slots se ven
+      // y comportan igual — cualquier franja acepta citas (click, drop y render).
+      const appt=visTa.find(a=>a.therapistId===th.id&&a.hour===hr);
+      slot.className='slot'+(!appt?' avail':'');
 
-      if(avail){
-        slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('drag-over')});
-        slot.addEventListener('dragleave',()=>slot.classList.remove('drag-over'));
-        slot.addEventListener('drop',async e=>{
-          e.preventDefault();slot.classList.remove('drag-over');
-          if(state.dragData!=null){
-            const a=state.appointments.find(x=>x.id===state.dragData);
-            if(a){
-              if(!conflictsWithExisting(a.date,th.id,hr,a.duration||60,a.id)){
-                a.therapistId=th.id;a.hour=hr;renderGrid();
-                // Reubicación: commit solo persiste la nueva posición de la fila.
-                await commitApptChange(a, {hour:hr, therapist_id:th.id});
-              } else toastErr('Conflicto: el terapeuta ya tiene una cita en ese horario.');
-            }
+      slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('drag-over')});
+      slot.addEventListener('dragleave',()=>slot.classList.remove('drag-over'));
+      slot.addEventListener('drop',async e=>{
+        e.preventDefault();slot.classList.remove('drag-over');
+        if(state.dragData!=null){
+          const a=state.appointments.find(x=>x.id===state.dragData);
+          if(a){
+            if(!conflictsWithExisting(a.date,th.id,hr,a.duration||60,a.id)){
+              a.therapistId=th.id;a.hour=hr;renderGrid();
+              // Reubicación: commit solo persiste la nueva posición de la fila.
+              await commitApptChange(a, {hour:hr, therapist_id:th.id});
+            } else toastErr('Conflicto: el terapeuta ya tiene una cita en ese horario.');
           }
-          state.dragData=null;
-        });
-        if(isEmpty){
-          slot.addEventListener('click',()=>openApptModalAt(th.id,hr));
         }
+        state.dragData=null;
+      });
+      if(!appt){
+        slot.addEventListener('click',()=>openApptModalAt(th.id,hr));
       }
-      if(appt&&avail){
+      if(appt){
         const dur=appt.duration||60;
         const spans=Math.max(1,Math.round(dur/30));
         const pt=getPatient(appt.patientId);
@@ -158,7 +164,7 @@ export function renderGrid() {
         if(doc) card.title=`Ref: ${doc.name} (${doc.spec})${appt.status==='conf'?' · Doble click para registrar sesión':''}`;
         const durLabel=dur!==60?` · ${dur}min`:'';
         const canDel=hasPermission('deleteAppt');
-        card.innerHTML=`<div class="appt-name">${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}${durLabel}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}`;
+        card.innerHTML=`<div class="appt-name">${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}${durLabel}${appt.status==='pend'?' · por confirmar':''}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}`;
         card.style.cursor='pointer';
         card.addEventListener('click',e=>{if(!e.target.classList.contains('appt-dot')&&!e.target.classList.contains('appt-del')){e.stopPropagation();openEditApptModal(appt.id);}});
         card.querySelector('.appt-dot').addEventListener('click',e=>{e.stopPropagation();cycleStatus(appt.id);});
@@ -178,7 +184,7 @@ export function renderGrid() {
         if(spans>1){
           slot.style.zIndex='2';
           card.style.bottom='auto';
-          card.style.height=`calc(${spans} * 40px - 6px)`;
+          card.style.height=`calc(${spans} * 46px - 6px)`;
         }
         slot.appendChild(card);
       }
@@ -240,6 +246,14 @@ export function goToDate(ds) {
   renderGrid();
 }
 
+export function goToToday() {
+  state.currentDate=new Date();
+  const view=state.agendaView||'day';
+  if(view==='week') renderWeekView();
+  else if(view==='month') renderMonthView();
+  else renderGrid();
+}
+
 export function changeDay(d) {
   const view = state.agendaView || 'day';
   if(view === 'week'){
@@ -255,7 +269,7 @@ export function changeDay(d) {
 }
 
 function _openApptModalBase() {
-  document.getElementById('m-therapist').innerHTML=state.therapists.map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.startH)}-${fmtTime(t.endH)})</option>`).join('');
+  document.getElementById('m-therapist').innerHTML=orderedTherapists().map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.startH)}-${fmtTime(t.endH)})</option>`).join('');
   updateTimeSlots();
   document.getElementById('appt-modal').classList.add('open');
 }
@@ -311,7 +325,7 @@ export function openEditApptModal(id) {
   document.getElementById('m-recurrente').checked=false;
   document.getElementById('recurrencia-panel').style.display='none';
   filterApptPatient();
-  document.getElementById('m-therapist').innerHTML=state.therapists.map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.startH)}-${fmtTime(t.endH)})</option>`).join('');
+  document.getElementById('m-therapist').innerHTML=orderedTherapists().map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.startH)}-${fmtTime(t.endH)})</option>`).join('');
   document.getElementById('m-therapist').value=String(a.therapistId);
   document.getElementById('m-type').value=a.type||'Fisioterapia';
   updateTimeSlots();
@@ -485,7 +499,7 @@ function populateThFilter() {
   if(!sel || sel.dataset.populated === String(state.therapists.length)) return;
   const cur = sel.value;
   sel.innerHTML = '<option value="">Todos los terapeutas</option>' +
-    state.therapists.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
+    orderedTherapists().map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
   if(cur) sel.value = cur;
   sel.dataset.populated = String(state.therapists.length);
 }

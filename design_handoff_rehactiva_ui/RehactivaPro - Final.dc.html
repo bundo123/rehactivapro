@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="./assets/image-slot.js"></script>
+<style>body{margin:0;font-family:'Public Sans',system-ui,sans-serif;background:#f0e8d8}a{color:#1d8fbf;text-decoration:none}a:hover{color:#155b7a;text-decoration:underline}input::placeholder{color:#9c9a92}</style>
+</helmet>
+<div style="display:flex;height:100vh;width:100vw;overflow:hidden;background:#f0e8d8">
+<aside style="width:200px;background:#f0e8d8;border-right:1px solid rgba(41,171,226,.2);display:flex;flex-direction:column;flex-shrink:0">
+  <div style="padding:16px 14px 12px;border-bottom:1px solid rgba(0,0,0,.06)">
+    <img src="assets/img/logo-rehactiva.png" alt="Rehactiva" style="width:154px;display:block">
+    <div style="position:relative;margin-top:10px">
+      <svg style="position:absolute;left:8px;top:8px" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" placeholder="Buscar paciente…" style="width:100%;box-sizing:border-box;background:#faf6ef;border:1px solid rgba(41,171,226,.22);border-radius:7px;padding:6px 8px 6px 26px;font-size:11px;color:#1a1917;font-family:inherit;outline:none">
+    </div>
+  </div>
+  <nav style="padding:8px;display:flex;flex-direction:column;gap:1px;font-size:12.5px;overflow-y:auto">
+    <div style="font-size:9.5px;font-weight:700;letter-spacing:.09em;color:#9c9a92;text-transform:uppercase;padding:6px 10px 4px">Clínica</div>
+    <button onClick="{{nav.agenda}}" style="{{st.agenda}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>Agenda</button>
+    <button onClick="{{nav.resumen}}" style="{{st.resumen}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path></svg>Resumen del día<span style="margin-left:auto;background:#F5A623;color:#fff;font-size:9.5px;font-weight:700;border-radius:99px;padding:1px 6px">3</span></button>
+    <div style="font-size:9.5px;font-weight:700;letter-spacing:.09em;color:#9c9a92;text-transform:uppercase;padding:10px 10px 4px">Pacientes</div>
+    <button onClick="{{nav.pacientes}}" style="{{st.pacientes}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>Pacientes</button>
+    <button onClick="{{nav.paciente}}" style="{{st.paciente}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><path d="M14 2v6h6"></path></svg>Informe paciente</button>
+    <button onClick="{{nav.protocolos}}" style="{{st.protocolos}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>Protocolos</button>
+    <div style="font-size:9.5px;font-weight:700;letter-spacing:.09em;color:#9c9a92;text-transform:uppercase;padding:10px 10px 4px">Análisis</div>
+    <button onClick="{{nav.informes}}" style="{{st.informes}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>Informes</button>
+    <button onClick="{{nav.facturacion}}" style="{{st.facturacion}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>Facturación<span style="margin-left:auto;background:#F5A623;color:#fff;font-size:9.5px;font-weight:700;border-radius:99px;padding:1px 6px">2</span></button>
+    <div style="font-size:9.5px;font-weight:700;letter-spacing:.09em;color:#9c9a92;text-transform:uppercase;padding:10px 10px 4px">Equipo</div>
+    <button onClick="{{nav.terapeutas}}" style="{{st.terapeutas}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 00-3-3.87"></path><path d="M16 3.13a4 4 0 010 7.75"></path></svg>Terapeutas</button>
+    <button onClick="{{nav.doctores}}" style="{{st.doctores}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v8M8 12h8"></path></svg>Doctores ref.</button>
+  </nav>
+  <div style="margin-top:auto;padding:10px 14px;border-top:1px solid rgba(41,171,226,.15);font-size:10.5px;color:#7a7a76">
+    <div>recepcion@rehactivaec.com</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-top:4px"><span style="width:7px;height:7px;border-radius:50%;background:#1D9E75;display:inline-block"></span>Conectado · tiempo real</div>
+    <button onClick="{{nav.login}}" style="margin-top:8px;display:flex;align-items:center;gap:6px;background:none;border:none;padding:0;font-size:11px;color:#5a5a56;cursor:pointer;font-family:inherit">🚪 Cerrar sesión</button>
+  </div>
+</aside>
+<main style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+
+<sc-if value="{{is.agenda}}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Agenda" style="display:flex;flex-direction:column;height:100%">
+  <header style="display:flex;align-items:center;gap:12px;padding:14px 22px 12px;background:#fff;border-bottom:1px solid rgba(41,171,226,.16);flex-wrap:wrap">
+    <div style="min-width:0"><div style="font-size:20px;font-weight:700;color:#1a1917;letter-spacing:-.02em">Agenda</div><div style="font-size:11.5px;color:#7a7a76">Vista diaria de citas por terapeuta</div></div>
+    <div style="display:flex;align-items:center;gap:6px;margin-left:10px">
+      <button style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(41,171,226,.25);background:#fff;cursor:pointer;color:#29ABE2;font-size:16px;line-height:1">‹</button>
+      <div style="font-size:13px;font-weight:600;color:#1a1917;padding:0 6px;min-width:180px;text-align:center">Lunes, 3 de agosto 2026</div>
+      <button style="width:30px;height:30px;border-radius:8px;border:1px solid rgba(41,171,226,.25);background:#fff;cursor:pointer;color:#29ABE2;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></button>
+      <button style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(41,171,226,.25);background:#fff;cursor:pointer;color:#29ABE2;font-size:16px;line-height:1">›</button>
+      <button style="height:32px;border-radius:8px;border:1px solid rgba(41,171,226,.25);background:#fff;cursor:pointer;color:#1d8fbf;font-size:12px;font-weight:600;padding:0 12px;font-family:inherit">Hoy</button>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <select style="font-size:12px;background:#faf6ef;border:1px solid rgba(41,171,226,.25);border-radius:8px;padding:7px 10px;color:#1a1917;cursor:pointer;min-width:160px;font-family:inherit"><option>Todos los terapeutas</option><option>María Rojas</option><option>Carlos Vega</option><option>Andrea Salazar</option></select>
+      <div style="display:flex;gap:2px;background:#faf6ef;border:1px solid rgba(41,171,226,.16);border-radius:9px;padding:3px">
+        <span style="padding:5px 13px;border-radius:7px;background:#29ABE2;color:#fff;font-size:12px;font-weight:600">Día</span>
+        <span style="padding:5px 13px;font-size:12px;color:#5a5a56;cursor:pointer">Semana</span>
+        <span style="padding:5px 13px;font-size:12px;color:#5a5a56;cursor:pointer">Mes</span>
+      </div>
+      <button style="height:34px;border-radius:8px;border:1px solid rgba(41,171,226,.25);background:#fff;color:#5a5a56;font-size:12px;font-weight:600;padding:0 13px;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><line x1="12" y1="15" x2="12" y2="3"></line></svg>Exportar</button>
+      <button style="height:36px;background:#29ABE2;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;padding:0 16px;cursor:pointer;font-family:inherit">+ Nueva cita</button>
+    </div>
+  </header>
+  <div style="display:flex;align-items:center;gap:8px;padding:10px 22px;background:#fff;border-bottom:1px solid rgba(41,171,226,.14);flex-wrap:wrap">
+    <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#1a1917;background:rgba(41,171,226,.1);border:1px solid rgba(41,171,226,.25);border-radius:99px;padding:4px 12px"><b style="font-size:13px">9</b> citas hoy · 44 slots libres</span>
+    <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#17865f;padding:4px 2px"><span style="width:8px;height:8px;border-radius:50%;background:#1D9E75"></span>6 confirmadas</span>
+    <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#BA7517;padding:4px 2px"><span style="width:8px;height:8px;border-radius:50%;background:#E0A850"></span>2 pendientes</span>
+    <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#c33a3a;padding:4px 2px"><span style="width:8px;height:8px;border-radius:50%;background:#E24B4A"></span>1 no asistió</span>
+    <span style="margin-left:auto;display:inline-flex;align-items:center;gap:10px;font-size:11px;color:#7a7a76;flex-wrap:wrap">
+      <span>Franja izq. = doctor referente:</span>
+      <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:3px;height:12px;border-radius:2px;background:#D4537E;display:inline-block"></span>Dr. Ramírez</span>
+      <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:3px;height:12px;border-radius:2px;background:#7F77DD;display:inline-block"></span>Dra. Torres</span>
+      <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:12px;border-radius:3px;background:repeating-linear-gradient(45deg,#f0e3cc,#f0e3cc 3px,#f8f1e4 3px,#f8f1e4 6px);display:inline-block"></span>Fuera de horario</span>
+    </span>
+  </div>
+  <div style="flex:1;overflow:auto;padding:14px 22px 18px">
+    <div style="background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:12px;overflow:hidden;min-width:760px">
+      <div style="display:grid;grid-template-columns:60px repeat(3,1fr);border-bottom:1px solid rgba(41,171,226,.14);background:#faf6ef">
+        <div style="font-size:10px;font-weight:700;color:#5a5a56;text-transform:uppercase;letter-spacing:.05em;padding:11px 10px;text-align:right">Hora</div>
+        <div style="display:flex;align-items:center;gap:9px;padding:9px 12px"><span style="width:32px;height:32px;border-radius:50%;background:rgba(41,171,226,.13);color:#155b7a;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">MR</span><div><div style="font-size:13px;font-weight:700;color:#1a1917">María Rojas</div><div style="font-size:10.5px;color:#7a7a76">7:00–13:00</div></div></div>
+        <div style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-left:1px solid rgba(41,171,226,.1)"><span style="width:32px;height:32px;border-radius:50%;background:rgba(245,166,35,.15);color:#7a4900;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">CV</span><div><div style="font-size:13px;font-weight:700;color:#1a1917">Carlos Vega</div><div style="font-size:10.5px;color:#7a7a76">8:00–16:00</div></div></div>
+        <div style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-left:1px solid rgba(41,171,226,.1)"><span style="width:32px;height:32px;border-radius:50%;background:rgba(186,117,23,.12);color:#7a4a00;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">AS</span><div><div style="font-size:13px;font-weight:700;color:#1a1917">Andrea Salazar</div><div style="font-size:10.5px;color:#7a7a76">9:00–17:00</div></div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:60px repeat(3,1fr);grid-auto-rows:46px">
+        <sc-for list="{{gridRows}}" as="row" hint-placeholder-count="6">
+          <div style="{{row.timeStyle}}">{{row.time}}</div>
+          <sc-for list="{{row.cells}}" as="c" hint-placeholder-count="3">
+            <div style="{{c.cellStyle}}">
+              <sc-if value="{{c.appt}}" hint-placeholder-val="{{ false }}">
+                <div style="{{c.cardStyle}}" title="{{c.title}}">
+                  <div style="{{c.nameStyle}}">{{c.name}}</div>
+                  <div style="{{c.subStyle}}">{{c.sub}}</div>
+                  <span style="{{c.dotStyle}}"></span>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{is.resumen}}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Resumen del día" style="display:flex;flex-direction:column;height:100%">
+  <header style="display:flex;align-items:center;gap:14px;padding:14px 22px;background:#fff;border-bottom:1px solid rgba(41,171,226,.16)">
+    <div style="min-width:0"><div style="font-size:20px;font-weight:700;color:#1a1917;letter-spacing:-.02em">Resumen del día</div><div style="font-size:11.5px;color:#7a7a76">Acciones de seguimiento de la jornada</div></div>
+    <div style="display:flex;align-items:center;gap:6px;margin-left:10px">
+      <button style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(41,171,226,.25);background:#fff;cursor:pointer;color:#29ABE2;font-size:16px;line-height:1;font-family:inherit">‹</button>
+      <div style="font-size:13px;font-weight:600;color:#1a1917;padding:0 6px;min-width:170px;text-align:center">Lunes, 3 de agosto 2026</div>
+      <button style="width:30px;height:30px;border-radius:8px;border:1px solid rgba(41,171,226,.25);background:#fff;cursor:pointer;color:#29ABE2;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></button>
+      <button style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(41,171,226,.25);background:#fff;cursor:pointer;color:#29ABE2;font-size:16px;line-height:1;font-family:inherit">›</button>
+      <button style="height:32px;border-radius:8px;border:1px solid rgba(41,171,226,.25);background:#fff;cursor:pointer;color:#1d8fbf;font-size:12px;font-weight:600;padding:0 12px;font-family:inherit">Hoy</button>
+    </div>
+    <button style="margin-left:auto;height:36px;background:#29ABE2;color:#fff;border:none;border-radius:8px;font-size:12.5px;font-weight:700;padding:0 16px;cursor:pointer;font-family:inherit">Análisis con IA</button>
+  </header>
+  <div style="margin:14px 22px 0;background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:20px">
+    <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:26px;font-weight:800;color:#17865f;line-height:1">6</span><span style="font-size:12px;color:#5a5a56">asistieron</span></div>
+    <span style="width:1px;height:26px;background:rgba(0,0,0,.08)"></span>
+    <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:26px;font-weight:800;color:#a06a00;line-height:1">2</span><span style="font-size:12px;color:#5a5a56">por confirmar</span></div>
+    <span style="width:1px;height:26px;background:rgba(0,0,0,.08)"></span>
+    <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:26px;font-weight:800;color:#c33a3a;line-height:1">1</span><span style="font-size:12px;color:#5a5a56">no asistió — requiere contacto</span></div>
+    <div style="margin-left:auto;flex:1;max-width:320px">
+      <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#7a7a76;margin-bottom:4px"><span>Jornada del día</span><span><b style="color:#17865f">67%</b> resuelta</span></div>
+      <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px"><span style="flex:6;background:#1D9E75"></span><span style="flex:2;background:#E0A850"></span><span style="flex:1;background:#E24B4A"></span></div>
+    </div>
+  </div>
+  <div style="flex:1;overflow:auto;padding:14px 22px 18px;display:flex;flex-direction:column;gap:12px">
+    <sc-for list="{{resdSections}}" as="sec" hint-placeholder-count="3">
+      <div style="{{sec.boxStyle}}">
+        <div style="{{sec.headStyle}}"><span style="{{sec.dotStyle}}"></span><span style="{{sec.titleStyle}}">{{sec.label}}</span><span style="font-size:10.5px;color:#9c9a92">{{sec.count}}</span></div>
+        <sc-for list="{{sec.rows}}" as="r" hint-placeholder-count="2">
+          <div style="{{r.rowStyle}}">
+            <span style="font-size:12px;font-weight:700;color:#5a5a56;width:44px;flex-shrink:0">{{r.time}}</span>
+            <span style="{{r.avStyle}}">{{r.ini}}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700;color:#1a1917;display:flex;align-items:center;gap:6px;flex-wrap:wrap">{{r.name}}<sc-if value="{{r.refTag}}" hint-placeholder-val="{{ false }}"><span style="{{r.refStyle}}">{{r.refName}}</span></sc-if></div>
+              <div style="font-size:11px;color:#7a7a76">{{r.meta}}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              <sc-if value="{{r.isContact}}" hint-placeholder-val="{{ false }}">
+                <button style="font-size:11.5px;font-weight:700;color:#fff;background:#25a05a;border:none;border-radius:7px;padding:7px 13px;cursor:pointer;font-family:inherit">WhatsApp</button>
+                <button style="font-size:11.5px;font-weight:600;color:#1d8fbf;background:rgba(41,171,226,.1);border:1px solid rgba(41,171,226,.3);border-radius:7px;padding:7px 13px;cursor:pointer;font-family:inherit">Email</button>
+                <button style="font-size:11.5px;font-weight:600;color:#5a5a56;background:#faf6ef;border:1px solid rgba(0,0,0,.12);border-radius:7px;padding:7px 13px;cursor:pointer;font-family:inherit">Reagendar</button>
+              </sc-if>
+              <sc-if value="{{r.needsEval}}" hint-placeholder-val="{{ false }}"><button style="font-size:11.5px;font-weight:700;color:#a06a00;background:rgba(245,166,35,.15);border:1px solid rgba(245,166,35,.4);border-radius:7px;padding:7px 13px;cursor:pointer;font-family:inherit">Eval. inicial pendiente</button></sc-if>
+              <sc-if value="{{r.canComplete}}" hint-placeholder-val="{{ false }}"><button style="font-size:11.5px;font-weight:700;color:#fff;background:#29ABE2;border:none;border-radius:7px;padding:7px 13px;cursor:pointer;font-family:inherit">Completar sesión</button></sc-if>
+              <sc-if value="{{r.done}}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:700;color:#17865f;background:rgba(29,158,117,.1);border-radius:7px;padding:7px 11px">✓ Sesión registrada</span></sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{is.paciente}}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Informe de paciente" style="display:flex;flex-direction:column;height:100%">
+  <header style="display:flex;align-items:center;gap:10px;padding:14px 22px;background:#fff;border-bottom:1px solid rgba(41,171,226,.16)">
+    <div style="min-width:0;margin-right:8px"><div style="font-size:20px;font-weight:700;color:#1a1917;letter-spacing:-.02em">Informe de paciente</div><div style="font-size:11.5px;color:#7a7a76">Historial clínico, evolución y continuidad</div></div>
+    <div style="position:relative;margin-left:auto">
+      <svg style="position:absolute;left:10px;top:9px" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" value="María García Ponce" readOnly style="width:250px;background:#faf6ef;border:1px solid rgba(41,171,226,.25);border-radius:8px;padding:8px 12px 8px 30px;font-size:13px;color:#1a1917;font-family:inherit;outline:none;box-sizing:border-box">
+    </div>
+    <select style="font-size:12px;background:#faf6ef;border:1px solid rgba(41,171,226,.25);border-radius:8px;padding:8px 10px;color:#1a1917;cursor:pointer;font-family:inherit"><option>Episodio actual</option><option>Episodio 1 (cerrado)</option></select>
+  </header>
+  <div style="flex:1;overflow:auto;display:flex;gap:16px;padding:18px 22px;align-items:flex-start">
+    <div style="flex:1;min-width:0;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:4px;box-shadow:0 4px 18px rgba(0,0,0,.08);padding:30px 34px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #29ABE2;padding-bottom:14px">
+        <div><img src="assets/img/logo-rehactiva.png" alt="Rehactiva" style="width:190px;display:block"><div style="font-size:10.5px;color:#7a7a76;margin-top:4px">Rehabilitación y Fisioterapia · Quito, Ecuador · rehactivaec.com</div></div>
+        <div style="text-align:right;font-size:11px;color:#5a5a56;line-height:1.6"><div style="font-size:13px;font-weight:700;color:#1a1917">Informe de evolución</div><div>N.º INF-20260803-0001</div><div>3 de agosto de 2026</div></div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:10px;margin-top:16px"><div style="font-size:18px;font-weight:700;color:#1a1917">María García Ponce</div><span style="font-size:10.5px;font-weight:700;color:#17865f;background:rgba(29,158,117,.1);border:1px solid rgba(29,158,117,.3);border-radius:99px;padding:2px 9px">En tratamiento</span><span style="font-size:12px;color:#7a7a76">46 años</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 20px;margin-top:12px;padding:12px 14px;background:#faf6ef;border-radius:8px">
+        <div><div style="font-size:9.5px;font-weight:700;color:#9c9a92;text-transform:uppercase;letter-spacing:.05em">Diagnóstico</div><div style="font-size:12px;color:#1a1917;margin-top:1px">Lumbalgia mecánica crónica</div></div>
+        <div><div style="font-size:9.5px;font-weight:700;color:#9c9a92;text-transform:uppercase;letter-spacing:.05em">Doctor referente</div><div style="font-size:12px;color:#1a1917;margin-top:1px">Dr. Ramírez (Traumatología)</div></div>
+        <div><div style="font-size:9.5px;font-weight:700;color:#9c9a92;text-transform:uppercase;letter-spacing:.05em">Inicio</div><div style="font-size:12px;color:#1a1917;margin-top:1px">15 de junio de 2026</div></div>
+        <div style="grid-column:span 2"><div style="font-size:9.5px;font-weight:700;color:#9c9a92;text-transform:uppercase;letter-spacing:.05em">Protocolo</div><div style="font-size:12px;color:#1a1917;margin-top:1px">Lumbalgia — Rehabilitación estándar · 12 sesiones · 3×/sem</div></div>
+        <div><div style="font-size:9.5px;font-weight:700;color:#9c9a92;text-transform:uppercase;letter-spacing:.05em">Terapeuta</div><div style="font-size:12px;color:#1a1917;margin-top:1px">María Rojas (principal)</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px">
+        <div style="border:1px solid rgba(41,171,226,.22);border-radius:8px;padding:10px 14px"><div style="font-size:9.5px;font-weight:700;color:#9c9a92;text-transform:uppercase;letter-spacing:.05em">Sesiones completadas</div><div style="display:flex;align-items:baseline;gap:6px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:#1d8fbf">8<span style="font-size:13px;color:#9c9a92">/12</span></span><span style="font-size:11px;color:#7a7a76">67% del plan</span></div><div style="margin-top:6px;height:5px;background:#f0e8d8;border-radius:3px"><div style="width:67%;height:5px;background:#29ABE2;border-radius:3px"></div></div></div>
+        <div style="border:1px solid rgba(41,171,226,.22);border-radius:8px;padding:10px 14px"><div style="font-size:9.5px;font-weight:700;color:#9c9a92;text-transform:uppercase;letter-spacing:.05em">Continuidad</div><div style="display:flex;align-items:baseline;gap:6px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:#17865f">89%</span><span style="font-size:11px;color:#7a7a76">8 asistencias / 9 citas</span></div><div style="font-size:10.5px;color:#17865f;margin-top:8px">✓ Sobre la meta del protocolo (67%)</div></div>
+        <div style="border:1px solid rgba(41,171,226,.22);border-radius:8px;padding:10px 14px"><div style="font-size:9.5px;font-weight:700;color:#9c9a92;text-transform:uppercase;letter-spacing:.05em">Dolor EVA</div><div style="display:flex;align-items:center;gap:10px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:#c33a3a">7</span><span style="color:#9c9a92">→</span><span style="font-size:22px;font-weight:700;color:#17865f">3</span><span style="font-size:11px;color:#7a7a76">−4 puntos<br>desde el inicio</span></div></div>
+      </div>
+      <div style="margin-top:16px"><div style="font-size:11px;font-weight:700;color:#1a1917;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid rgba(41,171,226,.2);padding-bottom:5px">Evolución del dolor (EVA)</div>
+        <svg viewBox="0 0 640 130" style="width:100%;display:block;margin-top:8px">
+          <rect x="34" y="10" width="596" height="35" fill="rgba(226,75,74,.08)"></rect><rect x="34" y="45" width="596" height="35" fill="rgba(224,168,80,.1)"></rect><rect x="34" y="80" width="596" height="35" fill="rgba(29,158,117,.08)"></rect>
+          <text x="28" y="16" font-size="9" fill="#9c9a92" text-anchor="end">10</text><text x="28" y="66" font-size="9" fill="#9c9a92" text-anchor="end">5</text><text x="28" y="116" font-size="9" fill="#9c9a92" text-anchor="end">0</text>
+          <polyline points="60,41.5 130,62.5 200,62.5 270,73 340,73 410,83.5 480,73 550,83.5 620,83.5" fill="none" stroke="#F5A623" stroke-width="2.5" stroke-linejoin="round"></polyline>
+          <circle cx="60" cy="41.5" r="3.5" fill="#F5A623"></circle><circle cx="130" cy="62.5" r="3.5" fill="#F5A623"></circle><circle cx="200" cy="62.5" r="3.5" fill="#F5A623"></circle><circle cx="270" cy="73" r="3.5" fill="#F5A623"></circle><circle cx="340" cy="73" r="3.5" fill="#F5A623"></circle><circle cx="410" cy="83.5" r="3.5" fill="#F5A623"></circle><circle cx="480" cy="73" r="3.5" fill="#F5A623"></circle><circle cx="550" cy="83.5" r="3.5" fill="#F5A623"></circle><circle cx="620" cy="83.5" r="3.5" fill="#F5A623"></circle>
+          <text x="60" y="127" font-size="8.5" fill="#7a7a76" text-anchor="middle">Inicio</text><text x="130" y="127" font-size="8.5" fill="#7a7a76" text-anchor="middle">17/06</text><text x="200" y="127" font-size="8.5" fill="#7a7a76" text-anchor="middle">19/06</text><text x="270" y="127" font-size="8.5" fill="#7a7a76" text-anchor="middle">24/06</text><text x="340" y="127" font-size="8.5" fill="#7a7a76" text-anchor="middle">26/06</text><text x="410" y="127" font-size="8.5" fill="#7a7a76" text-anchor="middle">01/07</text><text x="480" y="127" font-size="8.5" fill="#7a7a76" text-anchor="middle">08/07</text><text x="550" y="127" font-size="8.5" fill="#7a7a76" text-anchor="middle">15/07</text><text x="620" y="127" font-size="8.5" fill="#7a7a76" text-anchor="middle">22/07</text>
+        </svg>
+      </div>
+      <div style="margin-top:14px;border:1px solid rgba(245,166,35,.5);border-left:4px solid #F5A623;border-radius:8px;padding:12px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px"><span style="font-size:11px;font-weight:700;color:#1a1917;text-transform:uppercase;letter-spacing:.05em">Evaluación inicial · 15/06/2026</span><span style="font-size:12px;font-weight:700;color:#c33a3a">EVA 7/10</span></div>
+        <div style="font-size:11.5px;color:#3a3a36;line-height:1.6">Dolor lumbar de 3 meses de evolución, se agrava al estar sentada. Contractura paravertebral bilateral L3-L5. Flexión limitada al 60%, dolor en extensión. Ant. familiares: HTA materna.</div>
+      </div>
+      <div style="margin-top:14px"><div style="font-size:11px;font-weight:700;color:#1a1917;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid rgba(41,171,226,.2);padding-bottom:5px">Detalle por sesión (8)</div>
+        <table style="width:100%;border-collapse:collapse;margin-top:4px">
+          <thead><tr>
+            <th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#9c9a92;padding:6px 8px 5px 0">Fecha</th>
+            <th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#9c9a92;padding:6px 8px 5px 0">Terapeuta</th>
+            <th style="text-align:center;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#9c9a92;padding:6px 8px 5px 0">EVA</th>
+            <th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#9c9a92;padding:6px 0 5px 0">Técnicas y observación</th>
+          </tr></thead><tbody>
+          <sc-for list="{{sesRows}}" as="s" hint-placeholder-count="4">
+            <tr>
+              <td style="padding:6px 8px 6px 0;border-top:1px solid rgba(0,0,0,.06);font-size:11px;color:#1a1917;white-space:nowrap;vertical-align:top">{{s.fecha}}</td>
+              <td style="padding:6px 8px 6px 0;border-top:1px solid rgba(0,0,0,.06);font-size:11px;color:#1a1917;white-space:nowrap;vertical-align:top">{{s.th}}</td>
+              <td style="{{s.evaStyle}}">{{s.eva}}</td>
+              <td style="padding:6px 0;border-top:1px solid rgba(0,0,0,.06);font-size:11px;color:#5a5a56;vertical-align:top">{{s.obs}}</td>
+            </tr>
+          </sc-for>
+          </tbody></table>
+      </div>
+    </div>
+    <aside style="width:230px;flex-shrink:0;display:flex;flex-direction:column;gap:10px;position:sticky;top:0">
+      <div style="background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#9c9a92;margin-bottom:10px">Documento</div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <button style="width:100%;background:#29ABE2;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;padding:9px 0;cursor:pointer;font-family:inherit">Informe clínico con IA</button>
+          <button style="width:100%;background:#fff;color:#1d8fbf;border:1px solid rgba(41,171,226,.35);border-radius:8px;font-size:12px;font-weight:600;padding:9px 0;cursor:pointer;font-family:inherit">Exportar PDF</button>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#9c9a92;margin-bottom:10px">Paciente</div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <button style="width:100%;background:rgba(41,171,226,.1);color:#1d8fbf;border:1px solid rgba(41,171,226,.3);border-radius:8px;font-size:12px;font-weight:600;padding:8px 0;cursor:pointer;font-family:inherit">+ Agendar cita</button>
+          <button style="width:100%;background:rgba(41,171,226,.1);color:#1d8fbf;border:1px solid rgba(41,171,226,.3);border-radius:8px;font-size:12px;font-weight:600;padding:8px 0;cursor:pointer;font-family:inherit">+ Sesión manual</button>
+          <button style="width:100%;background:rgba(245,166,35,.12);color:#a06a00;border:1px solid rgba(245,166,35,.4);border-radius:8px;font-size:12px;font-weight:600;padding:8px 0;cursor:pointer;font-family:inherit">Nuevo episodio</button>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#9c9a92;margin-bottom:8px">Informes guardados</div>
+        <div style="font-size:11px;color:#9c9a92">Sin informes guardados de este episodio.</div>
+      </div>
+    </aside>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{is.protocolos}}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Protocolos" style="display:flex;flex-direction:column;height:100%">
+  <header style="display:flex;align-items:center;gap:12px;padding:14px 22px;background:#fff;border-bottom:1px solid rgba(41,171,226,.16)">
+    <div style="min-width:0"><div style="font-size:20px;font-weight:700;color:#1a1917;letter-spacing:-.02em">Protocolos de tratamiento</div><div style="font-size:11.5px;color:#7a7a76">Planes estándar por diagnóstico y comparación de continuidad</div></div>
+    <div style="position:relative;margin-left:auto">
+      <svg style="position:absolute;left:10px;top:9px" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" placeholder="Buscar protocolo o diagnóstico…" style="width:250px;background:#faf6ef;border:1px solid rgba(41,171,226,.25);border-radius:8px;padding:8px 12px 8px 30px;font-size:12.5px;color:#1a1917;font-family:inherit;outline:none;box-sizing:border-box">
+    </div>
+    <button style="height:36px;background:#29ABE2;color:#fff;border:none;border-radius:8px;font-size:12.5px;font-weight:700;padding:0 16px;cursor:pointer;font-family:inherit">+ Nuevo protocolo</button>
+  </header>
+  <div style="flex:1;overflow:auto;padding:14px 22px 18px;display:flex;flex-direction:column;gap:12px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">
+      <sc-for list="{{protCards}}" as="p" hint-placeholder-count="3">
+        <div style="background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:12px;overflow:hidden">
+          <div style="position:relative;height:130px">
+            <image-slot id="{{p.imgId}}" shape="rect" placeholder="{{p.imgPh}}"></image-slot>
+            <span style="position:absolute;top:10px;right:10px;font-size:10px;font-weight:700;color:#155b7a;background:rgba(255,255,255,.9);border-radius:99px;padding:3px 10px;pointer-events:none;white-space:nowrap">{{p.pts}} pacientes</span>
+          </div>
+          <div style="padding:12px 16px 14px">
+            <div style="font-size:13px;font-weight:700;color:#1a1917;line-height:1.35">{{p.name}}</div>
+            <div style="font-size:11px;color:#7a7a76;margin-top:4px;line-height:1.5">{{p.def}}</div>
+            <div style="display:flex;gap:12px;margin-top:9px;font-size:11px;color:#5a5a56"><span><b style="color:#1a1917">{{p.ses}}</b> sesiones</span><span><b style="color:#1a1917">{{p.freq}}</b>/semana</span></div>
+            <div style="font-size:10.5px;color:#9c9a92;margin-top:4px">Alta: {{p.alta}}</div>
+            <div style="display:flex;gap:6px;margin-top:10px"><button style="font-size:11px;font-weight:600;color:#1d8fbf;background:rgba(41,171,226,.1);border:1px solid rgba(41,171,226,.3);border-radius:7px;padding:5px 13px;cursor:pointer;font-family:inherit">Editar</button><button style="font-size:11px;font-weight:600;color:#c33a3a;background:rgba(226,75,74,.07);border:1px solid rgba(226,75,74,.25);border-radius:7px;padding:5px 13px;cursor:pointer;font-family:inherit">Eliminar</button></div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{is.informes}}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Informes" style="display:flex;flex-direction:column;height:100%">
+  <header style="display:flex;align-items:center;gap:12px;padding:14px 22px;background:#fff;border-bottom:1px solid rgba(41,171,226,.16);flex-wrap:wrap">
+    <div style="min-width:0"><div style="font-size:20px;font-weight:700;color:#1a1917;letter-spacing:-.02em">Informes</div><div style="font-size:11.5px;color:#7a7a76">Análisis semanal, mensual y anual de la clínica</div></div>
+    <div style="display:flex;gap:2px;background:#faf6ef;border:1px solid rgba(41,171,226,.16);border-radius:9px;padding:3px;margin-left:14px">
+      <span style="padding:5px 14px;border-radius:7px;background:#29ABE2;color:#fff;font-size:12px;font-weight:600">Semanal</span>
+      <span style="padding:5px 14px;font-size:12px;color:#5a5a56;cursor:pointer">Mensual</span>
+      <span style="padding:5px 14px;font-size:12px;color:#5a5a56;cursor:pointer">Anual</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+      <button style="width:30px;height:30px;border-radius:8px;border:1px solid rgba(41,171,226,.25);background:#fff;cursor:pointer;color:#29ABE2;line-height:1">‹</button>
+      <span style="font-size:12.5px;font-weight:600;color:#1a1917;min-width:150px;text-align:center">27 jul – 31 jul 2026</span>
+      <button style="width:30px;height:30px;border-radius:8px;border:1px solid rgba(41,171,226,.25);background:#fff;cursor:pointer;color:#29ABE2;line-height:1">›</button>
+    </div>
+    <button style="height:34px;background:#29ABE2;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;padding:0 14px;cursor:pointer;font-family:inherit">Análisis con IA</button>
+    <button style="height:34px;border-radius:8px;border:1px solid rgba(41,171,226,.25);background:#fff;color:#5a5a56;font-size:12px;font-weight:600;padding:0 13px;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><line x1="12" y1="15" x2="12" y2="3"></line></svg>Exportar PDF</button>
+  </header>
+  <div style="flex:1;overflow:auto;padding:14px 22px 18px;display:flex;flex-direction:column;gap:12px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+      <sc-for list="{{kpis}}" as="k" hint-placeholder-count="6">
+        <div style="background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:10px;padding:11px 13px"><div style="font-size:9.5px;font-weight:700;color:#9c9a92;text-transform:uppercase;letter-spacing:.05em">{{k.lbl}}</div><div style="{{k.valStyle}}">{{k.val}}</div><div style="font-size:10px;color:#9c9a92">{{k.sub}}</div></div>
+      </sc-for>
+    </div>
+    <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:12px">
+      <div style="background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:12px;padding:14px 16px">
+        <div style="font-size:11px;font-weight:700;color:#1a1917;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Desempeño por terapeuta</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{thPerf}}" as="t" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:10px"><span style="{{t.avStyle}}">{{t.ini}}</span><div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:700;color:#1a1917">{{t.name}}</span><span style="font-size:11px;color:#7a7a76"><b style="color:#17865f">✓ {{t.conf}}</b> · <b style="color:#c33a3a">✗ {{t.noas}}</b></span></div><div style="margin-top:4px;height:5px;background:#f0e8d8;border-radius:3px"><div style="{{t.barStyle}}"></div></div></div><span style="{{t.pctStyle}}">{{t.util}}%</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:12px;padding:12px 16px;flex:1">
+          <div style="font-size:11px;font-weight:700;color:#1a1917;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Top diagnósticos</div>
+          <sc-for list="{{topDiag}}" as="d" hint-placeholder-count="4">
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:11.5px"><span style="color:#1a1917">{{d.name}}</span><b style="color:#1d8fbf">{{d.n}}</b></div>
+          </sc-for>
+        </div>
+        <div style="background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:12px;padding:12px 16px;flex:1">
+          <div style="font-size:11px;font-weight:700;color:#1a1917;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Próximos a alta ≥80%</div>
+          <sc-for list="{{proxAlta}}" as="p" hint-placeholder-count="3">
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:11.5px"><span style="color:#1a1917">{{p.name}}</span><b style="color:#a06a00">{{p.pct}}%</b></div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:12px">
+      <div style="background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:12px;padding:14px 16px">
+        <div style="font-size:11px;font-weight:700;color:#1a1917;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Mapa de calor — utilización por hora y día</div>
+        <div style="display:grid;grid-template-columns:48px repeat(5,1fr);gap:3px;font-size:10px">
+          <div></div><div style="text-align:center;color:#7a7a76;font-weight:700">Lun</div><div style="text-align:center;color:#7a7a76;font-weight:700">Mar</div><div style="text-align:center;color:#7a7a76;font-weight:700">Mié</div><div style="text-align:center;color:#7a7a76;font-weight:700">Jue</div><div style="text-align:center;color:#7a7a76;font-weight:700">Vie</div>
+          <sc-for list="{{hmCells}}" as="c" hint-placeholder-count="12">
+            <sc-if value="{{c.isLbl}}" hint-placeholder-val="{{ false }}"><div style="color:#7a7a76;text-align:right;padding-right:4px;line-height:26px">{{c.txt}}</div></sc-if>
+            <sc-if value="{{c.isCell}}" hint-placeholder-val="{{ true }}"><div style="{{c.style}}">{{c.txt}}</div></sc-if>
+          </sc-for>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;margin-top:10px;font-size:10px;color:#9c9a92"><span>0%</span><span style="width:11px;height:11px;border-radius:3px;background:rgba(41,171,226,.12)"></span><span style="width:11px;height:11px;border-radius:3px;background:rgba(41,171,226,.3)"></span><span style="width:11px;height:11px;border-radius:3px;background:rgba(41,171,226,.5)"></span><span style="width:11px;height:11px;border-radius:3px;background:#1d8fbf"></span><span style="width:11px;height:11px;border-radius:3px;background:#155b7a"></span><span>100%</span></div>
+      </div>
+      <div style="background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:12px;padding:14px 16px">
+        <div style="font-size:11px;font-weight:700;color:#1a1917;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Insights automáticos</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <sc-for list="{{insights}}" as="i" hint-placeholder-count="4">
+            <div style="display:flex;gap:10px"><span style="{{i.iconStyle}}">{{i.icon}}</span><div><div style="font-size:12px;font-weight:600;color:#1a1917">{{i.t}}</div><div style="font-size:10.5px;color:#7a7a76">{{i.s}}</div></div></div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{is.other}}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Fuera de alcance" style="display:flex;flex-direction:column;height:100%">
+  <header style="padding:14px 22px;background:#fff;border-bottom:1px solid rgba(41,171,226,.16)"><div style="font-size:20px;font-weight:700;color:#1a1917">{{otherTitle}}</div><div style="font-size:11.5px;color:#7a7a76">Fuera del alcance de este rediseño</div></header>
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#9c9a92;font-size:13px">Esta pantalla existe en la app real; el rediseño cubre Agenda, Resumen, Informe paciente, Protocolos, Informes y Login.</div>
+</div>
+</sc-if>
+</main>
+
+<sc-if value="{{is.login}}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Login" style="position:fixed;inset:0;background:#f5f0e8;z-index:9999;display:flex;align-items:center;justify-content:center">
+  <div style="width:340px;background:#fff;border:1px solid rgba(41,171,226,.25);border-radius:14px;padding:30px 28px;box-shadow:0 8px 30px rgba(0,0,0,.06)">
+    <img src="assets/img/logo-rehactiva.png" alt="Rehactiva — Centro de rehabilitación y fisioterapia" style="width:240px;display:block;margin:0 auto">
+    <div style="font-size:12px;color:#7a7a76;text-align:center;margin:10px 0 22px">Gestión clínica · Acceso restringido</div>
+    <label style="display:block;font-size:11px;font-weight:700;color:#5a5a56;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Correo electrónico</label>
+    <input type="email" placeholder="tu@correo.com" style="width:100%;box-sizing:border-box;background:#faf6ef;border:1px solid rgba(41,171,226,.2);border-radius:8px;padding:10px 12px;font-size:13px;color:#1a1917;font-family:inherit;outline:none;margin-bottom:14px">
+    <label style="display:block;font-size:11px;font-weight:700;color:#5a5a56;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Contraseña</label>
+    <input type="password" placeholder="••••••••" style="width:100%;box-sizing:border-box;background:#faf6ef;border:1px solid rgba(41,171,226,.2);border-radius:8px;padding:10px 12px;font-size:13px;color:#1a1917;font-family:inherit;outline:none;margin-bottom:18px">
+    <button onClick="{{nav.agenda}}" style="width:100%;background:#29ABE2;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;padding:11px 0;cursor:pointer;font-family:inherit">Ingresar</button>
+    <button style="display:block;margin:14px auto 0;background:none;border:none;font-size:12px;color:#1d8fbf;cursor:pointer;font-family:inherit">Olvidé mi contraseña</button>
+  </div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;pantalla&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;agenda&quot;,&quot;options&quot;:[&quot;agenda&quot;,&quot;resumen&quot;,&quot;paciente&quot;,&quot;protocolos&quot;,&quot;informes&quot;,&quot;login&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Vista&quot;}}">
+class Component extends DCLogic {
+  state = { tab: this.props.pantalla ?? 'agenda' };
+  componentDidUpdate(pp){ if(pp.pantalla!==this.props.pantalla && this.props.pantalla) this.setState({tab:this.props.pantalla}); }
+  renderVals(){
+    const tab=this.state.tab;
+    const TABS=['agenda','resumen','pacientes','paciente','protocolos','informes','facturacion','terapeutas','doctores','login'];
+    const OK=['agenda','resumen','paciente','protocolos','informes','login'];
+    const nav={},st={},is={};
+    const base={display:'flex',alignItems:'center',gap:9,padding:'8px 10px',borderRadius:8,border:'none',background:'none',color:'#5a5a56',fontSize:12.5,fontFamily:'inherit',cursor:'pointer',width:'100%',textAlign:'left'};
+    TABS.forEach(t=>{nav[t]=()=>this.setState({tab:t});
+      st[t]=tab===t?Object.assign({},base,{background:'rgba(41,171,226,.14)',color:'#1d8fbf',fontWeight:700}):base;});
+    OK.forEach(t=>is[t]=tab===t);
+    is.other=!OK.includes(tab);
+    const otherTitles={pacientes:'Pacientes',facturacion:'Facturación',terapeutas:'Terapeutas',doctores:'Doctores referentes'};
+
+    const fmtTime=h=>Math.floor(h)+':'+(h%1===0.5?'30':'00');
+    const THS=[{id:1,name:'María Rojas',ini:'MR',bg:'rgba(41,171,226,.13)',fg:'#155b7a',cbg:'rgba(41,171,226,.13)',cfg:'#155b7a',csub:'#4a7a95',s:7,e:13},
+      {id:2,name:'Carlos Vega',ini:'CV',bg:'rgba(245,166,35,.15)',fg:'#7a4900',cbg:'rgba(245,166,35,.15)',cfg:'#7a4900',csub:'#96702f',s:8,e:16},
+      {id:3,name:'Andrea Salazar',ini:'AS',bg:'rgba(186,117,23,.12)',fg:'#7a4a00',cbg:'rgba(186,117,23,.12)',cfg:'#7a4a00',csub:'#96702f',s:9,e:17}];
+    const DOC1='#D4537E',DOC2='#7F77DD';
+    const APPTS=[
+      {th:1,hr:8,name:'María García Ponce',type:'Fisioterapia',st:'conf',doc:DOC1},
+      {th:1,hr:9,name:'Luis Andrade',type:'Kinesioterapia',st:'pend'},
+      {th:1,hr:10.5,name:'Rosa Cevallos',type:'Fisioterapia · 90 min',st:'conf',doc:DOC2,dur:90},
+      {th:2,hr:8.5,name:'Jorge Paredes',type:'Terapia manual',st:'conf'},
+      {th:2,hr:11,name:'Carmen Ortiz',type:'Electroterapia · no asistió',st:'noas',doc:DOC1},
+      {th:2,hr:14,name:'Pablo Naranjo',type:'Fisioterapia',st:'conf'},
+      {th:3,hr:9.5,name:'Elena Suárez',type:'Masoterapia',st:'conf'},
+      {th:3,hr:12,name:'Diego Molina',type:'Fisioterapia',st:'pend'},
+      {th:3,hr:15.5,name:'Verónica Paz',type:'Kinesioterapia',st:'conf',doc:DOC2}];
+    const dotC=s=>s==='conf'?'#1D9E75':s==='pend'?'#E0A850':'#E24B4A';
+    const tails=new Set();
+    APPTS.forEach(a=>{const n=Math.max(1,Math.round((a.dur||60)/30));for(let i=1;i<n;i++)tails.add(a.th+':'+(a.hr+i*0.5));});
+    const gridRows=[];
+    for(let hr=7;hr<17;hr+=0.5){
+      const half=hr%1===0.5,last=hr===16.5;
+      const cells=THS.map(t=>{
+        const avail=hr>=t.s&&hr<t.e;
+        const cs={borderLeft:'1px solid rgba(0,0,0,.04)',padding:3,boxSizing:'border-box'};
+        if(!last)cs.borderBottom='1px solid rgba(0,0,0,.05)';
+        if(tails.has(t.id+':'+hr))return{cellStyle:cs,appt:false};
+        if(!avail)return{cellStyle:Object.assign(cs,{background:'repeating-linear-gradient(45deg,#f0e3cc,#f0e3cc 6px,#f8f1e4 6px,#f8f1e4 12px)',padding:0}),appt:false};
+        const a=APPTS.find(x=>x.th===t.id&&x.hr===hr);
+        if(!a)return{cellStyle:cs,appt:false};
+        const spans=Math.max(1,Math.round((a.dur||60)/30));
+        const noas=a.st==='noas',pend=a.st==='pend';
+        const card={height:spans>1?'calc('+spans+' * 46px - 6px)':'100%',boxSizing:'border-box',borderRadius:8,padding:'4px 8px',position:'relative',zIndex:2,
+          background:noas?'rgba(226,75,74,.08)':pend?'rgba(224,168,80,.14)':t.cbg,
+          borderLeft:'4px solid '+(a.doc||'rgba(0,0,0,.1)'),cursor:'pointer'};
+        if(pend){card.border='1px dashed rgba(186,117,23,.5)';card.borderLeft='4px solid '+(a.doc||'rgba(0,0,0,.1)');card.opacity=.88;}
+        return{cellStyle:Object.assign(cs,spans>1?{position:'relative',zIndex:2}:{}),appt:true,cardStyle:card,
+          title:a.doc?'Doctor referente':'',
+          nameStyle:{fontSize:11.5,fontWeight:700,color:noas?'#c33a3a':pend?'#7a4a00':t.cfg,textDecoration:noas?'line-through':'none',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',paddingRight:14},
+          subStyle:{fontSize:10,color:noas?'#b05555':pend?'#96702f':t.csub,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},
+          name:a.name,sub:pend?a.type+' · por confirmar':a.type,
+          dotStyle:{position:'absolute',top:6,right:7,width:9,height:9,borderRadius:'50%',background:dotC(a.st)}};
+      });
+      gridRows.push({time:fmtTime(hr),
+        timeStyle:{fontSize:11,color:half?'#b0ada8':'#7a7a76',fontWeight:half?400:600,textAlign:'right',padding:'6px 10px',background:'#faf6ef',borderBottom:last?'none':'1px solid rgba(0,0,0,.05)',boxSizing:'border-box'},cells});
+    }
+
+    const ini=n=>n.trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const thName=id=>THS.find(t=>t.id===id).name;
+    const secDef=[
+      {key:'noas',label:'No asistieron',c:'#E24B4A',head:'rgba(226,75,74,.06)',bord:'rgba(226,75,74,.3)',hb:'rgba(226,75,74,.2)',tc:'#c33a3a'},
+      {key:'pend',label:'Pendientes de confirmar',c:'#E0A850',head:'rgba(245,166,35,.07)',bord:'rgba(245,166,35,.4)',hb:'rgba(245,166,35,.3)',tc:'#a06a00'},
+      {key:'conf',label:'Asistieron correctamente',c:'#1D9E75',head:'rgba(29,158,117,.05)',bord:'rgba(29,158,117,.28)',hb:'rgba(29,158,117,.2)',tc:'#17865f'}];
+    const resdSections=secDef.map(sd=>{
+      const rows=APPTS.filter(a=>a.st===sd.key).sort((a,b)=>a.hr-b.hr).map((a,i)=>{
+        const t=THS.find(x=>x.id===a.th);
+        return {time:fmtTime(a.hr),ini:ini(a.name),name:a.name,
+          refTag:!!a.doc,refName:a.doc===DOC1?'Dr. Ramírez':'Dra. Torres',
+          refStyle:a.doc?{fontSize:10,fontWeight:700,color:a.doc,background:a.doc+'18',border:'1px solid '+a.doc+'44',borderRadius:99,padding:'1px 8px'}:undefined,
+          meta:[a.type.replace(' · no asistió',''),thName(a.th)].concat(sd.key==='noas'?['099 555 1234']:[]).join(' · '),
+          avStyle:{width:34,height:34,borderRadius:'50%',background:t.bg,color:t.fg,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,flexShrink:0},
+          rowStyle:{display:'flex',alignItems:'center',gap:12,padding:'10px 16px',borderTop:i>0?'1px solid rgba(0,0,0,.05)':'none',flexWrap:'wrap'},
+          isContact:sd.key!=='conf',done:sd.key==='conf'&&i===0,needsEval:sd.key==='conf'&&i===2,
+          canComplete:sd.key==='conf'&&i!==0};
+      });
+      return {label:sd.label,count:rows.length+' cita'+(rows.length!==1?'s':''),rows,
+        boxStyle:{background:'#fff',border:'1px solid '+sd.bord,borderRadius:12,overflow:'hidden',flexShrink:0},
+        headStyle:{display:'flex',alignItems:'center',gap:8,padding:'10px 16px',background:sd.head,borderBottom:'1px solid '+sd.hb},
+        dotStyle:{width:8,height:8,borderRadius:'50%',background:sd.c},
+        titleStyle:{fontSize:12,fontWeight:700,color:sd.tc}};
+    });
+
+    const sesRows=[
+      {fecha:'22/07/2026',th:'María Rojas',eva:'3→3',g:1,obs:'Ejercicio terapéutico — rutina domiciliaria revisada, buena tolerancia'},
+      {fecha:'15/07/2026',th:'María Rojas',eva:'4→3',g:1,obs:'Ejercicio terapéutico, estiramientos — plancha frontal, movilidad torácica'},
+      {fecha:'08/07/2026',th:'Carlos Vega',eva:'5→4',g:0,obs:'Terapia manual, electroterapia — recaída leve por viaje, TENS 15 min'},
+      {fecha:'01/07/2026',th:'María Rojas',eva:'4→3',g:1,obs:'Ejercicio terapéutico — progresión core, bird-dog 3×10'},
+      {fecha:'26/06/2026',th:'María Rojas',eva:'5→4',g:0,obs:'Masoterapia, estiramientos — isquiotibiales y psoas'},
+      {fecha:'24/06/2026',th:'Carlos Vega',eva:'5→4',g:0,obs:'Electroterapia, ejercicio terapéutico — TENS + puente glúteo 3×12'},
+      {fecha:'19/06/2026',th:'María Rojas',eva:'6→5',g:0,obs:'Terapia manual, ejercicio terapéutico — movilizaciones L3-L5, activación core'},
+      {fecha:'17/06/2026',th:'María Rojas',eva:'7→5',g:0,obs:'Masoterapia, electroterapia — masaje descontracturante lumbar, TENS 15 min'}
+    ].map(s=>Object.assign(s,{evaStyle:{padding:'6px 8px 6px 0',borderTop:'1px solid rgba(0,0,0,.06)',fontSize:11,textAlign:'center',fontWeight:700,color:s.g?'#17865f':'#BA7517',whiteSpace:'nowrap',verticalAlign:'top'}}));
+
+    const protCards=[
+      {name:'Lumbalgia — Rehabilitación estándar',def:'Dolor lumbar mecánico sin irradiación',ses:12,freq:'3×',alta:'EVA ≤2, retorno a actividades diarias',pts:4,imgId:'prot-lumbalgia',imgPh:'Foto: terapia lumbar'},
+      {name:'Rodilla — Postoperatorio meniscal',def:'Postoperatorio de reparación meniscal',ses:20,freq:'3×',alta:'Rango articular completo, EVA 0-1/10',pts:2,imgId:'prot-rodilla',imgPh:'Foto: rehabilitación de rodilla'},
+      {name:'Hombro — Manguito rotador',def:'Tendinopatía del manguito rotador',ses:24,freq:'2×',alta:'Fuerza 5/5 sin dolor en abducción',pts:3,imgId:'prot-hombro',imgPh:'Foto: terapia de hombro'}];
+    const adherence=[
+      {name:'María García Ponce',ini:'MG',t:0,diag:'Lumbalgia mecánica crónica · esperado 3×/sem · 12 sesiones',adh:89,exp:67},
+      {name:'Jorge Paredes',ini:'JP',t:1,diag:'Gonartrosis bilateral · esperado 3×/sem · 20 sesiones',adh:78,exp:55},
+      {name:'Diego Molina',ini:'DM',t:2,diag:'Tendinopatía manguito · esperado 2×/sem · 24 sesiones',adh:38,exp:42}].map(a=>{
+      const c=a.adh>=85?'#1D9E75':a.adh>=60?'#F5A623':'#E24B4A';
+      const tc=a.adh>=85?'#17865f':a.adh>=60?'#a06a00':'#c33a3a';
+      const t=THS[a.t];
+      return Object.assign(a,{bajo:a.adh<a.exp,
+        avStyle:{width:34,height:34,borderRadius:'50%',background:t.bg,color:t.fg,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,flexShrink:0},
+        realStyle:{color:tc},barStyle:{width:a.adh+'%',height:6,background:c,borderRadius:3},
+        metaStyle:{position:'absolute',top:-2,left:a.exp+'%',width:2,height:10,background:'rgba(0,0,0,.35)',borderRadius:1}});});
+
+    const kv=c=>({fontSize:21,fontWeight:700,color:c,marginTop:2});
+    const kpis=[
+      {lbl:'Citas totales',val:'156',sub:'5 días hábiles',valStyle:kv('#1a1917')},
+      {lbl:'Asistencia',val:'88%',sub:'138 confirmadas',valStyle:kv('#17865f')},
+      {lbl:'No asistieron',val:'8',sub:'6 pacientes',valStyle:kv('#c33a3a')},
+      {lbl:'Ingreso estimado',val:'$3450',sub:'a $25/sesión',valStyle:kv('#17865f')},
+      {lbl:'Atendidos',val:'42',sub:'únicos',valStyle:kv('#1a1917')},
+      {lbl:'Activos',val:'28',sub:'en tratamiento',valStyle:kv('#1a1917')}];
+    const thPerf=[{t:0,conf:48,noas:3,util:80},{t:1,conf:52,noas:2,util:65},{t:2,conf:38,noas:3,util:48}].map(p=>{
+      const t=THS[p.t];const c=p.util>=80?'#1D9E75':p.util>=60?'#F5A623':'#E24B4A';const tc=p.util>=80?'#17865f':p.util>=60?'#a06a00':'#c33a3a';
+      return {ini:t.ini,name:t.name,conf:p.conf,noas:p.noas,util:p.util,
+        avStyle:{width:32,height:32,borderRadius:'50%',background:t.bg,color:t.fg,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,flexShrink:0},
+        barStyle:{width:p.util+'%',height:5,background:c,borderRadius:3},
+        pctStyle:{fontSize:14,fontWeight:700,color:tc,width:40,textAlign:'right',flexShrink:0}};});
+    const topDiag=[{name:'Lumbalgia crónica',n:12},{name:'Gonartrosis',n:9},{name:'Cervicalgia',n:7},{name:'Tendinopatía manguito',n:6}];
+    const proxAlta=[{name:'Rosa Cevallos',pct:92},{name:'Jorge Paredes',pct:85},{name:'Elena Suárez',pct:80}];
+    const occ=[['8:00',55,90,95,80,65],['9:00',70,95,100,90,75],['10:00',65,88,92,85,70],['11:00',45,75,80,68,50],['15:00',25,50,55,48,35]];
+    const hmBg=p=>p>=95?'#155b7a':p>=88?'#1d8fbf':p>=70?'rgba(41,171,226,.5)':p>=50?'rgba(41,171,226,.3)':'rgba(41,171,226,.15)';
+    const hmCells=[];
+    occ.forEach(row=>{hmCells.push({isLbl:true,isCell:false,txt:row[0]});
+      row.slice(1).forEach(p=>hmCells.push({isLbl:false,isCell:true,txt:p+'%',
+        style:{height:26,borderRadius:5,background:hmBg(p),color:p>=70?'#fff':'#155b7a',display:'flex',alignItems:'center',justifyContent:'center'}}));});
+    const ic=(bg,fg)=>({width:26,height:26,borderRadius:8,background:bg,color:fg,display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,flexShrink:0});
+    const insights=[
+      {icon:'↑',iconStyle:ic('rgba(29,158,117,.12)','#17865f'),t:'10:00–11:00 es la franja con más citas',s:'18 citas agendadas en ese horario.'},
+      {icon:'i',iconStyle:ic('rgba(41,171,226,.12)','#1d8fbf'),t:'Carlos Vega lidera la agenda',s:'54 citas esta semana.'},
+      {icon:'✕',iconStyle:ic('rgba(226,75,74,.1)','#c33a3a'),t:'8 inasistencias esta semana',s:'6 pacientes no asistieron — 2 reincidentes.'},
+      {icon:'!',iconStyle:ic('rgba(245,166,35,.15)','#a06a00'),t:'Viernes tarde con 35% de ocupación',s:'Oportunidad para reagendar inasistencias.'}];
+
+    return {nav,st,is,otherTitle:otherTitles[tab]||'',gridRows,resdSections,sesRows,protCards,adherence,kpis,thPerf,topDiag,proxAlta,hmCells,insights};
+  }
+}
+</script>
+</body>
+</html>

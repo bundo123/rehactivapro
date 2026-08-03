@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
 <link rel="stylesheet" href="/css/base.css">
 <link rel="stylesheet" href="/css/layout.css">
 <link rel="stylesheet" href="/css/components.css">
@@ -19,10 +23,10 @@
 <title>RehactivaPro — Gestión Clínica</title>
 </head>
 <body>
-<div class="shell" style="background:#f0efe8">
-<div id="login-screen" style="position:fixed;inset:0;background:#f5f5f0;z-index:99999;display:flex;align-items:center;justify-content:center">
+<div class="shell">
+<div id="login-screen" style="position:fixed;inset:0;background:#f5f0e8;z-index:99999;display:flex;align-items:center;justify-content:center">
   <div class="login-box">
-    <div class="login-logo"><span class="w">Rehactiva</span><span class="g">Pro</span></div>
+    <img class="login-logo-img" src="img/logo-rehactiva.png" alt="Rehactiva — Centro de rehabilitación y fisioterapia">
     <div class="login-sub" id="login-subtitle">Gestión clínica · Acceso restringido</div>
     <div id="ls-login">
       <label class="login-label">Correo electrónico</label>
@@ -31,7 +35,6 @@
       <input class="login-input" type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
       <button class="login-btn" id="login-btn" onclick="doLogin()">Ingresar</button>
       <div class="login-error" id="login-error"></div>
-      <button class="login-link" onclick="showForgotPassword()">Olvidé mi contraseña</button>
     </div>
     <div id="ls-forgot" style="display:none">
       <label class="login-label">Correo electrónico</label>
@@ -42,9 +45,9 @@
     </div>
   </div>
 </div>
-<div id="recovery-screen" style="position:fixed;inset:0;background:#f5f5f0;z-index:99999;display:none;align-items:center;justify-content:center">
+<div id="recovery-screen" style="position:fixed;inset:0;background:#f5f0e8;z-index:99999;display:none;align-items:center;justify-content:center">
   <div class="login-box">
-    <div class="login-logo"><span class="w">Rehactiva</span><span class="g">Pro</span></div>
+    <img class="login-logo-img" src="img/logo-rehactiva.png" alt="Rehactiva — Centro de rehabilitación y fisioterapia">
     <div class="login-sub">Crea tu nueva contraseña de acceso</div>
     <label class="login-label">Nueva contraseña</label>
     <input class="login-input" type="password" id="rec-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSetNewPassword()">
@@ -55,8 +58,8 @@
     <button class="login-link" onclick="cancelRecovery()">Cancelar</button>
   </div>
 </div>
-<div id="loading-overlay" style="position:fixed;inset:0;background:#f5f5f0;z-index:9998;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px">
-  <div class="login-logo" style="font-size:22px;font-weight:600;letter-spacing:-.3px"><span class="w">Rehactiva</span><span class="g">Pro</span></div>
+<div id="loading-overlay" style="position:fixed;inset:0;background:#f5f0e8;z-index:9998;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+  <img src="img/logo-rehactiva.png" alt="Rehactiva" style="width:200px;display:block">
   <div style="display:flex;gap:6px">
     <div style="width:8px;height:8px;border-radius:50%;background:#1D9E75;animation:ldpulse 1s ease-in-out infinite"></div>
     <div style="width:8px;height:8px;border-radius:50%;background:#1D9E75;animation:ldpulse 1s ease-in-out .2s infinite"></div>
@@ -74,65 +77,64 @@
 
 <!-- ===== SIDEBAR ===== -->
 <aside class="sidebar">
-  <div class="sidebar-logo" style="border-bottom:1px solid rgba(0,0,0,.08);padding:14px 16px 12px">
-    <div class="logo-text" style="margin-bottom:10px"><span class="w">Rehactiva</span><span class="g">Pro</span></div>
-    <div style="position:relative">
-      <svg style="position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" id="global-search" placeholder="Buscar paciente..."
+  <div class="sidebar-logo">
+    <img class="sidebar-logo-img" src="img/logo-rehactiva.png" alt="Rehactiva">
+    <div style="position:relative;margin-top:10px">
+      <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);pointer-events:none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="global-search" placeholder="Buscar paciente…"
         oninput="globalSearch(this.value)"
-        style="width:100%;background:#f5f5f0;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:7px 10px 7px 28px;font-size:12px;color:#1a1917;outline:none;font-family:inherit;box-sizing:border-box">
+        style="width:100%;background:#faf6ef;border:1px solid rgba(41,171,226,.22);border-radius:7px;padding:6px 8px 6px 26px;font-size:11px;color:#1a1917;outline:none;font-family:inherit;box-sizing:border-box">
       <div id="global-search-results" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:1000;max-height:300px;overflow-y:auto"></div>
     </div>
-    <div class="logo-sub">Gestión clínica</div>
   </div>
   <nav class="sidebar-nav">
     <div class="nav-section">
       <div class="nav-label">Clínica</div>
       <button class="nav-item active" onclick="showTab('agenda')">
-        <span class="nav-icon">📅</span>Agenda
+        <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>Agenda
       </button>
       <button class="nav-item" id="nav-resumen" onclick="showTab('resumen')">
-        <span class="nav-icon">📋</span>Resumen del día
+        <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span>Resumen del día
         <span class="nav-badge" id="resumen-badge" style="display:none">0</span>
       </button>
     </div>
     <div class="nav-section">
       <div class="nav-label">Pacientes</div>
       <button class="nav-item" onclick="showTab('pacientes')">
-        <span class="nav-icon">👤</span>Pacientes
+        <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>Pacientes
       </button>
       <button class="nav-item" onclick="showTab('paciente_rpt')">
-        <span class="nav-icon">📄</span>Informe paciente
+        <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></span>Informe paciente
       </button>
       <button class="nav-item" onclick="showTab('protocolos')">
-        <span class="nav-icon">🩺</span>Protocolos
+        <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>Protocolos
       </button>
     </div>
     <div class="nav-section">
       <div class="nav-label">Análisis</div>
       <button class="nav-item" onclick="showTab('informes')">
-        <span class="nav-icon">📊</span>Informes
+        <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>Informes
       </button>
       <button class="nav-item" onclick="showTab('facturacion')">
-        <span class="nav-icon">🧾</span>Facturación
+        <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>Facturación
         <span class="nav-badge" id="factura-badge" style="display:none">0</span>
       </button>
     </div>
     <div class="nav-section">
       <div class="nav-label">Equipo</div>
       <button class="nav-item" onclick="showTab('terapeutas')">
-        <span class="nav-icon">🧑‍⚕️</span>Terapeutas
+        <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></span>Terapeutas
       </button>
       <button class="nav-item" onclick="showTab('doctores')">
-        <span class="nav-icon">👨‍⚕️</span>Doctores ref.
+        <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span>Doctores ref.
       </button>
     </div>
   </nav>
   <div class="sidebar-footer">
-    <div id="role-badge" style="font-size:11px;color:#6b6a64;padding:6px 9px 4px;line-height:1.4;border-bottom:1px solid rgba(29,158,117,.1);margin-bottom:4px"></div>
-    <div id="conn-dot-wrap" style="display:flex;align-items:center;gap:6px;padding:3px 9px 5px;cursor:default;border-bottom:1px solid rgba(29,158,117,.06);margin-bottom:2px">
+    <div id="role-badge" style="font-size:10.5px;color:#7a7a76;line-height:1.4;margin-bottom:4px"></div>
+    <div id="conn-dot-wrap" style="display:flex;align-items:center;gap:6px;cursor:default;margin-bottom:2px">
       <span id="conn-dot" title="Conectando..." style="width:7px;height:7px;border-radius:50%;display:inline-block;background:#9c9a92;flex-shrink:0;transition:background .4s"></span>
-      <span id="conn-label" style="font-size:10px;color:#6b6a64">Conectando...</span>
+      <span id="conn-label" style="font-size:10px;color:#7a7a76">Conectando...</span>
     </div>
     <button class="nav-item" onclick="doLogout()" style="cursor:pointer;color:#5a5a56">
       <span class="nav-icon">🚪</span>
@@ -147,47 +149,37 @@
 <!-- AGENDA -->
 <div id="tab-agenda">
   <div class="main-header">
-    <div class="page-title">Agenda</div>
-    <div class="page-sub">Vista diaria de citas por terapeuta</div>
+    <div class="mh-title">
+      <div class="page-title">Agenda</div>
+      <div class="page-sub">Vista diaria de citas por terapeuta</div>
+    </div>
+    <div class="day-nav">
+      <button class="icon-btn" onclick="changeDay(-1)">‹</button>
+      <div class="day-lbl" id="day-lbl"></div>
+      <button class="icon-btn sm" id="cal-btn" onclick="openDatePicker()" title="Ir a fecha...">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </button>
+      <input type="date" id="date-picker-input" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" onchange="goToDate(this.value)">
+      <button class="icon-btn" onclick="changeDay(1)">›</button>
+      <button class="icon-btn txt" onclick="goToToday()">Hoy</button>
+    </div>
+    <div class="mh-right">
+      <select id="agenda-th-filter" class="hdr-select" onchange="setTherapistFilter(this.value)">
+        <option value="">Todos los terapeutas</option>
+      </select>
+      <div class="seg">
+        <button class="seg-item active" id="vbtn-day" onclick="setAgendaView('day')">Día</button>
+        <button class="seg-item" id="vbtn-week" onclick="setAgendaView('week')" style="display:none">Semana</button>
+        <button class="seg-item" id="vbtn-month" onclick="setAgendaView('month')" style="display:none">Mes</button>
+      </div>
+      <button class="add-btn" style="height:36px;padding:0 16px;font-size:13px" onclick="openApptModal()" data-permission="admin-secretaria">+ Nueva cita</button>
+    </div>
+  </div>
+  <div class="sub-bar">
+    <span id="agenda-stats" class="subbar-left"></span>
+    <span id="ref-legend-bar" class="subbar-right"></span>
   </div>
   <div class="main-body">
-    <div class="stats-row" id="agenda-stats"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <select id="agenda-th-filter" onchange="setTherapistFilter(this.value)" style="font-size:12px;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:5px 10px;color:#1a1917;outline:none;cursor:pointer;min-width:160px">
-          <option value="">Todos los terapeutas</option>
-        </select>
-        <div style="display:flex;gap:4px">
-          <button class="view-btn active" id="vbtn-day" onclick="setAgendaView('day')">Día</button>
-          <button class="view-btn" id="vbtn-week" onclick="setAgendaView('week')">Semana</button>
-          <button class="view-btn" id="vbtn-month" onclick="setAgendaView('month')">Mes</button>
-        </div>
-      </div>
-      <button class="exp-btn" onclick="exportAgendaCSV()">&#8595; Exportar</button>
-    </div>
-    <div class="toolbar">
-      <div class="day-nav" style="display:flex;align-items:center;gap:6px;min-width:0">
-        <button onclick="changeDay(-1)" style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(29,158,117,.2);background:#fff;cursor:pointer;color:#1D9E75;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;line-height:1">‹</button>
-        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-          <div class="day-lbl" id="day-lbl" style="min-width:160px;text-align:center"></div>
-          <button onclick="openDatePicker()" title="Ir a fecha..." style="width:30px;height:30px;border-radius:8px;border:1px solid rgba(29,158,117,.2);background:#fff;cursor:pointer;color:#1D9E75;display:flex;align-items:center;justify-content:center;flex-shrink:0" id="cal-btn">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-          </button>
-          <input type="date" id="date-picker-input" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" onchange="goToDate(this.value)">
-        </div>
-        <button onclick="changeDay(1)" style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(29,158,117,.2);background:#fff;cursor:pointer;color:#1D9E75;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;line-height:1">›</button>
-      </div>
-      <button class="add-btn" onclick="openApptModal()" data-permission="admin-secretaria">+ Nueva cita</button>
-    </div>
-    <div id="ref-legend-bar"></div>
-    <div class="status-guide">
-      <span>Punto = estado de la cita (click para cambiar):</span>
-      <span><span style="width:8px;height:8px;border-radius:50%;background:#1D9E75;display:inline-block"></span>Confirmada</span>
-      <span><span style="width:8px;height:8px;border-radius:50%;background:#BA7517;display:inline-block"></span>Pendiente (difuminada)</span>
-      <span><span style="width:8px;height:8px;border-radius:50%;background:#E24B4A;display:inline-block"></span>No asistió</span>
-    </div>
     <div class="grid-wrap"><div class="schedule-grid" id="schedule-grid"></div></div>
   </div>
 </div>
@@ -229,35 +221,26 @@
 <!-- INFORMES -->
 <div id="tab-informes" style="display:none">
   <div class="main-header">
-    <div class="page-title">Informes</div>
-    <div class="page-sub">Análisis semanal, mensual y anual de la clínica</div>
+    <div class="mh-title">
+      <div class="page-title">Informes</div>
+      <div class="page-sub">Análisis semanal de la clínica</div>
+    </div>
+    <div class="seg" style="margin-left:2px">
+      <button class="seg-item sub-tab active" onclick="showSubTab('semanal',this)">Semanal</button>
+      <button class="seg-item sub-tab" onclick="showSubTab('mensual',this)" style="display:none">Mensual</button>
+      <button class="seg-item sub-tab" onclick="showSubTab('anual',this)" style="display:none">Anual</button>
+    </div>
+    <div class="week-nav" style="margin-left:auto">
+      <button class="icon-btn sm" onclick="changeWeek(-1)">‹</button>
+      <div class="week-lbl" id="week-lbl"></div>
+      <button class="icon-btn sm" onclick="changeWeek(1)">›</button>
+    </div>
+    <button class="ai-btn" style="height:34px;padding:0 14px;font-size:12px" onclick="genSemanalAI()" data-permission="admin">Análisis con IA</button>
+    <button class="exp-btn" style="height:34px;padding:0 13px;font-size:12px;display:inline-flex;align-items:center;gap:6px" onclick="exportarPDF()" data-permission="admin"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exportar PDF</button>
   </div>
   <div class="main-body">
-    <div class="sub-tabs">
-      <button class="sub-tab active" onclick="showSubTab('semanal',this)">Semanal</button>
-      <button class="sub-tab" onclick="showSubTab('mensual',this)">Mensual</button>
-      <button class="sub-tab" onclick="showSubTab('anual',this)">Anual</button>
-    </div>
     <div id="subtab-semanal">
-      <div class="week-nav">
-        <button onclick="changeWeek(-1)">&#8592;</button>
-        <div class="week-lbl" id="week-lbl"></div>
-        <button onclick="changeWeek(1)">&#8594;</button>
-      </div>
       <div id="semanal-stats"></div>
-      <div class="full-card">
-        <div class="card-title">Mapa de calor — utilización por hora y día</div>
-        <div id="heatmap-container"></div>
-        <div id="heatmap-legend" style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:10px;color:#7a7a76"></div>
-      </div>
-      <div class="two-col">
-        <div class="card"><div class="card-title">Utilización por terapeuta</div><div id="th-util-report"></div></div>
-        <div class="card"><div class="card-title">Insights automáticos</div><div id="insights"></div></div>
-      </div>
-      <div class="export-row">
-        <button class="ai-btn" onclick="genSemanalAI()" data-permission="admin">Análisis con IA</button>
-        <button class="exp-btn" onclick="exportarPDF()" data-permission="admin">Exportar PDF</button>
-      </div>
     </div>
     <div id="subtab-mensual" style="display:none"><div id="mensual-content"></div></div>
     <div id="subtab-anual" style="display:none"><div id="anual-content"></div></div>
@@ -267,21 +250,20 @@
 <!-- INFORME PACIENTE -->
 <div id="tab-paciente_rpt" style="display:none">
   <div class="main-header">
-    <div class="page-title">Informe de paciente</div>
-    <div class="page-sub">Historial clínico, evolución y continuidad</div>
+    <div class="mh-title">
+      <div class="page-title">Informe de paciente</div>
+      <div class="page-sub">Historial clínico, evolución y continuidad</div>
+    </div>
+    <div id="patient-rpt-combo" class="hdr-search" style="margin-left:auto">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="patient-rpt-search" placeholder="Buscar y elegir paciente…" autocomplete="off"
+        oninput="filterPatientRptSelect()" onfocus="this.select();filterPatientRptSelect()" onkeydown="rptSearchKeydown(event)">
+      <div id="patient-rpt-results" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:1000;max-height:320px;overflow-y:auto"></div>
+      <input type="hidden" id="patient-rpt-select">
+    </div>
+    <select id="patient-rpt-episode" class="hdr-select" onchange="renderPatientReport()"></select>
   </div>
   <div class="main-body">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap">
-      <div id="patient-rpt-combo" style="position:relative;min-width:280px">
-        <input type="text" id="patient-rpt-search" placeholder="Buscar y elegir paciente…" autocomplete="off"
-          oninput="filterPatientRptSelect()" onfocus="this.select();filterPatientRptSelect()" onkeydown="rptSearchKeydown(event)"
-          style="width:100%;background:#ffffff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:7px 12px;font-size:13px;color:#1a1917;font-family:inherit;outline:none;box-sizing:border-box">
-        <div id="patient-rpt-results" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:1000;max-height:320px;overflow-y:auto"></div>
-        <input type="hidden" id="patient-rpt-select">
-      </div>
-      <select id="patient-rpt-episode" onchange="renderPatientReport()" style="background:#ffffff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:7px 12px;font-size:13px;color:#1a1917;min-width:180px;font-family:inherit"></select>
-      <button class="ai-btn" onclick="genPatientAI()" data-permission="admin-terapeuta">Informe clínico con IA</button>
-    </div>
     <div id="patient-report-content"></div>
   </div>
 </div>
@@ -289,16 +271,21 @@
 <!-- PROTOCOLOS -->
 <div id="tab-protocolos" style="display:none">
   <div class="main-header">
-    <div class="page-title">Protocolos de tratamiento</div>
-    <div class="page-sub">Planes estándar por diagnóstico y comparación de continuidad</div>
+    <div class="mh-title">
+      <div class="page-title">Protocolos de tratamiento</div>
+      <div class="page-sub">Planes estándar por diagnóstico</div>
+    </div>
+    <div class="hdr-search" style="margin-left:auto">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="protocol-search" placeholder="Buscar protocolo o diagnóstico…" oninput="renderProtocols()">
+    </div>
+    <button class="add-btn" style="height:36px;padding:0 16px;font-size:12.5px" onclick="openProtocolModal()" data-permission="admin">+ Nuevo protocolo</button>
   </div>
   <div class="main-body">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px">
-      <input type="text" id="protocol-search" placeholder="Buscar protocolo o diagnóstico..." oninput="renderProtocols()" style="background:#ffffff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:7px 12px;font-size:13px;color:#1a1917;min-width:260px;font-family:inherit;outline:none">
-      <button class="add-btn" onclick="openProtocolModal()" data-permission="admin">+ Nuevo protocolo</button>
-    </div>
     <div id="protocols-list"></div>
-    <div class="full-card">
+    <!-- Bloque de continuidad eliminado del rediseño (decisión del handoff); se conserva oculto
+         para no romper renderProtocolAdherence/protPage. -->
+    <div class="full-card" style="display:none">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <div class="card-title" style="margin-bottom:0">Pacientes con protocolo — continuidad real vs esperada</div>
         <div class="prot-pager">
@@ -314,12 +301,22 @@
 
 <!-- RESUMEN DEL DÍA -->
 <div id="tab-resumen" style="display:none">
-  <div class="main-header resd-header">
-    <div>
+  <div class="main-header">
+    <div class="mh-title">
       <div class="page-title">Resumen del día</div>
-      <div class="page-sub" id="resumen-day-lbl"></div>
+      <div class="page-sub">Acciones de seguimiento de la jornada</div>
     </div>
-    <button class="ai-btn" onclick="document.getElementById('resumen-ai-output').style.display='block';genResumenDiaAI()" data-permission="admin-terapeuta">Análisis con IA</button>
+    <div class="day-nav">
+      <button class="icon-btn" onclick="changeResumenDay(-1)">‹</button>
+      <div class="day-lbl" id="resumen-day-lbl"></div>
+      <button class="icon-btn sm" onclick="openResumenDatePicker()" title="Ir a fecha...">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </button>
+      <input type="date" id="resumen-date-input" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" onchange="goToResumenDate(this.value)">
+      <button class="icon-btn" onclick="changeResumenDay(1)">›</button>
+      <button class="icon-btn txt" onclick="resumenHoy()">Hoy</button>
+    </div>
+    <button class="ai-btn" style="margin-left:auto;height:36px;padding:0 16px;font-size:12.5px" onclick="document.getElementById('resumen-ai-output').style.display='block';genResumenDiaAI()" data-permission="admin-terapeuta">Análisis con IA</button>
   </div>
   <div class="main-body">
     <div id="resumen-ai-output" class="full-card" style="display:none;margin-bottom:14px"></div>

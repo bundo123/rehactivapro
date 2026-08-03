@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { getPatient, esc, fmtDate, fmtTime, normHour, pendientesActual } from './utils.js';
+import { getPatient, esc, fmtDate, fmtTime, normHour, pendientesActual, orderedTherapists } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { showFieldError, clearFieldError, clearAllErrors } from './validators.js';
@@ -120,7 +120,7 @@ export function openSessionModalManual(patientId) {
   const thSel=document.getElementById('sess-therapist');
   const thf=document.getElementById('sess-therapist-field');
   if(thSel){
-    thSel.innerHTML=state.therapists.map(t=>`<option value="${esc(String(t.id))}">${esc(t.name)}</option>`).join('');
+    thSel.innerHTML=orderedTherapists().map(t=>`<option value="${esc(String(t.id))}">${esc(t.name)}</option>`).join('');
     const withTh=(pt.log||[]).filter(s=>s.therapistId);
     withTh.sort((a,b)=>{const ka=a.date+'T'+normHour(a.hour),kb=b.date+'T'+normHour(b.hour);return ka<kb?1:ka>kb?-1:0;});
     const lastTh=withTh.length?withTh[0].therapistId:null;

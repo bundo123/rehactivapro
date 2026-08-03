@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { getPatient, fmtTime, normHour } from './utils.js';
+import { getPatient, fmtTime, normHour, parseHourVal } from './utils.js';
 import { toastInfo } from './toast.js';
 
 // ── Anti-eco por tabla (ventana 3 s) ──
@@ -85,7 +85,7 @@ function _mapPatient(r) {
       facturas:existing&&existing.billing?existing.billing.facturas:[]}
   };
 }
-function _mapTherapist(r){return{id:r.id,name:r.name,initials:r.initials||r.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),spec:r.spec||'',startH:r.start_h,endH:r.end_h,colorId:r.color_id||'ca'};}
+function _mapTherapist(r){return{id:r.id,name:r.name,initials:r.initials||r.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),spec:r.spec||'',startH:r.start_h,endH:r.end_h,colorId:r.color_id||'ca',displayOrder:r.display_order??null,workStart:parseHourVal(r.work_start),workEnd:parseHourVal(r.work_end)};}
 function _mapDoctor(r){return{id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'};}
 function _mapSession(s){return{id:s.id,date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null};}
 

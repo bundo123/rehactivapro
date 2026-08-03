@@ -11,14 +11,15 @@ import { markLocalChange, subscribeRealtime, unsubscribeRealtime } from './realt
 import {
   renderGrid, renderRefLegend, cycleStatus, updateFacturaBadge,
   changeDay, openApptModal, openApptModalAt, openEditApptModal, updateTimeSlots, saveAppt, delAppt,
-  goToDate, openDatePicker, agendarCitaParaPaciente, checkAutoNoas,
+  goToDate, goToToday, openDatePicker, agendarCitaParaPaciente, checkAutoNoas,
   toggleRecurrencia, updateRecPreview, filterApptPatient,
   setAgendaView, setTherapistFilter,
   goToDateAndSelect, exportAgendaCSV
 } from './agenda.js';
 import {
   updateResumenBadge, renderResumen, simWA, simEmail,
-  hasEvalInicial, genResumenDiaAI
+  hasEvalInicial, genResumenDiaAI,
+  changeResumenDay, goToResumenDate, resumenHoy, openResumenDatePicker
 } from './resumen.js';
 import {
   renderPatients, openPatientModal, savePatient, deletePatient,
@@ -206,7 +207,8 @@ Object.assign(window, {
   saveAppt, savePatient, saveTherapist, saveDoctor, saveProtocol,
   saveSession, saveEvalInicial, guardarNuevoEpisodio,
   delAppt, deletePatient, deleteTherapist, deleteDoctor, deleteProtocol,
-  cycleStatus, changeDay, changeWeek, goToDate,
+  cycleStatus, changeDay, changeWeek, goToDate, goToToday,
+  changeResumenDay, goToResumenDate, resumenHoy, openResumenDatePicker,
   showSubTab, changeMensualMonth, showDoctoresTab, selectColor, selectDocColor,
   filterApptPatient, filterPatientRptSelect, selectRptPatient, rptSearchKeydown, updateEpisodes, updateTimeSlots,
   renderPatientReport, renderProtocols, protPage,

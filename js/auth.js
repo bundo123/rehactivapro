@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { fmtDate, fmtTime, normHour } from './utils.js';
+import { fmtDate, fmtTime, normHour, parseHourVal } from './utils.js';
 import { toastErr, toastOk } from './toast.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -57,7 +57,7 @@ export async function loadAll(force=false) {
       supa.from('informes').select('*').eq('deleted',false).order('created_at',{ascending:false}),
     ]);
     for(const q of [th,doc,pat,appt,prot,cob,inf]){ if(q.error) throw q.error; }
-    state.therapists = (th.data||[]).map(r=>({id:r.id,name:r.name,initials:r.initials||r.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),spec:r.spec||'',startH:r.start_h,endH:r.end_h,colorId:r.color_id||'ca'}));
+    state.therapists = (th.data||[]).map(r=>({id:r.id,name:r.name,initials:r.initials||r.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),spec:r.spec||'',startH:r.start_h,endH:r.end_h,colorId:r.color_id||'ca',displayOrder:r.display_order??null,workStart:parseHourVal(r.work_start),workEnd:parseHourVal(r.work_end)}));
     state.doctors = (doc.data||[]).map(r=>({id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'}));
     const cobData = cob.data||[];
     state.patients = (pat.data||[]).map(r=>({

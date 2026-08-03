@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { esc, getTherapist, getColor, therapistHours, COLOR_OPTIONS } from './utils.js';
+import { esc, getTherapist, getColor, therapistHours, COLOR_OPTIONS, orderedTherapists } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { dbDeleteTherapist } from './auth.js';
 import { updateFacturaBadge } from './agenda.js';
@@ -8,7 +8,7 @@ import { hasPermission } from './permissions.js';
 
 export function renderTherapistList() {
   const q=(document.getElementById('therapist-search')?.value||'').toLowerCase();
-  const filtered=state.therapists.filter(t=>!q||t.name.toLowerCase().includes(q)||t.spec.toLowerCase().includes(q));
+  const filtered=orderedTherapists().filter(t=>!q||t.name.toLowerCase().includes(q)||t.spec.toLowerCase().includes(q));
   document.getElementById('therapist-list').innerHTML=filtered.map(th=>{
     const c=getColor(th.colorId);
     return`<div class="th-manage-row">

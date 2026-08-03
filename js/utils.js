@@ -72,11 +72,29 @@ export function normHour(h){
 }
 export function getColor(id){return COLOR_OPTIONS.find(c=>c.id===id)||COLOR_OPTIONS[0]}
 export function getTherapist(id){return state.therapists.find(t=>t.id===id)}
+// NUEVO 1: orden canónico de terapeutas = display_order asc (nulls al final) y luego nombre.
+// Usar SIEMPRE que se listen terapeutas (columnas de agenda, selects, listados).
+export function orderedTherapists(list){
+  return [...(list||state.therapists)].sort((a,b)=>{
+    const ao=a.displayOrder??Infinity, bo=b.displayOrder??Infinity;
+    if(ao!==bo) return ao-bo;
+    return (a.name||'').localeCompare(b.name||'');
+  });
+}
+// work_start/work_end pueden venir como número (7, 13.5) o como time 'HH:MM(:SS)' → horas float.
+export function parseHourVal(v){
+  if(v==null||v==='') return null;
+  if(typeof v==='number') return v;
+  const p=String(v).split(':');
+  const h=parseInt(p[0],10);
+  if(isNaN(h)) return null;
+  return h+(parseInt(p[1]||'0',10)>=30?0.5:0);
+}
 export function getPatient(id){return state.patients.find(p=>p.id===id)}
 export function getDoctor(id){return state.doctors.find(d=>d.id===id)}
 export function therapistHours(th){const h=[];for(let i=th.startH;i<th.endH;i+=0.5)h.push(i);return h;}
 export function getAvailHours(ths){const s=new Set();(ths||state.therapists).forEach(t=>therapistHours(t).forEach(h=>s.add(h)));return[...s].sort((a,b)=>a-b);}
-export function dotColor(s){return s==='conf'?'#1D9E75':s==='pend'?'#BA7517':'#E24B4A';}
+export function dotColor(s){return s==='conf'?'#1D9E75':s==='pend'?'#E0A850':'#E24B4A';}
 export function getInitials(name){return(name||'').trim().split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase()||'??';}
 
 export function getDisplayAge(p, showDate = false) {

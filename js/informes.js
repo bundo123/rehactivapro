@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual, safeColor } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual, safeColor, orderedTherapists } from './utils.js';
 import { apptSlots } from './agenda.js';
 import { genSemanalAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasPermission } from './permissions.js';
@@ -75,6 +75,20 @@ export function hmCol(p){
   return '#0F6E56';
 }
 
+// Rediseño: mapa de calor en escala de azules de marca; texto blanco desde 70%.
+function hmColBlue(p){
+  if(p===null||p===0) return '#f5f2ea';
+  if(p<50) return 'rgba(41,171,226,.15)';
+  if(p<70) return 'rgba(41,171,226,.3)';
+  if(p<88) return 'rgba(41,171,226,.5)';
+  if(p<95) return '#1d8fbf';
+  return '#155b7a';
+}
+function hmTxtBlue(p){ return p>=70?'#fff':'#155b7a'; }
+// Umbrales de utilización por terapeuta (rediseño): ≥80 verde / ≥60 ámbar / <60 rojo.
+function utilColor(u){ return u>=80?'#1D9E75':u>=60?'#F5A623':'#E24B4A'; }
+function utilText(u){ return u>=80?'#17865f':u>=60?'#a06a00':'#c33a3a'; }
+
 // Color por umbral del % de Sesiones (progreso): ≥66 verde / 33–65 amarillo / <33 rojo.
 // (Continuidad usa su propia escala 85/70, no esta.)
 function pctColor(v){ return v>=66?'#1D9E75':v>=33?'#BA7517':'#E24B4A'; }
@@ -114,8 +128,7 @@ export function renderHeatmap() {
       let occ=0;
       semAppts.forEach(a=>{ if(a.date!==date)return; apptSlots(a).forEach(s=>{ if(s===hr||s===hr+0.5)occ++; }); });
       const p=Math.round(occ/cap*100);
-      const tc=p>=60?'#fff':'#1a1917';
-      html+=`<div class="hm-cell" style="background:${hmCol(p)};color:${tc}">${p}%<div class="tooltip-val">${d} ${hr}:00 — ${occ}/${cap} · ${p}%</div></div>`;
+      html+=`<div class="hm-cell" style="background:${hmColBlue(p)};color:${hmTxtBlue(p)}">${p}%<div class="tooltip-val">${d} ${hr}:00 — ${occ}/${cap} · ${p}%</div></div>`;
     });
   });
   html+='</div>';
@@ -123,17 +136,18 @@ export function renderHeatmap() {
   renderHeatmapLegend();
 }
 
-// Leyenda derivada de hmCol() (un valor representativo por tramo) para que los swatches
+// Leyenda derivada de hmColBlue() (un valor representativo por tramo) para que los swatches
 // concuerden SIEMPRE con lo pintado en las celdas.
 function renderHeatmapLegend() {
   const el=document.getElementById('heatmap-legend'); if(!el) return;
-  const vals=[20,40,55,70,80,90,100];
-  el.innerHTML='<span>0%</span>'+vals.map(v=>`<div style="width:10px;height:10px;border-radius:2px;background:${hmCol(v)}"></div>`).join('')+'<span>100%</span>';
+  const vals=[30,60,80,90,100];
+  el.innerHTML='<span>0%</span>'+vals.map(v=>`<div style="width:11px;height:11px;border-radius:3px;background:${hmColBlue(v)}"></div>`).join('')+'<span>100%</span>';
 }
 
 export function renderTherapistUtil() {
+  const el=document.getElementById('th-util-report'); if(!el) return;
   const {dates:semDates}=semanaVisible();
-  document.getElementById('th-util-report').innerHTML=state.therapists.map(th=>{
+  el.innerHTML=orderedTherapists().map(th=>{
     const ts=therapistHours(th).length*5;
     const us=state.appointments.filter(a=>a.therapistId===th.id&&semDates.includes(a.date)&&a.status==='conf').length;
     const u=ts>0?Math.round(us/ts*100):0;
@@ -148,6 +162,9 @@ export function renderTherapistUtil() {
     </div>`;
   }).join('');
 }
+
+// renderTherapistUtil quedó sin caller: el rediseño integra la utilización en
+// "Desempeño por terapeuta" dentro de renderSemanal. Se conserva exportada por compat.
 
 export function renderInsights() {
   const el=document.getElementById('insights'); if(!el) return;
@@ -164,20 +181,20 @@ export function renderInsights() {
     const top=Object.entries(byHour).sort((a,b)=>b[1]-a[1])[0];
     if(top){
       const h=+top[0], n=top[1];
-      items.push({bg:'#0d2a21',tc:'#1D9E75',icon:'↑',t:`${h}:00–${h+1}:00 es la franja con más citas`,s:`${n} cita${n>1?'s':''} agendada${n>1?'s':''} en ese horario.`});
+      items.push({bg:'rgba(29,158,117,.12)',tc:'#17865f',icon:'↑',t:`${h}:00–${h+1}:00 es la franja con más citas`,s:`${n} cita${n>1?'s':''} agendada${n>1?'s':''} en ese horario.`});
     }
   }
 
   // Terapeuta con más citas (iterando terapeutas para no perder el tipo del id).
   if(occ.length&&state.therapists.length){
     const top=state.therapists.map(th=>({th,n:occ.filter(a=>a.therapistId===th.id).length})).sort((a,b)=>b.n-a.n)[0];
-    if(top&&top.n>0) items.push({bg:'#0d1e2e',tc:'#7ab8e8',icon:'i',t:`${esc(top.th.name)} lidera la agenda`,s:`${top.n} cita${top.n>1?'s':''} esta semana.`});
+    if(top&&top.n>0) items.push({bg:'rgba(41,171,226,.12)',tc:'#1d8fbf',icon:'i',t:`${esc(top.th.name)} lidera la agenda`,s:`${top.n} cita${top.n>1?'s':''} esta semana.`});
   }
 
   // Inasistencias reales de la semana.
   if(noas.length){
     const pac=new Set(noas.map(a=>a.patientId)).size;
-    items.push({bg:'#2b0f0f',tc:'#E24B4A',icon:'✕',t:`${noas.length} inasistencia${noas.length>1?'s':''} esta semana`,s:`${pac} paciente${pac>1?'s':''} no asistió.`});
+    items.push({bg:'rgba(226,75,74,.1)',tc:'#c33a3a',icon:'✕',t:`${noas.length} inasistencia${noas.length>1?'s':''} esta semana`,s:`${pac} paciente${pac>1?'s':''} no asistió.`});
   }
 
   if(!items.length){
@@ -189,85 +206,93 @@ export function renderInsights() {
 
 export function changeWeek(d) {
   state.currentWeek+=d;
-  updateWeekLabel(); renderHeatmap(); renderTherapistUtil(); renderInsights();
+  renderSemanal();
 }
 
 export function updateWeekLabel() {
   const {start:s}=semanaVisible();
   const e=new Date(s);e.setDate(s.getDate()+4);
-  const f=x=>`${x.getDate()}/${x.getMonth()+1}`;
-  document.getElementById('week-lbl').textContent=`Semana ${f(s)} – ${f(e)} ${e.getFullYear()}`;
+  const f=x=>`${x.getDate()} ${MES_CORTO[x.getMonth()].toLowerCase()}`;
+  document.getElementById('week-lbl').textContent=`${f(s)} – ${f(e)} ${e.getFullYear()}`;
 }
 
 export function renderSemanal() {
   updateWeekLabel();
-  const {start:semStart,dates:semDates}=semanaVisible();
-  const semEnd=new Date(semStart);semEnd.setDate(semStart.getDate()+4);
+  const {dates:semDates}=semanaVisible();
   const semAppts=state.appointments.filter(a=>semDates.includes(a.date));
   const conf=semAppts.filter(a=>a.status==='conf');
   const noas=semAppts.filter(a=>a.status==='noas');
-  const pend=semAppts.filter(a=>a.status==='pend');
   const total=semAppts.length;
   const tasaAsist=total>0?Math.round(conf.length/total*100):0;
   const patsAtendidos=new Set(conf.map(a=>a.patientId)).size;
   const patsNoas=new Set(noas.map(a=>a.patientId)).size;
-  const ingresosEst=conf.length*25;
-  const semLabel=fmtDate(semStart)+' al '+fmtDate(semEnd);
   const diagCount={};
   conf.forEach(a=>{const pt=getPatient(a.patientId);if(pt&&pt.diag){const d=pt.diag.split(/[,;]/)[0].trim();diagCount[d]=(diagCount[d]||0)+1;}});
   const topDiag=Object.entries(diagCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const proxAlta=state.patients.filter(p=>p.status==='active'&&p.sessions>0&&Math.round((doneActual(p)/p.sessions)*100)>=80).slice(0,5);
+  const kpi=(lbl,val,sub,color)=>`<div class="kpi"><div class="kpi-lbl">${lbl}</div><div class="kpi-val"${color?` style="color:${color}"`:''}>${val}</div><div class="kpi-sub">${sub}</div></div>`;
+  const rank=(name,val,color)=>`<div class="rank-row"><span style="color:#1a1917">${name}</span><b style="color:${color}">${val}</b></div>`;
 
+  // "Ingreso estimado" excluido a propósito (la app no maneja dinero por diseño).
   const statsHtml=`
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-    <div><div style="font-size:11px;color:#6b6a64;text-transform:uppercase;letter-spacing:.05em">Semana del</div><div style="font-size:14px;font-weight:600;color:#1a1917">${semLabel}</div></div>
-    <button class="ai-btn" onclick="genSemanalAI()">Análisis con IA</button>
+  <div class="kpi-grid">
+    ${kpi('Citas totales',total,`${semDates.length} días hábiles`)}
+    ${kpi('Asistencia',tasaAsist+'%',`${conf.length} confirmadas`,tasaAsist>=80?'#17865f':tasaAsist>=60?'#a06a00':'#c33a3a')}
+    ${kpi('No asistieron',noas.length,`${patsNoas} paciente${patsNoas!==1?'s':''}`,'#c33a3a')}
+    ${kpi('Atendidos',patsAtendidos,'únicos')}
+    ${kpi('Activos',state.patients.filter(p=>p.status==='active').length,'en tratamiento')}
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-    <div class="stat"><div class="stat-lbl">Citas totales</div><div class="stat-val">${total}</div><div style="font-size:10px;color:#6b6a64">${semDates.length} días hábiles</div></div>
-    <div class="stat"><div class="stat-lbl">Asistencia</div><div class="stat-val" style="color:${tasaAsist>=80?'#1D9E75':tasaAsist>=60?'#BA7517':'#E24B4A'}">${tasaAsist}%</div><div style="font-size:10px;color:#6b6a64">${conf.length} confirmadas</div></div>
-    <div class="stat"><div class="stat-lbl">No asistieron</div><div class="stat-val" style="color:#E24B4A">${noas.length}</div><div style="font-size:10px;color:#6b6a64">${patsNoas} pacientes</div></div>
-    <div class="stat"><div class="stat-lbl">Ingreso estimado</div><div class="stat-val" style="color:#1D9E75">$${ingresosEst}</div><div style="font-size:10px;color:#6b6a64">a $25/sesión</div></div>
-    <div class="stat"><div class="stat-lbl">Pacientes atendidos</div><div class="stat-val">${patsAtendidos}</div><div style="font-size:10px;color:#6b6a64">únicos</div></div>
-    <div class="stat"><div class="stat-lbl">Pacientes activos</div><div class="stat-val">${state.patients.filter(p=>p.status==='active').length}</div><div style="font-size:10px;color:#6b6a64">en tratamiento</div></div>
-  </div>
-  <div class="full-card" style="margin-bottom:12px">
-    <div class="card-title" style="margin-bottom:10px">Desempeño por terapeuta</div>
-    ${state.therapists.map(th=>{
-      const thAppts=semAppts.filter(a=>a.therapistId===th.id);
-      const thConf=thAppts.filter(a=>a.status==='conf').length;
-      const thNoas=thAppts.filter(a=>a.status==='noas').length;
-      const slots=therapistHours(th).length*5;
-      const util=slots>0?Math.round(thConf/slots*100):0;
-      const c=getColor(th.colorId);
-      const uc=util>=80?'#1D9E75':util>=60?'#BA7517':'#E24B4A';
-      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06)">'
-        +'<div class="avatar" style="background:'+c.border+'22;color:'+c.text+';width:32px;height:32px;font-size:11px;flex-shrink:0">'+esc(th.initials)+'</div>'
-        +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#1a1917">'+esc(th.name)+'</div>'
-        +'<div style="display:flex;gap:10px;margin-top:2px"><span style="font-size:11px;color:#1D9E75">✓ '+thConf+'</span><span style="font-size:11px;color:#E24B4A">✗ '+thNoas+'</span></div>'
-        +'<div style="margin-top:4px;height:4px;background:#f0efe8;border-radius:2px"><div style="height:4px;width:'+Math.min(util,100)+'%;background:'+uc+';border-radius:2px"></div></div>'
-        +'</div><div style="font-size:15px;font-weight:700;color:'+uc+';flex-shrink:0">'+util+'%</div></div>';
-    }).join('')}
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-    <div class="card">
-      <div class="card-title" style="margin-bottom:8px">Top diagnósticos</div>
-      ${topDiag.length?topDiag.map(([d,n])=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05)"><span style="font-size:11px;color:#1a1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%">'+esc(d)+'</span><span style="font-size:11px;font-weight:700;color:#1D9E75;background:rgba(29,158,117,.1);padding:1px 7px;border-radius:99px;flex-shrink:0">'+n+'</span></div>').join(''):'<div style="font-size:12px;color:#9c9a92;padding:8px 0">Sin datos esta semana</div>'}
+  <div class="inf-grid">
+    <div class="panel">
+      <div class="panel-title">Desempeño por terapeuta</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+      ${orderedTherapists().map(th=>{
+        const thAppts=semAppts.filter(a=>a.therapistId===th.id);
+        const thConf=thAppts.filter(a=>a.status==='conf').length;
+        const thNoas=thAppts.filter(a=>a.status==='noas').length;
+        const slots=therapistHours(th).length*5;
+        const util=slots>0?Math.round(thConf/slots*100):0;
+        const c=getColor(th.colorId);
+        return '<div style="display:flex;align-items:center;gap:10px">'
+          +'<span class="avatar" style="background:'+c.bg+';color:'+c.text+'">'+esc(th.initials)+'</span>'
+          +'<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:700;color:#1a1917">'+esc(th.name)+'</span>'
+          +'<span style="font-size:11px;color:#7a7a76"><b style="color:#17865f">✓ '+thConf+'</b> · <b style="color:#c33a3a">✗ '+thNoas+'</b></span></div>'
+          +'<div style="margin-top:4px;height:5px;background:#f0e8d8;border-radius:3px"><div style="height:5px;width:'+Math.min(util,100)+'%;background:'+utilColor(util)+';border-radius:3px"></div></div>'
+          +'</div><span style="font-size:14px;font-weight:700;color:'+utilText(util)+';width:40px;text-align:right;flex-shrink:0">'+util+'%</span></div>';
+      }).join('')}
+      </div>
     </div>
-    <div class="card">
-      <div class="card-title" style="margin-bottom:8px">Próximos a alta ≥80%</div>
-      ${proxAlta.length?proxAlta.map(p=>{const pct=Math.round(doneActual(p)/p.sessions*100);return'<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05)"><span style="font-size:11px;color:#1a1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%">'+esc(p.name.split(' ').slice(0,2).join(' '))+'</span><span style="font-size:11px;font-weight:700;color:#BA7517;background:rgba(186,117,23,.1);padding:1px 7px;border-radius:99px;flex-shrink:0">'+pct+'%</span></div>';}).join(''):'<div style="font-size:12px;color:#9c9a92;padding:8px 0">Ninguno cerca del alta</div>'}
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="panel" style="flex:1">
+        <div class="panel-title" style="margin-bottom:6px">Top diagnósticos</div>
+        ${topDiag.length?topDiag.map(([d,n])=>rank(esc(d),n,'#1d8fbf')).join(''):'<div style="font-size:12px;color:#9c9a92;padding:8px 0">Sin datos esta semana</div>'}
+      </div>
+      <div class="panel" style="flex:1">
+        <div class="panel-title" style="margin-bottom:6px">Próximos a alta ≥80%</div>
+        ${proxAlta.length?proxAlta.map(p=>rank(esc(p.name.split(' ').slice(0,2).join(' ')),Math.round(doneActual(p)/p.sessions*100)+'%','#a06a00')).join(''):'<div style="font-size:12px;color:#9c9a92;padding:8px 0">Ninguno cerca del alta</div>'}
+      </div>
+    </div>
+  </div>
+  <div class="inf-grid">
+    <div class="panel">
+      <div class="panel-title">Mapa de calor — utilización por hora y día</div>
+      <div id="heatmap-container"></div>
+      <div id="heatmap-legend" style="display:flex;align-items:center;gap:5px;margin-top:10px;font-size:10px;color:#9c9a92"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Insights automáticos</div>
+      <div id="insights"></div>
     </div>
   </div>
   ${(function(){
     if(!noas.length)return'';
-    let r='<div class="full-card"><div class="card-title" style="margin-bottom:10px">No asistieron — requieren seguimiento</div>';
+    let r='<div class="panel"><div class="panel-title">No asistieron — requieren seguimiento</div>';
     noas.slice(0,6).forEach(function(a){
       var pt=getPatient(a.patientId);var th=getTherapist(a.therapistId);
       var tel=pt&&pt.tel?'593'+pt.tel.replace(/[^0-9]/g,'').slice(-9):'';
-      var waBtn=tel?'<button onclick="window.open(\'https://wa.me/'+tel+'\',\'_blank\')" style="font-size:10px;padding:3px 10px;background:rgba(37,211,102,.12);color:#25d366;border:none;border-radius:99px;cursor:pointer;font-weight:600">WA</button>':'';
-      r+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(224,80,80,.08)">'
-        +'<div><div style="font-size:12px;font-weight:500;color:#1a1917">'+esc(pt?pt.name:'Paciente')+'</div>'
+      var waBtn=tel?'<button onclick="window.open(\'https://wa.me/'+tel+'\',\'_blank\')" style="font-size:10px;padding:3px 10px;background:rgba(37,160,90,.12);color:#25a05a;border:none;border-radius:99px;cursor:pointer;font-weight:600;font-family:inherit">WA</button>':'';
+      r+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(226,75,74,.08)">'
+        +'<div><div style="font-size:12px;font-weight:600;color:#1a1917">'+esc(pt?pt.name:'Paciente')+'</div>'
         +'<div style="font-size:10px;color:#9c9a92">'+a.date+(th?' · '+esc(th.name):'')+'</div></div>'
         +waBtn+'</div>';
     });
@@ -275,7 +300,7 @@ export function renderSemanal() {
   })()}`;
 
   document.getElementById('semanal-stats').innerHTML=statsHtml;
-  renderHeatmap(); renderTherapistUtil(); renderInsights();
+  renderHeatmap(); renderInsights();
 }
 
 export function showSubTab(n,btn) {
@@ -568,54 +593,9 @@ export function renderPatientReport() {
   const rptNo=`INF-${ymd}-${(String(p.id).replace(/\D/g,'').slice(-4)||'0000').padStart(4,'0')}`;
   const fechaLarga=now.toLocaleDateString('es-EC',{day:'2-digit',month:'long',year:'numeric'});
   const evaSes=attendedTrat.filter(s=>s.pb!=null);
-  const cell=(lbl,val)=>`<div><div style="font-size:10px;font-weight:600;color:#6b6a64;text-transform:uppercase;letter-spacing:.04em">${lbl}</div><div style="font-size:13px;color:#1a1917;margin-top:1px">${esc(val)}</div></div>`;
   const prot=p.protocolId?state.protocols.find(x=>x.id===p.protocolId):null;
-
-  let html=avisoEpisodio
-  +`<div class="full-card" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px">
-      <div><div class="logo-text"><span class="w">Rehactiva</span><span class="g">Pro</span></div>
-      <div style="font-size:11px;color:#6b6a64;margin-top:3px">Rehabilitación y Fisioterapia · Quito, Ecuador</div>
-      <div style="font-size:13px;font-weight:600;color:#1a1917;margin-top:6px">Informe de evolución</div></div>
-      <div style="text-align:right;flex-shrink:0;font-size:11px;color:#6b6a64"><div>N.º ${rptNo}</div><div>${fechaLarga}</div></div>
-    </div>`
-  +`<div class="full-card" style="margin-bottom:14px">
-      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
-        <div style="flex:1;min-width:0"><div style="font-size:17px;font-weight:600;color:#1a1917">${esc(p.name)} ${sp}</div>
-        <div style="font-size:12px;color:#6b6a64;margin-top:2px">${getDisplayAge(p)}${!isCurrentEpisode?' · <span style="font-size:10px;background:#fef3c7;color:#BA7517;padding:1px 7px;border-radius:99px">Episodio anterior</span>':''}</div></div>
-        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
-          <button class="ai-btn" onclick="genPatientAI()">Informe IA</button>
-          <button class="exp-btn" onclick="exportarPDF()">Exportar PDF</button>
-          ${hasPermission('viewAI')?`<button class="exp-btn" id="save-informe-btn" style="display:none" onclick="guardarInforme()">💾 Guardar informe</button>`:''}
-          <button onclick="agendarCitaParaPaciente('${esc(p.id)}')" style="padding:6px 14px;background:rgba(29,158,117,.12);color:#1D9E75;border:1px solid rgba(29,158,117,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">+ Agendar cita</button>
-          ${hasPermission('registerSession')?`<button onclick="openSessionModalManual('${esc(p.id)}')" style="padding:6px 14px;background:rgba(41,171,226,.1);color:#155b7a;border:1px solid rgba(41,171,226,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">+ Sesión manual</button>`:''}
-          ${isCurrentEpisode?`<button onclick="nuevoEpisodio('${esc(p.id)}')" style="padding:6px 14px;background:rgba(186,117,23,.1);color:#BA7517;border:1px solid rgba(186,117,23,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">🔄 Nuevo episodio</button>`:''}
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;border-top:1px solid rgba(29,158,117,.1);padding-top:12px">
-        ${cell('Diagnóstico',epDiag||p.diag||'—')}${cell('Terapeuta',thHeader)}
-        ${cell('Doctor referente',doc?doc.name+' ('+doc.spec+')':'Independiente')}${cell('Inicio de tratamiento',inicio)}
-        ${prot?cell('Protocolo',prot.name):''}
-      </div>
-    </div>`
-  +`<div class="three-col" style="margin-bottom:14px">
-      <div class="card"><div class="card-title">Sesiones</div><div style="text-align:center">
-        <div style="font-size:28px;font-weight:600;color:${pctColor(pct)}">${pct}%</div>
-        <div style="font-size:11px;color:#6b6a64;margin:3px 0 8px">${epDone} de ${epSessions} sesiones</div>
-        <div class="bar-wrap" style="height:6px"><div class="bar-fill" style="width:${pct}%;background:${pctColor(pct)}"></div></div></div></div>
-      <div class="card"><div class="card-title">Continuidad</div><div style="text-align:center">
-        <div style="font-size:28px;font-weight:600;color:${ac}">${adh}%</div>
-        <div style="font-size:11px;color:#6b6a64;margin:3px 0 8px">${attended.length} asist. / ${log.length} citas</div></div></div>
-      <div class="card"><div class="card-title">Dolor EVA</div><div style="text-align:center">${fp&&lp&&fp.pb!=null?`
-        <div style="display:flex;justify-content:center;align-items:center;gap:14px;padding:6px 0">
-          <div><div style="font-size:26px;font-weight:600;color:${evaColor(fp.pb)}">${fp.pb}</div><div style="font-size:10px;color:#6b6a64">Inicial</div></div>
-          <div style="color:#6b6a64;font-size:18px">→</div>
-          <div><div style="font-size:26px;font-weight:600;color:${lp.pa!=null?evaColor(lp.pa):'#6b6a64'}">${lp.pa!=null?lp.pa:'?'}</div><div style="font-size:10px;color:#6b6a64">Actual</div></div>
-        </div>`:'<div style="font-size:13px;color:#6b6a64;padding:16px 0">Sin datos EVA</div>'}</div></div>
-    </div>`
-  +(evaSes.length?`<div class="full-card" style="margin-bottom:14px"><div class="card-title" style="margin-bottom:8px">Evolución del dolor (EVA)</div><canvas id="eva-evolution-chart" height="90"></canvas></div>`:'')
-  +`<div class="full-card" style="margin-bottom:14px"><div class="card-title" style="margin-bottom:8px">Narrativa clínica (IA)</div>
-      <div id="patient-rpt-ai-output" style="font-size:13px;color:#6b6a64">— <span style="font-size:11px">(usá «Informe IA» para generar la evolución)</span></div></div>`
-  +`<div id="informes-guardados" class="full-card" style="margin-bottom:14px"></div>`;
+  const cellG=(lbl,val,span)=>`<div${span?` style="grid-column:span ${span}"`:''}><div class="rpt-lbl">${lbl}</div><div class="rpt-val">${esc(val)}</div></div>`;
+  const evaDelta=(fp&&lp&&fp.pb!=null&&lp.pa!=null)?lp.pa-fp.pb:null;
 
   // La 'Evaluación inicial' se muestra como bloque destacado ANTES de la tabla (punto de partida);
   // la tabla "Detalle por sesión" lista solo las sesiones de TRATAMIENTO, en orden ascendente.
@@ -627,30 +607,35 @@ export function renderPatientReport() {
 
   // Bloque destacado de la Evaluación inicial (solo si existe). El note viene como
   // "anamnesis | Ant. familiares: … | Zonas: … | Inspección: …" → una línea por parte.
+  let evalBlockHtml='';
   if(evalRow){
     const partes=(evalRow.note||'').split(' | ').filter(Boolean);
     const editBtn=canEdit?`<button onclick="editSession('${esc(p.id)}','${esc(evalRow.id)}')" style="font-size:10px;padding:3px 9px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;border:1px solid rgba(41,171,226,.3);background:rgba(41,171,226,.1);color:#155b7a">Editar</button>`:'';
-    html+=`<div class="full-card" style="margin-bottom:14px;border-left:4px solid #1D9E75;background:rgba(29,158,117,.05)">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
-        <div style="font-size:13px;font-weight:700;color:#1a1917">📋 Evaluación inicial — ${dmy(evalRow.date)}</div>
-        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
-          <div style="font-size:13px;font-weight:700;color:${evaColor(evalRow.pb)}">EVA ${evalRow.pb!=null?evalRow.pb:'—'}/10</div>${editBtn}
-        </div>
+    evalBlockHtml=`<div style="margin-top:14px;border:1px solid rgba(245,166,35,.5);border-left:4px solid #F5A623;border-radius:8px;padding:12px 14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:5px">
+        <span style="font-size:11px;font-weight:700;color:#1a1917;text-transform:uppercase;letter-spacing:.05em">Evaluación inicial · ${dmy(evalRow.date)}</span>
+        <span style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+          <span style="font-size:12px;font-weight:700;color:${evaColor(evalRow.pb)}">EVA ${evalRow.pb!=null?evalRow.pb:'—'}/10</span>${editBtn}
+        </span>
       </div>
-      ${partes.length?partes.map(x=>`<div style="font-size:12px;color:#3a3a36;line-height:1.55;margin-bottom:3px">${esc(x)}</div>`).join(''):'<div style="font-size:12px;color:#9c9a92">Sin detalle registrado</div>'}
+      ${partes.length?partes.map(x=>`<div style="font-size:11.5px;color:#3a3a36;line-height:1.6;margin-bottom:3px">${esc(x)}</div>`).join(''):'<div style="font-size:11.5px;color:#9c9a92">Sin detalle registrado</div>'}
     </div>`;
   }
 
+  let tablaHtml='';
   if(tratRows.length){
-    const thc=(t,al)=>`<th style="text-align:${al||'left'};font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#6b6a64;padding:6px 8px;border-bottom:1px solid rgba(29,158,117,.15)">${t}</th>`;
+    const thc=(t,al)=>`<th style="text-align:${al||'left'};font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#9c9a92;padding:6px 8px 5px 0">${t}</th>`;
     const showAcc=canEdit||canDelete;
-    html+=`<div class="full-card"><div class="card-title" style="margin-bottom:10px">Detalle por sesión (${tratRows.length})</div>
-      <table style="width:100%;border-collapse:collapse"><thead><tr>${thc('Fecha')}${thc('Terapeuta')}${thc('EVA','center')}${thc('Técnicas')}${thc('Observación')}${showAcc?thc('Acciones','center'):''}</tr></thead><tbody>`;
+    tablaHtml=`<div style="margin-top:16px"><div class="rpt-sec-title">Detalle por sesión (${tratRows.length})</div>
+      <table style="width:100%;border-collapse:collapse;margin-top:4px"><thead><tr>${thc('Fecha')}${thc('Terapeuta')}${thc('EVA','center')}${thc('Técnicas y observación')}${showAcc?thc('Acciones','center'):''}</tr></thead><tbody>`;
     tratRows.forEach(s=>{
       const eva=s.pb!=null?`${s.pb}→${s.pa!=null?s.pa:'?'}`:'—';
-      const tec=(s.tags&&s.tags.length)?s.tags.join(', '):'—';
+      // Color del EVA por mejora dentro de la sesión (verde si bajó el dolor, ámbar si no).
+      const evaCol=(s.pb!=null&&s.pa!=null&&s.pa<s.pb)?'#17865f':'#BA7517';
+      const tec=(s.tags&&s.tags.length)?s.tags.join(', '):null;
       const thName=getTherapist(s.therapistId)?.name||'—';
-      const td='padding:7px 8px;border-bottom:1px solid rgba(29,158,117,.07);font-size:11px';
+      const td='padding:6px 8px 6px 0;border-top:1px solid rgba(0,0,0,.06);font-size:11px;vertical-align:top';
+      const obs=[tec?`<b style="color:#1a1917">${esc(tec)}</b>`:null,s.note?esc(s.note):null].filter(Boolean).join(' — ')||'—';
       let acc='';
       if(showAcc){
         const btn='font-size:10px;padding:3px 9px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;border:1px solid';
@@ -659,16 +644,71 @@ export function renderPatientReport() {
         const inner=(eBtn+dBtn)||'<span style="color:#c8c6c0">—</span>';
         acc=`<td style="${td};text-align:center;white-space:nowrap"><div style="display:flex;gap:5px;justify-content:center">${inner}</div></td>`;
       }
-      html+=`<tr><td style="${td};color:#1a1917;white-space:nowrap">${dmy(s.date)}</td>
+      tablaHtml+=`<tr><td style="${td};color:#1a1917;white-space:nowrap">${dmy(s.date)}</td>
         <td style="${td};color:#1a1917;white-space:nowrap">${esc(thName)}</td>
-        <td style="${td};text-align:center;color:#1a1917">${eva}</td>
-        <td style="${td};color:#6b6a64">${esc(tec)}</td>
-        <td style="${td};color:#6b6a64">${s.note?esc(s.note):'—'}</td>${acc}</tr>`;
+        <td style="${td};text-align:center;font-weight:700;color:${evaCol};white-space:nowrap">${eva}</td>
+        <td style="${td};color:#5a5a56">${obs}</td>${acc}</tr>`;
     });
-    html+=`</tbody></table></div>`;
+    tablaHtml+=`</tbody></table></div>`;
   } else {
-    html+=`<div class="full-card" style="text-align:center;padding:24px 0"><div style="font-size:13px;color:#6b6a64">Sin sesiones de tratamiento registradas en este episodio.</div></div>`;
+    tablaHtml=`<div style="margin-top:16px;text-align:center;padding:18px 0;color:#7a7a76;font-size:12px">Sin sesiones de tratamiento registradas en este episodio.</div>`;
   }
+
+  let html=avisoEpisodio
+  +`<div class="rpt-layout">
+    <div class="rpt-sheet">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #29ABE2;padding-bottom:14px;gap:16px;flex-wrap:wrap">
+        <div><img src="img/logo-rehactiva.png" alt="Rehactiva" style="width:190px;display:block"><div style="font-size:10.5px;color:#7a7a76;margin-top:4px">Rehabilitación y Fisioterapia · Quito, Ecuador · rehactivaec.com</div></div>
+        <div style="text-align:right;font-size:11px;color:#5a5a56;line-height:1.6;flex-shrink:0"><div style="font-size:13px;font-weight:700;color:#1a1917">Informe de evolución</div><div>N.º ${rptNo}</div><div>${fechaLarga}</div></div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:10px;margin-top:16px;flex-wrap:wrap">
+        <div style="font-size:18px;font-weight:700;color:#1a1917">${esc(p.name)}</div>${sp}
+        <span style="font-size:12px;color:#7a7a76">${getDisplayAge(p)}</span>
+        ${!isCurrentEpisode?'<span style="font-size:10.5px;background:rgba(245,166,35,.15);color:#a06a00;padding:1px 8px;border-radius:99px;font-weight:700">Episodio anterior</span>':''}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 20px;margin-top:12px;padding:12px 14px;background:#faf6ef;border-radius:8px">
+        ${cellG('Diagnóstico',epDiag||p.diag||'—')}
+        ${cellG('Doctor referente',doc?doc.name+' ('+doc.spec+')':'Independiente')}
+        ${cellG('Inicio',inicio==='—'?'—':dmy(inicio))}
+        ${cellG('Protocolo',prot?`${prot.name} · ${prot.sessions} sesiones · ${prot.freq}×/sem`:'—',2)}
+        ${cellG('Terapeuta',thHeader)}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px">
+        <div class="rpt-kpi"><div class="rpt-lbl">Sesiones completadas</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:#1d8fbf">${epDone}<span style="font-size:13px;color:#9c9a92">/${epSessions}</span></span><span style="font-size:11px;color:#7a7a76">${pct}% del plan</span></div>
+          <div style="margin-top:6px;height:5px;background:#f0e8d8;border-radius:3px"><div style="width:${Math.min(pct,100)}%;height:5px;background:#29ABE2;border-radius:3px"></div></div></div>
+        <div class="rpt-kpi"><div class="rpt-lbl">Continuidad</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:${ac}">${adh}%</span><span style="font-size:11px;color:#7a7a76">${attended.length} asistencias / ${log.length} citas</span></div>
+          <div style="font-size:10.5px;color:${adh>=85?'#17865f':'#a06a00'};margin-top:8px">${adh>=85?'✓ Sobre la meta (85%)':'Bajo la meta (85%)'}</div></div>
+        <div class="rpt-kpi"><div class="rpt-lbl">Dolor EVA</div>
+          ${fp&&lp&&fp.pb!=null?`<div style="display:flex;align-items:center;gap:10px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:${evaColor(fp.pb)}">${fp.pb}</span><span style="color:#9c9a92">→</span><span style="font-size:22px;font-weight:700;color:${lp.pa!=null?evaColor(lp.pa):'#7a7a76'}">${lp.pa!=null?lp.pa:'?'}</span>${evaDelta!=null?`<span style="font-size:11px;color:#7a7a76;line-height:1.3">${evaDelta>0?'+':'−'}${Math.abs(evaDelta)} puntos<br>desde el inicio</span>`:''}</div>`:'<div style="font-size:13px;color:#7a7a76;padding:8px 0">Sin datos EVA</div>'}</div>
+      </div>
+      ${evaSes.length?`<div style="margin-top:16px"><div class="rpt-sec-title">Evolución del dolor (EVA)</div><canvas id="eva-evolution-chart" height="90" style="margin-top:8px"></canvas></div>`:''}
+      ${evalBlockHtml}
+      <div style="margin-top:16px"><div class="rpt-sec-title">Narrativa clínica (IA)</div>
+        <div id="patient-rpt-ai-output" style="font-size:12px;color:#5a5a56;margin-top:8px">— <span style="font-size:11px">(usá «Informe clínico con IA» para generar la evolución)</span></div></div>
+      ${tablaHtml}
+    </div>
+    <aside class="rpt-side">
+      <div class="side-card">
+        <div class="side-title">Documento</div>
+        <div class="side-col">
+          ${hasPermission('viewAI')?`<button class="side-btn primary" onclick="genPatientAI()">Informe clínico con IA</button>`:''}
+          <button class="side-btn outline" onclick="exportarPDF()">Exportar PDF</button>
+          ${hasPermission('viewAI')?`<button class="side-btn outline" id="save-informe-btn" style="display:none" onclick="guardarInforme()">💾 Guardar informe</button>`:''}
+        </div>
+      </div>
+      <div class="side-card">
+        <div class="side-title">Paciente</div>
+        <div class="side-col">
+          <button class="side-btn soft" onclick="agendarCitaParaPaciente('${esc(p.id)}')">+ Agendar cita</button>
+          ${hasPermission('registerSession')?`<button class="side-btn soft" onclick="openSessionModalManual('${esc(p.id)}')">+ Sesión manual</button>`:''}
+          ${isCurrentEpisode?`<button class="side-btn warn" onclick="nuevoEpisodio('${esc(p.id)}')">Nuevo episodio</button>`:''}
+        </div>
+      </div>
+      <div id="informes-guardados" class="side-card"></div>
+    </aside>
+  </div>`;
 
   out.innerHTML=html;
   _rptCtx={p,log,attended,pct,adh,fp,lp,th,doc,epDiag,epDone,epSessions,inicio,rptNo,fechaLarga,thHeader,prot};
@@ -698,7 +738,7 @@ export function renderPatientReport() {
         });
       }};
       new Chart(ctx,{type:'line',
-        data:{labels:evaLabels,datasets:[{label:'Dolor EVA',data:evaData,borderColor:'#D85A30',pointBackgroundColor:'#D85A30',pointRadius:3,pointHoverRadius:4,borderWidth:2,tension:.25,fill:false,spanGaps:true}]},
+        data:{labels:evaLabels,datasets:[{label:'Dolor EVA',data:evaData,borderColor:'#F5A623',pointBackgroundColor:'#F5A623',pointRadius:3.5,pointHoverRadius:4.5,borderWidth:2.5,tension:.25,fill:false,spanGaps:true}]},
         options:{responsive:true,animation:false,
           plugins:{legend:{display:false},tooltip:{callbacks:{label:it=>'EVA '+it.parsed.y}}},
           scales:{y:{min:0,max:10,ticks:{stepSize:2,color:'#6b6a64',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},
@@ -924,23 +964,23 @@ export function renderInformesGuardados() {
   if(!cont) return;
   const id=document.getElementById('patient-rpt-select')?.value;
   const lista=(state.informes||[]).filter(x=>String(x.patientId)===String(id));
-  let inner=`<div class="card-title" style="margin-bottom:10px">Informes guardados</div>`;
+  let inner=`<div class="side-title" style="margin-bottom:8px">Informes guardados</div>`;
   if(lista.length){
-    const btnBase='padding:6px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0';
+    const btnBase='padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap';
     inner+=lista.map(inf=>{
       const fecha=inf.fechaEmision||(inf.createdAt?String(inf.createdAt).slice(0,10):'—');
       const idEsc=esc(String(inf.id));
       const verBtn=`<button onclick="verInformeGuardado('${idEsc}')" style="${btnBase};background:rgba(41,171,226,.1);color:#155b7a;border:1px solid rgba(41,171,226,.3)">Ver</button>`;
-      const expBtn=`<button onclick="exportarInformeGuardado('${idEsc}')" style="${btnBase};background:rgba(29,158,117,.12);color:#1D9E75;border:1px solid rgba(29,158,117,.3)">Exportar PDF</button>`;
+      const expBtn=`<button onclick="exportarInformeGuardado('${idEsc}')" style="${btnBase};background:#fff;color:#1d8fbf;border:1px solid rgba(41,171,226,.35)">PDF</button>`;
       const delBtn=hasPermission('deleteInforme')?`<button onclick="eliminarInformeGuardado('${idEsc}')" style="${btnBase};background:rgba(224,75,74,.08);color:#E24B4A;border:1px solid rgba(224,75,74,.3)">Eliminar</button>`:'';
-      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(29,158,117,.08)">
-        <div style="min-width:0"><div style="font-size:12px;font-weight:600;color:#1a1917">${esc(inf.numero||'INF')}</div>
-        <div style="font-size:10px;color:#6b6a64">${esc(fecha)}</div></div>
-        <div style="display:flex;gap:6px;flex-shrink:0">${verBtn}${expBtn}${delBtn}</div>
+      return `<div style="padding:8px 0;border-bottom:1px solid rgba(41,171,226,.1)">
+        <div style="font-size:12px;font-weight:700;color:#1a1917">${esc(inf.numero||'INF')}</div>
+        <div style="font-size:10px;color:#7a7a76;margin:1px 0 6px">${esc(fecha)}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">${verBtn}${expBtn}${delBtn}</div>
       </div>`;
     }).join('');
   } else {
-    inner+=`<div style="font-size:12px;color:#9c9a92;padding:8px 0">Aún no hay informes guardados para este paciente.</div>`;
+    inner+=`<div style="font-size:11px;color:#9c9a92">Sin informes guardados de este paciente.</div>`;
   }
   cont.innerHTML=inner;
 }

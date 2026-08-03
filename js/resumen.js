@@ -1,32 +1,63 @@
 import { state } from './state.js';
-import { esc, fmtDate, fmtTime, getPatient, getTherapist, getDoctor, getInitials, safeColor } from './utils.js';
+import { esc, fmtDate, fmtTime, getPatient, getTherapist, getDoctor, getInitials, getColor, safeColor } from './utils.js';
 import { toastErr } from './toast.js';
 
 export function hasEvalInicial(p) {
   return (p.log || []).some(s => s.type === 'Evaluación inicial');
 }
 
+// Badge del sidebar: acciones pendientes de HOY (independiente de la fecha que se esté
+// navegando en Agenda o en Resumen).
 export function updateResumenBadge() {
-  const ds = fmtDate(state.currentDate);
+  const ds = fmtDate(new Date());
   const n  = state.appointments.filter(a => a.date === ds && (a.status === 'pend' || a.status === 'noas')).length;
   const b  = document.getElementById('resumen-badge');
+  if (!b) return;
   b.textContent = n; b.style.display = n > 0 ? '' : 'none';
 }
 
-function renderStatsBar(nConf, nPend, nNoas) {
+// ── NUEVO 3: navegación de fecha del Resumen (estado propio: state.resumenDate) ──
+export function changeResumenDay(d) {
+  state.resumenDate.setDate(state.resumenDate.getDate() + d);
+  renderResumen();
+}
+
+export function goToResumenDate(ds) {
+  if (!ds) return;
+  const p = ds.split('-');
+  state.resumenDate = new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
+  renderResumen();
+}
+
+export function resumenHoy() {
+  state.resumenDate = new Date();
+  renderResumen();
+}
+
+export function openResumenDatePicker() {
+  const inp = document.getElementById('resumen-date-input');
+  if (!inp) return;
+  inp.value = fmtDate(state.resumenDate);
+  inp.style.pointerEvents = 'auto';
+  inp.showPicker ? inp.showPicker() : inp.click();
+  setTimeout(() => inp.style.pointerEvents = 'none', 500);
+}
+
+// Franja de contadores: un solo panel con números grandes + barra de jornada segmentada.
+function renderStrip(nConf, nPend, nNoas) {
+  const total = nConf + nPend + nNoas;
+  const pct = total > 0 ? Math.round(nConf / total * 100) : 0;
+  const seg = (n, color) => n > 0 ? `<span style="flex:${n};background:${color}"></span>` : '';
   return `
-    <div class="resd-stats-bar">
-      <div class="resd-q-stat green">
-        <div class="resd-q-icon">✓</div>
-        <div><div class="resd-q-num">${nConf}</div><div class="resd-q-lbl">Asistieron correctamente</div></div>
-      </div>
-      <div class="resd-q-stat yellow">
-        <div class="resd-q-icon">⏳</div>
-        <div><div class="resd-q-num">${nPend}</div><div class="resd-q-lbl">Pendientes de confirmar</div></div>
-      </div>
-      <div class="resd-q-stat red">
-        <div class="resd-q-icon">✗</div>
-        <div><div class="resd-q-num">${nNoas}</div><div class="resd-q-lbl">No asistieron — requieren contacto</div></div>
+    <div class="resd-strip">
+      <div class="resd-strip-item"><span class="resd-strip-num g">${nConf}</span><span class="resd-strip-lbl">asistieron</span></div>
+      <span class="resd-strip-div"></span>
+      <div class="resd-strip-item"><span class="resd-strip-num y">${nPend}</span><span class="resd-strip-lbl">por confirmar</span></div>
+      <span class="resd-strip-div"></span>
+      <div class="resd-strip-item"><span class="resd-strip-num r">${nNoas}</span><span class="resd-strip-lbl">no asistió — requiere contacto</span></div>
+      <div class="resd-journey">
+        <div class="resd-journey-lbls"><span>Jornada del día</span><span><b style="color:#17865f">${pct}%</b> resuelta</span></div>
+        <div class="resd-journey-bar">${seg(nConf,'#1D9E75')}${seg(nPend,'#E0A850')}${seg(nNoas,'#E24B4A')}${total===0?'<span style="flex:1;background:rgba(0,0,0,.06)"></span>':''}</div>
       </div>
     </div>`;
 }
@@ -34,12 +65,13 @@ function renderStatsBar(nConf, nPend, nNoas) {
 function row(a, kind) {
   const pt     = getPatient(a.patientId);
   const th     = getTherapist(a.therapistId);
+  const c      = getColor(th?.colorId || 'ca');
   const doc    = pt?.doctorId ? getDoctor(pt.doctorId) : null;
   const dcol   = doc ? safeColor(doc.color) : '';
   const refTag = doc
-    ? `<span class="resd-ref-tag" style="background:${dcol}22;color:${dcol};border-color:${dcol}44">${esc(doc.name)}</span>`
+    ? `<span class="resd-ref-tag" style="background:${dcol}18;color:${dcol};border-color:${dcol}44">${esc(doc.name)}</span>`
     : '';
-  const metaParts = [fmtTime(a.hour), esc(a.type || ''), th ? esc(th.name) : null];
+  const metaParts = [esc(a.type || ''), th ? esc(th.name) : null];
   if (kind === 'noas' && pt?.tel) metaParts.push(esc(pt.tel));
   const meta = metaParts.filter(Boolean).join(' · ');
   let actions;
@@ -47,26 +79,25 @@ function row(a, kind) {
     const hasSession = a.hasSession || false;
     const tieneEval  = pt ? hasEvalInicial(pt) : true;
     const evalBtn    = !tieneEval
-      ? `<button class="resd-btn-eval" onclick="openEvalInicial(${esc(JSON.stringify(a.patientId))})">⚠️ Eval. inicial</button>`
+      ? `<button class="resd-btn-eval" onclick="openEvalInicial(${esc(JSON.stringify(a.patientId))})">Eval. inicial pendiente</button>`
       : '';
-    actions = `
-      <button class="resd-btn-sess${hasSession ? ' done' : ''}" onclick="openSessionModal(window._app.appointments.find(x=>x.id===${esc(JSON.stringify(a.id))}))">${hasSession ? '✓ Sesión OK' : '📋 Completar sesión'}</button>
-      ${evalBtn}
-      <span class="resd-asistio">✓ Asistió</span>`;
+    actions = hasSession
+      ? `<span class="resd-btn-sess done">✓ Sesión registrada</span>${evalBtn}`
+      : `<button class="resd-btn-sess" onclick="openSessionModal(window._app.appointments.find(x=>x.id===${esc(JSON.stringify(a.id))}))">Completar sesión</button>${evalBtn}`;
   } else {
     // Sin teléfono no hay chat posible: botón deshabilitado (antes abría un número fijo de la clínica).
     const waBtn = pt?.tel
-      ? `<button class="resd-btn-wa" onclick="simWA(${esc(JSON.stringify(pt.name || ''))},${esc(JSON.stringify(pt.tel))})">📱 WhatsApp</button>`
-      : `<button class="resd-btn-wa" disabled title="Sin teléfono registrado — agrégalo en el perfil del paciente" style="opacity:.45;cursor:not-allowed">📱 WhatsApp</button>`;
+      ? `<button class="resd-btn-wa" onclick="simWA(${esc(JSON.stringify(pt.name || ''))},${esc(JSON.stringify(pt.tel))})">WhatsApp</button>`
+      : `<button class="resd-btn-wa" disabled title="Sin teléfono registrado — agrégalo en el perfil del paciente" style="opacity:.45;cursor:not-allowed">WhatsApp</button>`;
     actions = `
       ${waBtn}
-      <button class="resd-btn-em"  onclick="simEmail(${esc(JSON.stringify(pt?.name || ''))},${esc(JSON.stringify(pt?.email || ''))})">✉ Email</button>
-      <button class="resd-btn-rep" onclick="openApptModal()">↻ Reagendar</button>`;
+      <button class="resd-btn-em"  onclick="simEmail(${esc(JSON.stringify(pt?.name || ''))},${esc(JSON.stringify(pt?.email || ''))})">Email</button>
+      <button class="resd-btn-rep" onclick="openApptModal()">Reagendar</button>`;
   }
   return `
-    <div class="resd-row ${kind}">
-      <div class="resd-time">${fmtTime(a.hour)}</div>
-      <div class="resd-avatar">${esc(getInitials(pt?.name || ''))}</div>
+    <div class="resd-row">
+      <span class="resd-time">${fmtTime(a.hour)}</span>
+      <span class="resd-avatar" style="background:${c.bg};color:${c.text}">${esc(getInitials(pt?.name || ''))}</span>
       <div class="resd-info">
         <div class="resd-name">${esc(pt?.name || 'Paciente')} ${refTag}</div>
         <div class="resd-meta">${meta}</div>
@@ -76,21 +107,22 @@ function row(a, kind) {
 }
 
 export function renderResumen() {
-  const ds = fmtDate(state.currentDate);
+  const d  = state.resumenDate;
+  const ds = fmtDate(d);
   const dn = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
   const mn = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-  document.getElementById('resumen-day-lbl').textContent =
-    `${dn[state.currentDate.getDay()]} ${state.currentDate.getDate()} de ${mn[state.currentDate.getMonth()]} · Acciones de seguimiento de la jornada`;
+  const lbl = document.getElementById('resumen-day-lbl');
+  if (lbl) lbl.textContent = `${dn[d.getDay()]}, ${d.getDate()} de ${mn[d.getMonth()]} ${d.getFullYear()}`;
 
   const ta   = state.appointments.filter(a => a.date === ds);
   const noAs = ta.filter(a => a.status === 'noas').sort((a, b) => a.hour - b.hour);
   const pend = ta.filter(a => a.status === 'pend').sort((a, b) => a.hour - b.hour);
   const conf = ta.filter(a => a.status === 'conf').sort((a, b) => a.hour - b.hour);
 
-  let html = renderStatsBar(conf.length, pend.length, noAs.length);
+  let html = renderStrip(conf.length, pend.length, noAs.length);
 
   if (!ta.length) {
-    html += `<div class="resd-empty">No hay citas registradas para hoy.</div>`;
+    html += `<div class="resd-empty">No hay citas registradas para este día.</div>`;
     document.getElementById('resumen-content').innerHTML = html;
     return;
   }
@@ -98,10 +130,10 @@ export function renderResumen() {
   function section(list, kind, label, dotColor) {
     if (!list.length) return '';
     return `
-      <div class="resd-section">
-        <div class="resd-section-title">
+      <div class="resd-box ${kind}">
+        <div class="resd-head">
           <span class="resd-sec-dot" style="background:${dotColor}"></span>
-          ${label}
+          <span class="resd-sec-title">${label}</span>
           <span class="resd-count">${list.length} cita${list.length !== 1 ? 's' : ''}</span>
         </div>
         ${list.map(a => row(a, kind)).join('')}
@@ -109,7 +141,7 @@ export function renderResumen() {
   }
 
   html += section(noAs, 'noas', 'No asistieron',            '#E24B4A');
-  html += section(pend, 'pend', 'Pendientes de confirmar',  '#BA7517');
+  html += section(pend, 'pend', 'Pendientes de confirmar',  '#E0A850');
   html += section(conf, 'conf', 'Asistieron correctamente', '#1D9E75');
 
   document.getElementById('resumen-content').innerHTML = html;
@@ -131,7 +163,7 @@ export function simEmail(nombre, email) {
 }
 
 export function genResumenDiaAI() {
-  const ds   = fmtDate(state.currentDate);
+  const ds   = fmtDate(state.resumenDate);
   const hoy  = state.appointments.filter(a => a.date === ds);
   const conf = hoy.filter(a => a.status === 'conf').length;
   const noas = hoy.filter(a => a.status === 'noas').length;

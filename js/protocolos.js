@@ -12,18 +12,6 @@ const _protSessionsFn = (v) => validatePositiveInt(v, { min: 1, max: 100, fieldN
 
 const PROT_PAGE_SIZE = 3;
 
-const svgsSmall = {
-  shoulder:'<svg viewBox="0 0 80 80" width="72" height="72"><circle cx="40" cy="32" r="18" fill="none" stroke="#1D9E75" stroke-width="1.5"/><ellipse cx="40" cy="32" rx="8" ry="8" fill="none" stroke="#1D9E75" stroke-width="1" stroke-dasharray="3,2"/><rect x="28" y="48" width="24" height="20" rx="4" fill="none" stroke="#1D9E75" stroke-width="1"/><circle cx="40" cy="32" r="4" fill="#1D9E75" opacity=".7"/></svg>',
-  hip:'<svg viewBox="0 0 80 80" width="72" height="72"><ellipse cx="40" cy="30" rx="22" ry="16" fill="none" stroke="#1D9E75" stroke-width="1.5"/><circle cx="40" cy="38" r="9" fill="none" stroke="#1D9E75" stroke-width="1.5"/><circle cx="40" cy="38" r="4" fill="#1D9E75" opacity=".7"/><line x1="32" y1="47" x2="26" y2="72" stroke="#1D9E75" stroke-width="2" stroke-linecap="round"/><line x1="48" y1="47" x2="54" y2="72" stroke="#1D9E75" stroke-width="2" stroke-linecap="round"/></svg>',
-  hand:'<svg viewBox="0 0 80 80" width="72" height="72"><rect x="28" y="40" width="24" height="28" rx="6" fill="none" stroke="#1D9E75" stroke-width="1.5"/><rect x="22" y="26" width="7" height="18" rx="3" fill="none" stroke="#1D9E75" stroke-width="1.5"/><rect x="31" y="20" width="7" height="22" rx="3" fill="none" stroke="#1D9E75" stroke-width="1.5"/><rect x="40" y="22" width="7" height="20" rx="3" fill="none" stroke="#1D9E75" stroke-width="1.5"/><rect x="49" y="26" width="7" height="16" rx="3" fill="none" stroke="#1D9E75" stroke-width="1.5"/><circle cx="25" cy="22" r="3" fill="#1D9E75" opacity=".8"/></svg>',
-  arm:'<svg viewBox="0 0 80 80" width="72" height="72"><rect x="32" y="10" width="16" height="60" rx="8" fill="none" stroke="#1D9E75" stroke-width="1.5"/><ellipse cx="40" cy="38" rx="12" ry="8" fill="none" stroke="#1D9E75" stroke-width="1" stroke-dasharray="3,2"/><circle cx="40" cy="38" r="4" fill="#1D9E75" opacity=".7"/></svg>',
-  head:'<svg viewBox="0 0 80 80" width="72" height="72"><ellipse cx="40" cy="32" rx="22" ry="26" fill="none" stroke="#1D9E75" stroke-width="1.5"/><ellipse cx="40" cy="60" rx="10" ry="6" fill="none" stroke="#1D9E75" stroke-width="1"/><line x1="22" y1="28" x2="58" y2="28" stroke="#1D9E75" stroke-width="1" stroke-dasharray="4,3" opacity=".6"/><circle cx="32" cy="36" r="3" fill="none" stroke="#1D9E75" stroke-width="1.5"/><circle cx="48" cy="36" r="3" fill="none" stroke="#1D9E75" stroke-width="1.5"/></svg>',
-  elbow:'<svg viewBox="0 0 80 80" width="72" height="72"><rect x="34" y="8" width="12" height="28" rx="6" fill="none" stroke="#1D9E75" stroke-width="1.5"/><circle cx="40" cy="40" r="14" fill="none" stroke="#1D9E75" stroke-width="1.5"/><circle cx="40" cy="40" r="5" fill="#1D9E75" opacity=".7"/><rect x="34" y="46" width="12" height="26" rx="6" fill="none" stroke="#1D9E75" stroke-width="1.5"/></svg>',
-  spine:'<svg viewBox="0 0 80 80" width="72" height="72"><rect x="34" y="8" width="12" height="64" rx="3" fill="none" stroke="#1D9E75" stroke-width="1.5"/><rect x="26" y="12" width="28" height="8" rx="2" fill="none" stroke="#1D9E75" stroke-width="1"/><rect x="26" y="24" width="28" height="8" rx="2" fill="none" stroke="#1D9E75" stroke-width="1"/><rect x="26" y="36" width="28" height="8" rx="2" fill="none" stroke="#1D9E75" stroke-width="1"/><rect x="26" y="48" width="28" height="8" rx="2" fill="none" stroke="#1D9E75" stroke-width="1"/><rect x="26" y="60" width="28" height="8" rx="2" fill="none" stroke="#E24B4A" stroke-width="1.5"/></svg>',
-  knee:'<svg viewBox="0 0 80 80" width="72" height="72"><rect x="32" y="8" width="16" height="26" rx="5" fill="none" stroke="#1D9E75" stroke-width="1.5"/><ellipse cx="40" cy="40" rx="18" ry="14" fill="none" stroke="#1D9E75" stroke-width="1.5"/><ellipse cx="40" cy="38" rx="8" ry="6" fill="none" stroke="#1D9E75" stroke-width="1" stroke-dasharray="3,2"/><circle cx="40" cy="38" r="3" fill="#1D9E75" opacity=".7"/><rect x="32" y="52" width="16" height="22" rx="5" fill="none" stroke="#1D9E75" stroke-width="1.5"/></svg>',
-  ankle:'<svg viewBox="0 0 80 80" width="72" height="72"><rect x="34" y="8" width="12" height="36" rx="5" fill="none" stroke="#1D9E75" stroke-width="1.5"/><ellipse cx="40" cy="50" rx="16" ry="12" fill="none" stroke="#1D9E75" stroke-width="1.5"/><rect x="20" y="60" width="40" height="12" rx="5" fill="none" stroke="#1D9E75" stroke-width="1.5"/><line x1="34" y1="44" x2="46" y2="44" stroke="#E24B4A" stroke-width="2" stroke-linecap="round"/></svg>',
-};
-
 export function openProtocolModal(eid=null) {
   _protocolDirty.reset();
   clearAllErrors(['prot-name', 'prot-diag', 'prot-alta', 'prot-sessions']);
@@ -114,22 +102,33 @@ export function initProtocolValidation() {
 }
 
 export function renderProtocols() {
-  const fl={7:'Diaria',5:'5×/sem',3:'3×/sem',2:'2×/sem',1:'1×/sem'};
+  const fl={7:'Diaria',5:'5×',3:'3×',2:'2×',1:'1×'};
   const qp=(document.getElementById('protocol-search')?.value||'').toLowerCase();
   const filtProts=qp?state.protocols.filter(p=>p.name.toLowerCase().includes(qp)||p.diag.toLowerCase().includes(qp)):state.protocols;
+  // ¿p.img es una foto real? (URL/data/ruta). Los valores legacy son claves de zona ('knee', 'hip'…)
+  // → cabecera plana de color suave, sin call-to-action (las fotos reales las proveerá la clínica).
+  const isUrl=v=>/^(https?:\/\/|data:|\.?\/)/.test(String(v||''));
+  // Pacientes por protocolo: link explícito, o keyword como fallback (misma lógica que getProtocolRows).
+  const countPts=prot=>state.patients.filter(pt=>{
+    if(pt.status==='alta') return false;
+    if(pt.protocolId) return pt.protocolId===prot.id;
+    const kw=(prot.diag||'').toLowerCase().split(',').map(k=>k.trim());
+    return kw.some(k=>k&&(pt.diag||'').toLowerCase().includes(k));
+  }).length;
   if(!filtProts.length){
     document.getElementById('protocols-list').innerHTML=`<div style="color:#5a5a56;font-size:13px;padding:20px 0;text-align:center">No hay protocolos. Carga los predefinidos o crea uno nuevo.</div>`;
   } else {
-    document.getElementById('protocols-list').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;margin-bottom:14px">`+filtProts.map(p=>{
-      const svg=svgsSmall[p.img]||svgsSmall.knee;
-      return`<div class="protocol-card" style="display:flex;gap:14px;align-items:flex-start">
-        <div style="flex-shrink:0;background:#f8f8f4;border-radius:8px;padding:8px;border:1px solid rgba(29,158,117,.12)">${svg}</div>
-        <div style="flex:1;min-width:0">
-          <div class="protocol-diag">${esc(p.name)}</div>
-          ${p.def?`<div style="font-size:11px;color:#6b6a64;margin-top:4px;line-height:1.5">${esc(p.def)}</div>`:''}
-          <div class="protocol-meta" style="margin-top:6px">${p.sessions} sesiones · ${fl[p.freq]||p.freq+'×/sem'}</div>
-          ${p.alta?`<div style="font-size:10px;color:#7a7a76;margin-top:3px">Alta: ${esc(p.alta)}</div>`:''}
-          ${hasPermission('createProtocol')?`<div style="display:flex;gap:6px;margin-top:8px"><button class="th-btn" onclick="openProtocolModal('${p.id}')">Editar</button><button class="th-btn del" onclick="deleteProtocol('${p.id}')">Eliminar</button></div>`:''}
+    document.getElementById('protocols-list').innerHTML=`<div class="prot-grid">`+filtProts.map(p=>{
+      const n=countPts(p);
+      const photo=isUrl(p.img)?`<img src="${esc(p.img)}" alt="" loading="lazy">`:'';
+      return`<div class="prot-card">
+        <div class="prot-photo">${photo}<span class="prot-pts">${n} paciente${n!==1?'s':''}</span></div>
+        <div class="prot-body">
+          <div class="prot-name">${esc(p.name)}</div>
+          ${p.def?`<div class="prot-def">${esc(p.def)}</div>`:''}
+          <div class="prot-meta"><span><b style="color:#1a1917">${p.sessions}</b> sesiones</span><span><b style="color:#1a1917">${fl[p.freq]||p.freq+'×'}</b>/semana</span></div>
+          ${p.alta?`<div class="prot-alta">Alta: ${esc(p.alta)}</div>`:''}
+          ${hasPermission('createProtocol')?`<div class="prot-btns"><button class="prot-btn edit" onclick="openProtocolModal('${p.id}')">Editar</button><button class="prot-btn del" onclick="deleteProtocol('${p.id}')">Eliminar</button></div>`:''}
         </div>
       </div>`;
     }).join('')+`</div>`;

@@ -13,6 +13,7 @@ export const state = {
     {id:'email_doc',label:'Notificar al doctor referente en alta',desc:'Al dar de alta a un paciente, notifica al médico que lo refirió.',icon:'✉️',on:false},
   ],
   currentDate: new Date(),
+  resumenDate: new Date(),   // NUEVO 3: fecha seleccionada del Resumen del día (independiente de la agenda)
   currentWeek: 0,
   currentTab: 'agenda',
   dragData: null,
