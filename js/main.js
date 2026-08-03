@@ -106,6 +106,7 @@ export function showTab(tab) {
   const navMap={'agenda':0,'resumen':1,'pacientes':2,'paciente_rpt':3,'protocolos':4,'informes':5,'facturacion':6,'terapeutas':7,'doctores':8};
   const navItems=document.querySelectorAll('.nav-item');
   if(navItems[navMap[tab]])navItems[navMap[tab]].classList.add('active');
+  if(tab==='agenda')renderGrid();
   if(tab==='pacientes')renderPatients();
   if(tab==='informes')renderSemanal();
   if(tab==='paciente_rpt')renderPatientReportSelect();
