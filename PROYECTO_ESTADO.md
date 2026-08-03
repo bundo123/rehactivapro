@@ -36,6 +36,23 @@
 
 ---
 
+## 🗓️ Sesión 2026-08-03 (tarde) — Rediseño UI + Lote 1.5
+
+### ✅ Enviado — 2 commits, Vercel verde verificado en cada uno (commit-status de GitHub)
+
+- **`82952b3` feat(ui): rediseño visual según handoff (6 pantallas, orden terapeutas, selector fecha resumen)** — rediseño 1:1 de funcionalidad sobre el handoff hifi versionado en `design_handoff_rehactiva_ui/` (README = spec, `RehactivaPro - Final.dc.html` = fuente de verdad de estilos, 6 screenshots de referencia). 18 archivos de app + handoff, +778/−884.
+  - **Tokens/tipografía:** `rehactiva-theme.css` reescrito (azul `#29ABE2` primario, naranja, crema `#f0e8d8`); **Public Sans** 400–800 con `display=swap` (reemplaza Outfit); botones primarios e IA en azul.
+  - **Pantallas:** Login (logo real 240px, sin link "Olvidé mi contraseña" — flujo recovery por email intacto) · Shell/sidebar (logo 154px, íconos SVG Feather, headers de pantalla blancos sticky con controles integrados) · Agenda vista Día (filas 46px, tinte por terapeuta→luego por modalidad, franja izq. doctor, sub-barra con pill+contadores+leyenda; Semana/Mes y Exportar **ocultos, lógica viva**) · Resumen (franja de contadores + barra de jornada + secciones teñidas) · Informe paciente (hoja membretada + sidebar sticky 230px; ids de IA/guardar/chart preservados, **PDF formal intacto**) · Protocolos (tarjetas con cabecera 130px; foto si `img` es URL, plana si es clave de zona; **bloque continuidad oculto, no borrado**) · Informes (solo Semanal; **sin "Ingreso estimado"**; heatmap en azules; Desempeño integra la utilización → `renderTherapistUtil` quedó sin caller).
+  - **Orden de terapeutas:** `orderedTherapists()` (`display_order` asc, nulls al final, luego nombre) en columnas de agenda, selects (cita/sesión manual/filtro), listado de terapeutas y Desempeño. Mappers leen `display_order`/`work_start`/`work_end` (`parseHourVal` tolera número o `time`).
+  - **Selector de fecha en Resumen:** `state.resumenDate` propio (‹ › + date picker + Hoy); todo el resumen se calcula sobre esa fecha; `checkAutoNoas` sin disparos extra. **Decisión:** el badge del sidebar ahora cuenta las acciones de HOY real (antes seguía la fecha navegada de la agenda).
+  - **Decisión fuera de horario (cerrada en esta sesión):** el rayado 45° del spec se implementó y luego se **eliminó a pedido** — los slots fuera de `[work_start, work_end)` se ven y comportan idéntico a los normales. Se conservan: columnas en mappers (para conteos futuros), horario bajo el nombre en el header, grilla que muestra SIEMPRE todas las citas (antes las citas fuera del horario del terapeuta ni se dibujaban) y todos los slots agendables/droppeables.
+  - **Verificación:** `node --check` 11/11 · build OK (logo bundleado) · 19/19 tests · Playwright a 1280px y 1024px contra los 6 screenshots del handoff (datos de prueba inyectados en memoria vía imports dinámicos de Vite, cero writes a prod — la RLS rechazó los intentos anónimos del seed).
+- **`4a08ef4` feat(agenda): modalidad centro/domicilio por cita + guard de cédula duplicada** (Lote 1.5; la columna `appointments.location` `'centro'|'domicilio'` default `'centro'` ya estaba en DB — SQL primero).
+  - **Centro/Domicilio:** selector "Modalidad" en el modal de cita (crear resetea a centro, editar carga el valor); `location` persistido en los 3 caminos de escritura (insert, update de edición, recurrentes) y en los mappers de `auth.js`/`realtime.js` con fallback `'centro'`. El **tinte** de la tarjeta lo define la modalidad (centro verde `.13` / domicilio naranja `.15`); el **estado** lo pisa cuando aplica (punto, punteado ámbar de pend, rojizo tachado de noas). Leyenda con chips Centro/Domicilio (alpha .30/.35 para legibilidad — más marcado que el tinte real de las tarjetas). El tinte por color de terapeuta en tarjetas desaparece; el avatar de columna lo conserva.
+  - **Cédula duplicada:** `findCedulaDuplicate(patients, cedula, excludeId)` puro en `utils.js` (trim bilateral, vacía nunca duplica, excluye al editado); `savePatient` aborta con toast `Ya existe un paciente con esta cédula: {nombre}` en crear y editar, antes de tocar estado/DB. `test/cedula.test.js` con 4 tests → **23/23 verdes**.
+
+---
+
 ## 🗓️ Sesión 2026-08-02/03
 
 ### ✅ Enviado — 3 commits, Vercel verde verificado en cada uno (commit-status de GitHub)
