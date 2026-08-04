@@ -36,6 +36,20 @@
 
 ---
 
+## 🗓️ Sesión 2026-08-03 (noche) — Hotfix logo + vistas Semana/Mes de agenda
+
+### ✅ Enviado — 2 commits, Vercel verde verificado en cada uno (commit-status de GitHub)
+
+- **`c6a8c0b` fix(informes): logo del membrete en producción via data URI** — el `<img>` del membrete en pantalla usaba `src="img/logo-rehactiva.png"`, que en el build de producción no existe (Vite no procesa rutas en strings de JS; solo las del HTML). Reemplazado por el `LOGO_DATA_URI` ya importado (mismo patrón que el PDF). Única referencia a `img/` en strings de JS (verificado por grep). **Regla para el futuro:** assets referenciados desde renderers JS van por data URI o import de Vite, nunca por ruta en string.
+- **`17df85e` feat(agenda): vistas Semana (por terapeuta) y Mes** — reactiva el segmented completo (Día intacta). +179/−105 en 5 archivos.
+  - **Arquitectura:** `renderGrid()` pasó a ser el punto de entrada ÚNICO de re-render de la agenda y despacha a la vista activa → realtime, navegación (‹ › / Hoy / datepicker) y `showTab` refrescan cualquier vista sin tocar `realtime.js`.
+  - **Semana (por terapeuta):** con "Todos" no se entra (toast `Seleccioná un terapeuta para la vista semanal` sin cambiar de vista); si estando en Semana se vuelve a "Todos", toast informativo y cae a Día (decisión: la spec no cubría ese camino). Grilla Lun–Sáb × filas de 30 min (Dom solo si tiene citas esa semana); rango horario = `[work_start, work_end)` del terapeuta (fallback a `startH/endH` si son null) ∪ horas de todas sus citas — todo visible siempre, mismo criterio que Día. Slots libres → modal con **fecha + hora + terapeuta prellenados** (`openApptModalAt` extendido con fecha); tarjetas compactas (nombre + punto de estado + tinte de modalidad + franja de doctor, altura por duración), click → editar; **sin drag & drop (v1)**. Sub-barra con contadores de la semana; label `3 – 8 de agosto 2026` (variante para semanas que cruzan de mes).
+  - **Mes:** funciona con terapeuta o con "Todos"; celdas con conteo de citas del filtro activo (vacía si 0) y hoy resaltado; click en un día → vista Día en esa fecha; ‹ › ±1 mes; sub-barra con total del mes.
+  - **`startOfWeek()`** puro en `utils.js` (lunes 00:00; el domingo pertenece a la semana anterior; no muta el argumento), reutilizado en `exportAgendaCSV` (dedup del cálculo de lunes — avance parcial de R-32). `test/semana.test.js` con 5 casos (incl. borde de mes y domingo) → **28/28 verdes**.
+  - **Verificación:** node --check · build · smoke Playwright con datos en memoria (guard, prellenado del modal, fallback a Día, domingo condicional, mes con conteos y click→Día; cero errores JS, cero writes a prod).
+
+---
+
 ## 🗓️ Sesión 2026-08-03 (tarde) — Rediseño UI + Lote 1.5
 
 ### ✅ Enviado — 2 commits, Vercel verde verificado en cada uno (commit-status de GitHub)
