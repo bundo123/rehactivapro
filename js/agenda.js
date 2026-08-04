@@ -390,7 +390,8 @@ export async function saveAppt() {
     const existing=state.appointments.find(a=>String(a.id)===editingId);
     if(!existing){toastErr('Cita no encontrada.');return;}
     const today=fmtDate(new Date());
-    if(ds<today && ds!==existing.date){toastErr('No se pueden mover citas a días pasados.');return;}
+    // Registro retroactivo: admin/secretaria pueden mover a días pasados (apptPastDate).
+    if(ds<today && ds!==existing.date && !hasPermission('apptPastDate')){toastErr('No se pueden mover citas a días pasados.');return;}
     existing.therapistId=thId;existing.hour=hr;existing.duration=dur;existing.location=loc;
     existing.patientId=patId;existing.type=document.getElementById('m-type').value;
     existing.status=document.getElementById('m-status').value;existing.note=document.getElementById('m-note').value;existing.date=ds;
@@ -405,7 +406,8 @@ export async function saveAppt() {
   }
 
   const today=fmtDate(new Date());
-  if(ds<today){toastErr('No se pueden agendar citas en días pasados.');return;}
+  // Registro retroactivo: admin/secretaria pueden agendar en días pasados (apptPastDate).
+  if(ds<today && !hasPermission('apptPastDate')){toastErr('No se pueden agendar citas en días pasados.');return;}
   const _a={id:++state.apptCounter,date:ds,therapistId:thId,hour:hr,duration:dur,location:loc,patientId:patId,type:document.getElementById('m-type').value,status:document.getElementById('m-status').value,note:document.getElementById('m-note').value};
   state.appointments.push(_a);
   window._app.closeModal('appt-modal'); renderGrid();
