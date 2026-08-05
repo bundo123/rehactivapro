@@ -253,7 +253,7 @@ export function renderSemanal() {
         const slots=therapistHours(th).length*5;
         const util=slots>0?Math.round(thConf/slots*100):0;
         const c=getColor(th.colorId);
-        return '<div style="display:flex;align-items:center;gap:10px">'
+        return '<div class="perf-row" style="display:flex;align-items:center;gap:10px">'
           +'<span class="avatar" style="background:'+c.bg+';color:'+c.text+'">'+esc(th.initials)+'</span>'
           +'<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:700;color:#1a1917">'+esc(th.name)+'</span>'
           +'<span style="font-size:11px;color:#7a7a76"><b style="color:#17865f">✓ '+thConf+'</b> · <b style="color:#c33a3a">✗ '+thNoas+'</b></span></div>'
@@ -627,7 +627,7 @@ export function renderPatientReport() {
     const thc=(t,al)=>`<th style="text-align:${al||'left'};font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#9c9a92;padding:6px 8px 5px 0">${t}</th>`;
     const showAcc=canEdit||canDelete;
     tablaHtml=`<div style="margin-top:16px"><div class="rpt-sec-title">Detalle por sesión (${tratRows.length})</div>
-      <table style="width:100%;border-collapse:collapse;margin-top:4px"><thead><tr>${thc('Fecha')}${thc('Terapeuta')}${thc('EVA','center')}${thc('Técnicas y observación')}${showAcc?thc('Acciones','center'):''}</tr></thead><tbody>`;
+      <div class="rpt-table-wrap"><table style="width:100%;border-collapse:collapse;margin-top:4px"><thead><tr>${thc('Fecha')}${thc('Terapeuta')}${thc('EVA','center')}${thc('Técnicas y observación')}${showAcc?thc('Acciones','center'):''}</tr></thead><tbody>`;
     tratRows.forEach(s=>{
       const eva=s.pb!=null?`${s.pb}→${s.pa!=null?s.pa:'?'}`:'—';
       // Color del EVA por mejora dentro de la sesión (verde si bajó el dolor, ámbar si no).
@@ -649,7 +649,7 @@ export function renderPatientReport() {
         <td style="${td};text-align:center;font-weight:700;color:${evaCol};white-space:nowrap">${eva}</td>
         <td style="${td};color:#5a5a56">${obs}</td>${acc}</tr>`;
     });
-    tablaHtml+=`</tbody></table></div>`;
+    tablaHtml+=`</tbody></table></div></div>`;
   } else {
     tablaHtml=`<div style="margin-top:16px;text-align:center;padding:18px 0;color:#7a7a76;font-size:12px">Sin sesiones de tratamiento registradas en este episodio.</div>`;
   }
@@ -666,14 +666,14 @@ export function renderPatientReport() {
         <span style="font-size:12px;color:#7a7a76">${getDisplayAge(p)}</span>
         ${!isCurrentEpisode?'<span style="font-size:10.5px;background:rgba(245,166,35,.15);color:#a06a00;padding:1px 8px;border-radius:99px;font-weight:700">Episodio anterior</span>':''}
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 20px;margin-top:12px;padding:12px 14px;background:#faf6ef;border-radius:8px">
+      <div class="rpt-meta-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 20px;margin-top:12px;padding:12px 14px;background:#faf6ef;border-radius:8px">
         ${cellG('Diagnóstico',epDiag||p.diag||'—')}
         ${cellG('Doctor referente',doc?doc.name+' ('+doc.spec+')':'Independiente')}
         ${cellG('Inicio',inicio==='—'?'—':dmy(inicio))}
         ${cellG('Protocolo',prot?`${prot.name} · ${prot.sessions} sesiones · ${prot.freq}×/sem`:'—',2)}
         ${cellG('Terapeuta',thHeader)}
       </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px">
+      <div class="rpt-kpi-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px">
         <div class="rpt-kpi"><div class="rpt-lbl">Sesiones completadas</div>
           <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:#1d8fbf">${epDone}<span style="font-size:13px;color:#9c9a92">/${epSessions}</span></span><span style="font-size:11px;color:#7a7a76">${pct}% del plan</span></div>
           <div style="margin-top:6px;height:5px;background:#f0e8d8;border-radius:3px"><div style="width:${Math.min(pct,100)}%;height:5px;background:#29ABE2;border-radius:3px"></div></div></div>

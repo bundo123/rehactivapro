@@ -106,6 +106,9 @@ export function renderGrid() {
   if(vh.length){const min=vh[0],max=vh[vh.length-1];vh=[];for(let h=min;h<=max;h+=0.5)vh.push(+h.toFixed(1));}
 
   g.innerHTML=''; g.style.gridTemplateColumns=`60px repeat(${visTherapists.length},1fr)`;
+  // --th-count deja que responsive.css calcule el min-width real de la grilla en móvil
+  // (columnas de ancho usable en vez de un 600px fijo que aplasta a 4+ terapeutas).
+  g.style.setProperty('--th-count', visTherapists.length);
 
   const eh=document.createElement('div');eh.className='grid-header';eh.textContent='Hora';g.appendChild(eh);
   visTherapists.forEach(th=>{
@@ -581,6 +584,7 @@ export function renderWeekView() {
   wrap.innerHTML = '<div class="schedule-grid" id="schedule-grid"></div>';
   const g = document.getElementById('schedule-grid');
   g.style.gridTemplateColumns = `60px repeat(${visDays.length},1fr)`;
+  g.style.setProperty('--th-count', visDays.length);
 
   const dnCorto = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
   const todayStr = fmtDate(new Date());

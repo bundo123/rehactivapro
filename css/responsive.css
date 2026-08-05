@@ -250,9 +250,11 @@
   }
 
   /* ── Modales: sheet desde abajo ── */
+  /* Sobre la hamburguesa (601): a pantalla completa, si no, tapa el título del modal. */
   .modal-bg {
     align-items: flex-end !important;
     padding-bottom: 0;
+    z-index: 700;
   }
 
   .modal {
@@ -375,6 +377,317 @@
     width: 90vw !important;
     padding: 24px 20px !important;
   }
+
+  #login-btn {
+    min-height: 48px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     PASADA MÓVIL — el celular es la plataforma principal del terapeuta
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /* ── Header: la fila de día no debe cortar «Hoy» ──
+     .day-nav es flex-shrink:0 y .day-lbl tiene min-width:170px, así que la fila
+     no cabía en 360px y el botón «Hoy» quedaba fuera del borde derecho. */
+  .main-header {
+    gap: 8px;
+    padding: 8px 14px 0;
+  }
+
+  .sub-bar {
+    padding: 6px 14px;
+  }
+
+  .mh-right {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .mh-right .add-btn,
+  .mh-right .ai-btn,
+  .mh-right .exp-btn,
+  .main-header > .ai-btn,
+  .main-header > .exp-btn {
+    flex: 1 1 100%;
+    margin-left: 0 !important;
+    text-align: center;
+  }
+
+  /* La fecha ocupa su propia línea (order:-1) y los 4 controles quedan juntos abajo.
+     Si en cambio se deja fluir, «Hoy» cae solo a una tercera fila y come alto de grilla. */
+  .day-nav {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .day-lbl {
+    flex: 1 1 100%;
+    order: -1;
+    min-width: 0;
+    text-align: left;
+    font-size: 13px;
+    padding: 0;
+  }
+
+  .seg {
+    width: 100%;
+  }
+
+  .seg-item {
+    flex: 1;
+    text-align: center;
+  }
+
+  .hdr-select,
+  .hdr-search,
+  .hdr-search > input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* Agenda: filtro de terapeuta y vista Día/Semana/Mes comparten fila. Apilados
+     costaban 44px de grilla, que en celular es la pantalla de trabajo del terapeuta. */
+  #tab-agenda .mh-right .hdr-select,
+  #tab-agenda .mh-right .seg {
+    flex: 1 1 46%;
+    width: auto;
+    min-width: 0;
+  }
+
+  #tab-agenda .mh-right .seg-item {
+    padding: 5px 4px;
+  }
+
+  .subbar-right {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  /* ── Agenda Día: columna de horas sticky + columnas de terapeuta usables ──
+     El min-width fijo de 600px aplastaba las columnas con 4+ terapeutas y el nombre
+     se encimaba con el horario. --th-count la fija agenda.js en cada render. */
+  .schedule-grid {
+    min-width: calc(60px + (var(--th-count, 4) * 140px)) !important;
+  }
+
+  #schedule-grid .grid-header,
+  #schedule-grid .time-cell {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    box-shadow: 1px 0 0 rgba(41,171,226,.18);
+  }
+
+  #schedule-grid .grid-header {
+    z-index: 4;
+  }
+
+  /* Cabecera de terapeuta: nombre en una línea con ellipsis (la fila mide 46px fijos
+     por grid-auto-rows, así que envolver a 3 líneas tapaba el horario). */
+  .th-header {
+    overflow: hidden;
+  }
+
+  .th-header > div {
+    min-width: 0;
+  }
+
+  .th-nm {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .th-sp {
+    white-space: nowrap;
+  }
+
+  /* ── Tarjetas de cita tocables con dedo ── */
+  .appt {
+    min-height: 44px;
+  }
+
+  .appt-name {
+    font-size: 12px;
+  }
+
+  /* ── Modal de sesión/evaluación: EVA en dos filas de 6 en vez de 11 columnas
+     de 29px, y técnicas en 2 columnas con alto parejo ── */
+  #eva-before-btns,
+  #eva-after-btns,
+  #ev-eva-btns {
+    display: grid !important;
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 6px !important;
+  }
+
+  #eva-before-btns button,
+  #eva-after-btns button,
+  #ev-eva-btns button {
+    min-height: 48px !important;
+    font-size: 16px !important;
+  }
+
+  #pro-tecnicas-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  #pro-tecnicas-grid .pro-tec-btn {
+    min-height: 52px !important;
+  }
+
+  /* ── Resumen del día: franja en 2 filas, acciones apiladas ── */
+  .resd-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 14px;
+    padding: 14px 16px;
+  }
+
+  .resd-strip-div {
+    display: none;
+  }
+
+  .resd-journey {
+    grid-column: 1 / -1;
+    margin-left: 0;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .resd-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-shrink: 1;
+  }
+
+  .resd-actions button {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  /* El teléfono quedaba cortado por el ellipsis heredado del layout de escritorio */
+  .resd-meta {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  /* ── Informe paciente: una columna, sin desbordes ──
+     .rpt-layout es flex column con align-items:flex-start, así que la hoja se
+     dimensionaba a max-content (472px en un viewport de 390) y desbordaba. */
+  .rpt-layout {
+    align-items: stretch;
+  }
+
+  .rpt-sheet {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 16px 14px;
+  }
+
+  .rpt-side {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .rpt-meta-grid,
+  .rpt-kpi-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* La tabla de sesiones scrollea sola; el documento no arrastra la página */
+  .rpt-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .rpt-table-wrap table {
+    min-width: 520px;
+  }
+
+  /* ── Protocolos: una columna ── */
+  .prot-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* ── Informes: KPIs en 2 columnas, desempeño por terapeuta apilado ── */
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .perf-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .perf-row > span:last-child {
+    width: auto !important;
+    margin-left: 42px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MODALES A PANTALLA COMPLETA EN CELULAR (<480px)
+   El flujo del terapeuta (cita → sesión → evaluación) vive en estos modales:
+   ocupan toda la pantalla y la barra de acciones queda pegada abajo, para que
+   «Guardar» sea siempre alcanzable sin scrollear hasta el fondo.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+
+  /* El subtítulo de pantalla es decorativo: en celular ese alto vale más como grilla */
+  .page-sub {
+    display: none;
+  }
+
+  .modal-bg {
+    align-items: stretch !important;
+    justify-content: stretch;
+    padding: 0 !important;
+  }
+
+  .modal {
+    width: 100% !important;
+    max-width: none !important;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border: none !important;
+    padding: 16px 16px 0 !important;
+    box-sizing: border-box;
+    overflow-y: auto;
+    /* Deja aire bajo el campo enfocado: main.js lo centra al abrirse el teclado
+       y así no queda debajo de la barra de acciones sticky. */
+    scroll-padding-bottom: 110px;
+  }
+
+  .modal-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    margin: 16px -16px 0;
+    padding: 10px 16px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    background: #ffffff;
+    border-top: 1px solid rgba(29,158,117,.18);
+    box-shadow: 0 -6px 18px rgba(0,0,0,.08);
+  }
+
+  .modal-actions .btn-save,
+  .modal-actions .add-btn,
+  .modal-actions .btn-cancel,
+  .modal-actions .th-btn {
+    flex: 1;
+    min-height: 48px;
+    font-size: 14px;
+  }
 }
 
 /* Pantallas muy pequeñas: stats en 1 columna */
@@ -408,5 +721,53 @@
   /* Sin zoom por doble tap en controles (el pinch-zoom de la página sigue disponible) */
   button, input, select, textarea, .nav-item, .appt, .filter-pill, .pl-act-btn {
     touch-action: manipulation;
+  }
+
+  /* ── Extensión de la pasada móvil: controles que quedaban bajo 44px ── */
+  .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .icon-btn.sm {
+    width: 44px;
+    height: 44px;
+  }
+
+  .icon-btn.txt {
+    width: auto;
+    height: 44px;
+  }
+
+  .seg-item,
+  .sub-tab,
+  .prot-btn,
+  .side-btn,
+  .resd-btn-wa, .resd-btn-em, .resd-btn-rep, .resd-btn-sess, .resd-btn-eval {
+    min-height: 44px;
+  }
+
+  /* Botones con estilo inline (tabla de sesiones, informes guardados, pill WA del
+     semanal): el inline no declara min-height, así que basta con fijarlo acá. */
+  .rpt-table-wrap button,
+  .side-card button,
+  #subtab-semanal button {
+    min-height: 44px;
+  }
+
+  /* El punto de estado cicla la cita (conf→pend→noas) y mide 9px: se le da un
+     área de toque de 44px sin agrandar el punto, para no tapar la tarjeta. */
+  .appt-dot {
+    width: 14px;
+    height: 14px;
+  }
+
+  .appt-dot::after {
+    content: '';
+    position: absolute;
+    top: -15px;
+    right: -15px;
+    bottom: -15px;
+    left: -15px;
   }
 }
