@@ -62,7 +62,8 @@ export async function loadAll(force=false) {
     const cobData = cob.data||[];
     state.patients = (pat.data||[]).map(r=>({
       id:r.id,createdAt:r.created_at||null,name:r.name,age:r.age||null,birth_date:r.birth_date||null,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
-      diag:r.diag||'Sin diagnóstico',therapistId:r.therapist_id,doctorId:r.doctor_id,
+      diag:r.diag||'Sin diagnóstico',cie10:r.cie10||null,cie10Desc:r.cie10_desc||null,
+      therapistId:r.therapist_id,doctorId:r.doctor_id,
       sessions:r.sessions||10,status:r.status||'active',protocolId:r.protocol_id||null,
       log:(r.session_log||[]).map(s=>({id:s.id,date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null})),
       // done/pendientes NO se leen de columnas (vestigiales): derivan de session_log vía doneActual/pendientesActual.

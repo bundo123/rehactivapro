@@ -53,6 +53,7 @@ import {
   renderDoctorsList, openDoctorModal, selectDocColor,
   saveDoctor, deleteDoctor, showDoctoresTab, renderNotifList, initDoctorValidation
 } from './doctores.js';
+import { cie10Search, cie10Pick, cie10Clear } from './cie10.js';
 import { callAI } from './ia.js';
 import { globalSearch, selectGlobalResult, checkCitasPendientes } from './search.js';
 import { initMobileMenu } from './mobile-menu.js';
@@ -221,6 +222,7 @@ Object.assign(window, {
   genPatientAI, guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado, globalSearch, selectGlobalResult,
   updateRecPreview, populateDiagList,
   goToPatientPage, toggleEvalFilter, setPatientStatusFilter, verPaciente, onPatientProtocolChange,
+  cie10Search, cie10Pick, cie10Clear,
   setAgendaView, setTherapistFilter, goToDateAndSelect, exportAgendaCSV,
   applyRolePermissions, hasPermission,
   doSendRecoveryEmail, doSetNewPassword, showForgotPassword, showLoginForm, cancelRecovery,

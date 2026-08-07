@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, safeColor, orderedTherapists } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, safeColor, orderedTherapists } from './utils.js';
 import { apptSlots } from './agenda.js';
 import { genSemanalAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasPermission } from './permissions.js';
@@ -563,6 +563,10 @@ export function renderPatientReport() {
   // retroactivas/manuales aparezcan en su posición correcta en el gráfico EVA, el detalle y las métricas.
   log=[...log].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
   const isCurrentEpisode=epVal==='current';
+  // El CIE-10 es del paciente HOY: se agrega solo al episodio actual. En un episodio cerrado el
+  // diagnóstico que se muestra es el de entonces, y etiquetarlo con el código de ahora mentiría.
+  const cieRpt=isCurrentEpisode?(p.cie10||null):null;
+  const diagDisplay=diagConCie(epDiag||p.diag||'—',cieRpt);
   const th=getTherapist(p.therapistId);
   const doc=p.doctorId?getDoctor(p.doctorId):null;
   const attended=log.filter(s=>s.status==='asistió');
@@ -669,7 +673,7 @@ export function renderPatientReport() {
         ${!isCurrentEpisode?'<span style="font-size:10.5px;background:rgba(245,166,35,.15);color:#a06a00;padding:1px 8px;border-radius:99px;font-weight:700">Episodio anterior</span>':''}
       </div>
       <div class="rpt-meta-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 20px;margin-top:12px;padding:12px 14px;background:#faf6ef;border-radius:8px">
-        ${cellG('Diagnóstico',epDiag||p.diag||'—')}
+        ${cellG('Diagnóstico',diagDisplay)}
         ${cellG('Doctor referente',doc?doc.name+' ('+doc.spec+')':'Independiente')}
         ${cellG('Inicio',inicio==='—'?'—':dmy(inicio))}
         ${cellG('Protocolo',prot?`${prot.name} · ${prot.sessions} sesiones · ${prot.freq}×/sem`:'—',2)}
@@ -713,7 +717,7 @@ export function renderPatientReport() {
   </div>`;
 
   out.innerHTML=html;
-  _rptCtx={p,log,attended,pct,adh,fp,lp,th,doc,epDiag,epDone,epSessions,inicio,rptNo,fechaLarga,thHeader,prot};
+  _rptCtx={p,log,attended,pct,adh,fp,lp,th,doc,epDiag,epDone,epSessions,inicio,rptNo,fechaLarga,thHeader,prot,cieRpt};
   renderInformesGuardados();
 
   if(evaSes.length){
@@ -753,7 +757,7 @@ export function renderPatientReport() {
 // Construye el render-model del PDF desde el informe en pantalla (_rptCtx + narrativa IA + canvas EVA).
 // Es el MISMO shape que se persiste como snapshot, para que el PDF guardado salga idéntico sin re-llamar a la IA.
 function _buildRenderModel() {
-  const {p,log,attended,pct,adh,fp,lp,doc,inicio,rptNo,fechaLarga,thHeader,prot,epDiag,epDone,epSessions}=_rptCtx;
+  const {p,log,attended,pct,adh,fp,lp,doc,inicio,rptNo,fechaLarga,thHeader,prot,epDiag,epDone,epSessions,cieRpt}=_rptCtx;
   // Captura del gráfico EVA ya dibujado en pantalla — evita el canvas en blanco por timing.
   const evaCanvas=document.getElementById('eva-evolution-chart');
   const evaImg=evaCanvas?evaCanvas.toDataURL('image/png'):'';
@@ -763,7 +767,8 @@ function _buildRenderModel() {
   return {
     numero:rptNo,
     fechaLarga,
-    paciente:{nombre:p?.name||'',cedula:p?.cedula||'',edad:getDisplayAge(p,true),diagnostico:epDiag||p?.diag||''},
+    // Mismo texto que la pantalla: el PDF que va al médico lleva el CIE-10 en la celda Diagnóstico.
+    paciente:{nombre:p?.name||'',cedula:p?.cedula||'',edad:getDisplayAge(p,true),diagnostico:diagConCie(epDiag||p?.diag||'',cieRpt)},
     terapeuta:thHeader,
     doctor:doc?doc.name+' ('+doc.spec+')':null,
     protocolo:prot?.name||null,

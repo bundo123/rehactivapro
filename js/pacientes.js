@@ -5,6 +5,7 @@ import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';
 import { validateRequired, validateMinChars, validatePositiveInt, validateCedulaEcuatoriana, validateTelefono, validateEmail, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker, validateBirthDate } from './validators.js';
+import { resetCie10Pm, getCie10Pm } from './cie10.js';
 
 const _patientDirty = createDirtyTracker();
 const _patNameFn = (v) => { const r = validateRequired(v); return r.valid ? validateMinChars(v, 3) : r; };
@@ -83,6 +84,7 @@ export function openPatientModal() {
   document.getElementById('pm-doctor').innerHTML='<option value="">Sin doctor referente</option>'+state.doctors.map(d=>`<option value="${esc(d.id)}">${esc(d.name)} (${esc(d.spec)})</option>`).join('');
   document.getElementById('pm-protocol').innerHTML='<option value="">Sin protocolo</option>'+state.protocols.map(pr=>`<option value="${esc(pr.id)}">${esc(pr.name)}</option>`).join('');
   populateDiagList();   // I-11: el datalist de diagnósticos también debe poblarse al CREAR (no solo al editar)
+  resetCie10Pm(null);   // sin código: el del último paciente editado no puede quedar pegado
   document.getElementById('patient-modal').classList.add('open');
 }
 
@@ -134,6 +136,8 @@ export async function savePatient() {
     p.email=document.getElementById('pm-email').value||'';
     p.dir=document.getElementById('pm-dir').value||'';
     p.diag=document.getElementById('pm-diag').value||'';
+    const _cie=getCie10Pm();
+    p.cie10=_cie.cie10; p.cie10Desc=_cie.cie10Desc;
     p.doctorId=document.getElementById('pm-doctor').value||null;
     p.protocolId=document.getElementById('pm-protocol').value||null;
     p.sessions=parseInt(document.getElementById('pm-sessions').value)||10;
@@ -146,7 +150,8 @@ export async function savePatient() {
     if(typeof p.id==='string'){
       const {error}=await supa.from('patients').update({
         name:p.name,age:p.age,birth_date:p.birth_date,cedula:p.cedula,tel:p.tel,email:p.email,
-        dir:p.dir,diag:p.diag,doctor_id:p.doctorId||null,protocol_id:p.protocolId||null,sessions:p.sessions,status:p.status
+        dir:p.dir,diag:p.diag,cie10:p.cie10||null,cie10_desc:p.cie10Desc||null,
+        doctor_id:p.doctorId||null,protocol_id:p.protocolId||null,sessions:p.sessions,status:p.status
       }).eq('id',p.id);
       if(error) toastErr('Error al actualizar paciente: '+error.message);
       else { toastOk('Paciente actualizado correctamente'); if(!p.birth_date) toastInfo('Sin fecha de nacimiento. Algunos reportes mostrarán edad como "no registrada".'); }
@@ -162,6 +167,7 @@ export async function savePatient() {
     email:document.getElementById('pm-email').value||'',
     dir:document.getElementById('pm-dir').value||'',
     diag:document.getElementById('pm-diag').value||'Sin diagnóstico',
+    cie10:getCie10Pm().cie10,cie10Desc:getCie10Pm().cie10Desc,
     therapistId:null,
     doctorId:document.getElementById('pm-doctor').value||null,
     protocolId:document.getElementById('pm-protocol').value||null,
@@ -174,6 +180,7 @@ export async function savePatient() {
   try {
     const {data,error}=await supa.from('patients').insert({
       name:_p.name,age:_p.age,birth_date:_p.birth_date,cedula:_p.cedula,tel:_p.tel,email:_p.email,dir:_p.dir,diag:_p.diag,
+      cie10:_p.cie10||null,cie10_desc:_p.cie10Desc||null,
       doctor_id:_p.doctorId||null,protocol_id:_p.protocolId||null,sessions:_p.sessions,done:0,status:_p.status,
       billing_ses_per_factura:_p.billing.sesPerFactura
     }).select().single();
@@ -319,6 +326,7 @@ export function openEditPatient(id) {
   document.getElementById('pm-status').value=p.status||'active';
   state.editingPatientId=id;
   populateDiagList();
+  resetCie10Pm(p);
   document.querySelector('#patient-modal h3').textContent='Editar paciente';
   document.getElementById('patient-modal').classList.add('open');
 }

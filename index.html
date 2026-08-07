@@ -438,7 +438,22 @@
     <select id="m-location"><option value="centro">Centro</option><option value="domicilio">Domicilio</option></select>
   </div>
   <div class="field"><label>Nota rápida</label><textarea id="m-note" rows="2" placeholder="Observaciones..."></textarea></div>
-  
+
+  <!-- Dato del PACIENTE, no de la cita: se guarda en su ficha al seleccionarlo.
+       agenda.js la oculta si la cita no tiene paciente asignado. -->
+  <div class="cie-box" id="cie-appt-section" hidden>
+    <div class="cie-hd">
+      <span class="cie-title">Diagnóstico CIE-10 del paciente</span>
+      <span class="cie-note">Ficha del paciente · no es un dato de esta cita</span>
+    </div>
+    <div class="cie-current" id="cie-appt-current"></div>
+    <div class="cie-combo" id="cie-appt-combo">
+      <input type="text" id="cie-appt-search" autocomplete="off" placeholder="Buscar por código o diagnóstico (ej. M54.5 o lumbago)"
+        oninput="cie10Search('appt')" onfocus="cie10Search('appt')">
+      <div class="cie-results" id="cie-appt-results" style="display:none"></div>
+    </div>
+  </div>
+
   <!-- CITAS RECURRENTES -->
   <div style="border-top:1px solid rgba(29,158,117,.15);margin-top:14px;padding-top:14px">
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:#1a1917">
@@ -510,6 +525,14 @@
       <datalist id="diag-list"></datalist>
     </div>
     <div style="font-size:10px;color:#7a7a76;margin-top:4px">Escribe para buscar entre diagnósticos existentes o ingresa uno nuevo</div>
+  </div>
+  <div class="field"><label>Diagnóstico CIE-10 <span style="text-transform:none;font-weight:400;color:#9c9a92">(opcional)</span></label>
+    <div class="cie-current" id="pm-cie10-current"></div>
+    <div class="cie-combo" id="pm-cie10-combo">
+      <input type="text" id="pm-cie10-search" autocomplete="off" placeholder="Buscar por código o diagnóstico (ej. M54.5 o lumbago)"
+        oninput="cie10Search('pm')" onfocus="cie10Search('pm')">
+      <div class="cie-results" id="pm-cie10-results" style="display:none"></div>
+    </div>
   </div>
   <div class="field"><label>Protocolo de tratamiento</label>
     <select id="pm-protocol" onchange="onPatientProtocolChange()"><option value="">Sin protocolo</option></select>

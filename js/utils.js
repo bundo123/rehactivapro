@@ -149,6 +149,42 @@ export function normHour(h){
   const p=String(h||'').split(':');
   return `${String(parseInt(p[0]||'0',10)).padStart(2,'0')}:${(p[1]||'00').padStart(2,'0')}:${(p[2]||'00').padStart(2,'0')}`;
 }
+// ── CIE-10: helpers puros (el catálogo se carga lazy desde cie10.js) ──
+
+// Busca en el catálogo CIE-10 (array de {c,d}) por código o descripción. Pura: recibe el
+// catálogo ya cargado. Insensible a acentos y mayúsculas vía normalizeSearch (el catálogo viene
+// sin tildes, así que sin esto "lumbalgía" no encontraría nada). Ordena por utilidad — código
+// exacto, código que empieza igual, descripción, y por último código que contiene — y corta en
+// `limit` (12 en la UI: la lista tiene que caber sin scroll sobre el modal). El punto es
+// opcional: 'm545' encuentra 'M54.5'.
+export function buscarCie10(cat, q, limit=12){
+  const nq=normalizeSearch(q);
+  if(!nq||!Array.isArray(cat)) return [];
+  const nqCode=nq.replace(/\./g,'');
+  const hits=[];
+  for(const it of cat){
+    if(!it) continue;
+    const codeFlat=normalizeSearch(it.c).replace(/\./g,'');
+    const desc=normalizeSearch(it.d);
+    let rank=-1;
+    if(codeFlat===nqCode)             rank=0;
+    else if(codeFlat.startsWith(nqCode)) rank=1;
+    else if(desc.includes(nq))        rank=2;
+    else if(codeFlat.includes(nqCode))rank=3;
+    if(rank>=0) hits.push({it,rank});
+  }
+  hits.sort((a,b)=>a.rank-b.rank||String(a.it.c).localeCompare(String(b.it.c)));
+  return hits.slice(0,Math.max(0,limit)).map(h=>h.it);
+}
+
+// Texto de diagnóstico para informe/PDF: agrega el CIE-10 solo si hay ambos datos
+// (un "(CIE-10: M54.5)" suelto, sin diagnóstico delante, no dice nada).
+export function diagConCie(diag, cie){
+  const base=String(diag??'').trim();
+  const c=String(cie??'').trim();
+  return c&&base?`${base} (CIE-10: ${c})`:base;
+}
+
 export function getColor(id){return COLOR_OPTIONS.find(c=>c.id===id)||COLOR_OPTIONS[0]}
 export function getTherapist(id){return state.therapists.find(t=>t.id===id)}
 // NUEVO 1: orden canónico de terapeutas = display_order asc (nulls al final) y luego nombre.

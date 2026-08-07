@@ -6,6 +6,7 @@ import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dbUpdateApptStatus } from './auth.js';
 import { hasPermission, canAccessTab } from './permissions.js';
 import { showFieldError, clearFieldError, clearAllErrors } from './validators.js';
+import { setCie10Appt } from './cie10.js';
 
 // ── Helpers de slots/duración ──
 // apptSlots vive en utils.js (puro y testeable); se re-exporta porque informes.js lo consume
@@ -345,6 +346,7 @@ export function openApptModal() {
   document.getElementById('m-recurrente').checked=false;
   document.getElementById('recurrencia-panel').style.display='none';
   setApptRptShortcut(null);
+  setCie10Appt(null);   // "Nueva cita": el CIE-10 se carga desde la ficha, no al agendar
   filterApptPatient();
   _openApptModalBase();
   setHoraExacta(false);   // crear siempre arranca en el select de medias horas
@@ -372,6 +374,7 @@ export function openEditApptModal(id) {
   document.getElementById('m-recurrente').checked=false;
   document.getElementById('recurrencia-panel').style.display='none';
   setApptRptShortcut(pt ? a.patientId : null);
+  setCie10Appt(pt ? a.patientId : null);   // dato del paciente: sin paciente, no hay sección
   filterApptPatient();
   document.getElementById('m-therapist').innerHTML=orderedTherapists().map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.startH)}-${fmtTime(t.endH)})</option>`).join('');
   document.getElementById('m-therapist').value=String(a.therapistId);

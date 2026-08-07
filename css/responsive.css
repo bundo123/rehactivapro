@@ -773,6 +773,13 @@
     min-height: 44px;
   }
 
+  /* Resultados del buscador CIE-10: se eligen con el dedo sobre el modal, así que cada fila
+     necesita los 44px (con 12 resultados la lista scrollea sola dentro de su caja). */
+  .cie-item,
+  .cie-clear {
+    min-height: 44px;
+  }
+
   /* Toggle "Hora exacta": la casilla nativa mide ~13px, así que el área tocable la aporta
      su etiqueta (que es quien lo alterna vía for=). */
   label[for="m-time-exact-tgl"] {

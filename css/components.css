@@ -40,6 +40,28 @@
 .btn-save{padding:7px 18px;background:#1D9E75;color:#fff;border:none;border-radius:7px;font-size:12px;cursor:pointer;font-weight:500;font-family:inherit}
 .btn-save:hover{background:#17865f}
 
+/* ── CIE-10: buscador con autocompletado (modal de cita y modal de paciente) ── */
+.cie-box{border:1px solid rgba(41,171,226,.28);background:rgba(41,171,226,.05);border-radius:9px;padding:12px;margin-top:14px}
+.cie-hd{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.cie-title{font-size:11.5px;font-weight:700;color:#1a1917}
+/* La sección vive en el modal de la CITA pero edita la ficha del paciente: hay que decirlo. */
+.cie-note{font-size:10px;color:#7a7a76}
+.cie-current{display:flex;align-items:center;gap:8px;min-height:30px;margin-bottom:6px;flex-wrap:wrap}
+.cie-code{flex-shrink:0;font-size:11.5px;font-weight:800;font-variant-numeric:tabular-nums;background:#29ABE2;color:#fff;border-radius:5px;padding:2px 7px}
+.cie-desc{font-size:11.5px;color:#3a3934;min-width:0;flex:1}
+.cie-empty{font-size:11.5px;color:#9c9a92;font-style:italic}
+.cie-clear{flex-shrink:0;border:1px solid rgba(226,75,74,.35);background:transparent;color:#c33a3a;border-radius:6px;font-size:11px;line-height:1;padding:4px 7px;cursor:pointer;font-family:inherit}
+.cie-clear:hover{background:rgba(226,75,74,.1)}
+.cie-combo{position:relative}
+.cie-combo input{width:100%;box-sizing:border-box;background:#fff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;font-size:13px;color:#1a1917;outline:none;font-family:inherit}
+.cie-combo input:focus{border-color:rgba(29,158,117,.5)}
+.cie-results{position:absolute;top:calc(100% + 3px);left:0;right:0;z-index:20;background:#fff;border:1px solid rgba(29,158,117,.25);border-radius:8px;box-shadow:0 12px 28px rgba(0,0,0,.18);max-height:270px;overflow-y:auto}
+.cie-item{display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;border-bottom:1px solid rgba(0,0,0,.06)}
+.cie-item:last-child{border-bottom:none}
+.cie-item:hover{background:#f5f5f0}
+.cie-item .cie-desc{font-size:11.5px;color:#5a5a56;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cie-msg{padding:12px;font-size:12px;color:#9c9a92;text-align:center}
+
 /* ── Modales táctiles (Registrar sesión / Evaluación inicial) — cómodos al dedo en tablet ── */
 #session-modal .field label,
 #eval-modal .field label{font-size:12px;letter-spacing:.04em;margin-bottom:6px}
