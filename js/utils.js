@@ -160,18 +160,24 @@ export function lastFinDate(p) {
   return fins.length ? fins[fins.length - 1] : null;
 }
 
+// Sesiones realizadas dentro de un tramo YA RECORTADO de session_log. Define, en un solo lugar,
+// qué fila del log cuenta como "sesión hecha": status 'asistió' y ninguno de los dos marcadores.
+// La 'Evaluación inicial' no es una sesión de tratamiento (R-2: el informe de un episodio pasado
+// la contaba y salía "11 de 10 · 110%" en el PDF al médico).
+export function doneEnLog(log) {
+  return (log || []).filter(s =>
+    s.status === 'asistió' &&
+    s.type !== 'Evaluación inicial' &&
+    s.type !== 'Fin de episodio'
+  ).length;
+}
+
 // Sesiones realizadas en el episodio ACTUAL. Función pura, fuente única = session_log.
-// = filas status 'asistió', excluyendo los marcadores 'Evaluación inicial' y 'Fin de episodio',
-//   con date posterior al último 'Fin de episodio'.
+// = doneEnLog() sobre las filas con date posterior al último 'Fin de episodio'.
 export function doneActual(p) {
   if (!p) return 0;
   const lastFin = lastFinDate(p);
-  return (p.log || []).filter(s =>
-    s.status === 'asistió' &&
-    s.type !== 'Evaluación inicial' &&
-    s.type !== 'Fin de episodio' &&
-    (!lastFin || s.date > lastFin)
-  ).length;
+  return doneEnLog((p.log || []).filter(s => !lastFin || s.date > lastFin));
 }
 
 // Sesiones del episodio actual pendientes de cobro. Función pura, derivada.

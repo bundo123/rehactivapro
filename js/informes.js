@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual, safeColor, orderedTherapists } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, safeColor, orderedTherapists } from './utils.js';
 import { apptSlots } from './agenda.js';
 import { genSemanalAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasPermission } from './permissions.js';
@@ -554,7 +554,9 @@ export function renderPatientReport() {
       epDiag=finEnd.note.split('Episodio anterior: ')[1]?.split(' ·')[0]||p.diag;
       const sesStr=finEnd.note.match(/(\d+) sesiones/);
       epSessions=sesStr?parseInt(sesStr[1]):p.sessions;
-      epDone=log.filter(s=>s.status==='asistió').length;
+      // R-2: la 'Evaluación inicial' no es una sesión de tratamiento. Contarla daba "11 de 10 · 110%"
+      // en el informe del episodio pasado. Misma regla que doneActual (fuente única, utils.js).
+      epDone=doneEnLog(log);
     }
   }
   // Orden cronológico por fecha (estable para empates) — necesario para que las sesiones

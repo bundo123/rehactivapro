@@ -2,7 +2,7 @@
 // Lógica pura derivada de session_log; frontera del episodio = último 'Fin de episodio'.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { doneActual, pendientesActual, lastFinDate } from '../js/utils.js';
+import { doneActual, doneEnLog, pendientesActual, lastFinDate } from '../js/utils.js';
 
 const ses = (date, status = 'asistió', type = 'Fisioterapia') => ({ date, type, status });
 const evalInicial = (date) => ({ date, type: 'Evaluación inicial', status: 'asistió' });
@@ -80,4 +80,57 @@ test('pendientesActual — nunca negativo', () => {
 test('pendientesActual — sin billing devuelve 0', () => {
   assert.equal(pendientesActual({ log: [ses('2026-01-05')] }), 0);
   assert.equal(pendientesActual(null), 0);
+});
+
+// ── R-2: informe de un EPISODIO PASADO ──
+// El selector de episodio recorta el log entre dos marcadores 'Fin de episodio' y de ese tramo
+// sale el "X de Y · %" del PDF que se manda al médico. Antes se contaba `status==='asistió'`
+// a secas, así que la Evaluación inicial sumaba una sesión de más ("11 de 10 · 110%").
+
+// Mismo recorte que renderPatientReport() para un episodio pasado: filas entre el fin anterior
+// (excluido) y el fin del episodio (incluido), sin los marcadores 'Fin de episodio'.
+const tramoEpisodio = (log, finStart, finEnd) => log.filter(s => {
+  if (s.type === 'Fin de episodio') return false;
+  if (finStart && s.date <= finStart) return false;
+  if (finEnd && s.date > finEnd) return false;
+  return true;
+});
+
+test('doneEnLog — episodio pasado con eval inicial + N sesiones cuenta N, no N+1 (R-2)', () => {
+  const log = [
+    evalInicial('2026-01-02'),                                  // no es sesión de tratamiento
+    ses('2026-01-05'), ses('2026-01-07'), ses('2026-01-09'),     // N = 3 asistidas
+    ses('2026-01-12', 'falta'),                                 // no asistió → no cuenta
+    finEpisodio('2026-01-15'),
+    evalInicial('2026-02-01'), ses('2026-02-05'),                // episodio siguiente: fuera del tramo
+  ];
+  const tramo = tramoEpisodio(log, null, '2026-01-15');
+  assert.equal(doneEnLog(tramo), 3);
+  // Un plan de 3 sesiones cierra en 100%, no en 133%.
+  assert.equal(Math.round(doneEnLog(tramo) / 3 * 100), 100);
+});
+
+test('doneEnLog — tramo intermedio: no arrastra la eval ni las sesiones de otros episodios (R-2)', () => {
+  const log = [
+    evalInicial('2026-01-02'), ses('2026-01-05'),
+    finEpisodio('2026-01-15'),
+    evalInicial('2026-02-01'),                                  // eval del 2.º episodio
+    ses('2026-02-05'), ses('2026-02-07'),                       // N = 2
+    finEpisodio('2026-02-20'),
+    ses('2026-03-01'),                                          // episodio actual
+  ];
+  assert.equal(doneEnLog(tramoEpisodio(log, '2026-01-15', '2026-02-20')), 2);
+  assert.equal(doneActual({ log }), 1);                         // el actual sigue intacto
+});
+
+test('doneEnLog — sesión con la fecha del corte queda en el episodio que cierra', () => {
+  const log = [ses('2026-01-05'), ses('2026-01-15'), finEpisodio('2026-01-15'), ses('2026-01-20')];
+  assert.equal(doneEnLog(tramoEpisodio(log, null, '2026-01-15')), 2);
+  assert.equal(doneActual({ log }), 1);   // misma frontera estricta (date > lastFin) que P-2
+});
+
+test('doneEnLog — log vacío o nulo devuelve 0', () => {
+  assert.equal(doneEnLog([]), 0);
+  assert.equal(doneEnLog(null), 0);
+  assert.equal(doneEnLog(undefined), 0);
 });

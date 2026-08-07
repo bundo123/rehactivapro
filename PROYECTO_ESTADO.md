@@ -1,6 +1,6 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-08-03
+> Generado: 2026-05-18 · Última actualización: 2026-08-07
 
 ---
 
@@ -8,7 +8,7 @@
 
 > Sesión 2026-06-17: cerrados **I-5, LOTE A, I-4 e I-6** — todo en prod, Vercel verde (detalle abajo). Análisis completo en `AUDITORIA_PRELANZAMIENTO.md`. La RLS está versionada (`rls_policies.md`) y la "lectura abierta" de PHI es decisión consciente (los terapeutas se cubren entre sí; la protección es el `audit_log`).
 >
-> **Actualización 2026-08-03:** el grueso del LOTE B y de la Fase 0 se cerró en las sesiones de julio (ver «🗓️ Sesiones 2026-07» abajo). Queda abierto: **I-7** (SQL primero), **P-2**, **CSP estricta** (P-11), **agenda táctil iOS** (R-20), **R-2** (sin commit visible que lo cierre — verificar) y la deuda nueva del diagnóstico realtime (**RT-1…RT-4**, sesión 2026-08).
+> **Actualización 2026-08-03:** el grueso del LOTE B y de la Fase 0 se cerró en las sesiones de julio (ver «🗓️ Sesiones 2026-07» abajo). Queda abierto: **I-7** (SQL primero), **P-2**, **CSP estricta** (P-11), **agenda táctil iOS** (R-20) y la deuda nueva del diagnóstico realtime (**RT-1…RT-4**, sesión 2026-08). **R-2 cerrado el 2026-08-07** (ver «Sesiones»).
 
 **Abierto del LOTE B:**
 - **Necesita SQL primero — I-7 (`cobro_ref` server-side):** el N° de factura se genera en memoria del cliente (`facturacion.js:318`) → dos usuarios cobrando a la vez duplican `F00X`. Fix: secuencia + trigger `BEFORE INSERT` en `cobros` (ignora el valor del cliente); luego `emitirFactura` lee el `cobro_ref` del insert.
@@ -95,8 +95,9 @@ Todo en prod. Cierran la mayor parte de la **Fase 0** y del **LOTE B**:
 - **2026-07-02:** `3986a7e` auto-logout 15 min · `6c33b4a` `vercel.json` con headers de seguridad.
 - **2026-07-09:** `2e0303a` R-24 (rol `viewAI` server-side + rate-limit IA) · `f4b276f` npm audit → 0 vulnerabilidades · `516088c` I-12 + I-13 (modales Escape/fondo, alerts→toasts, táctil `pointer:coarse`) · `d6509cb` P-6 (`checkAutoNoas` días anteriores).
 - **2026-07-31:** `82e387f` feat(informes): PDF con formato de documento formal (marca, SVG EVA, paginación).
+- **2026-08-07:** `576d68a` feat(resumen,agenda): filtro manual por terapeuta en Resumen del día (chips, no persiste entre visitas) + salto cita → informe solo bajo `pointer:coarse` · **fix R-2**: `doneEnLog()` en `utils.js` — el informe del episodio pasado ya no cuenta la Evaluación inicial como sesión; `doneActual` pasa a delegar en la misma función (una sola definición de «sesión hecha»). 4 tests nuevos → 32 verdes.
 
-De la Fase 0 queda **R-2** sin commit visible que lo cierre (informe de episodio pasado cuenta la eval como sesión) — **verificar si se resolvió dentro de `82e387f` o sigue abierto**.
+~~De la Fase 0 queda **R-2** sin commit visible que lo cierre~~ ✅ **R-2 CERRADO 2026-08-07**: seguía abierto (no lo tocó `82e387f`). El `epDone` del episodio pasado (`informes.js`) contaba `status==='asistió'` a secas; ahora usa `doneEnLog()` (`utils.js`), la misma regla que `doneActual`, que excluye `Evaluación inicial` y `Fin de episodio`. 4 tests nuevos (32 en total). **Fase 0 completa.**
 
 ---
 
@@ -116,7 +117,7 @@ De la Fase 0 queda **R-2** sin commit visible que lo cierre (informe de episodio
 
 **🔴 Bugs P0 (arreglar antes de seguir en serio):**
 - **R-1** `business`/high — "Cobrar todos" NO episodio-aware: `marcarTodosFacturados` suma **todas** las facturas históricas (`facturacion.js:~340-348`) vs `billingInfo` de la pantalla → cobra pacientes a mitad de tratamiento. *(3 revisores).* Fix: usar `billingInfo(p,spf).esCierre`.
-- **R-2** `data`/high — Informe de **episodio pasado** cuenta la Evaluación inicial como sesión → "11 de 10 · 110%" en el PDF al médico (`informes.js:524`). Fix: `epDone` excluyendo `Evaluación inicial`/`Fin de episodio`.
+- ~~**R-2** `data`/high — Informe de **episodio pasado** cuenta la Evaluación inicial como sesión → "11 de 10 · 110%" en el PDF al médico (`informes.js:524`). Fix: `epDone` excluyendo `Evaluación inicial`/`Fin de episodio`.~~ ✅ **CERRADO 2026-08-07** (`doneEnLog` en `utils.js`, usada por `epDone` y por `doneActual`).
 - **R-3** `data`/high — `guardarNuevoEpisodio` no chequea el `.error` del insert de "Fin de episodio" (`pacientes.js:341`) → corte solo en memoria si falla; al recargar, facturación inflada. Fix: chequear error/RPC transaccional.
 - **R-4** `data`/high — Reabrir una sesión ya registrada la **sobrescribe**: `openSessionModal` detecta "existing" con hora **cruda** (`sesiones.js:82`), no `normHour` → tras recargar abre en blanco y pisa EVA/nota/técnicas. Fix: `normHour()` ambos lados.
 - **R-5** `ux`/med *(dep. tipo de `session_log.hour`)* — `hasSession` arma la clave con hora cruda vs `fmtTime` (`auth.js:90`, `realtime.js:149`) → citas hechas vuelven a "Completar sesión" tras recargar. Fix: `normHour` ambos lados (seguro igual).
