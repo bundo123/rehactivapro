@@ -71,7 +71,78 @@ export function startOfWeek(d){
   r.setDate(r.getDate()-(dow===0?6:dow-1));
   return r;
 }
-export function fmtTime(h){const hh=Math.floor(h);return `${hh}:${h%1===0.5?'30':'00'}`;}
+// Horas en memoria = decimales (10.75 = 10:45). fmtTime imprime CUALQUIER minuto conservando el
+// formato de siempre para las alineadas: 9→'9:00', 9.5→'9:30', 9.75→'9:45'. Hora sin cero a la
+// izquierda (como antes), minutos siempre con dos dígitos. Se redondea al minuto porque un
+// input de 5 en 5 produce fracciones periódicas (10:05 → 10.0833…).
+export function fmtTime(h){
+  const t=Math.round((Number(h)||0)*60);
+  return `${Math.floor(t/60)}:${String(((t%60)+60)%60).padStart(2,'0')}`;
+}
+
+// ── Horas exactas: helpers puros (la grilla sigue siendo de media hora) ──
+const HORA_EPS = 1e-9;
+
+// Media hora CONTENEDORA de una hora decimal: 10.75 → 10.5. Es la fila de la grilla donde se
+// dibuja una cita que no arranca en :00/:30.
+export function slotOf(h){ return Math.floor((Number(h)||0)*2)/2; }
+
+// ¿Cae exacto en :00 o :30? Las alineadas usan el select de siempre; las demás, el input exacto.
+export function isAlignedHour(h){
+  const v=(Number(h)||0)*2;
+  return Math.abs(v-Math.round(v))<HORA_EPS;
+}
+
+// Intervalo real [inicio, fin) de una cita, en horas decimales.
+export function apptRange(a){
+  const start=Number(a?.hour)||0;
+  const dur=Number(a?.duration)||60;
+  return { start, end: start+dur/60 };
+}
+
+// Slots de media hora que la cita OCUPA en la grilla. El primero es el contenedor del inicio;
+// se extiende mientras el slot empiece antes del fin real: 10:45+60min → 10:30, 11:00 y 11:30.
+export function apptSlots(a){
+  const {start,end}=apptRange(a);
+  const first=slotOf(start);
+  const out=[];
+  for(let s=first;s<end-HORA_EPS;s=+(s+0.5).toFixed(1)) out.push(+s.toFixed(1));
+  return out.length?out:[+first.toFixed(1)];
+}
+
+// Solape REAL de intervalos (no de slots): 10:45–11:45 choca con 11:00. Tocarse en el borde
+// (una termina 11:00 y la otra empieza 11:00) NO es solape.
+export function apptsOverlap(a,b){
+  const x=apptRange(a),y=apptRange(b);
+  return x.start<y.end-HORA_EPS && y.start<x.end-HORA_EPS;
+}
+
+// Primera cita del mismo terapeuta y día que solapa con la propuesta (null si no hay).
+// Los ids se comparan como string: los optimistas son números y el editingId del modal es string.
+export function findConflict(appointments,{date,therapistId,hour,duration},excludeId=null){
+  return (appointments||[]).find(a=>
+    String(a.id)!==String(excludeId) &&
+    a.date===date &&
+    String(a.therapistId)===String(therapistId) &&
+    apptsOverlap(a,{hour,duration})
+  )||null;
+}
+
+// Hora decimal → 'HH:MM' con cero a la izquierda (formato que exige <input type="time">).
+export function toTimeInput(h){
+  const t=Math.round((Number(h)||0)*60);
+  return `${String(Math.floor(t/60)).padStart(2,'0')}:${String(((t%60)+60)%60).padStart(2,'0')}`;
+}
+
+// 'HH:MM' de un <input type="time"> → hora decimal (null si está vacío o es inválido).
+// Se redondea a 6 decimales para que 10:05 vuelva a dar '10:05' al pasar por fmtTime.
+export function parseTimeInput(v){
+  const m=/^(\d{1,2}):(\d{2})$/.exec(String(v||'').trim());
+  if(!m) return null;
+  const hh=parseInt(m[1],10),mm=parseInt(m[2],10);
+  if(hh>23||mm>59) return null;
+  return +(hh+mm/60).toFixed(6);
+}
 // Normaliza una hora a 'HH:MM:SS' para comparar de forma robusta el valor en memoria ('9:00','00:00')
 // contra el de la DB ('09:00:00' si la columna es time). Conserva segundos (id técnico de sesiones manuales).
 export function normHour(h){

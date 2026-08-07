@@ -19,6 +19,9 @@
 .appt:active{cursor:grabbing}
 .appt-name{font-weight:700;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:inherit;padding-right:14px}
 .appt-sub{font-size:10px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:inherit}
+/* Hora exacta: solo aparece si la cita NO empieza en :00/:30. La tarjeta se dibuja en la fila de
+   su media hora contenedora, así que sin esto un 10:45 se leería como 10:30. */
+.appt-exact{display:inline-block;margin-right:4px;padding:0 4px;border-radius:4px;background:rgba(0,0,0,.09);font-size:10px;font-weight:800;font-variant-numeric:tabular-nums;vertical-align:baseline}
 /* Tinte por modalidad; las reglas .status-* de abajo lo pisan cuando aplican */
 .appt.loc-centro{background:rgba(29,158,117,.13)!important;color:#0d6e4e!important}
 .appt.loc-domicilio{background:rgba(245,166,35,.15)!important;color:#7a4900!important}

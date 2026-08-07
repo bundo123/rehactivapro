@@ -773,6 +773,18 @@
     min-height: 44px;
   }
 
+  /* Toggle "Hora exacta": la casilla nativa mide ~13px, así que el área tocable la aporta
+     su etiqueta (que es quien lo alterna vía for=). */
+  label[for="m-time-exact-tgl"] {
+    min-height: 44px;
+    padding-left: 6px;
+  }
+
+  #m-time-exact-tgl {
+    width: 18px;
+    height: 18px;
+  }
+
   /* El punto de estado cicla la cita (conf→pend→noas) y mide 9px: se le da un
      área de toque de 44px sin agrandar el punto, para no tapar la tarjeta. */
   .appt-dot {

@@ -13,7 +13,7 @@ import {
   changeDay, openApptModal, openApptModalAt, openEditApptModal, updateTimeSlots, saveAppt, delAppt,
   goToDate, goToToday, openDatePicker, agendarCitaParaPaciente, checkAutoNoas,
   toggleRecurrencia, updateRecPreview, filterApptPatient,
-  setAgendaView, setTherapistFilter, verInformeDeCita,
+  setAgendaView, setTherapistFilter, verInformeDeCita, toggleHoraExacta,
   goToDateAndSelect, exportAgendaCSV
 } from './agenda.js';
 import {
@@ -213,7 +213,7 @@ Object.assign(window, {
   changeResumenDay, goToResumenDate, resumenHoy, openResumenDatePicker, setResumenTherapist,
   verInformeDeCita,
   showSubTab, changeMensualMonth, showDoctoresTab, selectColor, selectDocColor,
-  filterApptPatient, filterPatientRptSelect, selectRptPatient, rptSearchKeydown, updateEpisodes, updateTimeSlots,
+  filterApptPatient, filterPatientRptSelect, selectRptPatient, rptSearchKeydown, updateEpisodes, updateTimeSlots, toggleHoraExacta,
   renderPatientReport, renderProtocols, protPage,
   toggleRecurrencia, toggleProTecnica,
   skipSession, simWA, simEmail, emitirFactura,

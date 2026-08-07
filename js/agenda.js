@@ -1,25 +1,30 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor, pendientesActual, safeColor, orderedTherapists, startOfWeek } from './utils.js';
+import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor, pendientesActual, safeColor, orderedTherapists, startOfWeek,
+         apptSlots, slotOf, isAlignedHour, findConflict, toTimeInput, parseTimeInput } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dbUpdateApptStatus } from './auth.js';
 import { hasPermission, canAccessTab } from './permissions.js';
-import { showFieldError, clearAllErrors } from './validators.js';
+import { showFieldError, clearFieldError, clearAllErrors } from './validators.js';
 
 // ── Helpers de slots/duración ──
-export function apptSlots(a) {
-  const spans = Math.max(1, Math.round((a.duration || 60) / 30));
-  const slots = [];
-  for (let i = 0; i < spans; i++) slots.push(+(a.hour + i * 0.5).toFixed(1));
-  return slots;
+// apptSlots vive en utils.js (puro y testeable); se re-exporta porque informes.js lo consume
+// desde acá desde antes de la migración.
+export { apptSlots };
+
+// Solape por intervalo real, no por slots de media hora: con horas exactas una cita de
+// 10:45–11:45 choca con otra de 11:00 aunque no compartan el mismo slot de inicio.
+// Devuelve la cita que choca (o null) para poder decir CUÁL en el mensaje: con horas
+// arbitrarias, "ya tiene una cita" sin la franja obliga a ir a buscarla a mano.
+function conflictsWithExisting(date, thId, startHour, duration, excludeId) {
+  return findConflict(state.appointments, { date, therapistId: thId, hour: startHour, duration }, excludeId);
 }
 
-function conflictsWithExisting(date, thId, startHour, duration, excludeId) {
-  const newSlots = new Set(apptSlots({ hour: startHour, duration }));
-  return state.appointments.some(a =>
-    a.id !== excludeId && a.date === date && a.therapistId === thId &&
-    apptSlots(a).some(s => newSlots.has(s))
-  );
+function conflictMsg(clash) {
+  if(!clash) return 'Conflicto: el terapeuta ya tiene una cita en ese horario.';
+  const fin=(Number(clash.hour)||0)+(Number(clash.duration)||60)/60;
+  const pt=getPatient(clash.patientId);
+  return `Conflicto: el terapeuta ya tiene una cita ${fmtTime(clash.hour)}–${fmtTime(fin)}${pt?' ('+pt.name+')':''}.`;
 }
 
 export function renderRefLegend() {
@@ -140,7 +145,8 @@ export function renderGrid() {
 
       // Fuera de horario NO se distingue visualmente (decisión 2026-08): todos los slots se ven
       // y comportan igual — cualquier franja acepta citas (click, drop y render).
-      const appt=visTa.find(a=>a.therapistId===th.id&&a.hour===hr);
+      // Horas exactas: la cita se dibuja en el slot de su media hora CONTENEDORA (10:45 → fila 10:30).
+      const appt=visTa.find(a=>a.therapistId===th.id&&slotOf(a.hour)===hr);
       slot.className='slot'+(!appt?' avail':'');
 
       slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('drag-over')});
@@ -150,11 +156,14 @@ export function renderGrid() {
         if(state.dragData!=null){
           const a=state.appointments.find(x=>x.id===state.dragData);
           if(a){
-            if(!conflictsWithExisting(a.date,th.id,hr,a.duration||60,a.id)){
+            const clash=conflictsWithExisting(a.date,th.id,hr,a.duration||60,a.id);
+            if(!clash){
+              // Soltar en un slot re-alinea la cita a la media hora del slot (10:45 → 10:30):
+              // el destino del gesto es la fila, y así lo que se ve es lo que queda guardado.
               a.therapistId=th.id;a.hour=hr;renderGrid();
               // Reubicación: commit solo persiste la nueva posición de la fila.
               await commitApptChange(a, {hour:hr, therapist_id:th.id});
-            } else toastErr('Conflicto: el terapeuta ya tiene una cita en ese horario.');
+            } else toastErr(conflictMsg(clash));
           }
         }
         state.dragData=null;
@@ -164,7 +173,8 @@ export function renderGrid() {
       }
       if(appt){
         const dur=appt.duration||60;
-        const spans=Math.max(1,Math.round(dur/30));
+        // Alto en slots = los que realmente ocupa (una de 10:45+60min pisa 10:30, 11:00 y 11:30).
+        const spans=apptSlots(appt).length;
         const pt=getPatient(appt.patientId);
         const card=document.createElement('div');
         let sc='';if(appt.status==='pend')sc=' status-pend';else if(appt.status==='noas')sc=' status-noas';
@@ -178,7 +188,10 @@ export function renderGrid() {
         if(doc) card.title=`Ref: ${doc.name} (${doc.spec})${appt.status==='conf'?' · Doble click para registrar sesión':''}`;
         const durLabel=dur!==60?` · ${dur}min`:'';
         const canDel=hasPermission('deleteAppt');
-        card.innerHTML=`<div class="appt-name">${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}${durLabel}${appt.status==='pend'?' · por confirmar':''}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}`;
+        // La cita no alineada se dibuja en la fila de su media hora: sin la hora exacta en la
+        // tarjeta, un 10:45 se leería como 10:30.
+        const exactTag=isAlignedHour(appt.hour)?'':`<span class="appt-exact">${esc(fmtTime(appt.hour))}</span>`;
+        card.innerHTML=`<div class="appt-name">${exactTag}${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}${durLabel}${appt.status==='pend'?' · por confirmar':''}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}`;
         card.style.cursor='pointer';
         card.addEventListener('click',e=>{if(!e.target.classList.contains('appt-dot')&&!e.target.classList.contains('appt-del')){e.stopPropagation();openEditApptModal(appt.id);}});
         card.querySelector('.appt-dot').addEventListener('click',e=>{e.stopPropagation();cycleStatus(appt.id);});
@@ -307,15 +320,15 @@ export function openApptModalAt(thId, hr, ds) {
     if(ds){const de=document.getElementById('m-date');if(de) de.value=ds;}
     const thSel=document.getElementById('m-therapist');
     if(thSel){thSel.value=String(thId);updateTimeSlots();}
-    const timeSel=document.getElementById('m-time');
-    if(timeSel) timeSel.value=String(hr);
+    // hr viene de un slot de la grilla, siempre alineado → modo select.
+    setHoraExacta(false, hr);
   },0);
 }
 
 export function openApptModal() {
   if(!state.therapists.length){toastErr('Primero agrega al menos un terapeuta.');window._app.showTab('terapeutas');return;}
   if(!state.patients.length){toastErr('Primero agrega al menos un paciente.');window._app.showTab('pacientes');return;}
-  clearAllErrors(['m-date','m-patient-search','m-therapist','m-time']);
+  clearAllErrors(['m-date','m-patient-search','m-therapist','m-time','m-time-exact']);
   document.getElementById('m-editing-id').value='';
   document.getElementById('appt-modal-title').textContent='Nueva cita';
   document.getElementById('appt-modal-save-btn').textContent='Guardar cita';
@@ -334,12 +347,13 @@ export function openApptModal() {
   setApptRptShortcut(null);
   filterApptPatient();
   _openApptModalBase();
+  setHoraExacta(false);   // crear siempre arranca en el select de medias horas
 }
 
 export function openEditApptModal(id) {
   const a=state.appointments.find(x=>x.id===id);
   if(!a){toastErr('Cita no encontrada.');return;}
-  clearAllErrors(['m-date','m-patient-search','m-therapist','m-time']);
+  clearAllErrors(['m-date','m-patient-search','m-therapist','m-time','m-time-exact']);
   const pt=getPatient(a.patientId);
   document.getElementById('m-editing-id').value=String(id);
   document.getElementById('appt-modal-title').textContent='Editar cita';
@@ -363,7 +377,8 @@ export function openEditApptModal(id) {
   document.getElementById('m-therapist').value=String(a.therapistId);
   document.getElementById('m-type').value=a.type||'Fisioterapia';
   updateTimeSlots();
-  document.getElementById('m-time').value=String(a.hour);
+  // Una cita fuera de :00/:30 no existe como opción del select: abre directo en modo exacto.
+  setHoraExacta(!isAlignedHour(a.hour), a.hour);
   document.getElementById('appt-modal').classList.add('open');
 }
 
@@ -373,6 +388,55 @@ export function updateTimeSlots() {
   const opts=[];for(let h=6;h<=20;h+=0.5) opts.push(`<option value="${h}">${fmtTime(h)}</option>`);
   document.getElementById('m-time').innerHTML=opts.join('');
   document.getElementById('m-time').value=th.startH||7;
+}
+
+// ── Hora exacta: el select de medias horas y el <input type="time"> son EXCLUYENTES ──
+// El select cubre el 99% de los casos (y evita tipear); el input existe para la cita que
+// realmente empieza 10:45. Cuál está activo lo dice el checkbox, y de ahí lee saveAppt.
+export function setHoraExacta(on, hourValue) {
+  const chk=document.getElementById('m-time-exact-tgl');
+  const sel=document.getElementById('m-time');
+  const inp=document.getElementById('m-time-exact');
+  if(!sel||!inp) return;
+  if(chk) chk.checked=!!on;
+  // display explícito además de [hidden]: si alguna regla futura le diera display al campo,
+  // el atributo solo no alcanzaría para ocultarlo.
+  sel.hidden=!!on;  sel.style.display=on?'none':'';
+  inp.hidden=!on;   inp.style.display=on?'':'none';
+  if(on){
+    const h=hourValue!=null?hourValue:parseFloat(sel.value);
+    inp.value=toTimeInput(isNaN(h)?7:h);
+  } else if(hourValue!=null){
+    sel.value=String(hourValue);
+  } else {
+    // Al volver al select se cae a la media hora contenedora de lo que había en el input
+    // (10:45 → 10:30): así no se guarda en silencio una hora distinta de la que se ve.
+    const h=parseTimeInput(inp.value);
+    if(h!=null){
+      const snap=slotOf(h);
+      if([...sel.options].some(o=>parseFloat(o.value)===snap)) sel.value=String(snap);
+    }
+  }
+  clearFieldError('m-time'); clearFieldError('m-time-exact');
+}
+
+// Handler del checkbox (onchange en el HTML).
+export function toggleHoraExacta(on) {
+  setHoraExacta(!!on);
+}
+
+// Hora que se va a guardar, leída del control ACTIVO. NaN si el input exacto está vacío/inválido.
+function readApptHour() {
+  if(document.getElementById('m-time-exact-tgl')?.checked){
+    const h=parseTimeInput(document.getElementById('m-time-exact').value);
+    return h==null?NaN:h;
+  }
+  return parseFloat(document.getElementById('m-time').value);
+}
+
+// Id del control de hora visible: los errores tienen que pintarse sobre el que ve el usuario.
+function apptHourFieldId() {
+  return document.getElementById('m-time-exact-tgl')?.checked ? 'm-time-exact' : 'm-time';
 }
 
 export function filterApptPatient() {
@@ -393,9 +457,9 @@ export async function saveAppt() {
   const isEdit=!!editingId;
 
   if(!isEdit&&!hasPermission('createAppt')){toastErr('No tienes permisos para crear citas.');return;}
-  clearAllErrors(['m-date','m-patient-search','m-therapist','m-time']);
+  clearAllErrors(['m-date','m-patient-search','m-therapist','m-time','m-time-exact']);
   const thId=document.getElementById('m-therapist').value;
-  const hr=parseFloat(document.getElementById('m-time').value);
+  const hr=readApptHour();
   const dur=parseInt(document.getElementById('m-duration')?.value||'60');
   const loc=document.getElementById('m-location')?.value==='domicilio'?'domicilio':'centro';
   let patId=document.getElementById('m-patient').value;
@@ -406,12 +470,13 @@ export async function saveAppt() {
     if(found){patId=found.id;document.getElementById('m-patient').value=found.id;}
     else{showFieldError('m-patient-search','Selecciona un paciente de la lista');toastErr('Selecciona un paciente de la lista.');return;}
   }
-  if(isNaN(hr)||hr<0||hr>24){showFieldError('m-time','Selecciona una hora válida');toastErr('Selecciona una hora válida.');return;}
+  if(isNaN(hr)||hr<0||hr>24){showFieldError(apptHourFieldId(),'Selecciona una hora válida');toastErr('Selecciona una hora válida.');return;}
   const dateVal=document.getElementById('m-date').value;
   if(!dateVal){showFieldError('m-date','Elegí la fecha de la cita');toastErr('Elegí la fecha de la cita.');return;}
   const ds=dateVal;
   const excludeId=isEdit?editingId:null;
-  if(conflictsWithExisting(ds,thId,hr,dur,excludeId)){toastErr('Conflicto: el terapeuta ya tiene una cita en ese horario.');return;}
+  const clash=conflictsWithExisting(ds,thId,hr,dur,excludeId);
+  if(clash){toastErr(conflictMsg(clash));return;}
 
   if(isEdit){
     const existing=state.appointments.find(a=>String(a.id)===editingId);
@@ -629,13 +694,13 @@ export function renderWeekView() {
       const ds = fmtDate(d);
       const slot = document.createElement('div');
       if(tailSet.has(`${ds}:${+hr.toFixed(1)}`)){ slot.className = 'slot slot-tail'; g.appendChild(slot); return; }
-      const appt = wkAppts.find(a => a.date === ds && a.hour === hr);
+      const appt = wkAppts.find(a => a.date === ds && slotOf(a.hour) === hr);
       slot.className = 'slot' + (!appt ? ' avail' : '');
       if(!appt){
         slot.addEventListener('click', () => openApptModalAt(th.id, hr, ds));
       } else {
         // Tarjeta compacta: nombre + punto de estado + tinte de modalidad. Sin drag & drop (v1).
-        const spans = Math.max(1, Math.round((appt.duration || 60) / 30));
+        const spans = apptSlots(appt).length;
         const pt = getPatient(appt.patientId);
         const doc = pt && pt.doctorId ? getDoctor(pt.doctorId) : null;
         const card = document.createElement('div');
@@ -643,7 +708,8 @@ export function renderWeekView() {
         const locCls = appt.location === 'domicilio' ? 'loc-domicilio' : 'loc-centro';
         card.className = `appt ${locCls}${sc}`;
         card.style.borderLeftColor = doc ? doc.color : 'rgba(0,0,0,.1)';
-        card.innerHTML = `<div class="appt-name">${esc(pt ? pt.name : (appt.patientName || 'Sin paciente'))}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)}"></div>`;
+        const exactTagWk = isAlignedHour(appt.hour) ? '' : `<span class="appt-exact">${esc(fmtTime(appt.hour))}</span>`;
+        card.innerHTML = `<div class="appt-name">${exactTagWk}${esc(pt ? pt.name : (appt.patientName || 'Sin paciente'))}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)}"></div>`;
         card.addEventListener('click', e => { e.stopPropagation(); openEditApptModal(appt.id); });
         if(spans > 1){ slot.style.zIndex = '2'; card.style.bottom = 'auto'; card.style.height = `calc(${spans} * 46px - 6px)`; }
         slot.appendChild(card);
