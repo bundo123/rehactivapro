@@ -88,6 +88,52 @@ Análisis a fondo de `js/realtime.js` (supabase-js `^2.104.1`). Se arregló solo
 
 ---
 
+## 🗓️ Sesión 2026-08-07
+
+Cuatro commits, todos en prod con Vercel verde verificado por hash de bundle (el build local y
+el que sirve `rehactivaec.com` coinciden). Tests: 28 → **63 verdes**.
+
+- **`576d68a` feat(resumen,agenda): filtro por terapeuta + salto cita → informe.**
+  Chips "Todos / <terapeuta>" junto al selector de fecha del Resumen (orden de `orderedTherapists`);
+  recalculan secciones, contadores y barra de jornada. El estado vive en el módulo, no en `state`:
+  cada visita a la pestaña arranca en "Todos" y navegar de fecha lo conserva. En móvil scrollean
+  en horizontal; en escritorio envuelven. Además, botón **"Ver informe del paciente"** en el modal
+  de cita **solo bajo `@media (pointer: coarse)`**: en celular llegar al informe costaba 3 toques.
+  Llama `showTab` **antes** de `selectRptPatient` porque entrar a la pestaña resetea la selección.
+
+- **`d6b516a` fix: R-2 — el informe de un episodio pasado contaba la eval como sesión.**
+  Salía "11 de 10 · 110%" en el PDF al médico. Fix por **fuente única**: la regla de qué fila del
+  `session_log` cuenta como sesión hecha se extrae a **`doneEnLog()`** (`utils.js`) y la usan tanto
+  `epDone` (`informes.js`) como `doneActual` — el episodio actual y los pasados ya no pueden
+  divergir en la definición. `doneActual` queda equivalente (solo cambia el orden de los filtros);
+  `pendientesActual`/`billingInfo` sin tocar. **Cierra la Fase 0.**
+
+- **`22d541a` feat(agenda): hora exacta (no solo :00/:30).**
+  La hora ya persistía como decimal (10.75 = 10:45); faltaba poder cargarla, verla y validarla —
+  sin SQL. Toggle "Hora exacta" que reemplaza el select por `<input type="time" step="300">`;
+  crear arranca en select, editar una cita no alineada abre directo en exacto. `fmtTime`
+  generalizada a cualquier minuto conservando el formato de siempre. La cita se dibuja en el slot
+  de su **media hora contenedora** (`slotOf`) con la hora exacta en la tarjeta, y su alto sale de
+  `apptSlots()`, que ahora deriva del intervalo real. **Solapes por intervalo, no por slots:**
+  10:45–11:45 choca con 11:00 y tocarse en el borde no es conflicto. De paso, `findConflict`
+  compara ids como string — editar una cita podía chocar consigo misma.
+
+- **`c616417` feat(cie10): diagnóstico CIE-10 del paciente.**
+  Catálogo real de 2470 códigos en `js/data/cie10-fisio.json`, cargado con `import()` **al primer
+  uso**: chunk aparte de 182 KB que no entra en el bundle inicial (el principal sube 5 KB).
+  Buscador con autocompletado en el modal de cita — rotulado como **dato de la ficha, no de la
+  cita**, con escritura optimista + rollback — y en el modal de paciente, donde la selección queda
+  pendiente y la escribe `savePatient`. Búsqueda por código o descripción, insensible a acentos,
+  punto opcional (`m545` → `M54.5`), máx. 12 resultados. El informe y el PDF muestran
+  `"{diag} (CIE-10: {código})"` **solo en el episodio actual**: en uno cerrado el diagnóstico es el
+  de entonces y etiquetarlo con el código de hoy mentiría.
+
+**Deuda que deja la sesión:** el "Análisis con IA" del Resumen ignora el filtro por terapeuta
+(manda el día completo); los inputs de los modales miden 37 px de alto en móvil (afecta a toda la
+app, no solo a lo de hoy); el `step="300"` de la hora exacta permite minutos como :05.
+
+---
+
 ## 🗓️ Sesiones 2026-07 (reconstruido del git log — no se documentaron en su momento)
 
 Todo en prod. Cierran la mayor parte de la **Fase 0** y del **LOTE B**:
@@ -95,7 +141,6 @@ Todo en prod. Cierran la mayor parte de la **Fase 0** y del **LOTE B**:
 - **2026-07-02:** `3986a7e` auto-logout 15 min · `6c33b4a` `vercel.json` con headers de seguridad.
 - **2026-07-09:** `2e0303a` R-24 (rol `viewAI` server-side + rate-limit IA) · `f4b276f` npm audit → 0 vulnerabilidades · `516088c` I-12 + I-13 (modales Escape/fondo, alerts→toasts, táctil `pointer:coarse`) · `d6509cb` P-6 (`checkAutoNoas` días anteriores).
 - **2026-07-31:** `82e387f` feat(informes): PDF con formato de documento formal (marca, SVG EVA, paginación).
-- **2026-08-07:** `576d68a` feat(resumen,agenda): filtro manual por terapeuta en Resumen del día (chips, no persiste entre visitas) + salto cita → informe solo bajo `pointer:coarse` · **fix R-2**: `doneEnLog()` en `utils.js` — el informe del episodio pasado ya no cuenta la Evaluación inicial como sesión; `doneActual` pasa a delegar en la misma función (una sola definición de «sesión hecha»). 4 tests nuevos → 32 verdes.
 
 ~~De la Fase 0 queda **R-2** sin commit visible que lo cierre~~ ✅ **R-2 CERRADO 2026-08-07**: seguía abierto (no lo tocó `82e387f`). El `epDone` del episodio pasado (`informes.js`) contaba `status==='asistió'` a secas; ahora usa `doneEnLog()` (`utils.js`), la misma regla que `doneActual`, que excluye `Evaluación inicial` y `Fin de episodio`. 4 tests nuevos (32 en total). **Fase 0 completa.**
 
