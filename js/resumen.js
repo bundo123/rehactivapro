@@ -1,6 +1,31 @@
 import { state } from './state.js';
-import { esc, fmtDate, fmtTime, getPatient, getTherapist, getDoctor, getInitials, getColor, safeColor } from './utils.js';
+import { esc, fmtDate, fmtTime, getPatient, getTherapist, getDoctor, getInitials, getColor, safeColor, orderedTherapists } from './utils.js';
 import { toastErr } from './toast.js';
+
+// ── Filtro manual por terapeuta (chips junto al selector de fecha) ──
+// Vive en el módulo, no en state: NO persiste entre visitas a la pestaña (showTab lo
+// resetea con resetResumenTherapist), pero sí se conserva al navegar de fecha.
+let resumenTherapist = null;
+
+export function resetResumenTherapist() {
+  resumenTherapist = null;
+}
+
+export function setResumenTherapist(id) {
+  resumenTherapist = id ? String(id) : null;
+  renderResumen();
+}
+
+function renderThChips() {
+  const box = document.getElementById('resumen-th-chips');
+  if (!box) return;
+  const ths = orderedTherapists();
+  if (ths.length < 2) { box.innerHTML = ''; return; }  // con 0 o 1 terapeuta el filtro no aporta
+  const chip = (val, label, active) =>
+    `<button type="button" class="resd-chip${active ? ' active' : ''}" aria-pressed="${active}" onclick="setResumenTherapist(${esc(JSON.stringify(val))})">${esc(label)}</button>`;
+  box.innerHTML = chip('', 'Todos', !resumenTherapist)
+    + ths.map(t => chip(String(t.id), t.name, resumenTherapist === String(t.id))).join('');
+}
 
 export function hasEvalInicial(p) {
   return (p.log || []).some(s => s.type === 'Evaluación inicial');
@@ -114,7 +139,14 @@ export function renderResumen() {
   const lbl = document.getElementById('resumen-day-lbl');
   if (lbl) lbl.textContent = `${dn[d.getDay()]}, ${d.getDate()} de ${mn[d.getMonth()]} ${d.getFullYear()}`;
 
-  const ta   = state.appointments.filter(a => a.date === ds);
+  // Si el terapeuta filtrado dejó de existir (borrado / realtime), volver a «Todos».
+  if (resumenTherapist && !state.therapists.some(t => String(t.id) === resumenTherapist)) resumenTherapist = null;
+  renderThChips();
+  const thSel = resumenTherapist ? state.therapists.find(t => String(t.id) === resumenTherapist) : null;
+
+  const ta   = state.appointments
+    .filter(a => a.date === ds)
+    .filter(a => !resumenTherapist || String(a.therapistId) === resumenTherapist);
   const noAs = ta.filter(a => a.status === 'noas').sort((a, b) => a.hour - b.hour);
   const pend = ta.filter(a => a.status === 'pend').sort((a, b) => a.hour - b.hour);
   const conf = ta.filter(a => a.status === 'conf').sort((a, b) => a.hour - b.hour);
@@ -122,7 +154,7 @@ export function renderResumen() {
   let html = renderStrip(conf.length, pend.length, noAs.length);
 
   if (!ta.length) {
-    html += `<div class="resd-empty">No hay citas registradas para este día.</div>`;
+    html += `<div class="resd-empty">${thSel ? `No hay citas de ${esc(thSel.name)} para este día.` : 'No hay citas registradas para este día.'}</div>`;
     document.getElementById('resumen-content').innerHTML = html;
     return;
   }

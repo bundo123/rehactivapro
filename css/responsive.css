@@ -539,6 +539,23 @@
     min-height: 52px !important;
   }
 
+  /* ── Resumen: chips de terapeuta en su propia fila, scroll horizontal ──
+     Ocupan el ancho completo bajo la fecha; la fila no envuelve (perdería alto de
+     lista) sino que scrollea con el dedo. */
+  /* Con #tab-resumen porque resumen.css se carga DESPUÉS de este archivo: a igual
+     especificidad ganaría la regla base aunque esta viva en un media query. */
+  #tab-resumen .resd-thfilter {
+    flex: 1 1 100%;
+    width: 100%;
+    flex-wrap: nowrap;   /* en escritorio envuelven; acá se scrollean para no comer alto de lista */
+    padding-bottom: 2px;
+    scroll-snap-type: x proximity;
+  }
+
+  #tab-resumen .resd-chip {
+    scroll-snap-align: start;
+  }
+
   /* ── Resumen del día: franja en 2 filas, acciones apiladas ── */
   .resd-strip {
     display: grid;
@@ -743,6 +760,7 @@
   .sub-tab,
   .prot-btn,
   .side-btn,
+  #tab-resumen .resd-chip,
   .resd-btn-wa, .resd-btn-em, .resd-btn-rep, .resd-btn-sess, .resd-btn-eval {
     min-height: 44px;
   }
@@ -770,4 +788,29 @@
     bottom: -15px;
     left: -15px;
   }
+
+  /* Atajo cita → informe: solo con dedo. En escritorio el informe está a un clic en el
+     menú lateral; en celular el terapeuta viene de la agenda y navegar hasta allá cuesta
+     3 toques. agenda.js pone [hidden] cuando la cita no tiene paciente asignado. */
+  #appt-goto-rpt:not([hidden]) {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(41,171,226,.35);
+    border-radius: 8px;
+    background: rgba(41,171,226,.08);
+    color: #1d8fbf;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+}
+
+/* Fuera de dispositivos táctiles el atajo no existe (la regla de arriba es la única que
+   lo muestra); esta declaración lo mantiene oculto también si el navegador ignora [hidden]. */
+#appt-goto-rpt {
+  display: none;
 }

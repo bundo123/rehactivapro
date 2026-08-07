@@ -3,7 +3,7 @@ import { state } from './state.js';
 import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor, pendientesActual, safeColor, orderedTherapists, startOfWeek } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dbUpdateApptStatus } from './auth.js';
-import { hasPermission } from './permissions.js';
+import { hasPermission, canAccessTab } from './permissions.js';
 import { showFieldError, clearAllErrors } from './validators.js';
 
 // ── Helpers de slots/duración ──
@@ -273,6 +273,28 @@ export function changeDay(d) {
   renderGrid();
 }
 
+// Atajo táctil del modal de cita: lo pinta CSS solo bajo (pointer: coarse) y aquí se
+// decide si hay paciente al que saltar. El id se guarda en el botón para no depender
+// de #m-patient, que el usuario puede haber tocado antes de saltar.
+function setApptRptShortcut(patientId) {
+  const btn = document.getElementById('appt-goto-rpt');
+  if (!btn) return;
+  const pid = patientId ? String(patientId) : '';
+  btn.dataset.pid = pid;
+  btn.hidden = !pid;
+}
+
+export function verInformeDeCita() {
+  const pid = document.getElementById('appt-goto-rpt')?.dataset.pid;
+  if (!pid) return;
+  if (!canAccessTab('paciente_rpt')) { toastErr('No tienes permisos para acceder a esta sección'); return; }
+  window._app.closeModal('appt-modal');
+  // showTab primero: al entrar a paciente_rpt se ejecuta renderPatientReportSelect(), que
+  // resetea la selección al primer paciente. Seleccionar después es lo que la conserva.
+  window._app.showTab('paciente_rpt');
+  window._app.selectRptPatient(pid);
+}
+
 function _openApptModalBase() {
   document.getElementById('m-therapist').innerHTML=orderedTherapists().map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.startH)}-${fmtTime(t.endH)})</option>`).join('');
   updateTimeSlots();
@@ -309,6 +331,7 @@ export function openApptModal() {
   document.getElementById('m-status').value='conf';
   document.getElementById('m-recurrente').checked=false;
   document.getElementById('recurrencia-panel').style.display='none';
+  setApptRptShortcut(null);
   filterApptPatient();
   _openApptModalBase();
 }
@@ -334,6 +357,7 @@ export function openEditApptModal(id) {
   document.getElementById('m-status').value=a.status||'conf';
   document.getElementById('m-recurrente').checked=false;
   document.getElementById('recurrencia-panel').style.display='none';
+  setApptRptShortcut(pt ? a.patientId : null);
   filterApptPatient();
   document.getElementById('m-therapist').innerHTML=orderedTherapists().map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.startH)}-${fmtTime(t.endH)})</option>`).join('');
   document.getElementById('m-therapist').value=String(a.therapistId);

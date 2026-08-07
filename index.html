@@ -316,6 +316,7 @@
       <button class="icon-btn" onclick="changeResumenDay(1)">›</button>
       <button class="icon-btn txt" onclick="resumenHoy()">Hoy</button>
     </div>
+    <div class="resd-thfilter" id="resumen-th-chips" role="group" aria-label="Filtrar por terapeuta"></div>
     <button class="ai-btn" style="margin-left:auto;height:36px;padding:0 16px;font-size:12.5px" onclick="document.getElementById('resumen-ai-output').style.display='block';genResumenDiaAI()" data-permission="admin-terapeuta">Análisis con IA</button>
   </div>
   <div class="main-body">
@@ -388,6 +389,8 @@
 <div class="modal">
   <input type="hidden" id="m-editing-id" value="">
   <h3 id="appt-modal-title">Nueva cita</h3>
+  <!-- Atajo solo táctil (ver responsive.css): agenda.js lo muestra si la cita tiene paciente -->
+  <button type="button" id="appt-goto-rpt" hidden onclick="verInformeDeCita()">Ver informe del paciente</button>
   <div class="field-row two">
     <div class="field"><label>Fecha</label>
       <input type="date" id="m-date" style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;font-size:13px;color:#1a1917;font-family:inherit;outline:none">

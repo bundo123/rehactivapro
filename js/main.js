@@ -13,13 +13,14 @@ import {
   changeDay, openApptModal, openApptModalAt, openEditApptModal, updateTimeSlots, saveAppt, delAppt,
   goToDate, goToToday, openDatePicker, agendarCitaParaPaciente, checkAutoNoas,
   toggleRecurrencia, updateRecPreview, filterApptPatient,
-  setAgendaView, setTherapistFilter,
+  setAgendaView, setTherapistFilter, verInformeDeCita,
   goToDateAndSelect, exportAgendaCSV
 } from './agenda.js';
 import {
   updateResumenBadge, renderResumen, simWA, simEmail,
   hasEvalInicial, genResumenDiaAI,
-  changeResumenDay, goToResumenDate, resumenHoy, openResumenDatePicker
+  changeResumenDay, goToResumenDate, resumenHoy, openResumenDatePicker,
+  setResumenTherapist, resetResumenTherapist
 } from './resumen.js';
 import {
   renderPatients, openPatientModal, savePatient, deletePatient,
@@ -77,7 +78,7 @@ window._app = {
   // badges
   updateResumenBadge, updateFacturaBadge,
   // episodes
-  updateEpisodes,
+  updateEpisodes, selectRptPatient,
   // session
   openSessionModal,
   // patient
@@ -112,7 +113,8 @@ export function showTab(tab) {
   if(tab==='informes')renderSemanal();
   if(tab==='paciente_rpt')renderPatientReportSelect();
   if(tab==='terapeutas')renderTherapistList();
-  if(tab==='resumen')renderResumen();
+  // El filtro por terapeuta del Resumen es de sesión de pantalla: cada visita arranca en «Todos».
+  if(tab==='resumen'){resetResumenTherapist();renderResumen();}
   if(tab==='protocolos')renderProtocols();
   if(tab==='doctores'){renderDoctorsList();renderNotifList();}
   if(tab==='facturacion')renderFacturacion();
@@ -208,7 +210,8 @@ Object.assign(window, {
   saveSession, saveEvalInicial, guardarNuevoEpisodio,
   delAppt, deletePatient, deleteTherapist, deleteDoctor, deleteProtocol,
   cycleStatus, changeDay, changeWeek, goToDate, goToToday,
-  changeResumenDay, goToResumenDate, resumenHoy, openResumenDatePicker,
+  changeResumenDay, goToResumenDate, resumenHoy, openResumenDatePicker, setResumenTherapist,
+  verInformeDeCita,
   showSubTab, changeMensualMonth, showDoctoresTab, selectColor, selectDocColor,
   filterApptPatient, filterPatientRptSelect, selectRptPatient, rptSearchKeydown, updateEpisodes, updateTimeSlots,
   renderPatientReport, renderProtocols, protPage,
