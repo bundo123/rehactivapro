@@ -1,6 +1,6 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-08-07
+> Generado: 2026-05-18 · Última actualización: 2026-08-11
 
 ---
 
@@ -131,6 +131,51 @@ el que sirve `rehactivaec.com` coinciden). Tests: 28 → **63 verdes**.
 **Deuda que deja la sesión:** el "Análisis con IA" del Resumen ignora el filtro por terapeuta
 (manda el día completo); los inputs de los modales miden 37 px de alto en móvil (afecta a toda la
 app, no solo a lo de hoy); el `step="300"` de la hora exacta permite minutos como :05.
+
+---
+
+## 🗓️ Sesión 2026-08-11 — La cita "no asistió" libera el slot
+
+Un commit, en prod con Vercel verde verificado por hash de bundle (el build local y el que sirve
+`rehactivaec.com` coinciden). Tests: 63 → **85 verdes**.
+
+- **`219ed02` feat(agenda): la cita "no asistió" libera el slot sin perderse.**
+  El paciente no vino, la franja quedó libre de hecho, pero la agenda la seguía dando por ocupada —
+  y borrar la cita para reagendar habría falseado el historial. Ahora una cita en `noas` deja de
+  OCUPAR la franja **solo a efectos de agendamiento**: sigue existiendo y contando exactamente igual
+  en resumen, informes, continuidad y facturación.
+
+  - **Criterio único `bloqueaSlot()` (`utils.js`).** Lo consumen `findConflict` — así crear, editar,
+    drag & drop y el loop de recurrentes heredan el comportamiento de una sola vez — y
+    `occupiedSlots()`, que alimenta el contador "slots libres" de la cabecera. Dos citas **activas**
+    siguen chocando igual, incluso con horas exactas parcialmente solapadas; una cita sin `status`
+    (datos viejos) sigue bloqueando.
+  - **Reparto de la franja (`compactNoas()`, puro y testeable).** Si la no-asistió comparte fila o
+    solapa con otra cita, cede el espacio y se dibuja como **tira compacta** (16 px, fondo opaco,
+    inset lateral, pegada al tope de su media hora, nombre tachado en una línea con ellipsis,
+    clickeable para abrir/editar); la activa se lleva el espacio normal. Sola, se ve como siempre.
+    Varias en la misma franja apilan tiras. Igual en vista Día y Semana.
+  - **Lo que costó más de lo que parecía: el apilado.** Una tira que arranca a mitad de una cita
+    larga (no-asistió 7:30 sobre una de 7:00–8:00) necesita z-index propio para verse, pero eso
+    también sube el **fondo blanco** del slot y tapa la tarjeta de abajo — que es justo por lo que
+    existe `.slot-tail`. De ahí **`.slot-strip-over`**: transparente y `pointer-events:none` como el
+    tail, pero **por encima** (z-index 4) y con `pointer-events:auto` solo en la tira. Esos píxeles
+    siguen siendo de la cita activa (su click, su drop); lo único que flota y responde es la tira.
+    Además las tiras **no dejan slots de cola**: las medias horas siguientes quedan libres de verdad
+    y ya no tapan a la cita activa que empiece ahí.
+  - **Agendar rápido.** La no-asistió que ocupa sola su franja lleva un **"+"** que abre el modal con
+    terapeuta, fecha y hora prellenados; el resto de la tarjeta sigue abriendo su edición. Solo con
+    permiso `createAppt`. En móvil se va a la esquina inferior **izquierda**: su área de toque de
+    44 px y la del punto de estado ocupan toda la altura de la tarjeta, así que solo entra una por
+    lado sin pisarse.
+  - **Intocado a propósito:** `cycleStatus`, secciones del resumen, métricas de continuidad,
+    informes y facturación — cero cambios de conteo.
+
+**Deuda que deja la sesión:** el render no tiene tests (no hay jsdom en el proyecto) — la lógica de
+reparto y el contador son puros y sí están cubiertos, pero `.slot-strip-over` y el "+" táctil se
+verificaron a ojo en dev. Y como `cycleStatus` **no** chequea conflictos, devolver a `conf` una
+no-asistió sobre cuya franja ya se agendó deja dos citas activas solapadas: hoy es aceptable (la
+reactivación es un gesto deliberado del usuario), pero es el caso a vigilar.
 
 ---
 
