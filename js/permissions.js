@@ -1,9 +1,11 @@
 import { state } from './state.js';
 
+// 'seguimiento' es de lectura para los tres roles (el terapeuta incluido): es la pantalla que
+// dice qué pacientes atendidos no tienen historia cargada, y quien la carga es el terapeuta.
 const ROLE_TABS = {
-  admin:     ['agenda','resumen','pacientes','paciente_rpt','protocolos','informes','facturacion','terapeutas','doctores'],
-  secretaria:['agenda','resumen','pacientes','paciente_rpt','protocolos','facturacion','doctores'],
-  terapeuta: ['agenda','resumen','pacientes','paciente_rpt','protocolos'],
+  admin:     ['agenda','resumen','pacientes','seguimiento','paciente_rpt','protocolos','informes','facturacion','terapeutas','doctores'],
+  secretaria:['agenda','resumen','pacientes','seguimiento','paciente_rpt','protocolos','facturacion','doctores'],
+  terapeuta: ['agenda','resumen','pacientes','seguimiento','paciente_rpt','protocolos'],
 };
 
 const ROLE_ACTIONS = {

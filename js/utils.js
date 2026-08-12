@@ -17,7 +17,7 @@ export const COLOR_OPTIONS = [
   {id:'cl',name:'Pizarra',bg:'#f1f5f9',border:'#64748B',text:'#334155'},
 ];
 export const DOC_COLORS = ['#E24B4A','#378ADD','#7F77DD','#BA7517','#D4537E','#1D9E75','#D85A30','#639922','#5EEAD4','#FCA5A5','#FDE047','#A78BFA','#6EE7B7','#FB923C','#94A3B8'];
-export const allTabs = ['agenda','pacientes','informes','paciente_rpt','protocolos','resumen','terapeutas','doctores','facturacion'];
+export const allTabs = ['agenda','pacientes','seguimiento','informes','paciente_rpt','protocolos','resumen','terapeutas','doctores','facturacion'];
 
 export function escapeHtml(v){
   if(v==null) return '';
@@ -385,6 +385,122 @@ export function ordinalesDeCitas(appointments, getPacienteFn) {
 export function ordinalTexto(ord) {
   if (!ord) return '';
   return ord.n ? `${ord.x}/${ord.n}` : String(ord.x);
+}
+
+// ── Seguimiento: auditoría día a día de lo atendido contra lo registrado ──
+// La pestaña es de SOLO LECTURA y responde una pregunta concreta: de los pacientes ACTIVOS, qué
+// DÍAS se atendió y no quedó nada escrito en la historia. Todo se deriva de lo que ya está en
+// memoria (p.log y las citas): no hay una sola query nueva.
+//
+// Vocabulario (una sola definición, la comparten el detalle, las filas y los filtros):
+//  · Cita pasada = status 'conf' (atendida) con fecha ≤ hoy. Las 'pend'/'noas' no cuentan: la
+//    pregunta es "esto se atendió y no quedó escrito", no "esto está agendado".
+//  · Entrada clínica = cualquier fila del log salvo 'Fin de episodio' (marcador técnico, no es
+//    documentación). Por eso un día cubierto solo por la evaluación inicial SÍ está registrado.
+//  · Sesión = entrada del log que no es ninguno de los dos marcadores NI la evaluación inicial.
+//    Es la columna "Sesiones"; a diferencia de doneEnLog no filtra por status, porque acá interesa
+//    si quedó registro, no si el paciente asistió.
+// El cruce es DÍA A DÍA, no de totales: dos citas el mismo día se cubren con una sola entrada de
+// ese día, y una entrada de otro día no cubre nada. Es la única forma de que "4 citas / 4 sesiones"
+// no tape que una sesión se escribió dos veces el martes y el jueves quedó vacío.
+// Ojo: a diferencia de doneActual, esto NO recorta por episodio — la auditoría es sobre todo lo
+// que el paciente lleva atendido en la app.
+
+// Días (YYYY-MM-DD) en los que el paciente tiene al menos una entrada clínica escrita.
+function _diasConRegistro(patient) {
+  const out = new Set();
+  (patient?.log || []).forEach(s => {
+    if (s && s.date && s.type !== 'Fin de episodio') out.add(String(s.date));
+  });
+  return out;
+}
+
+// Detalle día a día de las citas pasadas del paciente: una fila POR DÍA, no por cita.
+//   [{ date, therapistId, registrado, citas }]  ordenado por fecha ascendente.
+// `therapistId` es el responsable del día = el de la cita más temprana (el orden del array de
+// entrada no debe cambiar el resultado). `citas` es cuántas citas pasadas hubo ese día.
+// Pura: `hoy` se puede inyectar para testear; por defecto es la fecha de sistema.
+export function detalleSeguimiento(patient, appointments, hoy = fmtDate(new Date())) {
+  const pid = String(patient?.id ?? '');
+  const porDia = new Map();
+  (appointments || []).forEach(a => {
+    if (!a || a.patientId == null || a.status !== 'conf' || !a.date) return;
+    if (String(a.patientId) !== pid) return;
+    if (String(a.date) > String(hoy)) return;
+    const d = String(a.date);
+    const prev = porDia.get(d);
+    const hora = Number(a.hour) || 0;
+    if (!prev) porDia.set(d, { therapistId: a.therapistId ?? null, hora, citas: 1 });
+    else {
+      prev.citas++;
+      if (hora < prev.hora) { prev.hora = hora; prev.therapistId = a.therapistId ?? null; }
+    }
+  });
+  const conRegistro = _diasConRegistro(patient);
+  return [...porDia.entries()]
+    .map(([date, v]) => ({ date, therapistId: v.therapistId, registrado: conRegistro.has(date), citas: v.citas }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// Los días que quedaron descubiertos: [{date, therapistId}] ordenado por fecha.
+export function diasSinRegistro(patient, appointments, hoy = fmtDate(new Date())) {
+  return detalleSeguimiento(patient, appointments, hoy)
+    .filter(d => !d.registrado)
+    .map(({ date, therapistId }) => ({ date, therapistId }));
+}
+
+// Filas de la tabla. Agrupa las citas por paciente en UNA pasada y recién después arma las filas
+// (mismo patrón que ordinalesDeCitas): sin esto sería recorrer todas las citas una vez por
+// paciente. Orden: días faltantes desc (lo que hay que atender primero), luego citas desc.
+export function filasSeguimiento(patients, appointments, hoy = fmtDate(new Date())) {
+  const citasPorPaciente = new Map();
+  (appointments || []).forEach(a => {
+    if (!a || a.patientId == null) return;
+    const k = String(a.patientId);
+    if (!citasPorPaciente.has(k)) citasPorPaciente.set(k, []);
+    citasPorPaciente.get(k).push(a);
+  });
+  return (patients || [])
+    .filter(p => p && p.status === 'active')
+    .map(p => {
+      const log = (p.log || []).filter(Boolean);
+      const detalle = detalleSeguimiento(p, citasPorPaciente.get(String(p.id)) || [], hoy);
+      const faltantes = detalle.filter(d => !d.registrado);
+      return {
+        id: p.id,
+        name: p.name || '',
+        sesiones: log.filter(s => s.type !== 'Evaluación inicial' && s.type !== 'Fin de episodio').length,
+        citasPasadas: detalle.reduce((n, d) => n + d.citas, 0),
+        diasSinRegistro: faltantes.length,
+        entradas: log.filter(s => s.type !== 'Fin de episodio').length,
+        detalle,
+      };
+    })
+    .sort((a, b) =>
+      b.diasSinRegistro - a.diasSinRegistro ||
+      b.citasPasadas - a.citasPasadas ||
+      a.name.localeCompare(b.name));
+}
+
+// Los tres filtros de la barra. NO son categorías excluyentes y el contador de cada uno cuenta las
+// filas que lo cumplen: un paciente con historia cargada y un día suelto sin registro suma en
+// «Con seguimiento» y en «Con días faltantes» a la vez, que es justo lo que se quiere ver.
+export const FILTROS_SEGUIMIENTO = {
+  con:       f => f.entradas > 0,
+  faltantes: f => f.diasSinRegistro > 0,
+  all:       () => true,
+};
+
+export function pasaFiltroSeguimiento(fila, filtro) {
+  return (FILTROS_SEGUIMIENTO[filtro] || FILTROS_SEGUIMIENTO.all)(fila);
+}
+
+export function contarSeguimiento(filas) {
+  const out = { con: 0, faltantes: 0, all: 0 };
+  (filas || []).forEach(f => {
+    Object.keys(out).forEach(k => { if (FILTROS_SEGUIMIENTO[k](f)) out[k]++; });
+  });
+  return out;
 }
 
 // Datos de facturación del episodio ACTUAL (I-4): "Cobro X de Y", cajitas y cierre.

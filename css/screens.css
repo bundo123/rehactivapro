@@ -141,6 +141,33 @@
 .refresh-btn:hover{border-color:var(--rh-blue,#29ABE2);background:var(--rh-blue-soft,rgba(41,171,226,.14))}
 .last-updated-label{font-size:10px;color:#7a7a76}
 
+/* ===== SEGUIMIENTO ===== */
+/* Reutiliza .patient-table (y con ella el apilado en tarjetas de responsive.css). */
+.seg-num{font-size:14px;color:#5a5a56;font-variant-numeric:tabular-nums;white-space:nowrap}
+.seg-ok{color:#1D9E75;font-weight:700;font-size:15px}
+.seg-count{display:inline-block;margin-left:5px;font-variant-numeric:tabular-nums;opacity:.75;font-weight:700}
+/* Días atendidos sin nada escrito: el número es el hallazgo, va en rojo y se lee de lejos. */
+.seg-falta-badge{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 7px;border-radius:99px;background:rgba(226,75,74,.12);border:1px solid rgba(226,75,74,.45);color:#c0392b;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.seg-row{cursor:pointer}
+.segd-caret{color:#7a7a76;font-size:11px;line-height:1;flex-shrink:0;width:11px;text-align:center}
+.seg-row:hover .segd-caret{color:#1d8fbf}
+/* !important porque rehactiva-theme.css fija el fondo de .patient-table td después de este archivo. */
+.seg-table tr.seg-row.abierta td{background:#faf6ef!important;border-bottom-color:transparent!important}
+
+/* Detalle desplegable: una línea por día con cita pasada */
+.seg-table tr.seg-detalle-row td{background:#faf6ef!important;padding:0 14px 14px!important}
+.segd-wrap{border:1px solid rgba(41,171,226,.18);border-radius:9px;background:#fff;padding:10px 12px}
+.segd-title{font-size:10px;font-weight:700;color:#7a7a76;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.segd-list{list-style:none;margin:0;padding:0}
+.segd-item{display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:13px}
+.segd-item:last-child{border-bottom:none}
+.segd-fecha{font-variant-numeric:tabular-nums;color:#1a1917;font-weight:600;white-space:nowrap;flex-shrink:0;min-width:88px}
+.segd-th{color:#6b6a64;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.segd-extra{color:#a8a6a0;font-size:12px}
+.segd-estado{white-space:nowrap;flex-shrink:0;font-size:12px;font-weight:600;color:#1D9E75}
+.segd-item.falta .segd-estado{color:#c0392b}
+.segd-item.falta .segd-fecha{color:#c0392b}
+
 /* ===== INFORME PACIENTE — hoja membretada + sidebar de acciones ===== */
 .rpt-layout{display:flex;gap:16px;align-items:flex-start}
 .rpt-sheet{flex:1;min-width:0;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:4px;box-shadow:0 4px 18px rgba(0,0,0,.08);padding:30px 34px}

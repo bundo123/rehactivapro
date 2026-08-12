@@ -91,10 +91,11 @@ function _mapDoctor(r){return{id:r.id,name:r.name,spec:r.spec||'',email:r.email|
 function _mapSession(s){return{id:s.id,date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null};}
 
 function _refreshTabAfterAppt() {
-  const {renderGrid,renderResumen,renderFacturacion,updateResumenBadge,updateFacturaBadge}=window._app;
+  const {renderGrid,renderResumen,renderFacturacion,renderSeguimiento,updateResumenBadge,updateFacturaBadge}=window._app;
   if(state.currentTab==='agenda')renderGrid();
   else if(state.currentTab==='resumen')renderResumen();
   else if(state.currentTab==='facturacion')renderFacturacion();
+  else if(state.currentTab==='seguimiento')renderSeguimiento();
   updateResumenBadge();updateFacturaBadge();
 }
 
@@ -131,10 +132,11 @@ function _onPatient(payload) {
     state.patients=state.patients.filter(p=>p.id!==payload.old.id);
     if(state.patients.length<before)queueRemoteToast('patients','Paciente eliminado');
   }
-  const {renderPatients,renderPatientReport,renderFacturacion,updateFacturaBadge}=window._app;
+  const {renderPatients,renderPatientReport,renderFacturacion,renderSeguimiento,updateFacturaBadge}=window._app;
   if(state.currentTab==='pacientes')renderPatients();
   else if(state.currentTab==='paciente_rpt'){const sel=document.getElementById('patient-rpt-select')?.value;if(sel)renderPatientReport();}
   else if(state.currentTab==='facturacion')renderFacturacion();
+  else if(state.currentTab==='seguimiento')renderSeguimiento();
   updateFacturaBadge();
 }
 
@@ -157,9 +159,10 @@ function _onSessionLog(payload) {
     p.log=p.log.filter(s=>!(s.date===payload.old.date&&normHour(s.hour)===normHour(payload.old.hour)));
     queueRemoteToast('session_log','Sesión eliminada');
   }
-  const {renderPatientReport,renderGrid}=window._app;
+  const {renderPatientReport,renderGrid,renderSeguimiento}=window._app;
   if(state.currentTab==='paciente_rpt'){const sel=document.getElementById('patient-rpt-select')?.value;if(String(sel)===String(pid))renderPatientReport();}
   if(state.currentTab==='agenda')renderGrid();
+  if(state.currentTab==='seguimiento')renderSeguimiento();
 }
 
 function _onCobro(payload) {
@@ -253,12 +256,13 @@ async function _doReconnect(delay=5000) {
     try{if(realtimeChannel)await supa.removeChannel(realtimeChannel);}catch(e){}
     realtimeChannel=null;
     try{
-      const{loadAll,renderGrid,renderPatients,renderResumen,renderFacturacion,updateResumenBadge,updateFacturaBadge}=window._app;
+      const{loadAll,renderGrid,renderPatients,renderResumen,renderFacturacion,renderSeguimiento,updateResumenBadge,updateFacturaBadge}=window._app;
       await loadAll(true);
       if(state.currentTab==='agenda')renderGrid();
       else if(state.currentTab==='pacientes')renderPatients();
       else if(state.currentTab==='resumen')renderResumen();
       else if(state.currentTab==='facturacion')renderFacturacion();
+      else if(state.currentTab==='seguimiento')renderSeguimiento();
       updateResumenBadge();updateFacturaBadge();
     }catch(e){console.warn('[Realtime] resync falló:',e);}
     subscribeRealtime();

@@ -249,6 +249,83 @@
     padding: 8px 10px !important;
   }
 
+  /* ── Seguimiento: mismo apilado en tarjetas que Pacientes ── */
+  /* «Con días faltantes» no entra al lado de los otros dos en 390px, así que los filtros envuelven.
+     Scoped a la pestaña: Pacientes sigue con sus tres en una fila. */
+  #tab-seguimiento .filter-pill-group {
+    flex-wrap: wrap;
+  }
+
+  #tab-seguimiento .filter-pill {
+    flex: 1 1 calc(50% - 3px);
+  }
+
+  #seg-table-card {
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+  }
+
+  /* La tarjeta entera es el target del desplegable: bien por encima de los 44px. */
+  .seg-table tr.seg-row {
+    min-height: 44px;
+  }
+
+  /* El "Ver" hereda los 42px de .patient-table .pl-act-btn, que por especificidad le gana al
+     bloque táctil. Se sube a 44 solo acá, sin tocar los botones de Pacientes. */
+  #tab-seguimiento .pl-act-btn {
+    min-height: 44px;
+  }
+
+  .seg-table tr.seg-row.abierta {
+    border-color: rgba(41,171,226,.35);
+    margin-bottom: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  /* El detalle se pega debajo de la tarjeta como continuación de la misma */
+  .seg-table tr.seg-detalle-row {
+    display: block;
+    background: #ffffff;
+    border: 1px solid rgba(41,171,226,.35);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    margin-bottom: 10px;
+    padding: 0 12px 12px;
+  }
+
+  .seg-table tr.seg-detalle-row td {
+    display: block;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  .seg-table tr.seg-detalle-row td::before {
+    content: none;
+  }
+
+  /* Cada día pasa a dos líneas: fecha + estado arriba, terapeuta abajo. En una sola fila de 390px
+     el nombre del terapeuta se comía el "Sin registro", que es lo que hay que ver. */
+  .segd-item {
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    padding: 10px 0;
+    min-height: 44px;
+    align-content: center;
+  }
+
+  .segd-th {
+    flex: 1 1 100%;
+    order: 3;
+    white-space: normal;
+  }
+
+  .segd-estado {
+    margin-left: auto;
+  }
+
   /* ── Modales: sheet desde abajo ── */
   /* Sobre la hamburguesa (601): a pantalla completa, si no, tapa el título del modal. */
   .modal-bg {
@@ -736,7 +813,7 @@
   }
 
   /* Sin zoom por doble tap en controles (el pinch-zoom de la página sigue disponible) */
-  button, input, select, textarea, .nav-item, .appt, .appt-strip, .filter-pill, .pl-act-btn {
+  button, input, select, textarea, .nav-item, .appt, .appt-strip, .filter-pill, .pl-act-btn, .seg-row {
     touch-action: manipulation;
   }
 

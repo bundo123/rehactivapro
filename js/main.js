@@ -29,6 +29,10 @@ import {
   openEvalInicial, saveEvalInicial, initPatientValidation, onPatientProtocolChange
 } from './pacientes.js';
 import {
+  renderSeguimiento, setSeguimientoFilter, toggleSeguimientoDetalle,
+  verPacienteSeguimiento, setupSeguimientoSearch
+} from './seguimiento.js';
+import {
   openSessionModal, openSessionModalManual, editSession, deleteSession, saveSession, skipSession,
   toggleProTecnica
 } from './sesiones.js';
@@ -73,7 +77,7 @@ window._app = {
   // ui helpers
   showTab, closeModal,
   // render
-  renderGrid, renderRefLegend, renderResumen, renderPatients,
+  renderGrid, renderRefLegend, renderResumen, renderPatients, renderSeguimiento,
   renderPatientReport, renderPatientReportSelect, renderTherapistList,
   renderDoctorsList, renderFacturacion,
   // badges
@@ -106,11 +110,12 @@ export function showTab(tab) {
   state.currentTab=tab;
   allTabs.forEach(t=>document.getElementById('tab-'+t).style.display=t===tab?'':'none');
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
-  const navMap={'agenda':0,'resumen':1,'pacientes':2,'paciente_rpt':3,'protocolos':4,'informes':5,'facturacion':6,'terapeutas':7,'doctores':8};
-  const navItems=document.querySelectorAll('.nav-item');
-  if(navItems[navMap[tab]])navItems[navMap[tab]].classList.add('active');
+  // El botón se busca por su propio onclick, no por un índice: así agregar una pestaña al medio
+  // del sidebar no corre el mapa y deja el "active" en la de al lado.
+  document.querySelector(`.nav-item[onclick*="showTab('${tab}')"]`)?.classList.add('active');
   if(tab==='agenda')renderGrid();
   if(tab==='pacientes')renderPatients();
+  if(tab==='seguimiento')renderSeguimiento();
   if(tab==='informes')renderSemanal();
   if(tab==='paciente_rpt')renderPatientReportSelect();
   if(tab==='terapeutas')renderTherapistList();
@@ -222,6 +227,7 @@ Object.assign(window, {
   genPatientAI, guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado, globalSearch, selectGlobalResult,
   updateRecPreview, populateDiagList,
   goToPatientPage, toggleEvalFilter, setPatientStatusFilter, verPaciente, onPatientProtocolChange,
+  setSeguimientoFilter, toggleSeguimientoDetalle, verPacienteSeguimiento,
   cie10Search, cie10Pick, cie10Clear,
   setAgendaView, setTherapistFilter, goToDateAndSelect, exportAgendaCSV,
   applyRolePermissions, hasPermission,
@@ -234,6 +240,7 @@ initPatientValidation();
 initDoctorValidation();
 initProtocolValidation();
 setupPatientSearch();
+setupSeguimientoSearch();
 renderGrid();
 updateFacturaBadge();
 initApp();

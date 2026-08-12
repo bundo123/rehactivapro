@@ -103,6 +103,9 @@
       <button class="nav-item" onclick="showTab('pacientes')">
         <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>Pacientes
       </button>
+      <button class="nav-item" onclick="showTab('seguimiento')">
+        <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg></span>Seguimiento
+      </button>
       <button class="nav-item" onclick="showTab('paciente_rpt')">
         <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></span>Informe paciente
       </button>
@@ -215,6 +218,36 @@
       </table>
     </div>
     <div id="patient-pagination" class="patient-pagination"></div>
+  </div>
+</div>
+
+<!-- SEGUIMIENTO -->
+<div id="tab-seguimiento" style="display:none">
+  <div class="main-header">
+    <div class="page-title">Seguimiento</div>
+    <div class="page-sub">Pacientes activos: qué días se atendió y no quedó registro clínico</div>
+  </div>
+  <div class="main-body">
+    <div class="search-row">
+      <input class="search-input" type="text" id="seg-search" placeholder="Buscar por nombre...">
+      <div class="filter-pill-group">
+        <button class="filter-pill seg-filter active" data-filter="con" onclick="setSeguimientoFilter('con')" title="Con al menos una entrada clínica registrada">Con seguimiento <span class="seg-count">0</span></button>
+        <button class="filter-pill seg-filter" data-filter="faltantes" onclick="setSeguimientoFilter('faltantes')" title="Tienen días atendidos sin ninguna entrada clínica">Con días faltantes <span class="seg-count">0</span></button>
+        <button class="filter-pill seg-filter" data-filter="all" onclick="setSeguimientoFilter('all')">Todos <span class="seg-count">0</span></button>
+      </div>
+    </div>
+    <div id="seg-table-card" style="border:1px solid rgba(41,171,226,.18);border-radius:11px;overflow:hidden;background:#ffffff">
+      <table class="patient-table seg-table" style="width:100%;table-layout:fixed">
+        <thead><tr>
+          <th style="width:34%">Paciente</th>
+          <th style="width:13%">Sesiones</th>
+          <th style="width:15%">Citas pasadas</th>
+          <th style="width:17%">Días sin registro</th>
+          <th class="pl-action-th" style="width:21%">Acciones</th>
+        </tr></thead>
+        <tbody id="seg-tbody"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 

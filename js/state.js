@@ -38,4 +38,5 @@ export const state = {
   patientPage: 1,
   patientEvalFilter: false,
   patientStatusFilter: 'all',
+  seguimientoFilter: 'con',
 };
