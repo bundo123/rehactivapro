@@ -488,55 +488,77 @@ Cuatro commits llevados a producción (push `3b5f7ca..efd7471`):
 
 ## a) Estructura de archivos
 
+> Recuento **verificado con `wc -l` el 2026-08-11**. La tabla anterior era del corte de mayo:
+> el JS activo pasó de ~3.173 a **5.709** líneas, y hay 4 módulos nuevos (`validators`, `cie10`,
+> `mobile-menu`, `pdf-logo`) más las carpetas `/test/`, `/api/` y `/js/data/`.
+
 ### `/` (raíz)
 | Archivo | Líneas |
 |---------|--------|
-| `index.html` | 731 |
+| `index.html` | 822 |
 | ~~`app.js`~~ *(legacy monolítico — **BORRADO** en `efd7471`, 2026-05-30)* | — |
+| ~~`/src/`~~ *(scaffolding de Vite — **BORRADO**, ya no existe en el repo)* | — |
 
-### `/js/` — Módulos activos
+### `/js/` — 23 módulos activos
+| Archivo | Líneas | |
+|---------|--------|---|
+| `pdf-logo.js` | 3 | logo del membrete como data URI (assets de JS nunca por ruta en string) |
+| `supabase-client.js` | 10 | lee `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` |
+| `toast.js` | 16 | |
+| `mobile-menu.js` | 38 | |
+| `state.js` | 41 | |
+| `permissions.js` | 55 | |
+| `search.js` | 63 | |
+| `validators.js` | 105 | cédula EC, email, teléfono, errores de campo |
+| `terapeutas.js` | 116 | |
+| `cie10.js` | 150 | |
+| `doctores.js` | 161 | |
+| `ia.js` | 188 | |
+| `protocolos.js` | 207 | |
+| `resumen.js` | 212 | |
+| `main.js` | 239 | |
+| `auth.js` | 288 | |
+| `realtime.js` | 322 | |
+| `facturacion.js` | 339 | |
+| `utils.js` | 348 | |
+| `sesiones.js` | 382 | |
+| `pacientes.js` | 484 | |
+| `agenda.js` | 888 | |
+| `informes.js` | 1054 | |
+| **Total JS activo** | **5709** | |
+
+**`/js/data/cie10-fisio.json`** — 182 KB, 2470 códigos. **No** entra en el bundle inicial: `cie10.js`
+lo carga con `import()` al primer uso (chunk aparte).
+
+### `/css/` — 1.934 líneas
 | Archivo | Líneas |
 |---------|--------|
-| `supabase-client.js` | 4 |
-| `toast.js` | 16 |
-| `state.js` | 38 |
-| `permissions.js` | 55 |
-| `search.js` | 63 |
-| `utils.js` | 66 |
-| `ia.js` | 60 |
-| `resumen.js` | 99 |
-| `terapeutas.js` | 102 |
-| `doctores.js` | 114 |
-| `sesiones.js` | 129 |
-| `facturacion.js` | 131 |
-| `protocolos.js` | 138 |
-| `auth.js` | 185 |
-| `main.js` | 213 |
-| `realtime.js` | 264 |
-| `pacientes.js` | 405 |
-| `informes.js` | 426 |
-| `agenda.js` | 671 |
-| **Total JS activo** | **~3173** |
+| `base.css` | 23 |
+| `layout.css` | 59 |
+| `resumen.css` | 68 |
+| `rehactiva-theme.css` | 109 |
+| `components.css` | 132 |
+| `screens.css` | 229 |
+| `facturacion.css` | 450 |
+| `responsive.css` | 864 |
 
-### `/css/`
-| Archivo | Líneas |
-|---------|--------|
-| `base.css` | 22 |
-| `layout.css` | 28 |
-| `components.css` | 87 |
-| `rehactiva-theme.css` | 144 |
-| `screens.css` | 147 |
-| `responsive.css` | 321 *(sin commitear)* |
+### `/test/` — `node --test`, **85 verdes**
+| Archivo | Tests sobre |
+|---------|-------------|
+| `cedula.test.js` · `validators.test.js` | cédula ecuatoriana, email, teléfono |
+| `utils.test.js` · `billing.test.js` | `doneActual`/`doneEnLog`/`pendientesActual`, frontera de episodio, "Cobro X de Y" |
+| `horas.test.js` | horas exactas: `fmtTime`, `slotOf`/`apptSlots`, `apptsOverlap`/`findConflict` |
+| `semana.test.js` | `startOfWeek` (vista semanal) |
+| `cie10.test.js` | búsqueda del catálogo (acentos, punto opcional) |
+| `noas.test.js` | slot liberado por no-asistió: `bloqueaSlot`, `compactNoas`, `occupiedSlots` |
 
-### `/src/` *(scaffolding Vite, no en producción)*
-| Archivo | Líneas |
-|---------|--------|
-| `counter.js` | 9 |
-| `main.js` | 60 |
-| `style.css` | 296 |
+### `/api/` — serverless de Vercel
+| `informe.js` | 114 líneas | informe IA con rol `viewAI` y rate-limit **server-side** (`2e0303a`) |
 
-### SQL
-No se detectaron archivos `.sql` en el repo (schema probablemente gestionado desde Supabase dashboard).
+### SQL y políticas versionados en el repo
+- `audit_log.sql` — bitácora append-only e **inmutable** en 7 tablas (LOPDP). No tocar.
+- `diagnostico_done.sql` — recálculo histórico de `done`; sigue pendiente de decisión (ver **P-2**).
+- `rls_policies.md` — las políticas RLS versionadas (no es `.sql`, pero es la fuente de verdad).
 
 ---
 
@@ -552,7 +574,7 @@ No se detectaron archivos `.sql` en el repo (schema probablemente gestionado des
 | `main.js` | Bootstrap de la app, routing por tabs, registro global `window._app` |
 | `permissions.js` | Control de acceso por rol (admin / secretaria / terapeuta) |
 | `realtime.js` | Suscripciones PostgREST para sync en tiempo real |
-| `agenda.js` | Calendario de citas (vistas día/semana/mes/por-terapeuta), CRUD de citas, export CSV |
+| `agenda.js` | Calendario de citas (vistas día/semana/mes + filtro por terapeuta), CRUD de citas, horas exactas, conflictos de solape, drag & drop, export CSV |
 | `pacientes.js` | CRUD de pacientes, episodios, evaluación inicial, paginación |
 | `sesiones.js` | Registro de sesiones clínicas (EVA, técnicas) |
 | `facturacion.js` | Workflow de facturación y cobros |
@@ -562,9 +584,13 @@ No se detectaron archivos `.sql` en el repo (schema probablemente gestionado des
 | `protocolos.js` | Plantillas de protocolos de tratamiento |
 | `resumen.js` | Dashboard diario con overview de citas |
 | `search.js` | Búsqueda global de pacientes (sobre estado en memoria) |
-| `ia.js` | Integración con Claude.ai para insights de informes |
-| `utils.js` | Constantes, formateadores, getters compartidos |
+| `ia.js` | Integración con Claude para insights de informes (vía `/api/informe.js`) |
+| `utils.js` | Constantes, formateadores, getters compartidos y **la lógica pura testeable**: `doneEnLog`/`doneActual`/`pendientesActual`, horas exactas (`slotOf`/`apptSlots`/`apptsOverlap`/`findConflict`) y slot liberado por no-asistió (`bloqueaSlot`/`compactNoas`/`occupiedSlots`) |
 | `toast.js` | Notificaciones toast (ok/error/info) |
+| `validators.js` | Validación de cédula EC / email / teléfono + pintado de errores por campo |
+| `cie10.js` | Diagnóstico CIE-10: catálogo de 2470 códigos con `import()` diferido, buscador y escritura en la ficha |
+| `mobile-menu.js` | Menú lateral en móvil |
+| `pdf-logo.js` | Logo del membrete como data URI (pantalla y PDF) |
 
 ### Tablas Supabase por módulo
 
@@ -578,21 +604,32 @@ No se detectaron archivos `.sql` en el repo (schema probablemente gestionado des
 | `terapeutas.js` | `therapists`, `appointments` |
 | `doctores.js` | `doctors`, `patients` |
 | `protocolos.js` | `protocols` |
+| `cie10.js` | `patients` *(el CIE-10 es dato de la ficha, no de la cita)* |
 | `realtime.js` | `appointments`, `patients`, `session_log`, `cobros`, `therapists`, `doctors` |
 | `resumen.js`, `informes.js`, `search.js` | *(solo leen de `state`, sin queries directas)* |
 
 ### Dependencias entre módulos (qué importa qué)
 
+*(verificado por grep el 2026-08-11; "X ← a, b" = a y b importan X)*
+
 ```
-supabase-client ← auth, agenda, pacientes, sesiones, terapeutas, doctores, realtime
+supabase-client ← auth, agenda, pacientes, sesiones, terapeutas, doctores, realtime, cie10
 state           ← todos los módulos
-utils           ← agenda, pacientes, sesiones, facturacion, informes, search, doctores, terapeutas, resumen, ia
-toast           ← agenda, pacientes, sesiones, facturacion, terapeutas, doctores, search, ia, auth
-permissions     ← agenda, pacientes, sesiones, facturacion, terapeutas, doctores, protocolos
+utils           ← agenda, auth, cie10, doctores, facturacion, ia, informes, main, pacientes,
+                   protocolos, realtime, resumen, search, sesiones, terapeutas, toast
+toast           ← agenda, auth, cie10, doctores, facturacion, ia, main, pacientes, protocolos,
+                   realtime, resumen, search, sesiones, terapeutas
+permissions     ← agenda, cie10, doctores, facturacion, informes, main, pacientes, protocolos,
+                   sesiones, terapeutas
+validators      ← agenda, doctores, pacientes, protocolos, sesiones
+cie10           ← agenda (modal de cita), pacientes (ficha), main
+pdf-logo        ← informes (membrete en pantalla y PDF)
+mobile-menu     ← main
 auth.js         ← agenda (dbUpdateApptStatus, dbRegistrarCobro), facturacion (dbRegistrarCobro),
                    terapeutas (dbDeleteTherapist), doctores (dbDeleteDoctor), protocolos (dbSaveProtocol, dbDeleteProtocol)
 resumen.js      ← pacientes (hasEvalInicial), informes (hasEvalInicial), search (hasEvalInicial)
-agenda.js       ← facturacion (updateFacturaBadge), terapeutas (updateFacturaBadge)
+agenda.js       ← facturacion (updateFacturaBadge), terapeutas (updateFacturaBadge),
+                   informes (apptSlots, re-exportado desde utils por retrocompatibilidad)
 ia.js           ← informes (genSemanalAI, genPatientAI, callAI)
 main.js         ← importa todos los módulos anteriores
 ```
@@ -604,20 +641,26 @@ main.js         ← importa todos los módulos anteriores
 | Funcionalidad | Estado | Notas |
 |---------------|--------|-------|
 | Auth + login | ✅ | Supabase Auth, carga perfil en login |
+| Auto-logout por inactividad | ✅ | 15 min (`3986a7e`) — PCs compartidas de recepción |
 | Roles (admin/secretaria/terapeuta) | ✅ | `permissions.js` + `state.currentUserRole` |
-| RLS en Supabase | 🟡 | Depende de config en dashboard, no verificable en código |
+| RLS en Supabase | ✅ | Versionada en `rls_policies.md`. La "lectura abierta" de PHI es decisión consciente, cubierta por `audit_log` |
+| Audit log LOPDP | ✅ | Append-only e inmutable en 7 tablas (`audit_log.sql`) |
 | Pacientes — CRUD | ✅ | Crear, editar, eliminar con confirmación |
 | Pacientes — búsqueda | ✅ | Búsqueda global en memoria con highlight |
 | Pacientes — paginación | ✅ | Paginación por página en `pacientes.js` |
 | Pacientes — episodios | ✅ | Alta y gestión de episodios clínicos |
 | Agenda — vista día | ✅ | Grid por terapeuta y hora |
-| Agenda — vista semana | ✅ | |
-| Agenda — vista mes | ✅ | |
-| Agenda — vista por terapeuta | ✅ | |
+| Agenda — vista semana | ✅ | Por terapeuta, Lun–Sáb (Dom solo si tiene citas) — `17df85e` |
+| Agenda — vista mes | ✅ | `17df85e` |
+| Agenda — filtro por terapeuta | ✅ | Manual, se resetea al entrar a la pestaña — `576d68a` |
 | Agenda — crear/editar cita | ✅ | Modal completo |
-| Agenda — conflictos de horario | 🟡 | Validación básica, no exhaustiva |
-| Agenda — citas recurrentes | 🟡 | Código presente, no confirmado completo |
-| Agenda — drag & drop | 🟡 | Mencionado en agenda.js, no verificado |
+| Agenda — hora exacta (no solo :00/:30) | ✅ | Toggle con `<input type="time">`; la cita se dibuja en su media hora contenedora — `22d541a` |
+| Agenda — conflictos de horario | ✅ | Solape por **intervalo real**, no por slots (`findConflict`); mensaje que dice cuál cita choca; cubre recurrentes (`c8fbca0`) y edición de sí misma |
+| Agenda — slot liberado por "no asistió" | ✅ | La franja se puede reagendar sin borrar la cita; tira compacta + "+" para agendar — `219ed02` |
+| Agenda — citas recurrentes | ✅ | Con chequeo de solape por fecha; reporta las omitidas |
+| Agenda — drag & drop | ✅ | Re-alinea a la media hora del slot destino y persiste |
+| Agenda — citas en fechas pasadas | ✅ | Solo admin/secretaria (`apptPastDate`) — `a7fe9ce` |
+| Diagnóstico CIE-10 | ✅ | 2470 códigos, carga diferida; en ficha, modal de cita, informe y PDF — `c616417` |
 | Evaluación inicial | ✅ | Modal en pacientes, `hasEvalInicial()` |
 | Sesión clínica | ✅ | EVA, técnicas, registro en `session_log` |
 | Facturación / Cobros | ✅ | Registro de cobros, badge de pendientes |
@@ -628,56 +671,71 @@ main.js         ← importa todos los módulos anteriores
 | Permisos UI por rol | ✅ | `hasPermission()` en todos los módulos de escritura |
 | Export CSV agenda | ✅ | `exportAgendaCSV()` en agenda.js |
 | Export PDF | ✅ | `exportarPDF()` en informes.js |
-| Integración IA (Claude) | ✅ | Informes semanales y por paciente |
-| Notificaciones a médicos | 🟡 | Preferencias guardadas, envío no verificado |
+| Integración IA (Claude) | ✅ | Informes semanales y por paciente, vía `/api/informe.js` con rol `viewAI` + rate-limit server-side |
+| Notificaciones a médicos | 🟡 | Preferencias guardadas, **envío no implementado** — sigue en el roadmap |
 | Protocolos de tratamiento | ✅ | CRUD + adherencia |
+| Responsive / móvil | ✅ | Pasada con foco en el flujo del terapeuta (`bc8b276`); targets táctiles de 44 px |
+| Tests automatizados | ✅ | 85 verdes con `node --test` (`npm test`), sobre la lógica pura |
 
 ---
 
 ## d) Deuda técnica
 
-### TODOs / FIXMEs
-Ninguno encontrado en el código activo.
+> Revisada contra el código el **2026-08-11**. La lista viva de lo abierto está arriba, en
+> «🔜 PRÓXIMO», y el análisis completo en `AUDITORIA_PRELANZAMIENTO.md`.
 
-### Archivos con código duplicado / riesgo
-- **`app.js` (2868 líneas)** — monolítico legacy. Si sigue siendo referenciado desde `index.html` en paralelo con los módulos `/js/`, hay riesgo de comportamiento duplicado. Verificar si puede eliminarse.
-- **`src/`** — scaffolding de Vite sin uso productivo. Puede confundir si se hace `vite build`.
+### Ya no aplica *(la versión anterior de esta sección era de mayo)*
+- ~~`app.js` monolítico~~ — borrado en `efd7471`; `index.html` solo carga los módulos de `/js/`.
+- ~~`src/` scaffolding de Vite~~ — borrado, ya no existe.
+- ~~No hay tests~~ — **85 verdes** con `node --test` (`npm test`), y el CI los corre.
+- ~~URL y anon key hardcodeadas~~ — `supabase-client.js` lee `VITE_SUPABASE_URL` /
+  `VITE_SUPABASE_ANON_KEY` y avisa por consola si faltan. La anon key es **pública por diseño**;
+  la seguridad real es la RLS.
+- ~~Conflictos de agenda "solo UI-side" / sin validar~~ — `findConflict` por intervalo real, con
+  tests; cubre crear, editar, drag & drop y recurrentes.
+- ~~Sin validación de formato en formularios~~ — `validators.js` (cédula EC con dígito verificador,
+  email, teléfono) + `parseTimeInput` para la hora.
+- ~~`realtime.js` sin reconexión~~ — maneja `CHANNEL_ERROR`/`CLOSED`/`TIMED_OUT`, reintenta y
+  muestra el estado de conexión; además re-sincroniza en `visibilitychange`.
 
-### Funciones largas (>100 líneas)
+### Funciones largas (>100 líneas) — medido el 2026-08-11
 | Función | Archivo | Líneas aprox. |
 |---------|---------|---------------|
-| `renderPatientReport()` | `js/informes.js:262` | ~119 |
-| `renderGrid()` | `js/agenda.js:53` | ~130 |
+| `renderSemanal()` | `js/informes.js:530` | ~229 |
+| `renderGrid()` | `js/agenda.js:91` | ~199 |
+| `renderPatientReport()` | `js/informes.js:846` | ~109 |
+| `renderWeekView()` | `js/agenda.js:695` | ~105 |
+| `saveAppt()` | `js/agenda.js:517` | ~97 |
 
-Otras funciones rozando el límite: `renderSemanal()` (~81), `savePatient()`, `saveAppt()`.
+Los renders grandes son plantillas HTML, no lógica: la parte con reglas de negocio se fue
+extrayendo a `utils.js` (puro y testeado) — `doneEnLog`, `findConflict`, `compactNoas`,
+`occupiedSlots`. Ese es el camino a seguir si hay que tocarlos.
 
-### Validaciones faltantes
-- Conflictos de agenda no se validan completamente al guardar cita (solo UI-side)
-- No hay validación de formato en campos de hora/fecha en formularios
-- `supabase-client.js` expone la anon key en texto plano (normal para Supabase, pero depende de RLS correctamente configurado)
-
-### Manejo de errores
-- La mayoría de operaciones Supabase tienen `.catch` con `toastErr` — correcto
-- `loadAll()` en `auth.js` no tiene manejo granular: un fallo en cualquier tabla aborta toda la carga
-- `realtime.js`: si la suscripción cae, no hay reconexión automática explícita
-
-### Otros
-- No hay tests (unitarios ni e2e)
-- No hay archivo de variables de entorno (`.env`): la URL y key de Supabase están hardcodeadas en `supabase-client.js`
+### Sigue abierto
+- **`loadAll()` (`auth.js:44`)** — un `Promise.all` sin manejo granular: si falla una tabla,
+  aborta toda la carga.
+- **Render sin tests** — no hay jsdom en el proyecto; lo puramente visual (apilado de la agenda,
+  targets táctiles) se verifica a ojo en dev.
+- **`cycleStatus` no chequea conflictos** — reactivar a `conf` una no-asistió sobre cuya franja ya
+  se agendó deja dos citas activas solapadas.
+- **Lo formal:** I-7 (`cobro_ref` server-side, necesita SQL), P-2 (frontera `>` vs `>=`), CSP
+  estricta (P-11), agenda táctil en iOS (R-20) y la deuda de realtime RT-1…RT-4.
 
 ---
 
-## e) Últimos 10 commits
+## e) Últimos commits *(al 2026-08-11; la tabla anterior se quedó en mayo)*
 
 | Hash | Descripción |
 |------|-------------|
-| `7e78bf1` | fix: color del borde izquierdo de cita refleja médico derivador (no terapeuta) |
-| `57e7f83` | fix: slots vacíos de agenda más visibles y clickeables entre citas |
-| `49f5a11` | fix: eliminar chars de encoding rotos en badges de pacientes |
-| `0fdbba4` | chore: correcciones menores de consistencia UI |
-| `7e9dc23` | fix: las citas ocupan visualmente toda su duración |
-| `751bd82` | fix: ocultar divisores de slot bajo citas multi-slot |
-| `e50028a` | fix: mejorar filtro "sin evaluación inicial" en vista de pacientes |
-| `aedb236` | refactor: click en cita abre directamente modal de edición |
-| `3c0c862` | feat: selector combinado de vista de agenda (todas/por-terapeuta × día/semana/mes) |
-| `cd17d97` | feat: modos de vista de agenda (día/semana/mes/por-terapeuta) + export CSV |
+| `219ed02` | feat(agenda): la cita "no asistió" libera el slot sin perderse |
+| `abd3e2a` | docs(estado): sesión 2026-08-07 |
+| `c616417` | feat(cie10): diagnóstico CIE-10 en modal de cita, ficha e informe |
+| `22d541a` | feat(agenda): hora exacta en el modal de cita (no solo :00/:30) |
+| `d6b516a` | fix(informes): el informe de un episodio pasado ya no cuenta la eval como sesión (R-2) |
+| `576d68a` | feat(resumen,agenda): filtro manual por terapeuta y salto cita → informe en táctil |
+| `bc8b276` | feat(responsive): pasada móvil con foco en el flujo del terapeuta |
+| `a7fe9ce` | feat(agenda): permitir a secretaria/admin agendar citas en fechas pasadas |
+| `17df85e` | feat(agenda): vistas Semana y Mes con navegación compartida y realtime |
+| `c6a8c0b` | fix(informes): logo del membrete en producción vía data URI |
+
+*(el commit de docs de cada sesión no se lista aparte; el detalle está en las secciones «🗓️ Sesión».)*
