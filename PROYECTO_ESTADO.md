@@ -1,6 +1,6 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-08-11
+> Generado: 2026-05-18 · Última actualización: 2026-08-12
 
 ---
 
@@ -33,6 +33,50 @@
 - **Semana 2:** auto-logout (15 min) · I-13 (alerts→toasts) · P-11 (CSP parcial).
 - **Semana 3:** I-12 (focus-trap/Escape) · I-15 (tests `node --test`) · `npm audit fix` · decisión P-2/P-6.
 - **Semana 4:** `clinical_context` de protocolos reales · papeleo LOPDP (lectura abierta + sub-encargado Anthropic) · **audit final**.
+
+---
+
+## 🗓️ Sesión 2026-08-12 — Ordinal de cita ("X/N") en la agenda
+
+Un commit, revisado en rama (`revision-ordinal`, ya borrada) antes de tocar `main`. En prod con
+Vercel verde verificado por hash de bundle (`index-C_QHkc8l.js` / `index-Dj557gWQ.css`: el build
+local y el que sirve `rehactivaec.com` coinciden, y las reglas `.appt-ord` están en el CSS servido).
+Tests: 85 → **104 verdes**.
+
+- **`85e7af7` feat(agenda): badge "X/N" con el ordinal de la cita en su episodio.**
+  Mirando la agenda no se sabía en qué punto del tratamiento va cada paciente: había que abrir su
+  ficha. Ahora cada tarjeta (Día y Semana) lleva abajo a la derecha un badge gris **"X/N"** — X =
+  posición de esa cita en la secuencia del paciente, N = su plan (`p.sessions`); sin plan, solo "X".
+  Es un dato **informativo de agenda**: facturación y sus conteos siguen derivando de `session_log`,
+  intactos.
+
+  - **Definición única (`citasNumerables`, `utils.js`), puros y testeables.** Universo = citas del
+    MISMO paciente **posteriores al último `Fin de episodio`** — frontera **estricta** (`date > fin`),
+    la misma que `doneActual` y que el recorte de episodio de los informes: la cita con la fecha del
+    corte queda en el episodio que cierra. Se **excluyen las `noas`**: un no-show no consume número,
+    así que la siguiente hereda el ordinal. Orden por fecha y luego **hora decimal** (10:45 va después
+    de 10:30). Episodio nuevo → la numeración reinicia en 1.
+  - **Rendimiento: mapa por render, no por tarjeta.** `ordinalesDeCitas()` agrupa por paciente en una
+    pasada y devuelve `Map<cita, {x,n}>`; el render solo hace `get`. La clave es **la cita misma, no
+    su id** (los ids mezclan numéricos optimistas, uuids y `rec-…`) — mismo criterio que `compactNoas`.
+  - **Sin badge:** cita sin paciente, `noas` (ni tarjeta ni tira compacta) y cita de un **episodio ya
+    cerrado**, que no tiene posición en la secuencia actual.
+  - **Reparto de esquinas (lo delicado del render).** El badge va absoluto → no rompe el `nowrap` ni
+    el ellipsis del nombre, y con `pointer-events:none` no le roba el click a la tarjeta ni al slot.
+    Arriba a la derecha manda el punto de estado; el "+" solo existe en las no-asistió, que nunca
+    llevan badge; la hora exacta vive dentro del nombre. El único que comparte esquina es la **"×"** de
+    borrar, que asoma en hover: el badge se corre 22 px a su izquierda. En Día el subtítulo reserva
+    28 px para cortar antes; en la tarjeta **aplastada por una tira** se oculta porque ya no cabe (en
+    una franja de 40 px útiles el nombre centrado llega a ~27 px y el badge arranca en ~29).
+  - **Intocado a propósito:** facturación, `billingInfo`, resumen, informes y continuidad — cero
+    cambios de conteo.
+
+**Deuda que deja la sesión:** el render sigue sin tests (no hay jsdom ni Playwright instalados) — la
+lógica de numeración está cubierta por `test/ordinal.test.js` (19 casos), pero el encaje visual del
+badge se calculó sobre las métricas de `.appt` y se revisó a ojo, sobre todo en **vista Semana**, donde
+las columnas son angostas y los nombres largos. La decisión a vigilar es la del **episodio cerrado sin
+badge**: si algún día se quiere ver el ordinal de una cita pasada, habría que numerarla dentro de su
+propio episodio en vez de dejarla fuera del universo.
 
 ---
 
@@ -723,10 +767,11 @@ extrayendo a `utils.js` (puro y testeado) — `doneEnLog`, `findConflict`, `comp
 
 ---
 
-## e) Últimos commits *(al 2026-08-11; la tabla anterior se quedó en mayo)*
+## e) Últimos commits *(al 2026-08-12; la tabla anterior se quedó en mayo)*
 
 | Hash | Descripción |
 |------|-------------|
+| `85e7af7` | feat(agenda): badge "X/N" con el ordinal de la cita en su episodio |
 | `219ed02` | feat(agenda): la cita "no asistió" libera el slot sin perderse |
 | `abd3e2a` | docs(estado): sesión 2026-08-07 |
 | `c616417` | feat(cie10): diagnóstico CIE-10 en modal de cita, ficha e informe |
