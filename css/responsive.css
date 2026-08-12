@@ -736,7 +736,7 @@
   }
 
   /* Sin zoom por doble tap en controles (el pinch-zoom de la página sigue disponible) */
-  button, input, select, textarea, .nav-item, .appt, .filter-pill, .pl-act-btn {
+  button, input, select, textarea, .nav-item, .appt, .appt-strip, .filter-pill, .pl-act-btn {
     touch-action: manipulation;
   }
 
@@ -806,6 +806,35 @@
     right: -15px;
     bottom: -15px;
     left: -15px;
+  }
+
+  /* Mismo patrón para el "+" de la no-asistió (agendar en su franja), pero en la esquina
+     inferior IZQUIERDA: su área de toque de 44px y la del punto de estado ocupan toda la
+     altura de la tarjeta, así que solo cabe una en cada lado sin pisarse. */
+  .appt-add {
+    left: 4px;
+    right: auto;
+    width: 22px;
+    height: 22px;
+  }
+
+  .appt-add::after {
+    content: '';
+    position: absolute;
+    top: -11px;
+    right: -11px;
+    bottom: -11px;
+    left: -11px;
+  }
+
+  .appt.has-add .appt-name,
+  .appt.has-add .appt-sub {
+    padding-left: 26px;
+    padding-right: 14px;   /* a la derecha ya solo está el punto de estado */
+  }
+
+  .appt.has-add .appt-del {
+    right: 4px;
   }
 
   /* Atajo cita → informe: solo con dedo. En escritorio el informe está a un clic en el

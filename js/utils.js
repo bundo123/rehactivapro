@@ -117,15 +117,47 @@ export function apptsOverlap(a,b){
   return x.start<y.end-HORA_EPS && y.start<x.end-HORA_EPS;
 }
 
+// ── Slot liberado por "no asistió" ──
+// Una cita marcada 'no asistió' deja de OCUPAR la franja a efectos de agendamiento: el terapeuta
+// puede recibir otra cita ahí sin borrarla. La cita sigue existiendo y contando exactamente igual
+// en resumen, informes, continuidad y facturación; lo único que pierde es el bloqueo del slot.
+export function bloqueaSlot(a){ return (a?.status)!=='noas'; }
+
 // Primera cita del mismo terapeuta y día que solapa con la propuesta (null si no hay).
+// Las 'no asistió' se saltan (ver bloqueaSlot); dos citas ACTIVAS siguen chocando igual.
 // Los ids se comparan como string: los optimistas son números y el editingId del modal es string.
 export function findConflict(appointments,{date,therapistId,hour,duration},excludeId=null){
   return (appointments||[]).find(a=>
     String(a.id)!==String(excludeId) &&
+    bloqueaSlot(a) &&
     a.date===date &&
     String(a.therapistId)===String(therapistId) &&
     apptsOverlap(a,{hour,duration})
   )||null;
+}
+
+// Citas 'no asistió' que la grilla debe dibujar como TIRA COMPACTA en vez de tarjeta completa:
+// las que comparten franja o se solapan con otra cita de la misma columna. La que cede el espacio
+// es siempre la no-asistió, porque es la que ya no bloquea el slot. Una no-asistió a la que no la
+// toca nadie se sigue viendo como hoy (tarjeta completa).
+// `colAppts` es la columna ya filtrada de la grilla: mismo terapeuta y día en vista Día, mismo día
+// (de un solo terapeuta) en vista Semana. Devuelve un Set de las citas MISMAS, no de ids: los ids
+// mezclan números optimistas, uuids y 'rec-...'.
+export function compactNoas(colAppts){
+  const list=colAppts||[];
+  const out=new Set();
+  list.forEach(a=>{
+    if(bloqueaSlot(a)) return;
+    if(list.some(b=>b!==a&&(apptsOverlap(a,b)||slotOf(b.hour)===slotOf(a.hour)))) out.add(a);
+  });
+  return out;
+}
+
+// Medias horas realmente OCUPADAS por una lista de citas — lo que la agenda resta para decir
+// cuántos slots quedan libres. Mismo criterio que findConflict (bloqueaSlot): una franja cuyo
+// único ocupante es una no-asistió está libre, porque se puede agendar ahí.
+export function occupiedSlots(appts){
+  return (appts||[]).filter(bloqueaSlot).reduce((n,a)=>n+apptSlots(a).length,0);
 }
 
 // Hora decimal → 'HH:MM' con cero a la izquierda (formato que exige <input type="time">).

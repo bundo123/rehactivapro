@@ -1,7 +1,7 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor, pendientesActual, safeColor, orderedTherapists, startOfWeek,
-         apptSlots, slotOf, isAlignedHour, findConflict, toTimeInput, parseTimeInput } from './utils.js';
+         apptSlots, slotOf, isAlignedHour, findConflict, compactNoas, occupiedSlots, toTimeInput, parseTimeInput } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dbUpdateApptStatus } from './auth.js';
 import { hasPermission, canAccessTab } from './permissions.js';
@@ -19,6 +19,30 @@ export { apptSlots };
 // arbitrarias, "ya tiene una cita" sin la franja obliga a ir a buscarla a mano.
 function conflictsWithExisting(date, thId, startHour, duration, excludeId) {
   return findConflict(state.appointments, { date, therapistId: thId, hour: startHour, duration }, excludeId);
+}
+
+// ── Tira compacta de "no asistió" ──
+// Alto (y paso del apilado) de la tira, en px. Vive en JS y no en CSS porque la tarjeta activa
+// del mismo slot se corre hacia abajo justo esa cantidad: un solo número manda sobre las dos.
+const STRIP_H = 16, STRIP_STEP = 18;
+
+// Cita 'no asistió' que comparte franja con otra: como ya no bloquea el slot, cede el espacio y
+// se queda en un alto mínimo con el nombre tachado. Sigue siendo clickeable para abrir/editar.
+// Va PEGADA al tope de su media hora de inicio: cuando la no-asistió arranca a mitad de una cita
+// activa larga (7:30 sobre una de 7:00–8:00), la tira queda como etiqueta superpuesta y opaca
+// justo en su fila, sin manchar el texto de la tarjeta de abajo.
+function buildNoasStrip(appt, i) {
+  const pt=getPatient(appt.patientId);
+  const el=document.createElement('div');
+  el.className='appt-strip';
+  el.style.top=`${i*STRIP_STEP}px`;
+  el.style.height=`${STRIP_H}px`;
+  const exactTag=isAlignedHour(appt.hour)?'':`<span class="strip-h">${esc(fmtTime(appt.hour))}</span>`;
+  el.innerHTML=`${exactTag}<span class="strip-nm">${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</span>`;
+  el.title=`No asistió · ${fmtTime(appt.hour)} — click para abrir la cita`;
+  // stopPropagation: el slot que solo tiene tiras queda libre y su click crea una cita nueva.
+  el.addEventListener('click',e=>{e.stopPropagation();openEditApptModal(appt.id);});
+  return el;
 }
 
 function conflictMsg(clash) {
@@ -94,7 +118,8 @@ export function renderGrid() {
   const pend=ta.filter(a=>a.status==='pend').length;
   const noas=ta.filter(a=>a.status==='noas').length;
   const totalSlots=visTherapists.reduce((s,t)=>s+therapistHours(t).length,0);
-  const occupied=visTa.reduce((s,a)=>s+apptSlots(a).length,0);
+  // Las no-asistió no restan: su franja se puede volver a agendar (mismo criterio que el conflicto).
+  const occupied=occupiedSlots(visTa);
   const libres=Math.max(0,totalSlots-occupied);
 
   const statsEl=document.getElementById('agenda-stats');
@@ -124,9 +149,19 @@ export function renderGrid() {
     g.appendChild(h);
   });
 
-  // Build set of tail slots (slots beyond the first covered by multi-slot appts)
+  // Reparto de la franja: una 'no asistió' ya no bloquea el slot, así que puede convivir con otra
+  // cita. Se calcula por COLUMNA (terapeuta) porque el solape es siempre por terapeuta y día.
+  const compactSet = new Set();
+  visTherapists.forEach(t => {
+    compactNoas(visTa.filter(a => a.therapistId === t.id)).forEach(a => compactSet.add(a));
+  });
+
+  // Build set of tail slots (slots beyond the first covered by multi-slot appts).
+  // Las tiras compactas ocupan SOLO su franja: no dejan cola, y sus medias horas siguientes
+  // quedan libres de verdad (clickeables y sin tapar la cita activa que empiece ahí).
   const tailSet = new Set();
   visTa.forEach(a => {
+    if(compactSet.has(a)) return;
     apptSlots(a).slice(1).forEach(s => tailSet.add(`${a.therapistId}:${s}`));
   });
 
@@ -134,21 +169,31 @@ export function renderGrid() {
     const tc=document.createElement('div');tc.className='time-cell'+(hr%1===0.5?' half-hour':'');tc.textContent=fmtTime(hr);g.appendChild(tc);
     visTherapists.forEach(th=>{
       const key=`${th.id}:${+hr.toFixed(1)}`;
-      const isTail=tailSet.has(key);
+
+      // Fuera de horario NO se distingue visualmente (decisión 2026-08): todos los slots se ven
+      // y comportan igual — cualquier franja acepta citas (click, drop y render).
+      // Horas exactas: la cita se dibuja en el slot de su media hora CONTENEDORA (10:45 → fila 10:30).
+      const enFranja=visTa.filter(a=>a.therapistId===th.id&&slotOf(a.hour)===hr);
+      const strips=enFranja.filter(a=>compactSet.has(a));
+      // Una sola tarjeta normal por franja, como siempre: la no-asistió que cede va en tira.
+      const appt=enFranja.find(a=>!compactSet.has(a))||null;
+      // ¿La tarjeta de una cita vecina que abarca varias franjas pisa este slot?
+      const covered=tailSet.has(key);
 
       const slot=document.createElement('div');
 
-      if(isTail){
+      if(covered&&!enFranja.length){
         slot.className='slot slot-tail';
         g.appendChild(slot);
         return;
       }
 
-      // Fuera de horario NO se distingue visualmente (decisión 2026-08): todos los slots se ven
-      // y comportan igual — cualquier franja acepta citas (click, drop y render).
-      // Horas exactas: la cita se dibuja en el slot de su media hora CONTENEDORA (10:45 → fila 10:30).
-      const appt=visTa.find(a=>a.therapistId===th.id&&slotOf(a.hour)===hr);
-      slot.className='slot'+(!appt?' avail':'');
+      // Pisado por esa tarjeta pero con tiras que mostrar (una no-asistió de 7:30 sobre una cita
+      // de 7:00–8:00): el slot no puede pintar fondo ni quedarse el click — esos píxeles son de
+      // la tarjeta de abajo. Solo flota la tira. Si no lo pisa nadie, con tiras sigue 'avail':
+      // se puede agendar encima de una no-asistió.
+      const stripOver=covered&&!appt;
+      slot.className='slot'+(stripOver?' slot-strip-over':(!appt?' avail':''));
 
       slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('drag-over')});
       slot.addEventListener('dragleave',()=>slot.classList.remove('drag-over'));
@@ -169,9 +214,10 @@ export function renderGrid() {
         }
         state.dragData=null;
       });
-      if(!appt){
+      if(!appt&&!stripOver){
         slot.addEventListener('click',()=>openApptModalAt(th.id,hr));
       }
+      strips.forEach((na,i)=>slot.appendChild(buildNoasStrip(na,i)));
       if(appt){
         const dur=appt.duration||60;
         // Alto en slots = los que realmente ocupa (una de 10:45+60min pisa 10:30, 11:00 y 11:30).
@@ -192,11 +238,16 @@ export function renderGrid() {
         // La cita no alineada se dibuja en la fila de su media hora: sin la hora exacta en la
         // tarjeta, un 10:45 se leería como 10:30.
         const exactTag=isAlignedHour(appt.hour)?'':`<span class="appt-exact">${esc(fmtTime(appt.hour))}</span>`;
-        card.innerHTML=`<div class="appt-name">${exactTag}${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}${durLabel}${appt.status==='pend'?' · por confirmar':''}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}`;
+        // La no-asistió que ocupa sola su franja se ve entera, pero la franja ya está libre: el "+"
+        // agenda ahí mismo sin tener que borrarla ni buscar el hueco a mano.
+        const canAdd=appt.status==='noas'&&hasPermission('createAppt');
+        if(canAdd) card.classList.add('has-add');
+        card.innerHTML=`<div class="appt-name">${exactTag}${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}${durLabel}${appt.status==='pend'?' · por confirmar':''}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}${canAdd?'<div class="appt-add" title="Agendar otra cita en esta franja">+</div>':''}`;
         card.style.cursor='pointer';
-        card.addEventListener('click',e=>{if(!e.target.classList.contains('appt-dot')&&!e.target.classList.contains('appt-del')){e.stopPropagation();openEditApptModal(appt.id);}});
+        card.addEventListener('click',e=>{if(!e.target.classList.contains('appt-dot')&&!e.target.classList.contains('appt-del')&&!e.target.classList.contains('appt-add')){e.stopPropagation();openEditApptModal(appt.id);}});
         card.querySelector('.appt-dot').addEventListener('click',e=>{e.stopPropagation();cycleStatus(appt.id);});
         if(canDel) card.querySelector('.appt-del').addEventListener('click',e=>{e.stopPropagation();delAppt(appt.id,e);});
+        if(canAdd) card.querySelector('.appt-add').addEventListener('click',e=>{e.stopPropagation();openApptModalAt(th.id,hr,ds);});
         card.addEventListener('dragstart',()=>{state.dragData=appt.id});
         card.addEventListener('dblclick',e=>{
           e.stopPropagation();
@@ -209,10 +260,18 @@ export function renderGrid() {
             },100);
           }
         });
+        // Con tiras en SU franja, la tarjeta arranca debajo de ellas para no taparlas. En una sola
+        // franja el alto restante ya no da para el subtítulo: se queda con nombre y estado.
+        const off=strips.length*STRIP_STEP;
+        const cardTop=off||3;
+        if(off){
+          card.style.top=`${off}px`;
+          if(spans===1) card.classList.add('appt-squeezed');
+        }
         if(spans>1){
           slot.style.zIndex='2';
           card.style.bottom='auto';
-          card.style.height=`calc(${spans} * 46px - 6px)`;
+          card.style.height=`calc(${spans} * 46px - ${cardTop+3}px)`;
         }
         slot.appendChild(card);
       }
@@ -688,19 +747,28 @@ export function renderWeekView() {
     g.appendChild(h);
   });
 
+  // Mismo reparto que en la vista Día, pero la columna acá es el DÍA (el terapeuta ya es único).
+  const compactSet = new Set();
+  dayStrs.forEach(ds => compactNoas(wkAppts.filter(a => a.date === ds)).forEach(a => compactSet.add(a)));
+
   const tailSet = new Set();
-  wkAppts.forEach(a => apptSlots(a).slice(1).forEach(s => tailSet.add(`${a.date}:${s}`)));
+  wkAppts.forEach(a => { if(compactSet.has(a)) return; apptSlots(a).slice(1).forEach(s => tailSet.add(`${a.date}:${s}`)); });
 
   vh.forEach(hr => {
     const tc = document.createElement('div'); tc.className = 'time-cell' + (hr % 1 === 0.5 ? ' half-hour' : ''); tc.textContent = fmtTime(hr); g.appendChild(tc);
     visDays.forEach(d => {
       const ds = fmtDate(d);
       const slot = document.createElement('div');
-      if(tailSet.has(`${ds}:${+hr.toFixed(1)}`)){ slot.className = 'slot slot-tail'; g.appendChild(slot); return; }
-      const appt = wkAppts.find(a => a.date === ds && slotOf(a.hour) === hr);
-      slot.className = 'slot' + (!appt ? ' avail' : '');
+      const enFranja = wkAppts.filter(a => a.date === ds && slotOf(a.hour) === hr);
+      const covered = tailSet.has(`${ds}:${+hr.toFixed(1)}`);
+      if(covered && !enFranja.length){ slot.className = 'slot slot-tail'; g.appendChild(slot); return; }
+      const strips = enFranja.filter(a => compactSet.has(a));
+      const appt = enFranja.find(a => !compactSet.has(a)) || null;
+      const stripOver = covered && !appt;   // pisado por la tarjeta vecina: solo flota la tira
+      slot.className = 'slot' + (stripOver ? ' slot-strip-over' : (!appt ? ' avail' : ''));
+      strips.forEach((na, i) => slot.appendChild(buildNoasStrip(na, i)));
       if(!appt){
-        slot.addEventListener('click', () => openApptModalAt(th.id, hr, ds));
+        if(!stripOver) slot.addEventListener('click', () => openApptModalAt(th.id, hr, ds));
       } else {
         // Tarjeta compacta: nombre + punto de estado + tinte de modalidad. Sin drag & drop (v1).
         const spans = apptSlots(appt).length;
@@ -712,9 +780,15 @@ export function renderWeekView() {
         card.className = `appt ${locCls}${sc}`;
         card.style.borderLeftColor = doc ? doc.color : 'rgba(0,0,0,.1)';
         const exactTagWk = isAlignedHour(appt.hour) ? '' : `<span class="appt-exact">${esc(fmtTime(appt.hour))}</span>`;
-        card.innerHTML = `<div class="appt-name">${exactTagWk}${esc(pt ? pt.name : (appt.patientName || 'Sin paciente'))}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)}"></div>`;
-        card.addEventListener('click', e => { e.stopPropagation(); openEditApptModal(appt.id); });
-        if(spans > 1){ slot.style.zIndex = '2'; card.style.bottom = 'auto'; card.style.height = `calc(${spans} * 46px - 6px)`; }
+        const canAddWk = appt.status === 'noas' && hasPermission('createAppt');
+        if(canAddWk) card.classList.add('has-add');
+        card.innerHTML = `<div class="appt-name">${exactTagWk}${esc(pt ? pt.name : (appt.patientName || 'Sin paciente'))}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)}"></div>${canAddWk ? '<div class="appt-add" title="Agendar otra cita en esta franja">+</div>' : ''}`;
+        card.addEventListener('click', e => { if(e.target.classList.contains('appt-add')) return; e.stopPropagation(); openEditApptModal(appt.id); });
+        if(canAddWk) card.querySelector('.appt-add').addEventListener('click', e => { e.stopPropagation(); openApptModalAt(th.id, hr, ds); });
+        const off = strips.length * STRIP_STEP;
+        const cardTop = off || 3;
+        if(off){ card.style.top = `${off}px`; if(spans === 1) card.classList.add('appt-squeezed'); }
+        if(spans > 1){ slot.style.zIndex = '2'; card.style.bottom = 'auto'; card.style.height = `calc(${spans} * 46px - ${cardTop + 3}px)`; }
         slot.appendChild(card);
       }
       g.appendChild(slot);

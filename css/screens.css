@@ -12,6 +12,11 @@
 .slot.avail:hover{background:rgba(41,171,226,.1)!important;cursor:pointer}
 .slot.drag-over{background:rgba(41,171,226,.15)!important}
 .slot-tail{pointer-events:none;z-index:1;background:transparent!important}
+/* Slot pisado por la tarjeta de una cita vecina (multi-franja) pero que igual tiene una tira de
+   "no asistió" que mostrar. Como .slot-tail no puede pintar fondo ni robarle el click a esa
+   tarjeta, pero al revés que él va POR ENCIMA: la tira es lo único que responde. */
+.slot.slot-strip-over{pointer-events:none;z-index:4;background:transparent!important}
+.slot.slot-strip-over .appt-strip{pointer-events:auto}
 
 /* Tarjeta de cita */
 .appt{position:absolute;top:3px;left:3px;right:3px;bottom:3px;border-radius:8px;padding:4px 8px;cursor:pointer;display:flex;flex-direction:column;justify-content:center;gap:1px;user-select:none;border-left:4px solid transparent;transition:filter .12s;z-index:2}
@@ -32,6 +37,29 @@
 .appt-dot:hover{transform:scale(1.5)}
 .appt-del{position:absolute;bottom:4px;right:4px;width:18px;height:18px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;background:rgba(226,75,74,.85);color:#fff;line-height:1}
 .appt:hover .appt-del{display:flex}
+
+/* Tira compacta: cita "no asistió" que comparte franja con otra. Como ya no bloquea el slot
+   (se puede agendar encima), cede el espacio y se queda en un alto mínimo — el alto, el apilado
+   y el tope los pone el JS (STRIP_H/STRIP_STEP), que es lo mismo que corre la tarjeta activa.
+   Fondo OPACO y con inset lateral respecto a la tarjeta (left/right 3px): la tira suele caer
+   ENCIMA de una cita activa larga (una no-asistió de 7:30 sobre otra de 7:00–8:00) y tiene que
+   leerse como etiqueta superpuesta, no ensuciar el texto de abajo. */
+.appt-strip{position:absolute;left:10px;right:10px;display:flex;align-items:center;gap:4px;padding:0 6px;border-radius:0 0 5px 5px;background:#fbe3e2;color:#a83533;border:1px solid #f0bebc;border-top:none;box-shadow:0 1px 3px rgba(0,0,0,.16);font-size:9.5px;font-weight:700;line-height:1;white-space:nowrap;cursor:pointer;overflow:hidden;user-select:none;box-sizing:border-box;z-index:4;transition:filter .12s}
+.appt-strip:hover{filter:brightness(.96)}
+/* min-width:0 para que el ellipsis funcione dentro del flex (sin él, el ítem no encoge) */
+.appt-strip .strip-nm{min-width:0;text-decoration:line-through;overflow:hidden;text-overflow:ellipsis}
+.appt-strip .strip-h{flex-shrink:0;padding:0 3px;border-radius:3px;background:#f4cbc9;font-variant-numeric:tabular-nums}
+/* Con una tira encima queda menos alto: la tarjeta activa conserva nombre y punto de estado. */
+.appt.appt-squeezed{padding:2px 8px;justify-content:flex-start}
+.appt.appt-squeezed .appt-sub{display:none}
+
+/* "+" de la no-asistió que ocupa sola su franja: la franja está libre, así que se puede agendar
+   ahí mismo. El resto de la tarjeta sigue abriendo la edición de la no-asistió. */
+.appt-add{position:absolute;bottom:4px;right:4px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;line-height:1;cursor:pointer;background:rgba(41,171,226,.92);color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.18);transition:transform .1s}
+.appt-add:hover{transform:scale(1.15)}
+.appt.has-add .appt-name{padding-right:26px}
+.appt.has-add .appt-sub{padding-right:22px}
+.appt.has-add .appt-del{right:26px}
 
 /* Vista Semana: columna del día actual resaltada */
 .th-header.wk-today{background:rgba(41,171,226,.1)}
