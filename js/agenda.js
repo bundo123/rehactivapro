@@ -1,7 +1,8 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor, pendientesActual, safeColor, orderedTherapists, startOfWeek,
-         apptSlots, slotOf, isAlignedHour, findConflict, compactNoas, occupiedSlots, toTimeInput, parseTimeInput } from './utils.js';
+         apptSlots, slotOf, isAlignedHour, findConflict, compactNoas, occupiedSlots, toTimeInput, parseTimeInput,
+         ordinalesDeCitas, ordinalTexto } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dbUpdateApptStatus } from './auth.js';
 import { hasPermission, canAccessTab } from './permissions.js';
@@ -43,6 +44,18 @@ function buildNoasStrip(appt, i) {
   // stopPropagation: el slot que solo tiene tiras queda libre y su click crea una cita nueva.
   el.addEventListener('click',e=>{e.stopPropagation();openEditApptModal(appt.id);});
   return el;
+}
+
+// ── Badge "X/N" (ordinal de la cita) ──
+// X = número de esta cita en la secuencia del paciente dentro de su episodio actual; N = su plan
+// de sesiones (sin plan va solo "X"). Es un dato de agenda: no lo produce ni lo consume
+// facturación, que sigue derivando de session_log. El mapa cita→ordinal lo calcula
+// ordinalesDeCitas() UNA vez por render; acá solo se pinta. Las 'no asistió' no entran al mapa
+// (ni como tarjeta ni como tira): un no-show no consume número.
+function ordBadge(ord) {
+  if(!ord) return '';
+  const title=ord.n?`Sesión ${ord.x} de ${ord.n} del episodio`:`Sesión ${ord.x} del episodio`;
+  return `<div class="appt-ord" title="${esc(title)}">${esc(ordinalTexto(ord))}</div>`;
 }
 
 function conflictMsg(clash) {
@@ -156,6 +169,10 @@ export function renderGrid() {
     compactNoas(visTa.filter(a => a.therapistId === t.id)).forEach(a => compactSet.add(a));
   });
 
+  // Ordinal "X/N" de cada tarjeta: una sola pasada sobre TODAS las citas (el universo es la
+  // secuencia completa del paciente, no las del día visible), no una por tarjeta.
+  const ordMap = ordinalesDeCitas(state.appointments, getPatient);
+
   // Build set of tail slots (slots beyond the first covered by multi-slot appts).
   // Las tiras compactas ocupan SOLO su franja: no dejan cola, y sus medias horas siguientes
   // quedan libres de verdad (clickeables y sin tapar la cita activa que empiece ahí).
@@ -242,7 +259,9 @@ export function renderGrid() {
         // agenda ahí mismo sin tener que borrarla ni buscar el hueco a mano.
         const canAdd=appt.status==='noas'&&hasPermission('createAppt');
         if(canAdd) card.classList.add('has-add');
-        card.innerHTML=`<div class="appt-name">${exactTag}${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}${durLabel}${appt.status==='pend'?' · por confirmar':''}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}${canAdd?'<div class="appt-add" title="Agendar otra cita en esta franja">+</div>':''}`;
+        const ord=ordMap.get(appt)||null;
+        if(ord) card.classList.add('has-ord');
+        card.innerHTML=`<div class="appt-name">${exactTag}${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}${durLabel}${appt.status==='pend'?' · por confirmar':''}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}${canAdd?'<div class="appt-add" title="Agendar otra cita en esta franja">+</div>':''}${ordBadge(ord)}`;
         card.style.cursor='pointer';
         card.addEventListener('click',e=>{if(!e.target.classList.contains('appt-dot')&&!e.target.classList.contains('appt-del')&&!e.target.classList.contains('appt-add')){e.stopPropagation();openEditApptModal(appt.id);}});
         card.querySelector('.appt-dot').addEventListener('click',e=>{e.stopPropagation();cycleStatus(appt.id);});
@@ -754,6 +773,9 @@ export function renderWeekView() {
   const tailSet = new Set();
   wkAppts.forEach(a => { if(compactSet.has(a)) return; apptSlots(a).slice(1).forEach(s => tailSet.add(`${a.date}:${s}`)); });
 
+  // Mismo mapa de ordinales que en Día: una pasada sobre todas las citas, no una por tarjeta.
+  const ordMap = ordinalesDeCitas(state.appointments, getPatient);
+
   vh.forEach(hr => {
     const tc = document.createElement('div'); tc.className = 'time-cell' + (hr % 1 === 0.5 ? ' half-hour' : ''); tc.textContent = fmtTime(hr); g.appendChild(tc);
     visDays.forEach(d => {
@@ -782,7 +804,9 @@ export function renderWeekView() {
         const exactTagWk = isAlignedHour(appt.hour) ? '' : `<span class="appt-exact">${esc(fmtTime(appt.hour))}</span>`;
         const canAddWk = appt.status === 'noas' && hasPermission('createAppt');
         if(canAddWk) card.classList.add('has-add');
-        card.innerHTML = `<div class="appt-name">${exactTagWk}${esc(pt ? pt.name : (appt.patientName || 'Sin paciente'))}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)}"></div>${canAddWk ? '<div class="appt-add" title="Agendar otra cita en esta franja">+</div>' : ''}`;
+        const ordWk = ordMap.get(appt) || null;
+        if(ordWk) card.classList.add('has-ord');
+        card.innerHTML = `<div class="appt-name">${exactTagWk}${esc(pt ? pt.name : (appt.patientName || 'Sin paciente'))}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)}"></div>${canAddWk ? '<div class="appt-add" title="Agendar otra cita en esta franja">+</div>' : ''}${ordBadge(ordWk)}`;
         card.addEventListener('click', e => { if(e.target.classList.contains('appt-add')) return; e.stopPropagation(); openEditApptModal(appt.id); });
         if(canAddWk) card.querySelector('.appt-add').addEventListener('click', e => { e.stopPropagation(); openApptModalAt(th.id, hr, ds); });
         const off = strips.length * STRIP_STEP;

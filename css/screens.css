@@ -61,6 +61,21 @@
 .appt.has-add .appt-sub{padding-right:22px}
 .appt.has-add .appt-del{right:26px}
 
+/* Ordinal "X/N" de la cita: dato informativo, así que va en gris discreto en la esquina inferior
+   derecha y sin robar el click (pointer-events:none — debajo puede quedar la tarjeta o el slot).
+   Reparto de esquinas: el punto de estado manda arriba a la derecha, el "+" solo aparece en las
+   no-asistió (que nunca llevan badge) y la hora exacta va dentro del nombre. El único que sí
+   comparte esquina es la "×" de borrar, que asoma en hover: el badge se corre a su izquierda.
+   Alto y posición van al milímetro: en una tarjeta de una sola franja (40px de alto útil) el
+   nombre centrado llega a ~27px, así que el badge arranca en 29px — cabe sin tocarlo y sin
+   empujar nada (va absoluto, no rompe el nowrap ni el ellipsis del nombre). */
+.appt-ord{position:absolute;bottom:2px;right:6px;font-size:9px;font-weight:700;line-height:1;color:#7a7a76;font-variant-numeric:tabular-nums;pointer-events:none;user-select:none;transition:transform .12s}
+/* En Día la última línea es el subtítulo: se le reserva el ancho del badge para que corte antes. */
+.appt.has-ord .appt-sub{padding-right:28px}
+.appt:hover .appt-del ~ .appt-ord{transform:translateX(-22px)}
+/* Tarjeta aplastada por una tira encima: ya no cabe sin pisar el nombre. */
+.appt.appt-squeezed .appt-ord{display:none}
+
 /* Vista Semana: columna del día actual resaltada */
 .th-header.wk-today{background:rgba(41,171,226,.1)}
 .th-header.wk-today .th-sp{color:#1d8fbf;font-weight:700}

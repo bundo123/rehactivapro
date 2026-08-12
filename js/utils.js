@@ -331,6 +331,62 @@ export function pendientesActual(p) {
   return Math.max(0, doneActual(p) - cobradasEp);
 }
 
+// ── Ordinal de cita en la agenda ("X/N") ──
+// X = posición de la cita en la secuencia del paciente DENTRO de su episodio actual; N = plan de
+// sesiones (p.sessions). Es informativo de agenda: no toca facturación ni sus conteos, que siguen
+// derivando de session_log (doneActual/pendientesActual).
+//
+// Universo y reglas (una sola definición, la comparten citaOrdinal y ordinalesDeCitas):
+//  · Solo citas del MISMO paciente posteriores al último 'Fin de episodio' — frontera ESTRICTA
+//    (date > fin), la misma que doneActual y que el recorte de episodio de los informes: una cita
+//    con la fecha del corte pertenece al episodio que cierra, no al nuevo.
+//  · Se EXCLUYEN las 'no asistió': un no-show no consume número, así que la siguiente cita hereda
+//    el ordinal que aquélla habría tenido.
+//  · Orden por fecha y luego hora (decimal, así que una hora exacta 10:45 va después de 10:30).
+function citasNumerables(appts, patient) {
+  const fin = lastFinDate(patient);
+  return (appts || [])
+    .filter(a => a && a.patientId != null && a.status !== 'noas' && (!fin || String(a.date) > fin))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)) || (Number(a.hour) || 0) - (Number(b.hour) || 0));
+}
+
+// Ordinal de UNA cita: { x, n } — n es null si el paciente no tiene plan (se muestra solo "X").
+// Devuelve null cuando la cita no lleva badge: sin paciente, 'no asistió', o de un episodio ya
+// cerrado (queda fuera del universo, así que no tiene posición en la secuencia actual).
+// Pura: recibe la lista de citas y el paciente, no lee state.
+export function citaOrdinal(appointments, patient, appt) {
+  if (!appt || appt.patientId == null || appt.status === 'noas') return null;
+  const mismas = (appointments || []).filter(a => a && String(a.patientId) === String(appt.patientId));
+  const i = citasNumerables(mismas, patient).indexOf(appt);
+  return i < 0 ? null : { x: i + 1, n: patient?.sessions || null };
+}
+
+// Mapa cita → { x, n } de TODA la lista, en una pasada: la agenda lo calcula una vez por render
+// en vez de recorrer las citas del paciente por cada tarjeta. La clave es la cita MISMA, no su id
+// (los ids mezclan números optimistas, uuids y 'rec-...'). Las citas sin badge no entran al mapa.
+export function ordinalesDeCitas(appointments, getPacienteFn) {
+  const porPaciente = new Map();
+  (appointments || []).forEach(a => {
+    if (!a || a.patientId == null) return;
+    const k = String(a.patientId);
+    if (!porPaciente.has(k)) porPaciente.set(k, []);
+    porPaciente.get(k).push(a);
+  });
+  const out = new Map();
+  porPaciente.forEach(lista => {
+    const p = getPacienteFn ? getPacienteFn(lista[0].patientId) : null;
+    const n = p?.sessions || null;
+    citasNumerables(lista, p).forEach((a, i) => out.set(a, { x: i + 1, n }));
+  });
+  return out;
+}
+
+// Texto del badge: "3/10" con plan, "3" sin plan.
+export function ordinalTexto(ord) {
+  if (!ord) return '';
+  return ord.n ? `${ord.x}/${ord.n}` : String(ord.x);
+}
+
 // Datos de facturación del episodio ACTUAL (I-4): "Cobro X de Y", cajitas y cierre.
 // Pura y episodio-aware (misma frontera que pendientesActual): solo cuenta las facturas con fecha
 // posterior al último 'Fin de episodio', para que al iniciar un episodio nuevo la numeración de
