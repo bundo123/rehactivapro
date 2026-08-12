@@ -26,13 +26,70 @@
 - **No-código (LOPDP):** documentar la decisión de "lectura abierta" de PHI (modelo "se cubren entre sí + todo auditado en `audit_log`") con base de licitud, y a Anthropic como sub-encargado.
 - **Mayor valor en producción:** redactar el `clinical_context` de los protocolos reales (alimenta la calidad del informe IA — corazón del "reemplazo de Reliv").
 
-**Pulidos opcionales remanentes (no bloquean):** buscador de diagnóstico del modal de paciente con UX pobre; `": "` suelto al inicio de "Evaluación inicial" (ya inocuo en altas nuevas por el `filter(Boolean)`).
+**Pulidos opcionales remanentes (no bloquean):** buscador de diagnóstico del modal de paciente con UX pobre; `": "` suelto al inicio de "Evaluación inicial" (ya inocuo en altas nuevas por el `filter(Boolean)`); **táctil-42 en Pacientes** — `.patient-table .pl-act-btn{min-height:42px}` le gana por especificidad al bloque `@media (pointer: coarse)`, así que los botones de acción quedan en 42px en táctil real (detectado en la sesión 2026-08-12 (b); en Seguimiento ya está corregido con regla propia).
 
 ### 🗓️ Plan a julio — meta: audit final con 0 críticos / 0 importantes (solo pulidos opcionales)
 - **Semana 1** (cerrada hoy, salvo I-7): I-5 · LOTE A · I-4 · I-6 ✅. Queda **I-7** (necesita el SQL de la secuencia).
 - **Semana 2:** auto-logout (15 min) · I-13 (alerts→toasts) · P-11 (CSP parcial).
 - **Semana 3:** I-12 (focus-trap/Escape) · I-15 (tests `node --test`) · `npm audit fix` · decisión P-2/P-6.
 - **Semana 4:** `clinical_context` de protocolos reales · papeleo LOPDP (lectura abierta + sub-encargado Anthropic) · **audit final**.
+
+---
+
+## 🗓️ Sesión 2026-08-12 (b) — Pestaña «Seguimiento»: auditoría día a día
+
+Un commit, revisado en rama (`revision-seguimiento`, ya borrada) antes de tocar `main`. En prod con
+Vercel verde verificado por hash de bundle (`index-BwYx7ALE.js` / `index-BqTaJimk.css`: el build
+local y el que sirve `rehactivaec.com` coinciden; en el JS servido están los strings de la feature
+y en el HTML el `tab-seguimiento` y sus filtros). Tests: 104 → **131 verdes**.
+
+- **`29ec147` feat(seguimiento): auditoría día a día de lo atendido contra lo registrado.**
+  Pestaña nueva en la sección PACIENTES, **de solo lectura**, visible para los tres roles —
+  terapeuta incluido, porque es la pantalla que dice qué falta cargar y quien lo carga es él.
+  Responde una sola pregunta: de los pacientes **activos**, qué **días** se atendió y no quedó nada
+  escrito en la historia.
+
+  - **El cruce es día a día, no de totales, y esa es toda la gracia.** "1 cita / 1 sesión" cuadra en
+    los totales y aun así puede faltar el registro, si la sesión se escribió otro día. Dos citas el
+    mismo día se cubren con **una sola** entrada de ese día; una entrada de otro día no cubre nada.
+  - **Definiciones únicas en `utils.js`, puras y testeadas.** *Cita pasada* = `conf` con fecha ≤ hoy
+    (`pend`/`noas` no cuentan). *Entrada clínica* = todo el log salvo `Fin de episodio`, que es
+    marcador técnico y no documentación → un día cubierto **solo por la evaluación inicial sí
+    cuenta**. *Responsable del día* = terapeuta de la cita **más temprana**, para que el orden del
+    array no cambie el resultado. A diferencia de `doneActual`, **no recorta por episodio**: audita
+    todo lo atendido. `detalleSeguimiento` es la base y `diasSinRegistro` sale de filtrarlo — una
+    definición para la tabla y para el desplegable, con un test que ata las dos.
+  - **UI.** Tabla Paciente · Sesiones · Citas pasadas · Días sin registro (badge rojo con el número,
+    o ✓ verde) · **Ver**, que salta al Informe del paciente con el mismo mecanismo de
+    `verInformeDeCita` (`showTab` **primero**, `selectRptPatient` después — al entrar a
+    `paciente_rpt` se ejecuta `renderPatientReportSelect`, que resetea la selección). Click en la
+    fila despliega el detalle día a día (fecha · terapeuta · ✓ Registrado / 🔴 Sin registro), uno a
+    la vez. Filtros con contador: **Con seguimiento** (default) / Con días faltantes / Todos; no son
+    excluyentes a propósito.
+  - **Sin queries nuevas.** Todo sale de lo que `loadAll` ya trajo (`p.log` y las citas), con las
+    citas agrupadas por paciente en **una pasada por render**, mismo patrón que `ordinalesDeCitas`.
+
+- **Por qué murió el chip App/Reliv (rework del primer diseño).** El lote salió a revisión con un
+  chip *Fuente* App↔Reliv por paciente, editable y persistido en `patients.seguimiento`: servía para
+  marcar a mano a quienes se llevan en Reliv y que no aparecieran como pendientes. La regla del
+  diseño nuevo —**≥1 evolución = aparece**— lo volvió innecesario: un paciente que se lleva en Reliv
+  simplemente no tiene entradas clínicas, así que no entra nunca en «Con seguimiento» sin que nadie
+  lo marque. El flag manual era mantenimiento puro para reproducir algo que el propio dato ya dice.
+  Se eliminaron el chip, su toggle, su write path y los filtros Reliv/Pendientes; con ellos se fue
+  la única escritura de la pestaña, que quedó **100% solo lectura**. **La columna
+  `patients.seguimiento` queda en la DB sin usar** — no se lee ni en los mappers de `auth.js` y
+  `realtime.js`. Si se confirma que no vuelve, toca `DROP COLUMN` en su momento.
+
+- **Fix colateral:** `showTab` ya no resuelve el botón del sidebar por índice (`navMap`) sino por su
+  propio `onclick`. Con un índice fijo, insertar una pestaña al medio corría el mapa y dejaba el
+  "active" en la de al lado — verificadas las 10 pestañas.
+
+- **Deuda nueva detectada (no bloqueante):** los botones de acción de **Pacientes** (`.pl-act-btn`:
+  Editar/Eliminar/Eval./Ver) miden **42px en táctil real**, no 44. La regla `.patient-table
+  .pl-act-btn{min-height:42px}` del media query de 768px le gana por **especificidad** a la del
+  bloque `@media (pointer: coarse)`, que sí pide 44 — así que en un iPad o teléfono real quedan en
+  42. En Seguimiento se corrigió con una regla propia (`#tab-seguimiento .pl-act-btn`); **en
+  Pacientes sigue abierto** y conviene alinearlo (subir el 42 a 44, o scopear igual).
 
 ---
 
