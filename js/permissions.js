@@ -4,16 +4,19 @@ import { state } from './state.js';
 // dice qué pacientes atendidos no tienen historia cargada, y quien la carga es el terapeuta.
 const ROLE_TABS = {
   admin:     ['agenda','resumen','pacientes','seguimiento','paciente_rpt','protocolos','informes','facturacion','terapeutas','doctores'],
-  secretaria:['agenda','resumen','pacientes','seguimiento','paciente_rpt','protocolos','facturacion','doctores'],
+  secretaria:['agenda','resumen','pacientes','seguimiento','paciente_rpt','protocolos','facturacion','terapeutas','doctores'],
   terapeuta: ['agenda','resumen','pacientes','seguimiento','paciente_rpt','protocolos'],
 };
 
+// 'createTherapist' = alta y edición del terapeuta; 'deleteTherapist' = baja definitiva. Van
+// partidos porque la secretaria administra el equipo (agregar/editar horarios, orden, color) pero
+// el borrado lo conserva el admin: es la única acción de esta pantalla que no se puede deshacer.
 const ROLE_ACTIONS = {
   admin:     ['createAppt','deleteAppt','cycleStatus','createPatient','editPatient','deletePatient',
-              'registerSession','deleteSession','evalInicial','createTherapist','createDoctor','createProtocol',
-              'emitirFactura','viewAI','deleteInforme','apptPastDate'],
+              'registerSession','deleteSession','evalInicial','createTherapist','deleteTherapist',
+              'createDoctor','createProtocol','emitirFactura','viewAI','deleteInforme','apptPastDate'],
   secretaria:['createAppt','deleteAppt','cycleStatus','createPatient','editPatient',
-              'createDoctor','emitirFactura','apptPastDate'],
+              'createTherapist','createDoctor','emitirFactura','apptPastDate'],
   terapeuta: ['cycleStatus','editPatient','registerSession','evalInicial','viewAI','deleteInforme'],
 };
 

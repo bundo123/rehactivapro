@@ -57,9 +57,15 @@ Las 10 tablas tienen **RLS activada (`relrowsecurity = true`)**. Sin esto, las p
 - INSERT/UPDATE/DELETE — `is_admin() OR is_secretaria()`
 - UPDATE `terapeuta_update_own_appointments` — terapeuta solo las citas con su `therapist_id`. ✅ acotado correctamente.
 
-**doctors / therapists / protocols**
+**doctors / protocols**
 - SELECT — `true`
-- Resto (ALL/manage) — `is_admin()` (protocols, therapists) / `is_admin() OR is_secretaria()` (doctors)
+- Resto (ALL/manage) — `is_admin()` (protocols) / `is_admin() OR is_secretaria()` (doctors)
+
+**therapists**
+- SELECT — `true`
+- INSERT/UPDATE — `is_admin() OR is_secretaria()` (la secretaria gestiona el equipo: alta, horarios, orden, color)
+- DELETE — `is_admin()`. ✅ La baja, única acción irreversible de la pantalla, no se delega.
+- ⚠️ **Pendiente de aplicar en Supabase:** `rls_therapists_secretaria.sql`. Hasta correrlo, la tabla sigue con `ALL = is_admin()` y la secretaria recibe "new row violates row-level security policy" al guardar.
 
 **audit_log**
 - SELECT — solo admin

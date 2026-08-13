@@ -237,6 +237,29 @@ export function parseHourVal(v){
   if(isNaN(h)) return null;
   return h+(parseInt(p[1]||'0',10)>=30?0.5:0);
 }
+// Inverso de parseHourVal: horas float → 'HH:MM' para los <input type="time"> del modal de
+// terapeuta. Vacío ⇄ null, que es como se guarda "sin horario definido".
+export function hourValToTime(v){
+  if(v==null||v==='') return '';
+  const n=Number(v);
+  if(!isFinite(n)||n<0) return '';
+  const h=Math.floor(n);
+  return String(h).padStart(2,'0')+':'+((n-h)>=0.5?'30':'00');
+}
+// Guard de borrado de terapeuta: NUNCA se borran citas en cascada. Devuelve null si el terapeuta
+// se puede eliminar (cero citas, pasadas o futuras) o {total, futuras} para bloquear el borrado.
+// "Futura" incluye hoy: la cita de hoy todavía se atiende. Pura: `hoy` se inyecta en los tests.
+export function therapistDeleteBlock(appointments, therapistId, hoy = fmtDate(new Date())){
+  if(therapistId==null) return null;
+  const suyas=(appointments||[]).filter(a=>a&&a.therapistId!=null&&String(a.therapistId)===String(therapistId));
+  if(!suyas.length) return null;
+  return {total:suyas.length, futuras:suyas.filter(a=>String(a.date||'')>=String(hoy)).length};
+}
+export function textoBloqueoBorrado(b){
+  if(!b) return '';
+  const c=n=>n===1?'cita':'citas', f=n=>n===1?'futura':'futuras';
+  return `No se puede eliminar: tiene ${b.total} ${c(b.total)} (${b.futuras} ${f(b.futuras)}). Reasigná sus citas primero.`;
+}
 export function getPatient(id){return state.patients.find(p=>p.id===id)}
 export function getDoctor(id){return state.doctors.find(d=>d.id===id)}
 export function therapistHours(th){const h=[];for(let i=th.startH;i<th.endH;i+=0.5)h.push(i);return h;}
