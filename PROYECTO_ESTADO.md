@@ -36,6 +36,27 @@
 
 ---
 
+## 🗓️ Sesión 2026-08-14 (c) — `Kinesiotape` en el catálogo de técnicas · vacuna de legado
+
+Un commit (`7610565`), en prod con Vercel verde verificado por hash de bundle
+(`index-4_VF0M3I.js` / `index-CRJ3JNvN.css`: el build local y el que sirve `rehactivaec.com`
+coinciden). Tests: **154 verdes**, sin cambios.
+
+- **`PRO_TECNICAS`** (`js/sesiones.js`): `'Kinesioterapia'` pasa a llamarse **`'Kinesiotape'`**.
+  `'Vendaje funcional'` queda como está y `'Presoterapia'` ya venía del lote anterior.
+- **No se migran datos.** Las sesiones viejas conservan `'Kinesioterapia'` en `tags`.
+- **Vacuna de legado en `renderProTecnicas()`:** por cada técnica de la sesión que ya **no** esté en
+  el catálogo, el grid pinta un botón extra atenuado (borde punteado), marcado como seleccionado y
+  toggleable. Así lo histórico se **ve** al editar y se puede quitar, en vez de quedar invisible
+  y volver a guardarse a ciegas. Su texto viene de la DB, así que va por `esc()`; el parser
+  devuelve el valor decodificado en `dataset.tec`, con lo que el toggle sigue casando el string
+  exacto de la fila.
+- **El `select` de tipo de cita (`m-type`) NO se tocó:** ahí `Kinesioterapia` es un *tipo de
+  sesión*, otra cosa. Verificado en prod: el bundle servido tiene `Kinesiotape` y el HTML servido
+  sigue teniendo `Kinesioterapia` en `m-type`.
+
+---
+
 ## 🗓️ Sesión 2026-08-14 (b) — Ficha del plan en la cita · cierre de episodio con frontera elegida
 
 Un commit, revisado en rama (`revision-plan`, ya borrada) antes de tocar `main`. En prod con Vercel
