@@ -70,6 +70,9 @@
    nombre centrado llega a ~27px, así que el badge arranca en 29px — cabe sin tocarlo y sin
    empujar nada (va absoluto, no rompe el nowrap ni el ellipsis del nombre). */
 .appt-ord{position:absolute;bottom:2px;right:6px;font-size:9px;font-weight:700;line-height:1;color:#7a7a76;font-variant-numeric:tabular-nums;pointer-events:none;user-select:none;transition:transform .12s}
+/* Ordinal por encima del plan (11/10): ámbar, el mismo de "pendiente" en las stats del día. El
+   plan no bloquea nada, pero la agenda tiene que avisarlo sin abrir la ficha. */
+.appt-ord.over{color:#BA7517}
 /* En Día la última línea es el subtítulo: se le reserva el ancho del badge para que corte antes. */
 .appt.has-ord .appt-sub{padding-right:28px}
 .appt:hover .appt-del ~ .appt-ord{transform:translateX(-22px)}

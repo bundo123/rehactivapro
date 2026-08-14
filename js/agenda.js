@@ -8,6 +8,7 @@ import { dbUpdateApptStatus } from './auth.js';
 import { hasPermission, canAccessTab } from './permissions.js';
 import { showFieldError, clearFieldError, clearAllErrors } from './validators.js';
 import { setCie10Appt } from './cie10.js';
+import { setPlanAppt } from './plan.js';
 
 // ── Helpers de slots/duración ──
 // apptSlots vive en utils.js (puro y testeable); se re-exporta porque informes.js lo consume
@@ -52,10 +53,13 @@ function buildNoasStrip(appt, i) {
 // facturación, que sigue derivando de session_log. El mapa cita→ordinal lo calcula
 // ordinalesDeCitas() UNA vez por render; acá solo se pinta. Las 'no asistió' no entran al mapa
 // (ni como tarjeta ni como tira): un no-show no consume número.
+// Ámbar cuando el ordinal se pasa del plan (11 de 10): el plan no bloquea nada, pero la agenda
+// tiene que decirlo sin que haya que abrir la ficha — o se amplía el plan, o es un episodio nuevo.
 function ordBadge(ord) {
   if(!ord) return '';
-  const title=ord.n?`Sesión ${ord.x} de ${ord.n} del episodio`:`Sesión ${ord.x} del episodio`;
-  return `<div class="appt-ord" title="${esc(title)}">${esc(ordinalTexto(ord))}</div>`;
+  const over=!!ord.n&&ord.x>ord.n;
+  const title=ord.n?`Sesión ${ord.x} de ${ord.n} del episodio${over?' — supera el plan':''}`:`Sesión ${ord.x} del episodio`;
+  return `<div class="appt-ord${over?' over':''}" title="${esc(title)}">${esc(ordinalTexto(ord))}</div>`;
 }
 
 function conflictMsg(clash) {
@@ -425,6 +429,7 @@ export function openApptModal() {
   document.getElementById('recurrencia-panel').style.display='none';
   setApptRptShortcut(null);
   setCie10Appt(null);   // "Nueva cita": el CIE-10 se carga desde la ficha, no al agendar
+  setPlanAppt(null);    // idem el plan: sin cita guardada todavía no hay paciente del que hablar
   filterApptPatient();
   _openApptModalBase();
   setHoraExacta(false);   // crear siempre arranca en el select de medias horas
@@ -453,6 +458,7 @@ export function openEditApptModal(id) {
   document.getElementById('recurrencia-panel').style.display='none';
   setApptRptShortcut(pt ? a.patientId : null);
   setCie10Appt(pt ? a.patientId : null);   // dato del paciente: sin paciente, no hay sección
+  setPlanAppt(pt ? a.patientId : null);
   filterApptPatient();
   document.getElementById('m-therapist').innerHTML=orderedTherapists().map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.startH)}-${fmtTime(t.endH)})</option>`).join('');
   document.getElementById('m-therapist').value=String(a.therapistId);

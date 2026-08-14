@@ -914,28 +914,27 @@
     right: 4px;
   }
 
-  /* Atajo cita → informe: solo con dedo. En escritorio el informe está a un clic en el
-     menú lateral; en celular el terapeuta viene de la agenda y navegar hasta allá cuesta
-     3 toques. agenda.js pone [hidden] cuando la cita no tiene paciente asignado. */
-  #appt-goto-rpt:not([hidden]) {
-    display: block;
-    width: 100%;
-    min-height: 48px;
-    margin: 0 0 14px;
-    padding: 12px 14px;
-    border: 1px solid rgba(41,171,226,.35);
-    border-radius: 8px;
-    background: rgba(41,171,226,.08);
-    color: #1d8fbf;
-    font-family: inherit;
-    font-size: 13.5px;
-    font-weight: 700;
-    cursor: pointer;
-  }
 }
 
-/* Fuera de dispositivos táctiles el atajo no existe (la regla de arriba es la única que
-   lo muestra); esta declaración lo mantiene oculto también si el navegador ignora [hidden]. */
-#appt-goto-rpt {
+/* Atajo cita → informe, en TODOS los dispositivos (antes iba solo bajo pointer:coarse): mirar la
+   historia del paciente que se está agendando es la misma consulta con dedo que con mouse, y por
+   el menú lateral hay que elegir el paciente de nuevo. agenda.js pone [hidden] cuando la cita no
+   tiene paciente asignado; el display:none explícito cubre al navegador que ignore [hidden]. */
+#appt-goto-rpt:not([hidden]) {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(41,171,226,.35);
+  border-radius: 8px;
+  background: rgba(41,171,226,.08);
+  color: #1d8fbf;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+#appt-goto-rpt[hidden] {
   display: none;
 }

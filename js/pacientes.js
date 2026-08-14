@@ -1,6 +1,8 @@
 ﻿import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { esc, fmtDate, getPatient, getDoctor, patientMatchesSearch, highlightMatch, getFullAge, doneActual, safeColor, findCedulaDuplicate } from './utils.js';
+import { esc, fmtDate, fmtTime, fmtFechaCorta, diaAnterior, getPatient, getDoctor, getTherapist,
+         patientMatchesSearch, highlightMatch, getFullAge, doneActual, safeColor, findCedulaDuplicate,
+         citasParaCierre, indiceCitaCierre } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';
@@ -333,6 +335,30 @@ export function openEditPatient(id) {
 
 // ── NUEVO EPISODIO ──
 let _nePatientId = null;
+let _neCitas = [];   // opciones del selector de última cita, en el orden en que se pintaron
+
+// Selector "¿cuál fue la última cita del episodio anterior?". El value es el ÍNDICE, no la fecha:
+// dos citas del mismo día son opciones distintas (hora y terapeuta distintos) y el usuario tiene
+// que ver seleccionada exactamente la que eligió.
+function renderNeCitas(patientId) {
+  const sel=document.getElementById('ne-last-appt');
+  if(!sel) return;
+  const hoy=fmtDate(new Date());
+  _neCitas=citasParaCierre(state.appointments,patientId,hoy);
+  if(!_neCitas.length){
+    // Sin citas no hay frontera que elegir: guardarNuevoEpisodio fecha el marcador AYER, para que
+    // lo que se registre hoy ya cuente en el episodio nuevo (la frontera es estricta).
+    sel.innerHTML='<option value="">Sin citas — el episodio nuevo arranca hoy</option>';
+    return;
+  }
+  sel.innerHTML=_neCitas.map((a,i)=>{
+    const th=getTherapist(a.therapistId);
+    const txt=`${fmtFechaCorta(a.date)} · ${fmtTime(a.hour)} · ${th?th.name:'Sin terapeuta'}`;
+    return `<option value="${i}">${esc(txt)}</option>`;
+  }).join('');
+  const idx=indiceCitaCierre(_neCitas,hoy);
+  if(idx>=0) sel.value=String(idx);
+}
 
 export function nuevoEpisodio(patientId) {
   _nePatientId=patientId;
@@ -341,6 +367,7 @@ export function nuevoEpisodio(patientId) {
   document.getElementById('ne-diag').value='';
   document.getElementById('ne-sessions').value=12;
   document.querySelector('input[name="ne-eval"][value="si"]').checked=true;
+  renderNeCitas(patientId);
   populateDiagList();
   document.getElementById('nuevo-episodio-modal').classList.add('open');
 }
@@ -354,11 +381,17 @@ export async function guardarNuevoEpisodio() {
   if(!newDiag){toastErr('Ingresa el nuevo diagnóstico');return;}
   const oldDiag=p.diag;
   const hoy=fmtDate(new Date());
+  // Frontera ELEGIDA: la fecha de la cita que cierra el episodio anterior. Sin citas que ofrecer,
+  // el marcador va AYER — con la fecha de hoy, lo que se registre hoy caería en el episodio viejo
+  // (la frontera es estricta: cuenta lo que tiene date > fin).
+  const idxCita=parseInt(document.getElementById('ne-last-appt')?.value,10);
+  const citaFin=Number.isInteger(idxCita)?_neCitas[idxCita]:null;
+  const fechaFin=citaFin?String(citaFin.date):diaAnterior(hoy);
   const finNote=`Episodio anterior: ${oldDiag} · ${doneActual(p)} sesiones completadas`;
   // El marcador 'Fin de episodio' en session_log ES la frontera del episodio: a partir de su fecha,
   // doneActual/pendientesActual cuentan desde cero. No hace falta resetear columnas en memoria/DB.
   const {data:insFin,error:errFin}=await supa.from('session_log').insert({
-    patient_id:_nePatientId,date:hoy,type:'Fin de episodio',
+    patient_id:_nePatientId,date:fechaFin,type:'Fin de episodio',
     hour:'00:00',status:'asistió',pain_before:0,pain_after:0,note:finNote
   }).select('id').single();
   // Sin el marcador no hay frontera de episodio: abortar acá deja todo consistente (ni diag nuevo,
@@ -370,7 +403,7 @@ export async function guardarNuevoEpisodio() {
   // El log en memoria aún no tiene la fila recién insertada (el wrapper supa anti-eco no la reenvía).
   // Agregarla para que doneActual/pendientesActual reflejen el corte de inmediato (sin esperar recarga).
   if(!p.log) p.log=[];
-  p.log.push({id:insFin?.id??null,date:hoy,type:'Fin de episodio',hour:'00:00',status:'asistió',pb:0,pa:0,note:finNote});
+  p.log.push({id:insFin?.id??null,date:fechaFin,type:'Fin de episodio',hour:'00:00',status:'asistió',pb:0,pa:0,note:finNote});
   window._app.closeModal('nuevo-episodio-modal');
   toastOk('✓ Nuevo episodio iniciado — '+newDiag);
   renderPatients();

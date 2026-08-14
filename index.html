@@ -487,6 +487,25 @@
     </div>
   </div>
 
+  <!-- PLAN DE SESIONES — dato del PACIENTE (igual que el CIE-10): se guarda al instante en su
+       ficha. plan.js la oculta si la cita no tiene paciente asignado, y esconde el editor de
+       sesiones a quien no puede editar pacientes (el conteo se ve igual). -->
+  <div class="cie-box" id="plan-appt-section" hidden>
+    <div class="cie-hd">
+      <span class="cie-title">Plan de sesiones</span>
+      <span class="cie-note">Ficha del paciente · no es un dato de esta cita</span>
+    </div>
+    <div class="plan-current" id="plan-appt-current"></div>
+    <div class="plan-row">
+      <div class="plan-edit" id="plan-appt-edit" hidden>
+        <label for="plan-appt-sessions">Sesiones del plan</label>
+        <input type="number" id="plan-appt-sessions" min="1" max="99" step="1" inputmode="numeric">
+        <button type="button" class="plan-btn" onclick="planGuardarSesiones()">Guardar</button>
+      </div>
+      <button type="button" class="plan-btn plan-ep" onclick="planNuevoEpisodio()">🔄 Nuevo episodio</button>
+    </div>
+  </div>
+
   <!-- CITAS RECURRENTES -->
   <div style="border-top:1px solid rgba(29,158,117,.15);margin-top:14px;padding-top:14px">
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:#1a1917">
@@ -842,6 +861,13 @@
   <div class="field">
     <label>Sesiones prescritas</label>
     <input type="number" id="ne-sessions" value="12" min="1" max="100">
+  </div>
+  <!-- Frontera del episodio: la FECHA de la cita elegida es la que lleva el marcador
+       'Fin de episodio'. pacientes.js llena las opciones (5 pasadas + 3 futuras). -->
+  <div class="field">
+    <label>¿Cuál fue la última cita del episodio anterior?</label>
+    <select id="ne-last-appt"></select>
+    <div class="ne-note">Todo lo posterior a esa fecha contará en el episodio nuevo.</div>
   </div>
   <div class="field">
     <label>¿Abrir evaluación inicial al guardar?</label>

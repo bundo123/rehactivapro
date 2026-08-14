@@ -1,7 +1,7 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { getPatient, esc, fmtDate, fmtTime, normHour, pendientesActual, orderedTherapists } from './utils.js';
-import { toastOk, toastErr, toastInfo } from './toast.js';
+import { getPatient, esc, fmtDate, fmtTime, normHour, doneActual, pendientesActual, orderedTherapists } from './utils.js';
+import { toastOk, toastErr, toastInfo, showToast } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { showFieldError, clearFieldError, clearAllErrors } from './validators.js';
 import { updateFacturaBadge, showBillingAlert } from './agenda.js';
@@ -12,7 +12,7 @@ export const PRO_TECNICAS = [
   'Movilidad activa','Fortalecimiento','Estiramientos','Reeducación postural',
   'Reeducación marcha','Propiocepción','Terapia manual','Vendaje funcional',
   'Punción seca','Tracción lumbar/cervical','Kinesioterapia',
-  'Láser de alta potencia','Ondas de choque'
+  'Láser de alta potencia','Ondas de choque','Presoterapia'
 ];
 let proTecnicasSel = [];
 let _pendingSessionAppt = null;
@@ -21,6 +21,16 @@ let _manualPatientId = null;
 let _editMode = false;         // true cuando el modal se abre para EDITAR una sesión existente
 let _editRef = null;           // {patientId, date, hour} ORIGINAL — clave del UPDATE
 let _savingSession = false;    // candado anti-doble-submit (todos los saves)
+
+// Aviso "plan completo": salta SOLO en la sesión que cierra el plan (doneActual pasa de n−1 a n),
+// no en cada sesión por encima — mismo criterio de umbral que showBillingAlert. No bloquea nada:
+// el plan es una referencia clínica, no un tope, y seguir atendiendo es decisión del terapeuta.
+// Se mide contra doneActual (episodio actual), que es lo mismo que pinta el badge X/N de la agenda.
+function avisoPlanCompleto(pt, doneBefore) {
+  const n = pt?.sessions || 0;
+  if (!n || doneBefore !== n - 1 || doneActual(pt) !== n) return;
+  showToast(`Plan de ${n} sesiones completado. Si el tratamiento continúa, ampliá el plan desde la cita en agenda; si es un problema nuevo, Nuevo episodio.`, 'info', 8000);
+}
 
 function _setSaveBtn(saving) {
   const b=document.getElementById('session-save-btn'); if(!b)return;
@@ -189,6 +199,7 @@ async function saveSessionManual() {
     if(!pt.log) pt.log=[];
     const spf=pt.billing?.sesPerFactura||0;
     const pendBefore=pendientesActual(pt);                // umbral: medir antes de agregar la fila
+    const doneBefore=doneActual(pt);                      // idem el plan
     pt.log.push({id:ins?.id??null,date,type,hour,status:'asistió',pb,pa,note,tags:[...proTecnicasSel],therapistId});
     const crossed=spf>0&&pendBefore<spf&&pendientesActual(pt)>=spf;
     window._app.closeModal('session-modal');
@@ -197,7 +208,8 @@ async function saveSessionManual() {
     window._app.updateResumenBadge();
     updateFacturaBadge();
     toastOk('Sesión manual guardada en historial clínico ✓');
-    if(crossed) showBillingAlert(pt);
+    avisoPlanCompleto(pt,doneBefore);
+    if(crossed) showBillingAlert(pt);   // va último: showBillingAlert abre un confirm() bloqueante
   } finally { _savingSession=false; _setSaveBtn(false); }
 }
 
@@ -345,11 +357,12 @@ export async function saveSession() {
     const a=state.appointments.find(x=>x.id===appt.id);
     if(a) a.hasSession=true;
     const pt2=getPatient(appt.patientId);
-    let crossed=false;
+    let crossed=false, doneBefore=0;
     if(pt2){
       if(!pt2.log) pt2.log=[];
       const spf=pt2.billing?.sesPerFactura||0;
       const pendBefore=pendientesActual(pt2);             // umbral: medir antes de tocar el log
+      doneBefore=doneActual(pt2);                         // idem el plan
       const hh=fmtTime(appt.hour);
       // normHour: la hora recargada desde DB es 'HH:MM:SS' y hh es 'H:MM' -> comparar normalizado
       // para que el re-registro REEMPLACE la fila existente en vez de duplicarla.
@@ -369,7 +382,8 @@ export async function saveSession() {
     window._app.updateResumenBadge();
     updateFacturaBadge();
     toastOk('Sesión guardada en historial clínico ✓');
-    if(crossed) showBillingAlert(pt2);
+    if(pt2) avisoPlanCompleto(pt2,doneBefore);
+    if(crossed) showBillingAlert(pt2);   // va último: showBillingAlert abre un confirm() bloqueante
   } finally { _savingSession=false; _setSaveBtn(false); }
 }
 

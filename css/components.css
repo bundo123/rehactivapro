@@ -62,6 +62,29 @@
 .cie-item .cie-desc{font-size:11.5px;color:#5a5a56;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cie-msg{padding:12px;font-size:12px;color:#9c9a92;text-align:center}
 
+/* ── Plan de sesiones (modal de cita) ── Reusa .cie-box/.cie-hd: es la misma idea (dato de la
+   ficha del paciente editado desde la cita) y tiene que leerse como el mismo tipo de bloque. */
+.plan-current{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.plan-count{font-size:12.5px;color:#3a3934}
+.plan-count b{font-variant-numeric:tabular-nums;color:#1a1917}
+/* Mismo ámbar que el badge X/N de la agenda cuando el ordinal se pasa del plan. */
+.plan-count.plan-over,.plan-count.plan-over b{color:#BA7517}
+.plan-hint{font-size:10.5px;color:#BA7517}
+.plan-row{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.plan-edit{display:flex;align-items:center;gap:6px}
+/* plan.js oculta el editor con [hidden] cuando falta el permiso 'editPatient': sin esta regla, el
+   display:flex de arriba le gana al display:none del atributo y el campo seguiría a la vista. */
+.plan-edit[hidden]{display:none}
+.plan-edit label{font-size:10.5px;font-weight:600;color:#5a5a56;text-transform:none;letter-spacing:0;margin:0}
+.plan-edit input{width:62px;box-sizing:border-box;background:#fff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:6px 8px;font-size:13px;color:#1a1917;outline:none;font-family:inherit;font-variant-numeric:tabular-nums}
+.plan-edit input:focus{border-color:rgba(29,158,117,.5)}
+.plan-btn{flex-shrink:0;border:1px solid rgba(29,158,117,.35);background:#fff;color:#17865f;border-radius:7px;font-size:11.5px;font-weight:600;line-height:1;padding:8px 11px;cursor:pointer;font-family:inherit}
+.plan-btn:hover{background:rgba(29,158,117,.1)}
+.plan-btn.plan-ep{border-color:rgba(186,117,23,.4);color:#BA7517}
+.plan-btn.plan-ep:hover{background:rgba(186,117,23,.1)}
+/* Nota bajo el selector de última cita (modal de Nuevo episodio). */
+.ne-note{font-size:10.5px;color:#7a7a76;margin-top:5px;line-height:1.4}
+
 /* ── Modales táctiles (Registrar sesión / Evaluación inicial) — cómodos al dedo en tablet ── */
 #session-modal .field label,
 #eval-modal .field label{font-size:12px;letter-spacing:.04em;margin-bottom:6px}

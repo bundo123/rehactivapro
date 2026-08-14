@@ -58,6 +58,7 @@ import {
   saveDoctor, deleteDoctor, showDoctoresTab, renderNotifList, initDoctorValidation
 } from './doctores.js';
 import { cie10Search, cie10Pick, cie10Clear } from './cie10.js';
+import { planGuardarSesiones, planNuevoEpisodio } from './plan.js';
 import { callAI } from './ia.js';
 import { globalSearch, selectGlobalResult, checkCitasPendientes } from './search.js';
 import { initMobileMenu } from './mobile-menu.js';
@@ -229,6 +230,7 @@ Object.assign(window, {
   goToPatientPage, toggleEvalFilter, setPatientStatusFilter, verPaciente, onPatientProtocolChange,
   setSeguimientoFilter, toggleSeguimientoDetalle, verPacienteSeguimiento,
   cie10Search, cie10Pick, cie10Clear,
+  planGuardarSesiones, planNuevoEpisodio,
   setAgendaView, setTherapistFilter, goToDateAndSelect, exportAgendaCSV,
   applyRolePermissions, hasPermission,
   doSendRecoveryEmail, doSetNewPassword, showForgotPassword, showLoginForm, cancelRecovery,

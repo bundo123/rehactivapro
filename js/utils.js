@@ -71,6 +71,27 @@ export function startOfWeek(d){
   r.setDate(r.getDate()-(dow===0?6:dow-1));
   return r;
 }
+// Etiqueta corta de una fecha 'YYYY-MM-DD': 'Lun 12 ago'. Se parsea a mano (no `new Date(ds)`)
+// porque el string ISO suelto se interpreta en UTC y en Quito (UTC-5) devolvería el día anterior.
+const DIAS_CORTOS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const MESES_CORTOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+export function fmtFechaCorta(ds){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ds||''));
+  if(!m) return String(ds||'');
+  const y=+m[1], mo=+m[2], d=+m[3];
+  if(mo<1||mo>12) return String(ds);
+  return `${DIAS_CORTOS[new Date(y,mo-1,d).getDay()]} ${d} ${MESES_CORTOS[mo-1]}`;
+}
+
+// Día anterior a una fecha 'YYYY-MM-DD' (misma construcción local que fmtFechaCorta: sin UTC).
+export function diaAnterior(ds){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ds||''));
+  if(!m) return String(ds||'');
+  const d=new Date(+m[1],+m[2]-1,+m[3]);
+  d.setDate(d.getDate()-1);
+  return fmtDate(d);
+}
+
 // Horas en memoria = decimales (10.75 = 10:45). fmtTime imprime CUALQUIER minuto conservando el
 // formato de siempre para las alineadas: 9→'9:00', 9.5→'9:30', 9.75→'9:45'. Hora sin cero a la
 // izquierda (como antes), minutos siempre con dos dígitos. Se redondea al minuto porque un
@@ -402,6 +423,32 @@ export function ordinalesDeCitas(appointments, getPacienteFn) {
     citasNumerables(lista, p).forEach((a, i) => out.set(a, { x: i + 1, n }));
   });
   return out;
+}
+
+// ── Cierre de episodio: ¿cuál fue la última cita del episodio que se cierra? ──
+// Opciones del selector del modal "Nuevo episodio". Universo: las citas del paciente — las 5
+// PASADAS más recientes (hoy incluido: la cita de hoy ya se atendió) y las 3 FUTURAS más próximas,
+// en orden ascendente por fecha y hora, como se leen en la agenda. Se ofrecen futuras porque el
+// cierre se suele registrar con la última cita ya agendada, no con la de ayer.
+// La FECHA de la elegida es la que lleva el marcador 'Fin de episodio', y como la frontera es
+// estricta (date > fin), todo lo posterior a ese día cuenta en el episodio nuevo.
+// Pura: `hoy` se inyecta en los tests.
+export function citasParaCierre(appointments, patientId, hoy = fmtDate(new Date())) {
+  const suyas = (appointments || [])
+    .filter(a => a && a.patientId != null && a.date && String(a.patientId) === String(patientId))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)) || (Number(a.hour) || 0) - (Number(b.hour) || 0));
+  const pasadas = suyas.filter(a => String(a.date) <= String(hoy));
+  const futuras = suyas.filter(a => String(a.date) > String(hoy));
+  return [...pasadas.slice(-5), ...futuras.slice(0, 3)];
+}
+
+// Índice de la opción preseleccionada en esa lista: la PASADA más reciente (la última con fecha
+// ≤ hoy). Sin pasadas manda la primera futura; con la lista vacía, -1.
+export function indiceCitaCierre(citas, hoy = fmtDate(new Date())) {
+  const lista = citas || [];
+  let idx = -1;
+  lista.forEach((a, i) => { if (String(a.date) <= String(hoy)) idx = i; });
+  return idx >= 0 ? idx : (lista.length ? 0 : -1);
 }
 
 // Texto del badge: "3/10" con plan, "3" sin plan.
