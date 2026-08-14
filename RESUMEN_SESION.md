@@ -1,7 +1,7 @@
 # RehactivaPro — Historial de sesiones de desarrollo
 
-> **Período:** 2026-03-31 → 2026-08-12 · **167 entregas** en **35 jornadas de trabajo**
-> **Última actualización:** 2026-08-12
+> **Período:** 2026-03-31 → 2026-08-14 · **171 entregas** en **37 jornadas de trabajo**
+> **Última actualización:** 2026-08-14
 
 ---
 
@@ -38,10 +38,10 @@ git log --oneline --reverse   # ver la lista completa en orden cronológico
 | **1 · Profesionalización** | 05-11 → 05-18 | 6 | 31 | Base técnica real: Vite, módulos, roles, seguridad, marca |
 | **2 · Producto clínico** | 05-21 → 06-06 | 13 | 59 | Historia clínica, informes con IA, protocolos, bitácora legal |
 | **3 · Endurecimiento** | 06-17 → 07-09 | 5 | 21 | Auditoría pre-lanzamiento: corrección de fallos y pruebas |
-| **4 · Producción** | 07-31 → 08-12 | 7 | 25 | App en uso real: agenda avanzada, móvil, CIE-10, seguimiento |
+| **4 · Producción** | 07-31 → 08-14 | 9 | 29 | App en uso real: agenda avanzada, móvil, CIE-10, seguimiento |
 
 **Estado al cierre:** aplicación en producción en `rehactivaec.com`, con despliegue automático
-verificado, **131 pruebas automatizadas** en verde y bitácora de auditoría inmutable conforme a
+verificado, **154 pruebas automatizadas** en verde y bitácora de auditoría inmutable conforme a
 LOPDP.
 
 ---
@@ -85,8 +85,10 @@ LOPDP.
 | 33 | 2026-08-07 | 5 | 31 | 977 | 68 | **CIE-10** + hora exacta + filtro por terapeuta |
 | 34 | 2026-08-11 | 3 | 7 | 529 | 121 | «No asistió» libera el turno |
 | 35 | 2026-08-12 | 4 | 16 | 1.018 | 19 | Ordinal de cita + **pestaña Seguimiento** |
+| 36 | 2026-08-13 | 1 | 7 | 237 | 31 | Secretaría gestiona el equipo + borrado que no arrastra citas |
+| 37 | 2026-08-14 | 3 | 14 | 520 | 56 | Plan de sesiones en la cita + cierre de episodio por la cita real |
 
-**Totales:** 167 entregas · 506 archivos modificados · **31.830 líneas añadidas** · **13.119 retiradas**.
+**Totales:** 171 entregas · 527 archivos modificados · **32.587 líneas añadidas** · **13.206 retiradas**.
 
 *Nota de lectura:* en 2026-04-17 y 2026-04-19 hay una entrega cada día que no registró cambio de
 contenido, por eso «Entregas» supera a «Archivos» esos dos días. Las imágenes y demás binarios
@@ -219,7 +221,7 @@ Escape y áreas táctiles adecuadas; citas pendientes de días anteriores dejan 
 
 ---
 
-## Fase 4 — Producción y refinamiento (2026-07-31 → 2026-08-12) · 7 jornadas · 25 entregas
+## Fase 4 — Producción y refinamiento (2026-07-31 → 2026-08-14) · 9 jornadas · 29 entregas
 
 La app ya está en uso; el trabajo pasa a ser el que pide la operación diaria.
 
@@ -256,6 +258,36 @@ terapeuta puede reasignar esa franja y la cita sigue contando en resumen, inform
   si la sesión se escribió otro día. Incluye detalle desplegable con el terapeuta responsable de
   cada día. **131 pruebas en verde.**
 
+**2026-08-13 — Gestión del equipo para secretaría** (`a95f7fc`)
+- **La secretaria ya administra el equipo** (alta, edición, horarios, orden en agenda y color) sin
+  depender del administrador. La **baja definitiva sigue siendo solo del administrador**: es la
+  única acción irreversible de esa pantalla.
+- **Se eliminó un borrado peligroso, para todos los roles.** Dar de baja a un terapeuta borraba
+  **todas sus citas**, es decir la agenda histórica de la que salen la facturación y el seguimiento,
+  sin aviso y sin vuelta atrás. Ahora el sistema **bloquea la baja** mientras el terapeuta tenga
+  citas e indica cuántas son, para reasignarlas primero.
+- **Horario y orden en agenda pasan a editarse desde la pantalla**: hasta entonces solo se cambiaban
+  tocando la base de datos a mano.
+- El permiso se replicó **también en la base de datos**, no solo en la interfaz: es la base la que
+  garantiza que la baja siga siendo del administrador.
+
+**2026-08-14 — Plan de sesiones en la cita y cierre de episodio por la cita real** (`05682bd`)
+- **El plan del paciente se consulta y se amplía desde la propia cita.** Al abrir una cita se ve
+  «Lleva X de N sesiones» y se puede **ampliar el plan ahí mismo**, sin salir de la agenda ni entrar
+  al informe del paciente. Cambiarlo requiere permiso de edición de pacientes.
+- **El cierre de un episodio ahora pregunta cuál fue la última cita del tratamiento anterior.**
+  Antes el corte se fechaba **siempre el día en que uno se acordaba de registrarlo**: cerrar el
+  lunes un tratamiento que terminó el jueves anterior metía todo lo del viernes al lunes en el
+  tratamiento viejo, y el conteo de sesiones del nuevo arrancaba mal. Ahora el corte cae **donde
+  realmente estuvo**, eligiéndolo de una lista de las citas del paciente.
+- **Aviso cuando el plan se completa** al guardar la sesión que lo cierra, y **el contador «X/N» de
+  la agenda se pone en ámbar** cuando se pasa del plan. Ninguna de las dos cosas bloquea nada:
+  seguir atendiendo es decisión del terapeuta, el sistema solo lo hace visible.
+- **De arrastre:** el botón «Ver informe del paciente» de la cita, que solo aparecía en tablet y
+  celular, ahora **también está en computadora**; y **Presoterapia** se suma a las técnicas
+  registrables en la sesión.
+- **154 pruebas en verde.**
+
 ---
 
 ## Anexo — Prácticas de trabajo aplicadas
@@ -267,8 +299,8 @@ Constan en el repositorio y explican parte del esfuerzo que no se ve en la inter
 - **Verificación de despliegue en cada entrega.** Se confirma que el despliegue quedó en verde y que
   lo servido en `rehactivaec.com` es exactamente el código compilado, comparando las huellas de los
   archivos publicados.
-- **Pruebas automatizadas crecientes:** 19 pruebas (2026-06-26) → 104 (2026-08-12) → **131** al
-  cierre. Se ejecutan en cada cambio.
+- **Pruebas automatizadas crecientes:** 19 pruebas (2026-06-26) → 104 (2026-08-12) → 131 (2026-08-13)
+  → **154** al cierre. Se ejecutan en cada cambio.
 - **Documentación de estado continua.** `PROYECTO_ESTADO.md` registra cada sesión con sus
   decisiones y su deuda técnica pendiente; `AUDITORIA_PRELANZAMIENTO.md` y `rls_policies.md`
   documentan seguridad y permisos de base de datos.
