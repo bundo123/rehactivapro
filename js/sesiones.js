@@ -11,7 +11,7 @@ export const PRO_TECNICAS = [
   'Laser','Ultrasonido','Masoterapia','Movilidad pasiva',
   'Movilidad activa','Fortalecimiento','Estiramientos','Reeducación postural',
   'Reeducación marcha','Propiocepción','Terapia manual','Vendaje funcional',
-  'Punción seca','Tracción lumbar/cervical','Kinesioterapia',
+  'Punción seca','Tracción lumbar/cervical','Kinesiotape',
   'Láser de alta potencia','Ondas de choque','Presoterapia'
 ];
 let proTecnicasSel = [];
@@ -39,10 +39,18 @@ function _setSaveBtn(saving) {
 
 export function renderProTecnicas() {
   const grid=document.getElementById('pro-tecnicas-grid');if(!grid)return;
-  grid.innerHTML=PRO_TECNICAS.map(t=>{
+  const html=PRO_TECNICAS.map(t=>{
     const sel=proTecnicasSel.includes(t);
     return`<button type="button" class="pro-tec-btn${sel?' selected':''}" onclick="toggleProTecnica(this)" data-tec="${t}" style="font-size:13px;padding:9px 8px;min-height:42px;border-radius:9px;cursor:pointer;font-family:inherit;font-weight:500;line-height:1.25;display:flex;align-items:center;justify-content:center;text-align:center;border:1.5px solid ${sel?'rgba(29,158,117,.55)':'rgba(41,171,226,.22)'};background:${sel?'rgba(29,158,117,.15)':'#fff'};color:${sel?'#1D9E75':'#5a5a56'}">${t}</button>`;
-  }).join('');
+  });
+  // Vacuna de legado: técnicas guardadas en sesiones viejas que ya no están en el catálogo
+  // (ej. 'Kinesioterapia') se pintan atenuadas y seleccionadas, para que se vean y se puedan
+  // quitar al editar en vez de quedar invisibles. Texto de la DB → esc().
+  proTecnicasSel.filter(t=>!PRO_TECNICAS.includes(t)).forEach(t=>{
+    const e=esc(t);
+    html.push(`<button type="button" class="pro-tec-btn selected" onclick="toggleProTecnica(this)" data-tec="${e}" title="Técnica histórica: ya no está en el catálogo" style="font-size:13px;padding:9px 8px;min-height:42px;border-radius:9px;cursor:pointer;font-family:inherit;font-weight:500;line-height:1.25;display:flex;align-items:center;justify-content:center;text-align:center;border:1.5px dashed rgba(120,120,116,.45);background:rgba(120,120,116,.10);color:#8a8a85">${e}</button>`);
+  });
+  grid.innerHTML=html.join('');
 }
 
 export function toggleProTecnica(btn) {
