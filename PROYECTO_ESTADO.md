@@ -1,6 +1,6 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-08-12
+> Generado: 2026-05-18 · Última actualización: 2026-08-14
 
 ---
 
@@ -33,6 +33,50 @@
 - **Semana 2:** auto-logout (15 min) · I-13 (alerts→toasts) · P-11 (CSP parcial).
 - **Semana 3:** I-12 (focus-trap/Escape) · I-15 (tests `node --test`) · `npm audit fix` · decisión P-2/P-6.
 - **Semana 4:** `clinical_context` de protocolos reales · papeleo LOPDP (lectura abierta + sub-encargado Anthropic) · **audit final**.
+
+---
+
+## 🗓️ Sesión 2026-08-14 — Terapeutas: la secretaria gestiona el equipo · el borrado deja de arrastrar citas
+
+Un commit, revisado en rama (`revision-equipo`, ya borrada) antes de tocar `main`. En prod con
+Vercel verde verificado por hash de bundle (`index-DM59wvkf.js` / `index-BqTaJimk.css`: el build
+local y el que sirve `rehactivaec.com` coinciden; en el JS servido están los strings del guard y en
+el HTML los campos nuevos del modal y el `data-permission="admin-secretaria"`). Tests: 131 →
+**143 verdes**.
+
+- **`a95f7fc` feat(terapeutas): la secretaria gestiona el equipo y el borrado deja de arrastrar citas.**
+
+  - **Permiso partido en dos (`permissions.js`).** `createTherapist` = alta + edición ·
+    `deleteTherapist` = baja. Admin recibe los dos; **secretaria solo el primero**, más la pestaña
+    `terapeutas` en sus tabs. La baja es la única acción irreversible de la pantalla y no se delega.
+    En el listado cada botón se **renderiza** con su permiso — **ausente, no deshabilitado**: la
+    secretaria no ve "Eliminar", y si un rol no tiene ninguno de los dos tampoco se dibuja el
+    contenedor `.th-actions`.
+  - **Endurecimiento del borrado, para TODOS los roles: se eliminó el borrado en cascada de citas.**
+    Dar de baja a un terapeuta borraba todas sus citas (`delete().eq('therapist_id')`) — o sea que
+    destruía la agenda histórica de la que salen facturación y Seguimiento, sin vuelta atrás y sin
+    aviso. Ahora `therapistDeleteBlock()` (`utils.js`, pura y con `hoy` inyectable) corre **antes
+    del confirm**: con **cualquier** cita, pasada o futura, bloquea con toast *"No se puede
+    eliminar: tiene N citas (X futuras). Reasigná sus citas primero."* — la de hoy cuenta como
+    futura, porque todavía se atiende. Solo se elimina con **cero citas**, y el confirm queda para
+    ese caso. Reasignar primero es ahora el único camino.
+  - **Modal de terapeuta: Horario (`work_start`/`work_end`) y Orden en agenda (`display_order`).**
+    Hasta ahora solo se editaban **por SQL**, aunque los mappers de `auth.js`/`realtime.js` ya los
+    leían y la agenda ya los usaba (`orderedTherapists`, rango horario de la vista Semana). Inputs
+    `time` opcionales — o los dos o ninguno, un solo extremo no define un rango — y entero para el
+    orden (vacío = al final). `hourValToTime()` es el inverso exacto de `parseHourVal` (ida y vuelta
+    testeada; la resolución es la media hora). `extra_rate` sin tocar.
+  - **Persistencia optimista con rollback, ahora también en la edición** (antes solo la creación lo
+    tenía: si el upsert fallaba editando, la UI se quedaba mostrando datos que la DB nunca aceptó).
+    Snapshot previo + `Object.assign` para revertir, `markLocalChange('therapists')` explícito, y
+    `editing` **congelado al inicio** de `saveTherapist` para que reabrir el modal mientras el upsert
+    está en vuelo no desvíe el rollback al terapeuta equivocado.
+  - **RLS espejada en la base (`rls_therapists_secretaria.sql`, versionado).** La tabla estaba en
+    `ALL = is_admin()`: sin este SQL la secretaria veía el botón y chocaba contra *"new row violates
+    row-level security policy"* al guardar. Aplicado y verificado en prod por David: **4 policies —
+    SELECT `true` intacta, INSERT y UPDATE `is_admin() OR is_secretaria()`, DELETE `is_admin()`**, la
+    `ALL` vieja eliminada. El front es solo la UI; el que la baja siga siendo de admin lo garantiza
+    la RLS. `rls_policies.md` actualizado con la tabla `therapists` como bloque propio.
 
 ---
 

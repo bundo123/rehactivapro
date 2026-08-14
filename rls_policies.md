@@ -65,7 +65,7 @@ Las 10 tablas tienen **RLS activada (`relrowsecurity = true`)**. Sin esto, las p
 - SELECT — `true`
 - INSERT/UPDATE — `is_admin() OR is_secretaria()` (la secretaria gestiona el equipo: alta, horarios, orden, color)
 - DELETE — `is_admin()`. ✅ La baja, única acción irreversible de la pantalla, no se delega.
-- ⚠️ **Pendiente de aplicar en Supabase:** `rls_therapists_secretaria.sql`. Hasta correrlo, la tabla sigue con `ALL = is_admin()` y la secretaria recibe "new row violates row-level security policy" al guardar.
+- ✅ **Aplicado y verificado en producción el 2026-08-14** con `rls_therapists_secretaria.sql` (versionado en el repo): quedan 4 policies y la `ALL = is_admin()` vieja fue eliminada. Espeja la partición del permiso de front (`createTherapist` vs `deleteTherapist`).
 
 **audit_log**
 - SELECT — solo admin
