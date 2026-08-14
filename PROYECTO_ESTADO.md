@@ -36,6 +36,63 @@
 
 ---
 
+## 🗓️ Sesión 2026-08-14 (b) — Ficha del plan en la cita · cierre de episodio con frontera elegida
+
+Un commit, revisado en rama (`revision-plan`, ya borrada) antes de tocar `main`. En prod con Vercel
+verde verificado por hash de bundle (`index-G5meI1wk.js` / `index-CRJ3JNvN.css`: el build local y el
+que sirve `rehactivaec.com` coinciden; en el JS servido están los strings de la feature, en el CSS
+las reglas nuevas y en el HTML la sección del plan y el selector de última cita). Tests: 143 →
+**154 verdes**.
+
+- **`05682bd` feat(plan): ficha del plan en la cita y cierre de episodio con frontera elegida.**
+  Dos huecos del mismo flujo: el plan de sesiones **se lee y se amplía sin salir de la agenda**, y el
+  episodio **se cierra por la cita que realmente lo cerró**, no por la fecha en que uno se acordó de
+  registrarlo.
+
+  - **Sección «Plan de sesiones» en el modal de editar cita (`js/plan.js`, módulo nuevo).** Mismo
+    patrón que el CIE-10: es dato del **paciente** (`patients.sessions`), no de la cita, así que se
+    guarda al instante en su ficha y **sin paciente asignado la sección no aparece**. Muestra "Lleva
+    X de N sesiones" con **exactamente lo mismo** que pinta el badge X/N de la agenda —`doneActual`
+    (episodio actual, derivado de `session_log`) y `p.sessions`—, sin contadores paralelos. Edición
+    rápida de N (input 1-99) **optimista con rollback** y `markLocalChange('patients')`, y acceso
+    directo a Nuevo episodio. Doble gate en el write path: el editor se **oculta** sin permiso
+    `editPatient` y `planGuardarSesiones` lo vuelve a chequear antes de escribir. Al guardar se
+    redibuja la agenda, así que el badge se recalcula en el acto.
+  - **Selector "¿cuál fue la última cita del episodio anterior?" en Nuevo episodio.** **El porqué:**
+    el marcador `Fin de episodio` se fechaba **siempre HOY**, y como la frontera es estricta
+    (`date > fin`), cerrar el lunes un episodio que terminó el jueves pasado metía en el episodio
+    viejo todo lo del viernes al lunes. Ahora el marcador toma **la fecha de la cita elegida** y la
+    frontera cae donde de verdad estuvo. Se ofrecen las **5 pasadas más recientes y las 3 futuras**
+    (hoy cuenta como pasada; futuras porque el cierre se suele registrar con la última cita ya
+    agendada), preseleccionada la pasada más reciente, en formato `Lun 12 ago · 9:00 · Marco`. El
+    `value` de cada opción es el **índice, no la fecha**: dos citas del mismo día son opciones
+    distintas y hay que seleccionar la que el usuario eligió. Sin citas, el marcador va **AYER** —
+    con la fecha de hoy, lo que se registre hoy caería en el episodio viejo.
+  - **No se tocó ninguna función de conteo.** `doneActual`, `pendientesActual`, `citaOrdinal` y el
+    recorte de episodio de los informes siguen igual: la frontera estricta ya hacía todo el trabajo,
+    lo único que cambió es **qué fecha se le pasa**. Los helpers nuevos (`citasParaCierre`,
+    `indiceCitaCierre`, `fmtFechaCorta`, `diaAnterior`) son puros y viven en `utils.js`.
+    `fmtFechaCorta` parsea la fecha **a mano**: `new Date('2026-08-12')` se lee en UTC y en Quito
+    (UTC-5) devolvería el día anterior.
+  - **Badge X/N en ámbar cuando el ordinal supera el plan** (11/10), en vistas Día y Semana, con el
+    tooltip diciéndolo. El plan no bloquea nada; la agenda solo tiene que avisarlo sin obligar a
+    abrir la ficha.
+  - **Aviso de plan completo** al guardar la sesión que lo cierra, en las dos rutas (`saveSession` y
+    `saveSessionManual`). Salta **solo al cruzar** de n−1 a n, no en cada sesión por encima — mismo
+    criterio de umbral que `showBillingAlert`, y va **antes** que él porque ese abre un `confirm()`
+    bloqueante. No frena nada: seguir atendiendo es decisión del terapeuta.
+  - **De arrastre:** el botón "Ver informe del paciente" del modal de cita sale del
+    `@media (pointer: coarse)` y **se ve en todos los dispositivos** (verificado en el CSS servido:
+    la regla quedó a nivel global) — mirar la historia del paciente que se está agendando es la
+    misma consulta con dedo que con mouse. Y **`Presoterapia`** se suma a `PRO_TECNICAS`.
+  - **Tests (`test/episodio.test.js`, 11 nuevos):** opciones y preselección del selector (5+3, orden
+    fecha→hora, hoy como pasada, solo las citas del paciente) y el efecto de la frontera elegida
+    sobre `doneActual` y el ordinal en los tres escenarios — elegir **ayer** (la cita de hoy es la 1
+    del episodio nuevo y `doneActual` arranca en 0), elegir **hoy** (la entrada de hoy queda en el
+    viejo) y **sin citas** (marcador ayer, y lo de hoy ya cuenta en el nuevo).
+
+---
+
 ## 🗓️ Sesión 2026-08-14 — Terapeutas: la secretaria gestiona el equipo · el borrado deja de arrastrar citas
 
 Un commit, revisado en rama (`revision-equipo`, ya borrada) antes de tocar `main`. En prod con
@@ -633,61 +690,64 @@ Cuatro commits llevados a producción (push `3b5f7ca..efd7471`):
 
 ## a) Estructura de archivos
 
-> Recuento **verificado con `wc -l` el 2026-08-11**. La tabla anterior era del corte de mayo:
-> el JS activo pasó de ~3.173 a **5.709** líneas, y hay 4 módulos nuevos (`validators`, `cie10`,
-> `mobile-menu`, `pdf-logo`) más las carpetas `/test/`, `/api/` y `/js/data/`.
+> Recuento **verificado con `wc -l` el 2026-08-14**. La tabla anterior era del corte de mayo:
+> el JS activo pasó de ~3.173 a **6.288** líneas, y hay 6 módulos nuevos (`validators`, `cie10`,
+> `mobile-menu`, `pdf-logo`, `seguimiento`, `plan`) más las carpetas `/test/`, `/api/` y
+> `/js/data/`.
 
 ### `/` (raíz)
 | Archivo | Líneas |
 |---------|--------|
-| `index.html` | 822 |
+| `index.html` | 886 |
 | ~~`app.js`~~ *(legacy monolítico — **BORRADO** en `efd7471`, 2026-05-30)* | — |
 | ~~`/src/`~~ *(scaffolding de Vite — **BORRADO**, ya no existe en el repo)* | — |
 
-### `/js/` — 23 módulos activos
+### `/js/` — 25 módulos activos *(recontado el 2026-08-14)*
 | Archivo | Líneas | |
 |---------|--------|---|
 | `pdf-logo.js` | 3 | logo del membrete como data URI (assets de JS nunca por ruta en string) |
 | `supabase-client.js` | 10 | lee `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` |
 | `toast.js` | 16 | |
 | `mobile-menu.js` | 38 | |
-| `state.js` | 41 | |
-| `permissions.js` | 55 | |
+| `state.js` | 42 | |
+| `permissions.js` | 60 | |
 | `search.js` | 63 | |
+| `plan.js` | 89 | plan de sesiones en el modal de cita (dato del paciente, como `cie10.js`) |
 | `validators.js` | 105 | cédula EC, email, teléfono, errores de campo |
-| `terapeutas.js` | 116 | |
+| `seguimiento.js` | 117 | pestaña de auditoría día a día (solo lectura) |
 | `cie10.js` | 150 | |
+| `terapeutas.js` | 151 | |
 | `doctores.js` | 161 | |
 | `ia.js` | 188 | |
 | `protocolos.js` | 207 | |
 | `resumen.js` | 212 | |
-| `main.js` | 239 | |
+| `main.js` | 248 | |
 | `auth.js` | 288 | |
-| `realtime.js` | 322 | |
+| `realtime.js` | 326 | |
 | `facturacion.js` | 339 | |
-| `utils.js` | 348 | |
-| `sesiones.js` | 382 | |
-| `pacientes.js` | 484 | |
-| `agenda.js` | 888 | |
+| `sesiones.js` | 396 | |
+| `pacientes.js` | 517 | |
+| `utils.js` | 590 | lógica pura y testeada: conteos, episodios, conflictos, ordinal |
+| `agenda.js` | 918 | |
 | `informes.js` | 1054 | |
-| **Total JS activo** | **5709** | |
+| **Total JS activo** | **6288** | |
 
 **`/js/data/cie10-fisio.json`** — 182 KB, 2470 códigos. **No** entra en el bundle inicial: `cie10.js`
 lo carga con `import()` al primer uso (chunk aparte).
 
-### `/css/` — 1.934 líneas
+### `/css/` — 2.078 líneas *(recontado el 2026-08-14)*
 | Archivo | Líneas |
 |---------|--------|
 | `base.css` | 23 |
 | `layout.css` | 59 |
 | `resumen.css` | 68 |
 | `rehactiva-theme.css` | 109 |
-| `components.css` | 132 |
-| `screens.css` | 229 |
+| `components.css` | 155 |
+| `screens.css` | 274 |
 | `facturacion.css` | 450 |
-| `responsive.css` | 864 |
+| `responsive.css` | 940 |
 
-### `/test/` — `node --test`, **85 verdes**
+### `/test/` — `node --test`, **154 verdes**
 | Archivo | Tests sobre |
 |---------|-------------|
 | `cedula.test.js` · `validators.test.js` | cédula ecuatoriana, email, teléfono |
@@ -696,6 +756,10 @@ lo carga con `import()` al primer uso (chunk aparte).
 | `semana.test.js` | `startOfWeek` (vista semanal) |
 | `cie10.test.js` | búsqueda del catálogo (acentos, punto opcional) |
 | `noas.test.js` | slot liberado por no-asistió: `bloqueaSlot`, `compactNoas`, `occupiedSlots` |
+| `ordinal.test.js` | badge X/N: `citaOrdinal`/`ordinalesDeCitas`, frontera de episodio, no-asistió |
+| `seguimiento.test.js` | auditoría día a día: `detalleSeguimiento`, `diasSinRegistro`, filtros |
+| `terapeutas.test.js` | guard de borrado (`therapistDeleteBlock`) y `parseHourVal`/`hourValToTime` |
+| `episodio.test.js` | cierre con frontera elegida: `citasParaCierre`/`indiceCitaCierre`, `fmtFechaCorta`/`diaAnterior` |
 
 ### `/api/` — serverless de Vercel
 | `informe.js` | 114 líneas | informe IA con rol `viewAI` y rate-limit **server-side** (`2e0303a`) |
@@ -820,7 +884,7 @@ main.js         ← importa todos los módulos anteriores
 | Notificaciones a médicos | 🟡 | Preferencias guardadas, **envío no implementado** — sigue en el roadmap |
 | Protocolos de tratamiento | ✅ | CRUD + adherencia |
 | Responsive / móvil | ✅ | Pasada con foco en el flujo del terapeuta (`bc8b276`); targets táctiles de 44 px |
-| Tests automatizados | ✅ | 85 verdes con `node --test` (`npm test`), sobre la lógica pura |
+| Tests automatizados | ✅ | 154 verdes con `node --test` (`npm test`), sobre la lógica pura |
 
 ---
 
@@ -832,7 +896,7 @@ main.js         ← importa todos los módulos anteriores
 ### Ya no aplica *(la versión anterior de esta sección era de mayo)*
 - ~~`app.js` monolítico~~ — borrado en `efd7471`; `index.html` solo carga los módulos de `/js/`.
 - ~~`src/` scaffolding de Vite~~ — borrado, ya no existe.
-- ~~No hay tests~~ — **85 verdes** con `node --test` (`npm test`), y el CI los corre.
+- ~~No hay tests~~ — **154 verdes** con `node --test` (`npm test`), y el CI los corre.
 - ~~URL y anon key hardcodeadas~~ — `supabase-client.js` lee `VITE_SUPABASE_URL` /
   `VITE_SUPABASE_ANON_KEY` y avisa por consola si faltan. La anon key es **pública por diseño**;
   la seguridad real es la RLS.
