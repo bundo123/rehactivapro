@@ -69,7 +69,7 @@ export async function planGuardarSesiones() {
 }
 
 // Cierre de episodio desde la cita: abre el modal de siempre (pacientes.js), que es el que pide
-// diagnóstico nuevo, plan y la última cita del episodio anterior.
+// diagnóstico nuevo, plan y la cita con la que EMPIEZA el episodio nuevo.
 export function planNuevoEpisodio() {
   const p = paciente();
   if (!p) return;

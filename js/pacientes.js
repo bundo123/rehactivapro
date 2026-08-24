@@ -337,7 +337,7 @@ export function openEditPatient(id) {
 let _nePatientId = null;
 let _neCitas = [];   // opciones del selector de última cita, en el orden en que se pintaron
 
-// Selector "¿cuál fue la última cita del episodio anterior?". El value es el ÍNDICE, no la fecha:
+// Selector "¿con qué cita EMPIEZA el episodio nuevo?". El value es el ÍNDICE, no la fecha:
 // dos citas del mismo día son opciones distintas (hora y terapeuta distintos) y el usuario tiene
 // que ver seleccionada exactamente la que eligió.
 function renderNeCitas(patientId) {
@@ -346,9 +346,10 @@ function renderNeCitas(patientId) {
   const hoy=fmtDate(new Date());
   _neCitas=citasParaCierre(state.appointments,patientId,hoy);
   if(!_neCitas.length){
-    // Sin citas no hay frontera que elegir: guardarNuevoEpisodio fecha el marcador AYER, para que
-    // lo que se registre hoy ya cuente en el episodio nuevo (la frontera es estricta).
+    // Sin citas no hay nada que elegir: el episodio nuevo arranca HOY y guardarNuevoEpisodio fecha
+    // el marcador AYER, para que lo que se registre hoy ya cuente en el episodio nuevo.
     sel.innerHTML='<option value="">Sin citas — el episodio nuevo arranca hoy</option>';
+    renderNeHint(hoy);
     return;
   }
   sel.innerHTML=_neCitas.map((a,i)=>{
@@ -358,6 +359,24 @@ function renderNeCitas(patientId) {
   }).join('');
   const idx=indiceCitaCierre(_neCitas,hoy);
   if(idx>=0) sel.value=String(idx);
+  sel.onchange=()=>renderNeHint(fechaInicioElegida(hoy));
+  renderNeHint(fechaInicioElegida(hoy));
+}
+
+// Fecha con la que ARRANCA el episodio nuevo según lo elegido en el selector: la de la cita
+// seleccionada, o `hoy` cuando no hay citas que ofrecer.
+function fechaInicioElegida(hoy) {
+  const idx=parseInt(document.getElementById('ne-last-appt')?.value,10);
+  const cita=Number.isInteger(idx)?_neCitas[idx]:null;
+  return cita?String(cita.date):hoy;
+}
+
+// Hint bajo el selector: las DOS fechas concretas de la frontera, para que no haya que deducirlas.
+function renderNeHint(fechaInicio) {
+  const el=document.getElementById('ne-frontera-hint');
+  if(!el) return;
+  el.innerHTML=`El episodio anterior se cierra el ${esc(fmtFechaCorta(diaAnterior(fechaInicio)))}. `+
+    `Todo lo registrado desde el ${esc(fmtFechaCorta(fechaInicio))} cuenta en el episodio nuevo.`;
 }
 
 export function nuevoEpisodio(patientId) {
@@ -381,12 +400,13 @@ export async function guardarNuevoEpisodio() {
   if(!newDiag){toastErr('Ingresa el nuevo diagnóstico');return;}
   const oldDiag=p.diag;
   const hoy=fmtDate(new Date());
-  // Frontera ELEGIDA: la fecha de la cita que cierra el episodio anterior. Sin citas que ofrecer,
-  // el marcador va AYER — con la fecha de hoy, lo que se registre hoy caería en el episodio viejo
-  // (la frontera es estricta: cuenta lo que tiene date > fin).
+  // Frontera ELEGIDA: el selector pregunta por la cita que ABRE el episodio nuevo, así que el
+  // marcador se fecha el DÍA ANTERIOR a esa cita — la frontera es estricta (cuenta lo que tiene
+  // date > fin) y con la fecha misma la sesión de esa cita caería en el episodio viejo. Sin citas
+  // que ofrecer el episodio nuevo arranca hoy, o sea marcador AYER.
   const idxCita=parseInt(document.getElementById('ne-last-appt')?.value,10);
   const citaFin=Number.isInteger(idxCita)?_neCitas[idxCita]:null;
-  const fechaFin=citaFin?String(citaFin.date):diaAnterior(hoy);
+  const fechaFin=citaFin?diaAnterior(String(citaFin.date)):diaAnterior(hoy);
   const finNote=`Episodio anterior: ${oldDiag} · ${doneActual(p)} sesiones completadas`;
   // El marcador 'Fin de episodio' en session_log ES la frontera del episodio: a partir de su fecha,
   // doneActual/pendientesActual cuentan desde cero. No hace falta resetear columnas en memoria/DB.

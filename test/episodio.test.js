@@ -1,9 +1,10 @@
-// Tests del CIERRE DE EPISODIO con frontera elegida — node --test.
-// Al iniciar un episodio nuevo, el modal pregunta cuál fue la última cita del anterior y la FECHA
-// de esa cita es la que lleva el marcador 'Fin de episodio'. Como la frontera es ESTRICTA
-// (cuenta lo que tiene date > fin), todo lo posterior a ese día pertenece al episodio nuevo.
-// Acá se cubren los helpers puros del selector y el efecto de la elección sobre los dos conteos
-// que dependen de la frontera: doneActual (sesiones del episodio) y citaOrdinal (badge X/N).
+// Tests de la FRONTERA DE EPISODIO — node --test.
+// Al iniciar un episodio nuevo, el modal pregunta con qué cita EMPIEZA el nuevo y el marcador
+// 'Fin de episodio' se fecha el DÍA ANTERIOR a esa cita. Como la frontera es ESTRICTA (cuenta lo
+// que tiene date > fin), lo registrado en la cita elegida y en adelante pertenece al episodio
+// nuevo. Acá se cubren los helpers puros del selector, el cálculo de la fecha del marcador y el
+// efecto de la elección sobre los dos conteos que dependen de la frontera: doneActual (sesiones
+// del episodio) y citaOrdinal (badge X/N).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { citasParaCierre, indiceCitaCierre, fmtFechaCorta, diaAnterior,
@@ -15,6 +16,11 @@ const cita = (id, date, hour = 9, patientId = 'p1') =>
   ({ id, date, hour, duration: 60, status: 'conf', patientId, therapistId: 't1' });
 const sesion = (date) => ({ date, type: 'Fisioterapia', status: 'asistió' });
 const finEpisodio = (date) => ({ date, type: 'Fin de episodio', status: 'asistió' });
+
+// Espejo de la línea de guardarNuevoEpisodio (js/pacientes.js): la fecha del marcador sale de la
+// cita elegida en el selector, o de `hoy` cuando el paciente no tiene citas que ofrecer.
+const fechaMarcador = (citaElegida, hoy = HOY) =>
+  citaElegida ? diaAnterior(String(citaElegida.date)) : diaAnterior(hoy);
 
 // ── Opciones del selector: 5 pasadas + 3 futuras ──────────────────────────────
 test('citasParaCierre — las 5 pasadas más recientes y las 3 futuras más próximas', () => {
@@ -58,41 +64,68 @@ test('indiceCitaCierre — sin pasadas manda la primera futura; con lista vacía
   assert.equal(indiceCitaCierre([], HOY), -1);
 });
 
+// ── Fecha del marcador: el DÍA ANTERIOR a la cita elegida ─────────────────────
+test('la cita elegida abre el episodio nuevo — el marcador va un día antes', () => {
+  assert.equal(fechaMarcador(cita('a1', '2026-08-21')), '2026-08-20');
+  assert.equal(fechaMarcador(cita('a1', HOY)), AYER);
+  assert.equal(fechaMarcador(cita('a1', MANANA)), HOY);
+  assert.equal(fechaMarcador(cita('a1', '2026-09-01')), '2026-08-31');   // cruza de mes
+});
+
+test('sin citas que elegir — el marcador se fecha AYER (el episodio nuevo arranca hoy)', () => {
+  assert.equal(fechaMarcador(null, HOY), AYER);
+  assert.equal(fechaMarcador(null, '2026-01-01'), '2025-12-31');
+  const p = { id: 'p1', sessions: 10, log: [sesion('2026-08-10'), finEpisodio(fechaMarcador(null, HOY))] };
+  assert.equal(doneActual(p), 0);
+  p.log.push(sesion(HOY));
+  assert.equal(doneActual(p), 1);
+  const citaHoy = cita('a1', HOY);
+  assert.deepEqual(citaOrdinal([citaHoy], p, citaHoy), { x: 1, n: 10 });
+});
+
 // ── Efecto de la elección sobre los conteos ───────────────────────────────────
-test('elegir la cita de AYER — la de hoy es la 1 del episodio nuevo y doneActual arranca en 0', () => {
-  // Episodio anterior: dos sesiones, la última ayer. Se cierra eligiendo la cita de ayer.
-  const p = { id: 'p1', sessions: 10, log: [sesion('2026-08-11'), sesion(AYER), finEpisodio(AYER)] };
+test('elegir la cita de HOY — la sesión de hoy es la 1 del episodio nuevo', () => {
+  // Episodio anterior: dos sesiones, la última ayer. Se abre el nuevo con la cita de hoy, así que
+  // el marcador queda en AYER y la sesión que se registre hoy ya cuenta en el episodio nuevo.
+  const p = { id: 'p1', sessions: 10,
+              log: [sesion('2026-08-11'), sesion(AYER), finEpisodio(fechaMarcador(cita('a2', HOY)))] };
   const citaAyer = cita('a1', AYER), citaHoy = cita('a2', HOY);
   assert.equal(doneActual(p), 0);                              // nada posterior a la frontera
   assert.equal(citaOrdinal([citaAyer, citaHoy], p, citaAyer), null);   // quedó en el episodio cerrado
   assert.deepEqual(citaOrdinal([citaAyer, citaHoy], p, citaHoy), { x: 1, n: 10 });
-  // Y la sesión que se registre hoy ya cuenta en el episodio nuevo.
   p.log.push(sesion(HOY));
   assert.equal(doneActual(p), 1);
 });
 
-test('elegir la cita de HOY — la entrada de hoy queda en el episodio VIEJO', () => {
-  // Misma situación, pero el cierre se registra con la cita de hoy: la sesión de hoy es la última
-  // del episodio que termina, no la primera del nuevo.
-  const p = { id: 'p1', sessions: 10, log: [sesion(AYER), sesion(HOY), finEpisodio(HOY)] };
+test('elegir la cita de MAÑANA — lo de hoy queda en el episodio VIEJO', () => {
+  // El episodio nuevo arranca en la próxima cita agendada: marcador HOY, la sesión de hoy es la
+  // última del episodio que termina.
+  const p = { id: 'p1', sessions: 10,
+              log: [sesion(AYER), sesion(HOY), finEpisodio(fechaMarcador(cita('a2', MANANA)))] };
   assert.equal(doneActual(p), 0);
   const citaHoy = cita('a1', HOY), citaManana = cita('a2', MANANA);
   assert.equal(citaOrdinal([citaHoy, citaManana], p, citaHoy), null);
   assert.deepEqual(citaOrdinal([citaHoy, citaManana], p, citaManana), { x: 1, n: 10 });
-  // La de mañana sí abre el episodio nuevo.
   p.log.push(sesion(MANANA));
   assert.equal(doneActual(p), 1);
 });
 
-test('sin citas — el marcador se fecha AYER y lo de hoy ya cuenta en el episodio nuevo', () => {
-  assert.equal(diaAnterior(HOY), AYER);
-  const p = { id: 'p1', sessions: 10, log: [sesion('2026-08-10'), finEpisodio(diaAnterior(HOY))] };
-  assert.equal(doneActual(p), 0);
-  p.log.push(sesion(HOY));
-  assert.equal(doneActual(p), 1);
-  assert.deepEqual(citaOrdinal([cita('a1', HOY)], p, cita('a1', HOY)), null);   // no está en la lista
-  const citaHoy = cita('a1', HOY);
-  assert.deepEqual(citaOrdinal([citaHoy], p, citaHoy), { x: 1, n: 10 });
+// ── Regresión del caso real de producción (agosto 2026) ───────────────────────
+// La terapeuta eligió la cita del 21-ago pensando "con esta empieza el episodio nuevo", pero el
+// modal preguntaba por la ÚLTIMA del anterior: el marcador tomó el 2026-08-21 y la sesión de ese
+// mismo día quedó archivada en el episodio viejo (date == fin no es > fin), dejando el episodio
+// nuevo vacío. Con la pregunta invertida el marcador va al 20-ago y esa sesión cuenta en el nuevo.
+test('regresión — la sesión del día de la cita elegida cae DENTRO del episodio nuevo', () => {
+  const citaElegida = cita('a1', '2026-08-21');
+  const fin = fechaMarcador(citaElegida, '2026-08-21');
+  assert.equal(fin, '2026-08-20');
+  const p = { id: 'p1', sessions: 10,
+              log: [sesion('2026-08-14'), finEpisodio(fin), sesion('2026-08-21')] };
+  assert.equal(doneActual(p), 1);                               // antes del fix: 0
+  assert.deepEqual(citaOrdinal([citaElegida], p, citaElegida), { x: 1, n: 10 });
+  // Y lo del episodio viejo sigue afuera.
+  const citaVieja = cita('a0', '2026-08-14');
+  assert.equal(citaOrdinal([citaVieja, citaElegida], p, citaVieja), null);
 });
 
 // ── Etiquetas del selector ────────────────────────────────────────────────────

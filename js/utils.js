@@ -425,13 +425,14 @@ export function ordinalesDeCitas(appointments, getPacienteFn) {
   return out;
 }
 
-// ── Cierre de episodio: ¿cuál fue la última cita del episodio que se cierra? ──
+// ── Frontera de episodio: ¿con qué cita EMPIEZA el episodio nuevo? ──
 // Opciones del selector del modal "Nuevo episodio". Universo: las citas del paciente — las 5
 // PASADAS más recientes (hoy incluido: la cita de hoy ya se atendió) y las 3 FUTURAS más próximas,
-// en orden ascendente por fecha y hora, como se leen en la agenda. Se ofrecen futuras porque el
-// cierre se suele registrar con la última cita ya agendada, no con la de ayer.
-// La FECHA de la elegida es la que lleva el marcador 'Fin de episodio', y como la frontera es
-// estricta (date > fin), todo lo posterior a ese día cuenta en el episodio nuevo.
+// en orden ascendente por fecha y hora, como se leen en la agenda. Se ofrecen pasadas porque el
+// episodio nuevo suele arrancar en una cita ya atendida, y futuras porque a veces se abre desde la
+// próxima ya agendada.
+// El marcador 'Fin de episodio' se fecha el DÍA ANTERIOR a la elegida, y como la frontera es
+// estricta (date > fin), lo registrado en la cita elegida y en adelante cuenta en el episodio nuevo.
 // Pura: `hoy` se inyecta en los tests.
 export function citasParaCierre(appointments, patientId, hoy = fmtDate(new Date())) {
   const suyas = (appointments || [])

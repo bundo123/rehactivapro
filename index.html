@@ -862,12 +862,14 @@
     <label>Sesiones prescritas</label>
     <input type="number" id="ne-sessions" value="12" min="1" max="100">
   </div>
-  <!-- Frontera del episodio: la FECHA de la cita elegida es la que lleva el marcador
-       'Fin de episodio'. pacientes.js llena las opciones (5 pasadas + 3 futuras). -->
+  <!-- Frontera del episodio: se pregunta por la cita que ABRE el episodio nuevo y el marcador
+       'Fin de episodio' se escribe el DÍA ANTERIOR a esa fecha (la frontera es estricta: cuenta
+       lo que tiene date > fin). pacientes.js llena las opciones (5 pasadas + 3 futuras) y el
+       hint de abajo con las dos fechas concretas. -->
   <div class="field">
-    <label>¿Cuál fue la última cita del episodio anterior?</label>
+    <label>¿Con qué cita EMPIEZA el episodio nuevo?</label>
     <select id="ne-last-appt"></select>
-    <div class="ne-note">Todo lo posterior a esa fecha contará en el episodio nuevo.</div>
+    <div class="ne-note" id="ne-frontera-hint"></div>
   </div>
   <div class="field">
     <label>¿Abrir evaluación inicial al guardar?</label>
