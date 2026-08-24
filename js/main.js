@@ -40,7 +40,8 @@ import {
   renderSemanal, changeWeek, showSubTab, changeMensualMonth,
   renderPatientReportSelect, updateEpisodes, renderPatientReport,
   filterPatientRptSelect, selectRptPatient, rptSearchKeydown, exportarPDF, genSemanalAI, genPatientAI,
-  guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado
+  guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado,
+  abrirFirmanteModal, confirmarExportarWord
 } from './informes.js';
 import {
   renderFacturacion, emitirFactura, marcarTodosFacturados
@@ -62,7 +63,6 @@ import { planGuardarSesiones, planNuevoEpisodio } from './plan.js';
 import { callAI } from './ia.js';
 import { globalSearch, selectGlobalResult, checkCitasPendientes } from './search.js';
 import { initMobileMenu } from './mobile-menu.js';
-import { wordTest } from './word.js';   // SPIKE temporal: botón "⚙ Word test" del informe (solo admin)
 
 // ── Registro central de funciones para módulos cross-cutting ──
 window._app = {
@@ -225,8 +225,9 @@ Object.assign(window, {
   renderPatientReport, renderProtocols, protPage,
   toggleRecurrencia, toggleProTecnica,
   skipSession, simWA, simEmail, emitirFactura,
-  marcarTodosFacturados, exportarPDF, wordTest, genSemanalAI, genResumenDiaAI,
+  marcarTodosFacturados, exportarPDF, genSemanalAI, genResumenDiaAI,
   genPatientAI, guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado, globalSearch, selectGlobalResult,
+  abrirFirmanteModal, confirmarExportarWord,
   updateRecPreview, populateDiagList,
   goToPatientPage, toggleEvalFilter, setPatientStatusFilter, verPaciente, onPatientProtocolChange,
   setSeguimientoFilter, toggleSeguimientoDetalle, verPacienteSeguimiento,

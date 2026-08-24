@@ -1,10 +1,11 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, safeColor, orderedTherapists } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, safeColor, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg } from './utils.js';
 import { apptSlots } from './agenda.js';
 import { genSemanalAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasPermission } from './permissions.js';
 import { LOGO_DATA_URI } from './pdf-logo.js';
+import { generarInformeWord } from './word.js';
 
 export { genSemanalAI, genPatientAI };
 
@@ -13,13 +14,6 @@ export { genSemanalAI, genPatientAI };
 let _rptCtx = null;
 const MES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const MES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-
-// Datos de contacto de la clínica para el pie del PDF. Los segmentos vacíos se omiten del footer.
-const CONFIG_CLINICA = {
-  DIRECCION: 'Palmeras Shopping, Vía Intervalles OE-95 y primera transversal, Tumbaco',
-  TELEFONO: '099 921 1258',
-  EMAIL: '', // poner 'recepcion@rehactivaec.com' cuando se confirme que el buzón recibe
-};
 
 function _ym(y, m) { return `${y}-${String(m + 1).padStart(2, '0')}`; } // m 0-based
 function _prevYm(ym) {
@@ -93,11 +87,9 @@ function utilText(u){ return u>=80?'#17865f':u>=60?'#a06a00':'#c33a3a'; }
 // (Continuidad usa su propia escala 85/70, no esta.)
 function pctColor(v){ return v>=66?'#1D9E75':v>=33?'#BA7517':'#E24B4A'; }
 // Color del dolor EVA por valor (escala clínica estándar): 7–10 rojo (severo) / 4–6 amarillo
-// (moderado) / 1–3 verde (leve) / 0 azul (sin dolor). Debe concordar con las bandas del gráfico (:670).
+// (moderado) / 1–3 verde (leve) / 0 azul (sin dolor). Solo para pantalla — debe concordar con las
+// bandas hardcodeadas en buildEvaSvg (utils.js), que usa su propia escala 0/3/6/10 para el PDF/Word.
 function evaColor(v){ return v>=7?'#E24B4A':v>=4?'#E0A850':v>=1?'#1D9E75':'#29ABE2'; }
-// Fecha 'YYYY-MM-DD' → 'DD/MM/YYYY' (para el detalle del informe, sin hora).
-function dmy(d){ const p=String(d||'').split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:String(d||''); }
-
 // Fuente ÚNICA de la semana visible (Lun–Vie) derivada de state.currentWeek.
 // La usan renderSemanal, renderTherapistUtil, renderHeatmap y renderInsights para que
 // las flechas de navegación muevan DATOS y rótulo de forma consistente.
@@ -700,12 +692,8 @@ export function renderPatientReport() {
         <div class="side-title">Documento</div>
         <div class="side-col">
           ${hasPermission('viewAI')?`<button class="side-btn primary" onclick="genPatientAI()">Informe clínico con IA</button>`:''}
-          <button class="side-btn outline" onclick="exportarPDF()">Exportar PDF</button>
+          <button class="side-btn outline" onclick="abrirFirmanteModal()">Exportar Word</button>
           ${hasPermission('viewAI')?`<button class="side-btn outline" id="save-informe-btn" style="display:none" onclick="guardarInforme()">💾 Guardar informe</button>`:''}
-          <!-- SPIKE (temporal, solo admin): valida la generación de .docx en el navegador. No usa
-               los datos del informe en pantalla — genera un documento de prueba con datos fijos.
-               Se quita cuando el spike se cierre. -->
-          ${state.currentUserRole==='admin'?`<button class="side-btn outline" onclick="wordTest()">⚙ Word test</button>`:''}
         </div>
       </div>
       <div class="side-card">
@@ -761,7 +749,7 @@ export function renderPatientReport() {
 // Construye el render-model del PDF desde el informe en pantalla (_rptCtx + narrativa IA + canvas EVA).
 // Es el MISMO shape que se persiste como snapshot, para que el PDF guardado salga idéntico sin re-llamar a la IA.
 function _buildRenderModel() {
-  const {p,log,attended,pct,adh,fp,lp,doc,inicio,rptNo,fechaLarga,thHeader,prot,epDiag,epDone,epSessions,cieRpt}=_rptCtx;
+  const {p,log,attended,pct,adh,fp,lp,doc,inicio,rptNo,fechaLarga,thHeader,prot,epDiag,epDone,epSessions,cieRpt,firmante}=_rptCtx;
   // Captura del gráfico EVA ya dibujado en pantalla — evita el canvas en blanco por timing.
   const evaCanvas=document.getElementById('eva-evolution-chart');
   const evaImg=evaCanvas?evaCanvas.toDataURL('image/png'):'';
@@ -794,54 +782,10 @@ function _buildRenderModel() {
     evaChartImg:evaImg,
     // Narrativa IA ESTRUCTURADA ([{title,body}], compartida por ia.js): títulos en negrita y secciones separadas.
     narrativa:getLastNarrative(),
+    // Quién firma el documento — se pide en el modal de firmante antes de exportar a Word (null si
+    // todavía no se confirmó ninguno para este informe en pantalla).
+    firmante:firmante||null,
   };
-}
-
-// PURA: gráfico EVA del PDF como SVG inline, espejando la MISMA serie que dibuja el canvas
-// 'eva-evolution-chart' en pantalla (:684): arranca en el dolor inicial (metricas.evaInicial,
-// capturado de fp.pb), sigue con el dolor tras cada sesión con EVA (pa, o pb si falta) y termina
-// en el dolor actual (metricas.evaActual). El snapshot no guarda status, así que el espejo de
-// evaSes es pb!=null (una sesión sin EVA registrado no puntúa en ninguno de los dos gráficos).
-// Devuelve '' si no hay serie construible (el caller cae a evaChartImg para snapshots viejos).
-function _buildEvaSvg(m) {
-  const ses=(m.sesiones||[]).map((s,i)=>({...s,n:i+1})).filter(s=>s.pb!=null);
-  if(!ses.length) return '';
-  const met=m.metricas||{};
-  const startVal=met.evaInicial!=null?met.evaInicial:ses[0].pb;
-  const endVal=met.evaActual!=null?met.evaActual:ses[ses.length-1].pa;
-  const mid=ses.map(s=>s.pa!=null?s.pa:s.pb);
-  if(endVal!=null) mid[mid.length-1]=endVal;
-  // Punto 0 = estado inicial (fechado en la evaluación inicial si existe); luego "Sesión N"
-  // con el N de la tabla "Detalle por sesión" para que gráfico y tabla se lean juntos.
-  const pts=[startVal,...mid].map((v,i)=>i===0
-    ?{v,lbl:m.evalInicial?'Eval. inicial':'Inicio',fecha:m.evalInicial?m.evalInicial.fecha:ses[0].fecha}
-    :{v,lbl:'Sesión '+ses[i-1].n,fecha:ses[i-1].fecha});
-  const n=pts.length;
-  const L=34,R=700,T=20,B=190;
-  const y=v=>B-(v/10)*(B-T);
-  const x=i=>n>1?64+i*(670-64)/(n-1):367;
-  let g='';
-  [0,2,4,6,8,10].forEach(v=>{
-    g+='<line x1="'+L+'" y1="'+y(v)+'" x2="'+R+'" y2="'+y(v)+'" stroke="#EAEAE4" stroke-width="1"/>'
-      +'<text x="'+(L-8)+'" y="'+(y(v)+3)+'" text-anchor="end" font-size="8" fill="#6B6B66">'+v+'</text>';
-  });
-  // Referencias clínicas de la escala EVA: 3 (leve/moderado) y 6 (moderado/severo).
-  [3,6].forEach(v=>{ g+='<line x1="'+L+'" y1="'+y(v)+'" x2="'+R+'" y2="'+y(v)+'" stroke="#B8B8B0" stroke-width="1" stroke-dasharray="4 3"/>'; });
-  [[1.5,'leve'],[4.5,'moderado'],[8,'severo']].forEach(z=>{
-    g+='<text x="'+(R+8)+'" y="'+(y(z[0])+3)+'" font-size="8" fill="#6B6B66">'+z[1]+'</text>';
-  });
-  g+='<polyline points="'+pts.map((p,i)=>x(i).toFixed(1)+','+y(p.v).toFixed(1)).join(' ')+'" fill="none" stroke="#155B7A" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
-  const step=Math.max(1,Math.ceil(n/10)); // como el autoSkip del canvas: no amontonar etiquetas
-  pts.forEach((p,i)=>{
-    const px=x(i).toFixed(1);
-    g+='<circle cx="'+px+'" cy="'+y(p.v).toFixed(1)+'" r="3.5" fill="#155B7A"/>'
-      +'<text x="'+px+'" y="'+(y(p.v)-8).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="bold" fill="#1A1A1A">'+esc(p.v)+'</text>';
-    if(i%step===0||i===n-1){
-      g+='<text x="'+px+'" y="204" text-anchor="middle" font-size="8" fill="#6B6B66">'+esc(p.lbl)+'</text>'
-        +'<text x="'+px+'" y="214" text-anchor="middle" font-size="8" fill="#6B6B66">'+esc(dmy(p.fecha))+'</text>';
-    }
-  });
-  return '<svg viewBox="0 0 760 240" font-family="Arial,Helvetica,sans-serif" style="width:100%;height:auto;display:block;background:#fff">'+g+'</svg>';
 }
 
 // PURA: render-model → HTML del PDF con formato de documento médico formal (sin look dashboard:
@@ -879,7 +823,7 @@ function buildPdfHtml(m) {
     +sumCol('Dolor EVA',evaVal,met.evaHas?'inicial → actual':'sin datos registrados')
     +'</div>';
 
-  const evaSvg=_buildEvaSvg(m);
+  const evaSvg=buildEvaSvg(m);
   const chart=evaSvg
     ?'<div class="keep"><h2>Evolución del dolor (EVA)</h2>'+evaSvg+'</div>'
     :(m.evaChartImg?'<div class="keep"><h2>Evolución del dolor (EVA)</h2><img src="'+esc(m.evaChartImg)+'" style="max-width:100%;display:block"></div>':'');
@@ -966,6 +910,30 @@ function openPdfWindow(html) {
 export function exportarPDF() {
   if(!_rptCtx){window._app.toastErr('Abrí primero el informe de un paciente');return;}
   openPdfWindow(buildPdfHtml(_buildRenderModel()));
+}
+
+// Modal de firmante: se pide SIEMPRE antes de exportar a Word (no se cachea entre informes) porque
+// 'Terapeuta' en el encabezado puede ser "Varios" cuando el episodio tuvo más de un terapeuta — el
+// firmante es una persona concreta, no el agregado de la ficha. Precarga con el terapeuta único del
+// episodio si lo hay, o con el último firmante confirmado en pantalla.
+export function abrirFirmanteModal() {
+  if(!_rptCtx){window._app.toastErr('Abrí primero el informe de un paciente');return;}
+  const nombreInput=document.getElementById('fw-nombre');
+  if(nombreInput) nombreInput.value=_rptCtx.firmante||_rptCtx.th?.name||'';
+  const dl=document.getElementById('firmante-list');
+  if(dl) dl.innerHTML=orderedTherapists().map(t=>`<option value="${esc(t.name)}"></option>`).join('');
+  document.getElementById('firmante-modal').classList.add('open');
+}
+
+// Confirma el firmante, lo deja en _rptCtx (así 'Guardar informe' lo persiste en el snapshot con el
+// resto del modelo) y dispara la generación del .docx real en word.js.
+export async function confirmarExportarWord() {
+  if(!_rptCtx){window._app.toastErr('Abrí primero el informe de un paciente');return;}
+  const nombre=(document.getElementById('fw-nombre')?.value||'').trim();
+  if(!nombre){window._app.toastErr('Ingresá el nombre de quien firma');return;}
+  _rptCtx.firmante=nombre;
+  window._app.closeModal('firmante-modal');
+  await generarInformeWord(_buildRenderModel());
 }
 
 // Card "Informes guardados" del paciente actual (no-deleted, reciente primero). Se re-pinta sola

@@ -884,5 +884,22 @@
   </div>
 </div>
 </div>
+
+<!-- MODAL FIRMANTE (exportar informe a Word) -->
+<div class="modal-bg" id="firmante-modal">
+<div class="modal" style="max-width:380px">
+  <h3>Firmante del informe</h3>
+  <div style="font-size:13px;color:#6b6a64;margin-bottom:16px">¿Quién firma este informe? Se imprime al pie del documento.</div>
+  <div class="field">
+    <label>Terapeuta que firma</label>
+    <input type="text" id="fw-nombre" list="firmante-list" placeholder="Nombre del fisioterapeuta">
+    <datalist id="firmante-list"></datalist>
+  </div>
+  <div class="modal-actions">
+    <button class="btn-cancel" onclick="closeModal('firmante-modal')">Cancelar</button>
+    <button class="btn-save" onclick="confirmarExportarWord()">Exportar Word</button>
+  </div>
+</div>
+</div>
 </body>
 </html>
