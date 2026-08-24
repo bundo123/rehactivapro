@@ -62,6 +62,7 @@ import { planGuardarSesiones, planNuevoEpisodio } from './plan.js';
 import { callAI } from './ia.js';
 import { globalSearch, selectGlobalResult, checkCitasPendientes } from './search.js';
 import { initMobileMenu } from './mobile-menu.js';
+import { wordTest } from './word.js';   // SPIKE temporal: botón "⚙ Word test" del informe (solo admin)
 
 // ── Registro central de funciones para módulos cross-cutting ──
 window._app = {
@@ -224,7 +225,7 @@ Object.assign(window, {
   renderPatientReport, renderProtocols, protPage,
   toggleRecurrencia, toggleProTecnica,
   skipSession, simWA, simEmail, emitirFactura,
-  marcarTodosFacturados, exportarPDF, genSemanalAI, genResumenDiaAI,
+  marcarTodosFacturados, exportarPDF, wordTest, genSemanalAI, genResumenDiaAI,
   genPatientAI, guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado, globalSearch, selectGlobalResult,
   updateRecPreview, populateDiagList,
   goToPatientPage, toggleEvalFilter, setPatientStatusFilter, verPaciente, onPatientProtocolChange,

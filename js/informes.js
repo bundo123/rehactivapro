@@ -702,6 +702,10 @@ export function renderPatientReport() {
           ${hasPermission('viewAI')?`<button class="side-btn primary" onclick="genPatientAI()">Informe clínico con IA</button>`:''}
           <button class="side-btn outline" onclick="exportarPDF()">Exportar PDF</button>
           ${hasPermission('viewAI')?`<button class="side-btn outline" id="save-informe-btn" style="display:none" onclick="guardarInforme()">💾 Guardar informe</button>`:''}
+          <!-- SPIKE (temporal, solo admin): valida la generación de .docx en el navegador. No usa
+               los datos del informe en pantalla — genera un documento de prueba con datos fijos.
+               Se quita cuando el spike se cierre. -->
+          ${state.currentUserRole==='admin'?`<button class="side-btn outline" onclick="wordTest()">⚙ Word test</button>`:''}
         </div>
       </div>
       <div class="side-card">
