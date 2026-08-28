@@ -26,3 +26,6 @@ dist-ssr
 .env
 .claude/
 node_modules.zip
+
+# Directorio literal "~" creado por un cp con path Windows sin expandir
+~/
