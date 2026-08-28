@@ -537,10 +537,10 @@ export async function generarInformeWord(m) {
       const meta = [dmy(s.fecha), s.terapeuta || null, s.tecnicas ? s.tecnicas.toLowerCase() : null].filter(Boolean).join(' · ');
       const registrada = s.pb != null;
       const evaTxt = registrada ? `${s.pb} → ${s.pa != null ? s.pa : '?'}` : (carryEva != null ? `${carryEva} → —` : '—');
-      // Texto único para sesión sin observación, tenga o no EVA registrado — antes variaba según
-      // `registrada` ("Sin observación registrada" vs. la frase larga), inconsistencia que no
-      // tiene motivo de diseño.
-      const obsTexto = s.obs || 'Sesión sin observación ni técnicas registradas.';
+      // Sin observación: el texto depende de si HAY técnicas registradas o no — una sesión con
+      // técnicas (ej. "kinesiotape, electroterapia") pero sin nota no es lo mismo que una sesión
+      // sin ningún dato. La frase larga es solo para el caso "nada registrado".
+      const obsTexto = s.tecnicas ? 'Sin observación registrada.' : 'Sesión sin observación ni técnicas registradas.';
       return new TableRow({ cantSplit: true, children: [
         new TableCell({
           width: { size: 700, type: WidthType.DXA }, borders: bordesInvisibles, shading, verticalAlign: VerticalAlign.TOP,
