@@ -90,17 +90,21 @@ function buildEvaSvgWord(m) {
   });
   if (met.evaActual != null) pts[pts.length - 1].v = met.evaActual;
 
-  const W = 605, H = 150;
+  const W = 605, H = 130;
   const L = 26, R = W - 10;
   const n = pts.length;
   const x = i => n > 1 ? L + i * (R - L) / (n - 1) : (L + R) / 2;
 
   const vals = pts.map(p => p.v);
   const vMax = Math.max(...vals, 6), vMin = Math.min(...vals, 3); // 3/6 quedan visibles si hay dato cerca
-  const TOP = 28, LABEL_Y = H - 10, BASE = LABEL_Y - 13;
+  const TOP = 22, LABEL_Y = H - 9, BASE = LABEL_Y - 11;
+  // Colchón entre el valor más bajo de la serie y la base del área: sin esto, un EVA 0 (o el
+  // mínimo de la serie) cae justo sobre el borde inferior del área sombreada y se confunde con
+  // él. El área sigue apoyada en BASE — el colchón solo empuja el MAPEO de valores, no la forma.
+  const CUSHION = 10;
   const range = Math.max(1, vMax - vMin);
-  const pxPerEva = (BASE - TOP) / range;
-  const y = v => BASE - (v - vMin) * pxPerEva;
+  const pxPerEva = (BASE - CUSHION - TOP) / range;
+  const y = v => BASE - CUSHION - (v - vMin) * pxPerEva;
 
   let g = '';
   // Referencias leve/moderado/severo — discretas, sin etiqueta (ajuste sobre la referencia, que
@@ -256,12 +260,11 @@ export async function generarInformeWord(m) {
     // del canvas en pantalla (snapshots viejos, con el estilo de ejes/bandas anterior); si tampoco
     // hay eso, se omite la sección entera.
     const evaSvg = buildEvaSvgWord(m);
-    let evaPng = null, evaPngW = 605, evaPngH = 150;
+    let evaPng = null, evaPngW = 605, evaPngH = 130;
     if (evaSvg) {
-      // 1210×300 rasterizado (2x de 605×150) — más bajo que el primer intento (1210×422): a esa
-      // altura la caja de "Evaluación inicial" no entraba en lo que quedaba de página 1 y saltaba
-      // entera por el cantSplit de su tabla.
-      evaPng = await svgToPngDataUri(evaSvg, 605, 150, 2);
+      // 1210×260 rasterizado (2x de 605×130) — sigue bajando (1210×422 -> 1210×300 -> 1210×260)
+      // para dejar más margen a la caja de "Evaluación inicial" en lo que queda de página 1.
+      evaPng = await svgToPngDataUri(evaSvg, 605, 130, 2);
     } else if (m.evaChartImg) { evaPng = m.evaChartImg; evaPngW = 605; evaPngH = 191; }
 
     // ── Estilos de párrafo ──
@@ -445,9 +448,12 @@ export async function generarInformeWord(m) {
                       new TextRun({ text: `${dmy(m.evalInicial.fecha)} · EVA ${m.evalInicial.pb != null ? m.evalInicial.pb : '—'}/10`, allCaps: true, size: SZ.etqMetrica, color: ETIQUETA, characterSpacing: TRACK_CAPS }),
                     ],
                   }),
+                  // keepNext en el ÚLTIMO párrafo de cuerpo (el penúltimo de la caja) cuando hay
+                  // "Zona evaluada": la pega a esa línea para que nunca arranque sola una página —
+                  // cantSplit:false de la tabla sigue permitiendo partir ANTES de ese punto.
                   ...(resto.length
-                    ? resto.map(x => new Paragraph({ style: 'Cuerpo', text: x }))
-                    : [new Paragraph({ style: 'Cuerpo', children: [new TextRun({ text: 'Sin detalle registrado', size: SZ.cuerpo, color: VACIO })] })]),
+                    ? resto.map((x, i) => new Paragraph({ style: 'Cuerpo', text: x, keepNext: !!zona && i === resto.length - 1 }))
+                    : [new Paragraph({ style: 'Cuerpo', keepNext: !!zona, children: [new TextRun({ text: 'Sin detalle registrado', size: SZ.cuerpo, color: VACIO })] })]),
                   ...(zona ? [new Paragraph({ style: 'ZonaEval', text: `Zona evaluada: ${zona.toLowerCase()}` })] : []),
                 ],
               })] })],
