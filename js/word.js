@@ -97,14 +97,18 @@ function buildEvaSvgWord(m) {
 
   const vals = pts.map(p => p.v);
   const vMax = Math.max(...vals, 6), vMin = Math.min(...vals, 3); // 3/6 quedan visibles si hay dato cerca
-  const TOP = 22, LABEL_Y = H - 9, BASE = LABEL_Y - 11;
-  // Colchón entre el valor más bajo de la serie y la base del área: sin esto, un EVA 0 (o el
-  // mínimo de la serie) cae justo sobre el borde inferior del área sombreada y se confunde con
-  // él. El área sigue apoyada en BASE — el colchón solo empuja el MAPEO de valores, no la forma.
-  const CUSHION = 10;
+  const TOP = 22, LABEL_Y = H - 9;
+  // AREA_FLOOR (borde inferior de la forma rellena) queda FIJO cerca del piso del viewBox, sin
+  // relación con LABEL_Y — antes lo derivaba de LABEL_Y (BASE = LABEL_Y - 11), así que cada vez
+  // que H bajaba por paginación el "colchón" se achicaba con él, y al final el margen efectivo
+  // (colchón menos el radio del marcador) quedaba en unos pocos px con una tinta al 6% de opacidad
+  // — visualmente indistinguible de "tocando". Ahora CUSHION empuja el MAPEO de valores lejos de
+  // AREA_FLOOR, que no se mueve.
+  const AREA_FLOOR = H - 4;
+  const CUSHION = 14;
   const range = Math.max(1, vMax - vMin);
-  const pxPerEva = (BASE - CUSHION - TOP) / range;
-  const y = v => BASE - CUSHION - (v - vMin) * pxPerEva;
+  const pxPerEva = (AREA_FLOOR - CUSHION - TOP) / range;
+  const y = v => AREA_FLOOR - CUSHION - (v - vMin) * pxPerEva;
 
   let g = '';
   // Referencias leve/moderado/severo — discretas, sin etiqueta (ajuste sobre la referencia, que
@@ -116,7 +120,7 @@ function buildEvaSvgWord(m) {
   });
 
   const areaPts = pts.map((p, i) => `${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
-  g += `<path d="M${areaPts.split(' ')[0]} L${areaPts.split(' ').join(' L')} L${x(n - 1).toFixed(1)},${BASE.toFixed(1)} L${x(0).toFixed(1)},${BASE.toFixed(1)} Z" fill="#145b6d" opacity="0.06"/>`;
+  g += `<path d="M${areaPts.split(' ')[0]} L${areaPts.split(' ').join(' L')} L${x(n - 1).toFixed(1)},${AREA_FLOOR.toFixed(1)} L${x(0).toFixed(1)},${AREA_FLOOR.toFixed(1)} Z" fill="#145b6d" opacity="0.06"/>`;
 
   for (let i = 1; i < n; i++) {
     const dashed = pts[i].hollow || pts[i - 1].hollow;
@@ -137,7 +141,10 @@ function buildEvaSvgWord(m) {
       ? `<circle cx="${px_}" cy="${py.toFixed(1)}" r="${r}" fill="#ffffff" stroke="#145b6d" stroke-width="2"/>`
       : `<circle cx="${px_}" cy="${py.toFixed(1)}" r="${r}" fill="#145b6d"/>`;
     if (!p.hollow) {
-      g += `<text x="${px_}" y="${(py - 11).toFixed(1)}" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="${last_ ? '#145b6d' : '#22201d'}">${p.v}</text>`;
+      // Con el valor en 0 (o varios 0 seguidos) el número queda casi pegado al marcador si usa el
+      // mismo offset que el resto — un poco más de aire ahí.
+      const numOffset = p.v === 0 ? 16 : 11;
+      g += `<text x="${px_}" y="${(py - numOffset).toFixed(1)}" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="${last_ ? '#145b6d' : '#22201d'}">${p.v}</text>`;
     }
     if (i === 0 || last_ || i % step === 0) {
       const anchor = i === 0 ? 'start' : (last_ ? 'end' : 'middle');
