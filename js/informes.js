@@ -916,12 +916,18 @@ export function exportarPDF() {
 // 'Terapeuta' en el encabezado puede ser "Varios" cuando el episodio tuvo más de un terapeuta — el
 // firmante es una persona concreta, no el agregado de la ficha. Precarga con el terapeuta único del
 // episodio si lo hay, o con el último firmante confirmado en pantalla.
+//
+// Select cerrado, no datalist: el firmante de un documento clínico tiene que ser un terapeuta real
+// del equipo, no texto libre (el datalist anterior aceptaba cualquier cosa tipeada).
 export function abrirFirmanteModal() {
   if(!_rptCtx){window._app.toastErr('Abrí primero el informe de un paciente');return;}
-  const nombreInput=document.getElementById('fw-nombre');
-  if(nombreInput) nombreInput.value=_rptCtx.firmante||_rptCtx.th?.name||'';
-  const dl=document.getElementById('firmante-list');
-  if(dl) dl.innerHTML=orderedTherapists().map(t=>`<option value="${esc(t.name)}"></option>`).join('');
+  const sel=document.getElementById('fw-nombre');
+  if(sel){
+    const nombres=orderedTherapists().map(t=>t.name);
+    sel.innerHTML='<option value="">Seleccioná un terapeuta…</option>'+nombres.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    const preferido=_rptCtx.firmante||_rptCtx.th?.name||'';
+    sel.value=nombres.includes(preferido)?preferido:'';
+  }
   document.getElementById('firmante-modal').classList.add('open');
 }
 

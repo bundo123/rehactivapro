@@ -175,6 +175,14 @@ function extraerZona(partes) {
   return { zona: list[idx].replace(/^Zonas:\s*/i, '').trim(), resto: list.slice(0, idx).concat(list.slice(idx + 1)) };
 }
 
+// Defecto viejo (no del rediseño): algunas evaluaciones iniciales tienen la anamnesis guardada con
+// un ":" huérfano al inicio (p.ej. ": Inversión forzada del tobillo…"), de un formato de nota
+// anterior. saveEvalInicial() actual (pacientes.js) ya no lo agrega, pero el dato histórico sigue
+// en session_log — se limpia acá, en la salida, en vez de tocar la nota guardada.
+function limpiarParte(texto) {
+  return String(texto || '').replace(/^[:·]\s*/, '').trim();
+}
+
 // Genera y descarga el .docx del informe a partir del render-model (mismo shape que consume
 // buildPdfHtml, más `firmante`). No toca state/_rptCtx/DOM — recibe todo lo que necesita en `m`.
 export async function generarInformeWord(m) {
@@ -459,7 +467,7 @@ export async function generarInformeWord(m) {
                   // "Zona evaluada": la pega a esa línea para que nunca arranque sola una página —
                   // cantSplit:false de la tabla sigue permitiendo partir ANTES de ese punto.
                   ...(resto.length
-                    ? resto.map((x, i) => new Paragraph({ style: 'Cuerpo', text: x, keepNext: !!zona && i === resto.length - 1 }))
+                    ? resto.map((x, i) => new Paragraph({ style: 'Cuerpo', text: limpiarParte(x), keepNext: !!zona && i === resto.length - 1 }))
                     : [new Paragraph({ style: 'Cuerpo', keepNext: !!zona, children: [new TextRun({ text: 'Sin detalle registrado', size: SZ.cuerpo, color: VACIO })] })]),
                   ...(zona ? [new Paragraph({ style: 'ZonaEval', text: `Zona evaluada: ${zona.toLowerCase()}` })] : []),
                 ],
