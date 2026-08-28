@@ -90,14 +90,14 @@ function buildEvaSvgWord(m) {
   });
   if (met.evaActual != null) pts[pts.length - 1].v = met.evaActual;
 
-  const W = 605, H = 211;
+  const W = 605, H = 150;
   const L = 26, R = W - 10;
   const n = pts.length;
   const x = i => n > 1 ? L + i * (R - L) / (n - 1) : (L + R) / 2;
 
   const vals = pts.map(p => p.v);
   const vMax = Math.max(...vals, 6), vMin = Math.min(...vals, 3); // 3/6 quedan visibles si hay dato cerca
-  const TOP = 40, LABEL_Y = H - 14, BASE = LABEL_Y - 18;
+  const TOP = 28, LABEL_Y = H - 10, BASE = LABEL_Y - 13;
   const range = Math.max(1, vMax - vMin);
   const pxPerEva = (BASE - TOP) / range;
   const y = v => BASE - (v - vMin) * pxPerEva;
@@ -119,17 +119,26 @@ function buildEvaSvgWord(m) {
     g += `<line x1="${x(i - 1).toFixed(1)}" y1="${y(pts[i - 1].v).toFixed(1)}" x2="${x(i).toFixed(1)}" y2="${y(pts[i].v).toFixed(1)}" stroke="#145b6d" stroke-width="2" stroke-linecap="round"${dashed ? ' stroke-dasharray="5 4"' : ''}/>`;
   }
 
+  // Con muchos puntos las etiquetas del eje X se pisan: por arriba de ~8 se muestra una cada
+  // `step` (siempre la primera y la última), nunca todas. Los extremos además cambian de anchor
+  // (start/end en vez de middle) para que el texto no se salga del viewBox por ninguno de los dos
+  // lados — a la primera le sobra ancho a la derecha, a la última a la izquierda.
+  const step = n > 8 ? Math.ceil((n - 1) / 7) : 1;
   pts.forEach((p, i) => {
-    const px_ = x(i).toFixed(1), py = y(p.v);
+    const xi = x(i);
+    const px_ = xi.toFixed(1), py = y(p.v);
     const last_ = i === n - 1;
     const r = last_ ? 6 : 4.5;
     g += p.hollow
       ? `<circle cx="${px_}" cy="${py.toFixed(1)}" r="${r}" fill="#ffffff" stroke="#145b6d" stroke-width="2"/>`
       : `<circle cx="${px_}" cy="${py.toFixed(1)}" r="${r}" fill="#145b6d"/>`;
     if (!p.hollow) {
-      g += `<text x="${px_}" y="${(py - 14).toFixed(1)}" text-anchor="middle" font-family="Georgia, serif" font-size="15" fill="${last_ ? '#145b6d' : '#22201d'}">${p.v}</text>`;
+      g += `<text x="${px_}" y="${(py - 11).toFixed(1)}" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="${last_ ? '#145b6d' : '#22201d'}">${p.v}</text>`;
     }
-    g += `<text x="${px_}" y="${LABEL_Y}" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#a09889">${p.lbl}</text>`;
+    if (i === 0 || last_ || i % step === 0) {
+      const anchor = i === 0 ? 'start' : (last_ ? 'end' : 'middle');
+      g += `<text x="${px_}" y="${LABEL_Y}" text-anchor="${anchor}" font-family="Arial, sans-serif" font-size="10" fill="#a09889">${p.lbl}</text>`;
+    }
   });
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${g}</svg>`;
@@ -247,9 +256,12 @@ export async function generarInformeWord(m) {
     // del canvas en pantalla (snapshots viejos, con el estilo de ejes/bandas anterior); si tampoco
     // hay eso, se omite la sección entera.
     const evaSvg = buildEvaSvgWord(m);
-    let evaPng = null, evaPngW = 605, evaPngH = 211;
+    let evaPng = null, evaPngW = 605, evaPngH = 150;
     if (evaSvg) {
-      evaPng = await svgToPngDataUri(evaSvg, 605, 211, 2);
+      // 1210×300 rasterizado (2x de 605×150) — más bajo que el primer intento (1210×422): a esa
+      // altura la caja de "Evaluación inicial" no entraba en lo que quedaba de página 1 y saltaba
+      // entera por el cantSplit de su tabla.
+      evaPng = await svgToPngDataUri(evaSvg, 605, 150, 2);
     } else if (m.evaChartImg) { evaPng = m.evaChartImg; evaPngW = 605; evaPngH = 191; }
 
     // ── Estilos de párrafo ──
@@ -264,7 +276,9 @@ export async function generarInformeWord(m) {
             paragraph: { spacing: { before: 0, after: 400, line: 240, lineRule: 'auto' } } },
           { id: 'H2', name: 'H2', basedOn: 'Normal', quickFormat: true,
             run: { font: SERIF, size: SZ.h2, color: INK },
-            paragraph: { border: { top: FILETE_H2 }, spacing: { before: 320, after: 140, line: 240, lineRule: 'auto' } } },
+            // keepNext (no está en la referencia, es un ajuste: "Detalle por sesión" quedaba solo
+            // al pie de página) — pega el título con lo que sigue, sea imagen, tabla o párrafo.
+            paragraph: { border: { top: FILETE_H2 }, spacing: { before: 320, after: 140, line: 240, lineRule: 'auto' }, keepNext: true } },
           { id: 'EtiquetaDato', name: 'Etiqueta Dato', basedOn: 'Normal', quickFormat: true,
             run: { size: SZ.etiquetaDato, allCaps: true, color: ETIQUETA, characterSpacing: TRACK_CAPS },
             paragraph: { spacing: { before: 0, after: 20, line: 240, lineRule: 'auto' } } },
@@ -416,7 +430,10 @@ export async function generarInformeWord(m) {
               width: { size: 9900, type: WidthType.DXA },
               columnWidths: [9900],
               borders: bordesInvisibles,
-              rows: [new TableRow({ cantSplit: true, children: [new TableCell({
+              // cantSplit false a propósito (a diferencia del resto de tablas del documento): si
+              // no cabe entera en lo que deja el gráfico, que continúe en la página siguiente en
+              // vez de saltar la caja completa y dejar un hueco grande al pie de la página 1.
+              rows: [new TableRow({ cantSplit: false, children: [new TableCell({
                 width: { size: 9900, type: WidthType.DXA },
                 borders: bordesInvisibles, shading: { fill: PANEL_BG }, verticalAlign: VerticalAlign.TOP,
                 margins: { top: 260, bottom: 260, left: 260, right: 140 },
@@ -520,7 +537,10 @@ export async function generarInformeWord(m) {
       const meta = [dmy(s.fecha), s.terapeuta || null, s.tecnicas ? s.tecnicas.toLowerCase() : null].filter(Boolean).join(' · ');
       const registrada = s.pb != null;
       const evaTxt = registrada ? `${s.pb} → ${s.pa != null ? s.pa : '?'}` : (carryEva != null ? `${carryEva} → —` : '—');
-      const obsTexto = s.obs || (registrada ? 'Sin observación registrada' : 'Sesión sin observación ni técnicas registradas.');
+      // Texto único para sesión sin observación, tenga o no EVA registrado — antes variaba según
+      // `registrada` ("Sin observación registrada" vs. la frase larga), inconsistencia que no
+      // tiene motivo de diseño.
+      const obsTexto = s.obs || 'Sesión sin observación ni técnicas registradas.';
       return new TableRow({ cantSplit: true, children: [
         new TableCell({
           width: { size: 700, type: WidthType.DXA }, borders: bordesInvisibles, shading, verticalAlign: VerticalAlign.TOP,
