@@ -182,6 +182,7 @@
         <button class="seg-item" id="vbtn-week" onclick="setAgendaView('week')">Semana</button>
         <button class="seg-item" id="vbtn-month" onclick="setAgendaView('month')">Mes</button>
       </div>
+      <button class="icon-btn txt" onclick="abrirExportModal()" title="Exportar la agenda a Excel" data-permission="admin-secretaria">Exportar</button>
       <button class="add-btn" style="height:36px;padding:0 16px;font-size:13px" onclick="openApptModal()" data-permission="admin-secretaria">+ Nueva cita</button>
     </div>
   </div>
@@ -932,6 +933,48 @@
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal('firmante-modal')">Cancelar</button>
     <button class="btn-save" onclick="confirmarExportarWord()">Exportar Word</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL EXPORTAR AGENDA (Excel con el formato histórico de la clínica) -->
+<div class="modal-bg" id="export-modal">
+<div class="modal" style="max-width:440px">
+  <h3>Exportar agenda</h3>
+  <div style="font-size:13px;color:#6b6a64;margin-bottom:16px">Genera el Excel con el formato de siempre: una hoja por día, un bloque por terapeuta.</div>
+  <div class="field">
+    <label>Rango</label>
+    <select id="xl-preset" onchange="onExportPreset()">
+      <option value="dia">Día</option>
+      <option value="semana">Semana</option>
+      <option value="mes">Mes completo</option>
+      <option value="personalizado">Personalizado…</option>
+    </select>
+  </div>
+  <div class="field" id="xl-fechas" style="display:none">
+    <label>Desde / hasta</label>
+    <div style="display:flex;gap:8px">
+      <input type="date" id="xl-desde" onchange="actualizarResumenExport()" style="flex:1">
+      <input type="date" id="xl-hasta" onchange="actualizarResumenExport()" style="flex:1">
+    </div>
+  </div>
+  <div class="field">
+    <label>Terapeuta</label>
+    <select id="xl-terapeuta" onchange="actualizarResumenExport()">
+      <option value="">Todos los terapeutas</option>
+    </select>
+  </div>
+  <div class="field">
+    <label>Formato</label>
+    <div class="seg" style="width:100%">
+      <button type="button" class="seg-item active" style="flex:1">Excel (.xlsx)</button>
+      <button type="button" class="seg-item" style="flex:1" disabled title="Todavía no disponible">Foto (PNG)</button>
+    </div>
+  </div>
+  <div id="xl-nota" style="font-size:12px;color:#6b6a64;margin:-4px 0 16px"></div>
+  <div class="modal-actions">
+    <button class="btn-cancel" onclick="closeModal('export-modal')">Cancelar</button>
+    <button class="btn-save" id="xl-btn" onclick="confirmarExportarExcel()">Exportar Excel</button>
   </div>
 </div>
 </div>

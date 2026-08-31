@@ -39,6 +39,10 @@
 .seg-item{padding:5px 13px;border-radius:7px;font-size:12px;color:#5a5a56;cursor:pointer;border:none;background:transparent;font-family:inherit;font-weight:500;transition:background .12s,color .12s}
 .seg-item:hover:not(.active){color:#1d8fbf}
 .seg-item.active{background:#29ABE2;color:#fff;font-weight:600}
+/* Opción del segmentado que todavía no existe (p.ej. "Foto (PNG)" del modal de exportar): se ve,
+   pero se lee como no disponible en vez de como un botón que no hace nada. */
+.seg-item:disabled{opacity:.45;cursor:not-allowed}
+.seg-item:disabled:hover{color:#5a5a56}
 
 /* ── Selects e inputs de header ── */
 .hdr-select{font-size:12px;background:#faf6ef;border:1px solid rgba(41,171,226,.25);border-radius:8px;padding:7px 10px;color:#1a1917;cursor:pointer;min-width:160px;font-family:inherit;outline:none}

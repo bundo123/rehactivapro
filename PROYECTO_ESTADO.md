@@ -1,6 +1,6 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-08-31 (d)
+> Generado: 2026-05-18 · Última actualización: 2026-08-31 (e)
 
 ---
 
@@ -77,6 +77,96 @@ Rama `revision-login` borrada del remoto.
   dashboard de Supabase, o la recuperación se rompe: `doSendRecoveryEmail` arma el `redirectTo` en
   runtime con `window.location.origin + window.location.pathname` (`auth.js`), sin constante ni
   variable de entorno — hoy resuelve a `https://rehactivaec.com/`.
+
+---
+
+## 🗓️ Sesión 2026-08-31 (e) — LOTE EXPORT EXCEL: motor por rango con réplica de la plantilla histórica
+
+Un commit en la rama `revision-excel`, **pendiente de auditoría** (no está en `main` ni en producción
+al cerrar esta entrada). Tests: **208 verdes** (+25 en `test/excel.test.js`). `npm run build` OK.
+
+**Lo que entrega.** `generarExcel({desde, hasta, terapeutaIds})` (`js/excel.js`) emite **una hoja por
+día calendario** del rango — sábados y domingos incluidos, que en el archivo histórico traen citas
+reales. Día, semana, mes y rango libre son el mismo camino con distinto rango: no hay tres motores.
+Se llega desde el botón **«Exportar»** de la cabecera de la agenda (visible en las tres vistas), que
+abre `#export-modal` precargado con el rango de la vista activa y con el filtro de terapeuta que ya
+estuviera puesto en la agenda. El botón va con `data-permission="admin-secretaria"`: exportar la
+agenda del centro es tarea de recepción, no del terapeuta (el mismo criterio con el que se cierran
+«+ Nueva cita» y «Exportar PDF», este último aún más estricto — solo `admin`).
+
+**La plantilla no se dedujo del handoff: se leyó del archivo.** `~/Downloads/2026-08.xlsx` se
+descomprimió como zip y se leyeron `xl/worksheets/sheetN.xml` + `styles.xml` + `workbook.xml`
+(mismo método con el que `word.js` portó `VERSION-FINAL.docx`). De ahí salen, verificadas contra el
+XML y no a ojo:
+
+- **Geometría.** Física: nombres fila 5, headers 6, horas 7–19 (07:00–19:00), sumas 20.
+  Respiratoria: 22 / 23 / 24–36 / 37. Bloque de terapeuta = **5 columnas** (`HORA | PACIENTE | N° |
+  LUGAR | vacía`), nombre mergeado `A5:E5`, `F5:J5`… Anchos 7.57 / 25.57 / 7.57 / 7.57 / 7.57;
+  altos de fila 60 / 21 / 34.5 / 26.45 / 26.65 / 18.75. Fuente **Aptos Narrow** 11 datos, 10 bold
+  headers, 16 bold título, 26 bold G4/L4, 14 bold totales. Bordes finos. Logo de Rehactiva en las
+  filas 1–2 (reusa `LOGO_DATA_URI` de `pdf-logo.js`, una sola copia para todas las hojas).
+- **Fórmulas, idénticas celda por celda.** `E20 =SUM(E7:E19)` por bloque y `AK20
+  =+E20+J20+O20+T20+Y20+AD20+AI20`; `E37 =SUM(E24:E36)` y su gran total; resumen `E41 =+C41+D41`,
+  `E48 =SUM(E41:E47)`, `E49 =+AK20`. Todas cachean `0`, igual que el original (la 5ª columna está
+  vacía). El gran total del día queda **una columna después** del último bloque (con 7 bloques, en
+  `AK`, dejando `AJ` de aire) — así está en el archivo, y así se replicó.
+- **Celda de cita.** `PACIENTE` = nombre en mayúsculas, `N°` = el **mismo ordinal del episodio** que
+  pinta el badge «X/N» de la agenda (`ordinalesDeCitas()`, un solo mapa por export), `LUGAR` = C/D.
+  Estados: `pend` («por confirmar») → relleno `FFC000` **con N° y LUGAR vacíos**; `noas` → nombre
+  **tachado**; cualquier estado fuera de `conf|pend|noas` (las canceladas) **no se exporta**.
+  El ámbar **no baña la fila**: lo llevan solo PACIENTE, N° y LUGAR — HORA y la 5ª columna quedan
+  limpias, como en el original (en MIERCOLES 5, las citas por confirmar de `L7` y `Q17` dejan `O7`
+  y `T17` con el estilo neutro `xf24`, `patternType="none"`). La regla vive en `excel-layout.js`
+  (`llevaRellenoPend`) para poder fijarla con un test sin levantar exceljs.
+- **Hora como valor de tiempo real**, no como texto: fracción de día con `numFmt 'h:mm'`. Una cita
+  que no cae en punto va en la fila de su **hora truncada** mostrando la hora real — literalmente el
+  caso `A12='12:30:00'` del archivo viejo.
+- **Colores.** Manda el color que el terapeuta tiene en la app (`COLOR_OPTIONS.bg`); la paleta
+  histórica (`DAF2D0, CAEDFB, F2CEEF, D0D0D0, C0E6F5, FBE2D5, C1F0C8`) queda de fallback por posición.
+- **Nombres de archivo.** Mes completo → `{YYYY}-{MM}.xlsx`, **idéntico al histórico**, para que caiga
+  en la misma carpeta sin renombrar. Día → `agenda_{YYYY-MM-DD}.xlsx`; rango → `agenda_{desde}_a_{hasta}.xlsx`;
+  con filtro, sufijo `_{terapeuta-en-slug}`.
+
+**Dos casos que el original nunca tuvo que resolver** (la planilla se llenaba a mano; la app no):
+dos citas dentro de la misma hora (07:00 y 07:30 con el mismo terapeuta) compiten por una sola fila
+→ la segunda **baja a la primera libre** y su celda HORA sigue diciendo la hora real; y una cita
+fuera de 07:00–19:59 se **ancla a la fila extrema** en vez de perderse. Si un terapeuta supera las
+13 filas de un día, lo que no entra se cuenta y se avisa por toast: **nunca se descarta en silencio**.
+
+**La única desviación deliberada del "idéntico".** En el histórico `J49` apuntaba a `AK36` — una
+fila **más arriba** del gran total respiratorio, que vive en `AK37` — y por eso mostraba 0 siempre.
+Acá apunta al gran total de verdad. Todo lo demás replica el original, incluidos sus defectos de
+forma (`'HORA '` y `'N° '` con el espacio final, `G4`/`L4` vacías).
+
+**Brecha conocida, documentada a propósito:** las franjas **ALMUERZO** y **CAPACITACION** del
+archivo original **no se replican** — la app todavía no modela bloqueos ni almuerzo. Salen con el
+lote «BLOQUEOS/RESERVADO» de la cola; hasta entonces esas franjas quedan como filas de hora vacías.
+Tampoco se llenan `G4`/`L4` (el correlativo tipo `26031`): siguen siendo la pregunta (c) abierta de
+Jefferson, así que van con formato listo y valor vacío para llenado manual. Igual que la 5ª columna
+de cada bloque (pregunta (a)).
+
+**Arquitectura.** La geometría vive en `js/excel-layout.js`, **puro y sin dependencias** (ni exceljs,
+ni DOM, ni `state`): es lo que testea `test/excel.test.js` con `node --test`, cubriendo el mapeo
+cita → (hoja, fila, bloque) — hora no en punto, colisión de hora, fuera de rango, fin de semana,
+filtro por terapeuta y nombres de archivo. `js/excel.js` es el pintado + la UI.
+
+**Peso.** `exceljs` va por **import dinámico** (patrón `word.js`): sale en su propio chunk de
+**929.89 kB (gzip 256.47 kB)** y **no entra al bundle inicial** — solo lo baja quien exporta. El
+bundle principal pasa de 437.23 kB a 450.23 kB (gzip 136.76 → 141.79 kB): +13 kB de código propio.
+Un mes completo (31 hojas) sale en ~1 s y pesa ~200 kB.
+
+**`npm audit`: 4 vulnerabilidades, 2 de ellas nuevas por este lote — leerlas antes de aprobar.**
+`nanoid` y `postcss` (2 high) vienen de `vite`/`docx` y son **anteriores** a este lote (advisories
+publicados después del `npm audit fix` de julio); `uuid@8.3.2` (1 moderate, GHSA-w5hq-g745-h8pq,
+*missing buffer bounds check* en v3/v5/v6 cuando se pasa `buf`) **lo trae exceljs** y su único fix
+es bajar a `exceljs@3.4.0`, que es breaking. La ruta vulnerable **no se alcanza**: exceljs solo usa
+`uuid` v4 y nunca pasa `buf`. Queda como deuda declarada, no como algo silenciado.
+
+**Lo que NO se verificó en esta máquina:** abrir el `.xlsx` en **Excel real** y en **Google Sheets**.
+No hay ninguno de los dos en el entorno de CC. Lo que sí se hizo: descomprimir el archivo generado y
+comparar su XML contra el del histórico celda por celda (fórmulas, fills, fuentes, merges, anchos,
+altos, `numFmt`) y releerlo con exceljs. La prueba de apertura queda para Jefferson, con dos archivos
+de muestra generados por el mismo motor.
 
 ---
 
