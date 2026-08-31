@@ -1,6 +1,6 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-08-31
+> Generado: 2026-05-18 · Última actualización: 2026-08-31 (d)
 
 ---
 
@@ -77,6 +77,33 @@ Rama `revision-login` borrada del remoto.
   dashboard de Supabase, o la recuperación se rompe: `doSendRecoveryEmail` arma el `redirectTo` en
   runtime con `window.location.origin + window.location.pathname` (`auth.js`), sin constante ni
   variable de entorno — hoy resuelve a `https://rehactivaec.com/`.
+
+---
+
+## 🗓️ Sesión 2026-08-31 (d) — LOTE LEGIBILIDAD AGENDA: horas y separadores más oscuros (pedido de recepción)
+
+Un commit (`19a7510`), solo CSS, mergeado a `main` en fast-forward. Pedido explícito de la
+secretaria: la vista diaria de la agenda se leía muy clara — franjas horarias grises y bordes casi
+invisibles. Tests: **183 verdes** (no tocan CSS, se corrieron igual como red de seguridad). Vercel
+verde por hashes: los **10** archivos servidos por rehactivaec.com son byte a byte idénticos al
+`dist/` local (`index-DoeomwX7.js` `8E3E7142…0D0D`, `index-ChE2OwKO.css` `C9B3D3B3…FA3DE`, `index.html`
+`2742F58B…4577` tras normalizar CRLF→LF de la copia local, más los 5 estáticos y los 2 chunks lazy).
+Verificado además que el CSS minificado servido lleva el valor nuevo: `rgba(0,0,0,.12)` sale como
+`#0000001f` (0.12×255≈31=0x1F) en `.time-cell` y `.slot`, y el gris viejo de las medias horas
+(`#b0ada8`) no aparece en ningún archivo servido. Rama `revision-agenda` borrada (local y remoto).
+
+- **4 selectores tocados en `css/screens.css`:** `.th-sp` (nombre de terapeuta en la cabecera),
+  `.time-cell` y `.time-cell.half-hour` (columna de horas), `.slot` (celdas de la grilla) — todos a
+  `color:var(--rh-ink)` y bordes de `rgba(0,0,0,.05)/.04` a `rgba(0,0,0,.12)`. Las medias horas
+  quedan **igual de negras** que las horas en punto (antes `#b0ada8` más claro) — así lo pidió
+  recepción explícitamente, no es un descuido de contraste. `.th-header.wk-today .th-sp` (el azul del
+  día actual resaltado) no se tocó.
+- **El cambio también alcanza la vista Semana**, aunque el pedido fue sobre la vista Día: son los
+  mismos selectores (`.th-sp`, `.time-cell`, `.slot`) compartidos entre ambas vistas, no hay CSS
+  duplicado por vista.
+- **La aceptación final la da la secretaria** en su propia pantalla — el pedido nació de una
+  observación suya de uso diario, no de una revisión de diseño; los hashes confirman que el CSS
+  correcto está en producción, pero el criterio de "ya se lee bien" es de ella.
 
 ---
 
