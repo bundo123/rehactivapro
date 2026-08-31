@@ -1,6 +1,6 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-08-14
+> Generado: 2026-05-18 · Última actualización: 2026-08-31
 
 ---
 
@@ -26,13 +26,147 @@
 - **No-código (LOPDP):** documentar la decisión de "lectura abierta" de PHI (modelo "se cubren entre sí + todo auditado en `audit_log`") con base de licitud, y a Anthropic como sub-encargado.
 - **Mayor valor en producción:** redactar el `clinical_context` de los protocolos reales (alimenta la calidad del informe IA — corazón del "reemplazo de Reliv").
 
-**Pulidos opcionales remanentes (no bloquean):** buscador de diagnóstico del modal de paciente con UX pobre; `": "` suelto al inicio de "Evaluación inicial" (ya inocuo en altas nuevas por el `filter(Boolean)`); **táctil-42 en Pacientes** — `.patient-table .pl-act-btn{min-height:42px}` le gana por especificidad al bloque `@media (pointer: coarse)`, así que los botones de acción quedan en 42px en táctil real (detectado en la sesión 2026-08-12 (b); en Seguimiento ya está corregido con regla propia).
+**Pulidos opcionales remanentes (no bloquean):** buscador de diagnóstico del modal de paciente con UX pobre; ~~`": "` suelto al inicio de "Evaluación inicial"~~ ✅ **CERRADO 2026-08-31** (`c6b714d`: `limpiarParte()` en `utils.js`, aplicada en pantalla/PDF/Word); **táctil-42 en Pacientes** — `.patient-table .pl-act-btn{min-height:42px}` le gana por especificidad al bloque `@media (pointer: coarse)`, así que los botones de acción quedan en 42px en táctil real (detectado en la sesión 2026-08-12 (b); en Seguimiento ya está corregido con regla propia); **botón "Exportar PDF" huérfano en la pestaña Informes** (`index.html:272`) — vive en el header del tab **semanal** ("Análisis con IA" al lado) pero `exportarPDF()` (`informes.js:910`) opera sobre `_rptCtx`, el contexto del **informe de paciente**: si se clickea sin haber abierto antes un informe de paciente tira el toast "Abrí primero el informe de un paciente", que no tiene relación con la pestaña semanal en la que está parado. Defecto anterior al rediseño de Word (detectado en la auditoría pre-merge de `revision-word`, 2026-08-31); no se tocó a propósito — se ve aparte.
 
 ### 🗓️ Plan a julio — meta: audit final con 0 críticos / 0 importantes (solo pulidos opcionales)
 - **Semana 1** (cerrada hoy, salvo I-7): I-5 · LOTE A · I-4 · I-6 ✅. Queda **I-7** (necesita el SQL de la secuencia).
 - **Semana 2:** auto-logout (15 min) · I-13 (alerts→toasts) · P-11 (CSP parcial).
 - **Semana 3:** I-12 (focus-trap/Escape) · I-15 (tests `node --test`) · `npm audit fix` · decisión P-2/P-6.
 - **Semana 4:** `clinical_context` de protocolos reales · papeleo LOPDP (lectura abierta + sub-encargado Anthropic) · **audit final**.
+
+---
+
+## 🗓️ Sesión 2026-08-31 — Firmante como select cerrado · `limpiarParte()` compartida · merge `revision-word` → `main`
+
+Un commit (`c6b714d`) + merge fast-forward de `revision-word` a `main` (`dd98984..c6b714d`, 13
+commits, sin conflicto — nunca fueron ramas divergentes: todo el trabajo se hizo directo sobre
+`main` local y se pusheó a `revision-word` con refspec explícito commit a commit). Pusheado a
+`origin/main`. Tests: **156 verdes** (sin cambios — `word.js`/`informes.js` son renderers, no
+lógica pura testeable con `node --test`).
+
+- **`0d9639b` fix(informes,word): firmante como select cerrado.** `#fw-nombre` era un `<input>`
+  con `<datalist id="firmante-list">`: sugiere, pero acepta texto libre — probado en producción con
+  "ssss", lo aceptó como firmante de un documento clínico. Pasa a `<select>` cerrado, poblado en
+  `abrirFirmanteModal()` (`informes.js`) con `orderedTherapists()`, mismo patrón que el resto de
+  selects de terapeuta de la app. El precargado (firmante anterior o terapeuta único del episodio)
+  solo se aplica si sigue existiendo en la lista; si no, queda el placeholder en vez de forzar un
+  valor inválido. `<datalist id="firmante-list">` eliminada del HTML.
+- **`0d9639b` fix(word): `":"` huérfano en Evaluación inicial.** Reportado en la prueba real: la
+  caja salía con `": Inversión forzada del tobillo derecho…"`. Defecto viejo (datos históricos de
+  `session_log` con un formato de nota anterior al `saveEvalInicial()` actual), no del rediseño.
+- **`c6b714d` fix(informes): el mismo `limpiarParte()` en pantalla y PDF.** El fix anterior solo
+  cubría Word; `evalBlockHtml` (pantalla) y `buildPdfHtml` (PDF) tenían el mismo patrón sin limpiar.
+  `limpiarParte()` se mueve de `word.js` a `utils.js` (junto a `dmy`/`diagConCie`) para que los tres
+  puntos de render usen la misma regla en vez de triplicarla.
+- **Auditoría pre-merge (a pedido, antes de tocar `main`):** `git diff --stat origin/main
+  origin/revision-word`, `grep -c "Calibri" js/word.js` (3 — las tres son comentarios explicando el
+  ajuste Arial-sobre-Calibri, ningún run con la fuente vieja) y confirmación de que
+  `index.html:272` (`Exportar PDF`) **no** es ni el botón del informe de paciente ni el del
+  histórico de informes guardados (`exportarInformeGuardado`, otro código) — es un tercer botón,
+  en el header del tab **semanal**, cuyo handler (`exportarPDF()`) opera sobre el contexto del
+  **informe de paciente** (`_rptCtx`). Ver "Pulidos opcionales remanentes" arriba — queda anotado,
+  no se toca en este lote.
+- **Confirmado, no es bug:** "Narrativa clínica" se omite a propósito en el `.docx` cuando
+  `getLastNarrative()` (`ia.js`) no tiene nada generado (arranca en `[]`, solo se llena tras
+  "Informe clínico con IA") — es el comportamiento esperado, coincide con lo visto en la prueba real
+  sin narrativa generada.
+
+---
+
+## 🗓️ Sesión 2026-08-28 — Migrar `word.js` a la especificación literal de `VERSION-FINAL.docx`
+
+Seis commits en `revision-word` (ver sesión siguiente para el merge a `main`). Tests: **156
+verdes** en todos, sin cambios de lógica pura. Verificación real en cada commit: `.docx` generado
+vía Playwright contra el dev server (import dinámico de `word.js`, sin login) con datos de prueba
+que incluyen a propósito sesiones sin registro y valores EVA extremos, abierto con **Word 16 real
+vía COM** (`New-Object -ComObject Word.Application`) — sin diálogo de reparación en ningún commit.
+
+- **`f7f6e2d` / `5afa4f1` — housekeeping previo.** `newdesign/` (referencia de diseño, incl.
+  `Informe-Rehactiva-VERSION-FINAL.docx`) commiteada; `~/` (directorio literal creado por un `cp`
+  con path Windows sin expandir) agregado al `.gitignore` sin borrar su contenido.
+- **`6b02e76` feat(word): migración literal.** `b57c395` (2026-08-24) había portado el rediseño
+  **intermedio** del handoff visual; este commit lee `VERSION-FINAL.docx` **como zip**
+  (`word/document.xml`, `styles.xml`, `header1.xml`, `footer1.xml` descomprimidos y
+  pretty-printeados) y copia tamaños/colores/spacing/bordes/anchos de tabla tal cual — no deducidos
+  del HTML ni del PDF. Cambios estructurales: orden gráfico EVA → Evaluación inicial → Narrativa
+  clínica → Detalle por sesión; Evaluación inicial pasa a caja sombreada F6F4EF; filete E2DED6 en
+  los H2 de sección; subtítulos de narrativa en versalitas 145B6D; CIE-10 en su propia línea bajo
+  Diagnóstico (`splitDiagCie` separa el string combinado que ya arma `diagConCie`, sin tocar el
+  PDF); orden de campos Edad antes que Cédula; separador "·" en el panel de métricas; página **carta**
+  con el `sectPr` real (12240×15840, márgenes 1800/1440/1008/1008, header 720, footer 576) en vez
+  de la aproximación A4/0.7in del rediseño intermedio. Una sesión sin NINGÚN dato (ni `pb` ni `pa`)
+  ya no corta la serie del gráfico: hereda el último EVA conocido y se muestra con marcador hueco +
+  tramo punteado, igual criterio que el "N → —" del detalle por sesión (antes se saltaba del todo,
+  también en `buildEvaSvg` del PDF, sin tocar ahí). Dos ajustes deliberados sobre la referencia:
+  Arial en vez de Calibri (Calibri se sustituye en Google Docs), y se recuperan las dos líneas de
+  referencia D8D2C6 en EVA 3/6 que la `VERSION-FINAL` había quitado. "Zona evaluada" no se inventó:
+  `evalInicial.partes` ya trae una entrada `"Zonas: …"` del formulario de evaluación inicial
+  (`pacientes.js`), extraída con `extraerZona()`.
+- **`95717ad` fix: paginación y gráfico EVA (ronda 1).** Hueco grande al pie de página 1 (la caja
+  de Evaluación inicial no cabía y saltaba entera por su `cantSplit`) — gráfico bajado a 1210×300 +
+  `cantSplit:false` en esa tabla. Etiquetas del eje X pisadas con 14 sesiones — por encima de ~8
+  puntos se muestra una cada N (siempre primera y última), con anchor start/end en los extremos.
+  "Detalle por sesión" quedaba huérfano al pie de página — `keepNext` en el estilo H2. Texto de
+  sesión sin observación unificado.
+- **`4bca075` fix: unificación incompleta.** La sesión con **técnicas mías** (ej. "kinesiotape,
+  electroterapia") pero sin nota mostraba la misma frase larga que una sesión sin ningún dato — el
+  criterio pasa a ser `s.tecnicas`, no la presencia de EVA: sin técnicas → "Sesión sin observación
+  ni técnicas registradas.", con técnicas y sin nota → "Sin observación registrada.".
+- **`dce56af` fix: paginación y gráfico EVA (ronda 2).** El fix de la ronda 1 abrió un caso peor:
+  "Zona evaluada: …" podía quedar sola arrancando la página 2. `keepNext` en el último párrafo de
+  cuerpo de la caja (antes de esa línea) + gráfico bajado otra vez a 1210×260, sin tocar
+  `cantSplit:false`. Colchón de 10px en el mapeo de `y` del gráfico para que EVA 0 no quedara pegado
+  al borde del área — **matemáticamente correcto pero visualmente inútil** (ver commit siguiente).
+- **`bfb1504` fix: el colchón de la ronda 2 no se veía.** Medido en píxeles reales del PNG generado
+  (no solo el código, a pedido explícito): el marcador de EVA 0 terminaba a ~10px del borde del
+  área, relleno con una tinta al 6% de opacidad — indistinguible de "tocando". Causa: el borde del
+  área (`BASE`) se derivaba de `LABEL_Y`, así que cada baja de altura del gráfico por paginación
+  (211→150→130) achicaba el colchón con él. Se desacopla en `AREA_FLOOR` (fijo, cerca del piso del
+  viewBox, sin relación con `LABEL_Y`) y `CUSHION` sube de 10 a 14px sobre esa base fija. Verificado
+  esta vez con captura y zoom del PNG real, no solo cálculo.
+
+---
+
+## 🗓️ Sesión 2026-08-24 (b) — Exportar informe a Word (.docx): spike → producción → rediseño intermedio
+
+Tres commits, en prod. Tests: **156 verdes** (sin cambios de lógica pura).
+
+- **`dbbb9a4` spike(word): validación con `docx` v9.** Primer prototipo (membrete en header,
+  tabla con bordes finos, gráfico EVA rasterizado a PNG, márgenes 2.5cm), cargado por **import
+  dinámico** (chunk aparte de ~373 KB que no entra al bundle inicial). Verificado con Playwright +
+  Word real vía COM. No tocaba nada en producción — botón temporal "Word test", solo admin.
+- **`e4ef52b` feat(informes): el spike pasa a producción.** `generarInformeWord` reemplaza el botón
+  "Exportar PDF" del informe de paciente por "Exportar Word". Modal de firmante nuevo (`js/informes.js`,
+  `abrirFirmanteModal`/`confirmarExportarWord`) — se pide **siempre** antes de exportar, porque
+  "Terapeuta" en el encabezado puede ser "Varios" cuando el episodio tuvo más de un terapeuta y la
+  firma necesita una persona concreta. `dmy`/`CONFIG_CLINICA`/`buildEvaSvg` movidos a `utils.js`
+  para evitar import circular `informes.js`↔`word.js`. El histórico de informes guardados
+  (`exportarInformeGuardado`) sigue exportando en PDF, sin tocar.
+- **`b57c395` feat(word): rediseño visual "menos líneas, más aire".** Puerto del handoff de diseño
+  (`newdesign/…/design_handoff_informe_rehactiva`): Georgia+Arial, paleta tinta/acento, header/footer
+  de sección, gráfico EVA propio (sin ejes/grilla/leyenda, con líneas de referencia leve/moderado/
+  severo discretas), narrativa clínica IA en su propia sección, detalle por sesión con zebra
+  striping. **Reemplazado el 2026-08-28** por la migración a `VERSION-FINAL.docx` (ver sesión de
+  arriba) — este era un rediseño intermedio, no la especificación definitiva.
+
+---
+
+## 🗓️ Sesión 2026-08-24 — Episodios: el modal pregunta por la cita que ABRE el episodio nuevo
+
+Un commit (`de0d855`), en prod. Tests: 154 → **156 verdes**.
+
+- **`de0d855` feat(episodios): la pregunta del selector cambia de sentido.** La frontera de episodio
+  es estricta (`date > fecha del marcador 'Fin de episodio'`). El modal preguntaba "¿cuál fue la
+  ÚLTIMA cita del episodio anterior?", pero el terapeuta piensa "¿con qué cita EMPIEZA el nuevo?" —
+  en producción una terapeuta eligió la cita que era la PRIMERA sesión del episodio nuevo, el
+  marcador tomó esa misma fecha y la sesión quedó archivada en el episodio viejo (`date == fin` no
+  es `> fin`), dejando el nuevo vacío. Ahora el selector pregunta con qué cita **empieza** el
+  episodio nuevo y `guardarNuevoEpisodio` fecha el marcador el **día anterior** a la elegida, con un
+  hint dinámico bajo el selector ("El episodio anterior se cierra el X. Todo lo registrado desde el
+  Y cuenta en el episodio nuevo."). `citasParaCierre`/`indiceCitaCierre` no cambian (el universo de
+  5 pasadas + 3 futuras y la preselección siguen siendo correctos bajo la pregunta nueva); solo se
+  actualizaron sus comentarios. Marcadores ya existentes en DB: **no se migra nada**, su fecha
+  almacenada sigue significando lo mismo — solo cambia cómo se calcula la de los nuevos.
 
 ---
 
