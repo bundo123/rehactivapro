@@ -82,8 +82,22 @@ Rama `revision-login` borrada del remoto.
 
 ## 🗓️ Sesión 2026-08-31 (e) — LOTE EXPORT EXCEL: motor por rango con réplica de la plantilla histórica
 
-Un commit en la rama `revision-excel`, **pendiente de auditoría** (no está en `main` ni en producción
-al cerrar esta entrada). Tests: **208 verdes** (+25 en `test/excel.test.js`). `npm run build` OK.
+Un commit (**`95eaea5`**), revisado en la rama `revision-excel` (auditoría OK) y mergeado a `main`
+en fast-forward. Tests: **209 verdes** (+26 en `test/excel.test.js`). Vercel verde **por hashes**:
+los **11** archivos servidos por rehactivaec.com son byte a byte idénticos al `dist/` local
+(`index-C1YK_qv7.js` `AF1DF82A…E321`, `index-whLoBmtt.css` `4BBE9018…B347`, `index.html`
+`FFCBE0E3…B03F` tras normalizar los CR sueltos de la copia local, los 5 estáticos y los 3 chunks
+lazy — entre ellos `exceljs.min-UTGBYhkj.js` `C1C17C92…1A17`). Confirmado además en el **bundle
+servido**: `"Generando el Excel"`, `"Aptos Narrow"` y `"agenda_"` en el JS, `"Exportar agenda"`,
+`"xl-preset"` y `"admin-secretaria"` en el HTML, y el `import('./exceljs.min-UTGBYhkj.js')` **como
+import dinámico** — el HTML de entrada no menciona exceljs, así que la carga sigue siendo diferida.
+**Prueba negativa: no aplica** — el lote solo agrega, no reemplazó ningún string, así que no hay
+texto viejo que deba haber desaparecido (control: `"+ Nueva cita"` sigue presente e intacto).
+Rama `revision-excel` borrada del remoto.
+
+La revisión pidió y se aplicaron **dos correcciones antes del merge** (amend sobre `d143db8`):
+el relleno ámbar de 'por confirmar' **no alcanza la 5ª columna** (ver abajo) y el botón «Exportar»
+va con `data-permission`.
 
 **Lo que entrega.** `generarExcel({desde, hasta, terapeutaIds})` (`js/excel.js`) emite **una hoja por
 día calendario** del rango — sábados y domingos incluidos, que en el archivo histórico traen citas
@@ -148,11 +162,12 @@ de cada bloque (pregunta (a)).
 **Arquitectura.** La geometría vive en `js/excel-layout.js`, **puro y sin dependencias** (ni exceljs,
 ni DOM, ni `state`): es lo que testea `test/excel.test.js` con `node --test`, cubriendo el mapeo
 cita → (hoja, fila, bloque) — hora no en punto, colisión de hora, fuera de rango, fin de semana,
-filtro por terapeuta y nombres de archivo. `js/excel.js` es el pintado + la UI.
+filtro por terapeuta, nombres de archivo y qué columnas reciben el ámbar de 'por confirmar'.
+`js/excel.js` es el pintado + la UI.
 
 **Peso.** `exceljs` va por **import dinámico** (patrón `word.js`): sale en su propio chunk de
 **929.89 kB (gzip 256.47 kB)** y **no entra al bundle inicial** — solo lo baja quien exporta. El
-bundle principal pasa de 437.23 kB a 450.23 kB (gzip 136.76 → 141.79 kB): +13 kB de código propio.
+bundle principal pasa de 437.23 kB a 450.31 kB (gzip 136.76 → 141.82 kB): +13 kB de código propio.
 Un mes completo (31 hojas) sale en ~1 s y pesa ~200 kB.
 
 **`npm audit`: 4 vulnerabilidades, 2 de ellas nuevas por este lote — leerlas antes de aprobar.**
@@ -166,7 +181,9 @@ es bajar a `exceljs@3.4.0`, que es breaking. La ruta vulnerable **no se alcanza*
 No hay ninguno de los dos en el entorno de CC. Lo que sí se hizo: descomprimir el archivo generado y
 comparar su XML contra el del histórico celda por celda (fórmulas, fills, fuentes, merges, anchos,
 altos, `numFmt`) y releerlo con exceljs. La prueba de apertura queda para Jefferson, con dos archivos
-de muestra generados por el mismo motor.
+de muestra generados por el mismo motor. **Sigue abierta al cerrar esta entrada**: la feature está en
+producción sin que nadie haya abierto todavía un `.xlsx` real en Excel ni en Sheets. Es lo único del
+lote que no tiene verificación propia; si algo falla ahí, se sabrá al primer export de la secretaria.
 
 ---
 
