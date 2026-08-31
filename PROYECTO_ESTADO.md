@@ -36,6 +36,47 @@
 
 ---
 
+## 🗓️ Sesión 2026-08-31 (b) — Tipo de sesión (Fisioterapia / Terapia respiratoria) heredado · especialidad de terapeuta
+
+Un commit (`40880fa`), revisado en rama `revision-tipo` y pusheado a `main` con el OK de la
+auditoría. Tests: **177 verdes** (+21 nuevos en `test/tipo-sesion.test.js`). Vercel verde por
+hashes: `assets/index-Ba8FvHMP.js` y `assets/index-DNWycmKp.css` servidos por rehactivaec.com son
+byte a byte idénticos al `dist/` local (SHA-256 `997DDF32…F607` y `02DA1DFB…0F1B`), y el bundle
+servido contiene `"Terapia respiratoria"` y el HTML el campo `"Descripción"` (`#th-specialty`),
+sin rastro de los tipos viejos (`Kinesioterapia`, `Electroterapia`). Ramas de revisión borradas del
+remoto: `revision-tipo`, `revision-frontera` y `revision-word` (las dos últimas ya mergeadas).
+
+- **El centro presta dos servicios y la agenda ahora lo dice.** `#m-type` queda con `Fisioterapia`
+  (default) y `Terapia respiratoria`, espejo exacto del CHECK de `appointments.type`. Las técnicas
+  concretas (kinesioterapia, electroterapia, masoterapia…) siguen siendo **tags de la sesión**, no
+  tipos de cita — por eso salen del select.
+- **La sesión registrada hereda `appt.type`** en vez de fijar `'Fisioterapia'` a mano. El flujo
+  manual (carga retroactiva, sin cita) cae al default. Los marcadores `Evaluación inicial` y
+  `Fin de episodio` no se tocan: en modo edición el tipo **no** se normaliza contra el catálogo,
+  justo para no pisarlos — pisarlos rompería `doneActual` y el recorte de episodio.
+- **Catálogo único en `utils.js`** (`TIPOS_SESION` / `tipoSesion()` / `ESPECIALIDADES` /
+  `especialidad()`): nada se deduce del nombre del terapeuta ni de su texto libre. `tipoSesion()`
+  normaliza lo que venga de la DB o del DOM, así que una cita vieja sin tipo no escribe `''` en el
+  historial.
+- **Admin de terapeutas:** select `Especialidad` (Física / Respiratoria) → `therapists.specialty`;
+  el texto libre de siempre se relabela a **"Descripción"** para no tener dos campos con el mismo
+  nombre. El buscador del listado también matchea por especialidad.
+- **`mapTherapistRow()` unifica el mapeo duplicado** entre la carga inicial (`auth.js`) y el
+  realtime (`realtime.js`), que eran la misma línea copiada palabra por palabra — sin esto
+  `specialty` habría llegado distinta según el camino. De paso **se va un `TypeError` latente**: el
+  mapeo viejo hacía `r.name.split(' ').map(n=>n[0])` sin guarda, así que un `therapists.name` en
+  `NULL` reventaba la carga entera del equipo (y un nombre con doble espacio metía `"undefined"` en
+  las iniciales); ahora es `String(r.name||'').split(' ').map(n=>n[0]||'')`. Mismo caso en el filtro
+  del listado, que llamaba `t.spec.toLowerCase()` directo.
+- **Agenda:** el subtítulo de la tarjeta lleva `title` para leer `Terapia respiratoria` entero
+  (ya truncaba con ellipsis; el `title` va en el div porque la card usa el suyo para el médico
+  referente). "Nueva cita" resetea el tipo al default: sin eso el select se quedaba con el de la
+  última cita editada y una respiratoria se propagaba sola.
+- **Resumen del día:** desglose "X fisio · Y resp" junto al contador de citas de cada bloque. Solo
+  aparece cuando hay alguna respiratoria — en un día 100% fisio repetiría el número de al lado.
+
+---
+
 ## 🗓️ Sesión 2026-08-31 — Firmante como select cerrado · `limpiarParte()` compartida · merge `revision-word` → `main`
 
 Un commit (`c6b714d`) + merge fast-forward de `revision-word` a `main` (`dd98984..c6b714d`, 13
