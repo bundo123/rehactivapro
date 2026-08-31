@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, safeColor, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, safeColor, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte } from './utils.js';
 import { apptSlots } from './agenda.js';
 import { genSemanalAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasPermission } from './permissions.js';
@@ -616,7 +616,7 @@ export function renderPatientReport() {
           <span style="font-size:12px;font-weight:700;color:${evaColor(evalRow.pb)}">EVA ${evalRow.pb!=null?evalRow.pb:'—'}/10</span>${editBtn}
         </span>
       </div>
-      ${partes.length?partes.map(x=>`<div style="font-size:11.5px;color:#3a3a36;line-height:1.6;margin-bottom:3px">${esc(x)}</div>`).join(''):'<div style="font-size:11.5px;color:#9c9a92">Sin detalle registrado</div>'}
+      ${partes.length?partes.map(x=>`<div style="font-size:11.5px;color:#3a3a36;line-height:1.6;margin-bottom:3px">${esc(limpiarParte(x))}</div>`).join(''):'<div style="font-size:11.5px;color:#9c9a92">Sin detalle registrado</div>'}
     </div>`;
   }
 
@@ -833,7 +833,7 @@ function buildPdfHtml(m) {
     const partes=m.evalInicial.partes||[];
     evalBlock='<div class="keep"><h2>Evaluación inicial</h2>'
       +'<div class="eval-sub">'+esc(dmy(m.evalInicial.fecha))+' · EVA '+(m.evalInicial.pb!=null?esc(m.evalInicial.pb):'—')+'/10</div>'
-      +(partes.length?partes.map(x=>'<p class="eval-p">'+esc(x)+'</p>').join(''):'<p class="eval-p mut">Sin detalle registrado</p>')
+      +(partes.length?partes.map(x=>'<p class="eval-p">'+esc(limpiarParte(x))+'</p>').join(''):'<p class="eval-p mut">Sin detalle registrado</p>')
       +'</div>';
   }
 

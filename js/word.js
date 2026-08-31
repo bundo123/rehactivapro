@@ -20,7 +20,7 @@
 // al bundle inicial — solo la baja quien exporta un informe a Word.
 import { LOGO_DATA_URI } from './pdf-logo.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
-import { dmy, CONFIG_CLINICA } from './utils.js';
+import { dmy, CONFIG_CLINICA, limpiarParte } from './utils.js';
 
 // Data URI (base64) → Uint8Array. ImageRun no acepta el string 'data:...' con cabecera: quiere los
 // bytes. atob es suficiente acá porque las imágenes (logo, gráfico EVA) ya vienen en base64.
@@ -173,14 +173,6 @@ function extraerZona(partes) {
   const idx = list.findIndex(p => /^Zonas:\s*/i.test(p));
   if (idx === -1) return { zona: null, resto: list };
   return { zona: list[idx].replace(/^Zonas:\s*/i, '').trim(), resto: list.slice(0, idx).concat(list.slice(idx + 1)) };
-}
-
-// Defecto viejo (no del rediseño): algunas evaluaciones iniciales tienen la anamnesis guardada con
-// un ":" huérfano al inicio (p.ej. ": Inversión forzada del tobillo…"), de un formato de nota
-// anterior. saveEvalInicial() actual (pacientes.js) ya no lo agrega, pero el dato histórico sigue
-// en session_log — se limpia acá, en la salida, en vez de tocar la nota guardada.
-function limpiarParte(texto) {
-  return String(texto || '').replace(/^[:·]\s*/, '').trim();
 }
 
 // Genera y descarga el .docx del informe a partir del render-model (mismo shape que consume

@@ -238,6 +238,15 @@ export function diagConCie(diag, cie){
   return c&&base?`${base} (CIE-10: ${c})`:base;
 }
 
+// Defecto viejo: algunas evaluaciones iniciales tienen una parte de evalInicial.partes guardada
+// con un ":" huérfano al inicio (p.ej. ": Inversión forzada del tobillo…"), de un formato de nota
+// anterior a como saveEvalInicial() (pacientes.js) arma `note` hoy. El dato histórico sigue en
+// session_log — se limpia acá, en la salida, en vez de tocar la nota guardada. Compartida por
+// pantalla y PDF (informes.js) y Word (word.js) para no triplicar la regla.
+export function limpiarParte(texto){
+  return String(texto||'').replace(/^[:·]\s*/,'').trim();
+}
+
 export function getColor(id){return COLOR_OPTIONS.find(c=>c.id===id)||COLOR_OPTIONS[0]}
 export function getTherapist(id){return state.therapists.find(t=>t.id===id)}
 // NUEVO 1: orden canónico de terapeutas = display_order asc (nulls al final) y luego nombre.
