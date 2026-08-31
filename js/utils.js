@@ -17,6 +17,60 @@ export const COLOR_OPTIONS = [
   {id:'cl',name:'Pizarra',bg:'#f1f5f9',border:'#64748B',text:'#334155'},
 ];
 export const DOC_COLORS = ['#E24B4A','#378ADD','#7F77DD','#BA7517','#D4537E','#1D9E75','#D85A30','#639922','#5EEAD4','#FCA5A5','#FDE047','#A78BFA','#6EE7B7','#FB923C','#94A3B8'];
+
+// ── Tipo de sesión: Fisioterapia / Terapia respiratoria ──
+// Espejo EXACTO del CHECK de appointments.type. La sesión registrada HEREDA el tipo de su cita,
+// así que este catálogo es la fuente única de los dos servicios que presta el centro.
+// Ojo: 'Evaluación inicial' y 'Fin de episodio' NO son tipos de cita — son marcadores que solo
+// existen en session_log y nunca pasan por acá (por eso no se normalizan ni se cuentan aquí).
+export const TIPOS_SESION = [
+  {id:'fisio', label:'Fisioterapia',        abbr:'fisio'},
+  {id:'resp',  label:'Terapia respiratoria', abbr:'resp'},
+];
+export const TIPO_SESION_DEFAULT = TIPOS_SESION[0].label;   // 'Fisioterapia'
+
+// Normaliza un tipo venido de la DB/DOM al catálogo: cualquier valor desconocido, vacío o nulo
+// cae al default. Es lo que garantiza que el flujo manual (sin cita) y las citas viejas sin tipo
+// escriban un valor que el CHECK acepta.
+export function tipoSesion(v){
+  const t=TIPOS_SESION.find(x=>x.label===String(v||'').trim());
+  return t?t.label:TIPO_SESION_DEFAULT;
+}
+
+// Desglose de una lista de citas por tipo: {fisio, resp}. Pura, con las claves del catálogo.
+export function desgloseTipos(appts){
+  const out={};
+  TIPOS_SESION.forEach(t=>{out[t.id]=0;});
+  (appts||[]).forEach(a=>{
+    const t=TIPOS_SESION.find(x=>x.label===tipoSesion(a?.type));
+    out[t.id]++;
+  });
+  return out;
+}
+
+// Texto del desglose para el Resumen del día: "3 fisio · 2 resp". Devuelve '' cuando no hay
+// ninguna respiratoria: con una sola modalidad el desglose repetiría el contador de citas que
+// tiene al lado y solo agregaría ruido.
+export function textoDesglose(d){
+  const f=d?.fisio||0, r=d?.resp||0;
+  return r?`${f} fisio · ${r} resp`:'';
+}
+
+// ── Especialidad del terapeuta ──
+// Espejo del CHECK de therapists.specialty. Se elige a mano en el admin de terapeutas: NUNCA se
+// deduce del nombre ni del texto libre de `spec`.
+export const ESPECIALIDADES = [
+  {id:'fisica',      label:'Física'},
+  {id:'respiratoria',label:'Respiratoria'},
+];
+export const ESPECIALIDAD_DEFAULT = ESPECIALIDADES[0].id;   // 'fisica' (mismo default que la columna)
+
+export function especialidad(v){
+  return ESPECIALIDADES.some(e=>e.id===v)?v:ESPECIALIDAD_DEFAULT;
+}
+export function especialidadLabel(v){
+  return ESPECIALIDADES.find(e=>e.id===especialidad(v)).label;
+}
 export const allTabs = ['agenda','pacientes','seguimiento','informes','paciente_rpt','protocolos','resumen','terapeutas','doctores','facturacion'];
 
 export function escapeHtml(v){
@@ -266,6 +320,25 @@ export function parseHourVal(v){
   const h=parseInt(p[0],10);
   if(isNaN(h)) return null;
   return h+(parseInt(p[1]||'0',10)>=30?0.5:0);
+}
+// Fila de `therapists` (DB) → terapeuta en memoria. Vive acá porque la usan DOS caminos que antes
+// la tenían duplicada palabra por palabra: la carga inicial (auth.js) y el realtime (realtime.js).
+// Si se agrega una columna y solo se toca una de las dos copias, el terapeuta que llega por
+// realtime queda distinto del que llegó al cargar — justo lo que pasaba con `specialty`.
+export function mapTherapistRow(r){
+  return {
+    id:r.id,
+    name:r.name,
+    initials:r.initials||String(r.name||'').split(' ').map(n=>n[0]||'').join('').slice(0,2).toUpperCase(),
+    spec:r.spec||'',
+    specialty:especialidad(r.specialty),
+    startH:r.start_h,
+    endH:r.end_h,
+    colorId:r.color_id||'ca',
+    displayOrder:r.display_order??null,
+    workStart:parseHourVal(r.work_start),
+    workEnd:parseHourVal(r.work_end),
+  };
 }
 // Inverso de parseHourVal: horas float → 'HH:MM' para los <input type="time"> del modal de
 // terapeuta. Vacío ⇄ null, que es como se guarda "sin horario definido".

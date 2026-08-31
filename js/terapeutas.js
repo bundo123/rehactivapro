@@ -1,7 +1,8 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { esc, getTherapist, getColor, therapistHours, COLOR_OPTIONS, orderedTherapists,
-         parseHourVal, hourValToTime, therapistDeleteBlock, textoBloqueoBorrado } from './utils.js';
+         parseHourVal, hourValToTime, therapistDeleteBlock, textoBloqueoBorrado,
+         especialidad, especialidadLabel, ESPECIALIDAD_DEFAULT } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { dbDeleteTherapist, markLocalChange } from './auth.js';
 import { updateFacturaBadge } from './agenda.js';
@@ -9,7 +10,11 @@ import { hasPermission } from './permissions.js';
 
 export function renderTherapistList() {
   const q=(document.getElementById('therapist-search')?.value||'').toLowerCase();
-  const filtered=orderedTherapists().filter(t=>!q||t.name.toLowerCase().includes(q)||t.spec.toLowerCase().includes(q));
+  // La especialidad también busca: "respiratoria" tiene que traer a los terapeutas del área.
+  const filtered=orderedTherapists().filter(t=>!q
+    ||t.name.toLowerCase().includes(q)
+    ||(t.spec||'').toLowerCase().includes(q)
+    ||especialidadLabel(t.specialty).toLowerCase().includes(q));
   document.getElementById('therapist-list').innerHTML=filtered.map(th=>{
     const c=getColor(th.colorId);
     // Cada botón se RENDERIZA solo con su permiso (ausente, no deshabilitado): la secretaria
@@ -22,7 +27,7 @@ export function renderTherapistList() {
       <div class="avatar" style="background:${c.border}22;color:${c.text};width:36px;height:36px;font-size:12px">${esc(th.initials)}</div>
       <div style="flex:1">
         <div style="font-size:13px;font-weight:500;color:#1a1917">${esc(th.name)}</div>
-        <div style="font-size:11px;color:#6b6a64">${esc(th.spec)}</div>
+        <div style="font-size:11px;color:#6b6a64">${esc(especialidadLabel(th.specialty))}${th.spec?' · '+esc(th.spec):''}</div>
         <div style="font-size:11px;color:#5a5a56;margin-top:2px">Turno: ${th.startH}:00–${th.endH}:00 · ${therapistHours(th).length} h/día</div>
       </div>
       ${acciones?`<div class="th-actions">${acciones}</div>`:''}
@@ -46,6 +51,7 @@ export function openTherapistModal(ed=null) {
     if(!th){toastErr('No se encontró el terapeuta.');return;}
     document.getElementById('th-name').value=th.name;
     document.getElementById('th-spec').value=th.spec;
+    document.getElementById('th-specialty').value=especialidad(th.specialty);
     document.getElementById('th-start').value=th.startH;
     document.getElementById('th-end').value=th.endH;
     document.getElementById('th-work-start').value=hourValToTime(th.workStart);
@@ -55,6 +61,7 @@ export function openTherapistModal(ed=null) {
   } else {
     document.getElementById('th-name').value='';
     document.getElementById('th-spec').value='';
+    document.getElementById('th-specialty').value=ESPECIALIDAD_DEFAULT;
     document.getElementById('th-start').value=7;
     document.getElementById('th-end').value=13;
     document.getElementById('th-work-start').value='';
@@ -85,6 +92,7 @@ export async function saveTherapist() {
   const ord=ordRaw===''?null:parseInt(ordRaw,10);
   const init=name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
   const spec=document.getElementById('th-spec').value;
+  const specialty=especialidad(document.getElementById('th-specialty').value);
   // Se congela acá: si el usuario reabre el modal mientras el upsert está en vuelo, el rollback
   // de abajo tiene que seguir hablando de ESTE guardado, no del que quedó abierto.
   const editing=state.editingTherapistId;
@@ -93,19 +101,19 @@ export async function saveTherapist() {
   if(editing){
     const t=getTherapist(editing);
     if(!t){toastErr('No se encontró el terapeuta.');return;}
-    prev={name:t.name,spec:t.spec,startH:t.startH,endH:t.endH,colorId:t.colorId,initials:t.initials,
+    prev={name:t.name,spec:t.spec,specialty:t.specialty,startH:t.startH,endH:t.endH,colorId:t.colorId,initials:t.initials,
           displayOrder:t.displayOrder,workStart:t.workStart,workEnd:t.workEnd};
-    t.name=name;t.spec=spec;t.startH=s;t.endH=e;t.colorId=state.selectedColor;t.initials=init;
+    t.name=name;t.spec=spec;t.specialty=specialty;t.startH=s;t.endH=e;t.colorId=state.selectedColor;t.initials=init;
     t.displayOrder=ord;t.workStart=parseHourVal(ws);t.workEnd=parseHourVal(we);
   } else {
-    state.therapists.push({id:++state.thCounter,name,initials:init,spec,startH:s,endH:e,colorId:state.selectedColor,
+    state.therapists.push({id:++state.thCounter,name,initials:init,spec,specialty,startH:s,endH:e,colorId:state.selectedColor,
       displayOrder:ord,workStart:parseHourVal(ws),workEnd:parseHourVal(we)});
   }
   const _th=editing?getTherapist(editing):state.therapists[state.therapists.length-1];
   window._app.closeModal('therapist-modal'); renderTherapistList(); window._app.renderGrid();
   const tempId=_th.id;
   try {
-    const payload={name:_th.name,initials:_th.initials,spec:_th.spec,start_h:_th.startH,end_h:_th.endH,color_id:_th.colorId,
+    const payload={name:_th.name,initials:_th.initials,spec:_th.spec,specialty:_th.specialty,start_h:_th.startH,end_h:_th.endH,color_id:_th.colorId,
       display_order:_th.displayOrder,work_start:ws||null,work_end:we||null};
     if(typeof _th.id==='string') payload.id=_th.id;
     markLocalChange('therapists');

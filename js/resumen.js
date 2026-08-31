@@ -1,5 +1,6 @@
 import { state } from './state.js';
-import { esc, fmtDate, fmtTime, getPatient, getTherapist, getDoctor, getInitials, getColor, safeColor, orderedTherapists } from './utils.js';
+import { esc, fmtDate, fmtTime, getPatient, getTherapist, getDoctor, getInitials, getColor, safeColor, orderedTherapists,
+         desgloseTipos, textoDesglose } from './utils.js';
 import { toastErr } from './toast.js';
 
 // ── Filtro manual por terapeuta (chips junto al selector de fecha) ──
@@ -161,12 +162,16 @@ export function renderResumen() {
 
   function section(list, kind, label, dotColor) {
     if (!list.length) return '';
+    // Desglose por servicio junto al contador. textoDesglose devuelve '' cuando el bloque es todo
+    // fisioterapia: ahí repetiría el número que tiene al lado y no aportaría nada.
+    const desglose = textoDesglose(desgloseTipos(list));
     return `
       <div class="resd-box ${kind}">
         <div class="resd-head">
           <span class="resd-sec-dot" style="background:${dotColor}"></span>
           <span class="resd-sec-title">${label}</span>
           <span class="resd-count">${list.length} cita${list.length !== 1 ? 's' : ''}</span>
+          ${desglose ? `<span class="resd-desglose">${esc(desglose)}</span>` : ''}
         </div>
         ${list.map(a => row(a, kind)).join('')}
       </div>`;

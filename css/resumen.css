@@ -41,6 +41,9 @@
 .resd-box.pend .resd-sec-title{color:#a06a00}
 .resd-box.conf .resd-sec-title{color:#17865f}
 .resd-count{font-size:10.5px;color:#9c9a92}
+/* Desglose por servicio ("3 fisio · 2 resp") al lado del contador: solo aparece cuando el día
+   mezcla fisioterapia y terapia respiratoria. */
+.resd-desglose{font-size:10.5px;color:#6b6a64;background:rgba(41,171,226,.10);border-radius:20px;padding:2px 8px;white-space:nowrap}
 
 /* Filas de paciente */
 .resd-row{display:flex;align-items:center;gap:12px;padding:10px 16px;flex-wrap:wrap}

@@ -429,7 +429,9 @@
       <input type="date" id="m-date" style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;font-size:13px;color:#1a1917;font-family:inherit;outline:none">
     </div>
     <div class="field"><label>Tipo de sesión</label>
-      <select id="m-type"><option>Fisioterapia</option><option>Kinesioterapia</option><option>Terapia manual</option><option>Electroterapia</option><option>Masoterapia</option></select>
+      <!-- Los dos servicios del centro. Espejo del CHECK de appointments.type y de TIPOS_SESION
+           (js/utils.js): las técnicas concretas se registran como tags en la sesión, no acá. -->
+      <select id="m-type"><option>Fisioterapia</option><option>Terapia respiratoria</option></select>
     </div>
   </div>
   <div class="field"><label>Paciente</label>
@@ -604,7 +606,13 @@
 <div class="modal">
   <h3 id="th-modal-title">Agregar terapeuta</h3>
   <div class="field"><label>Nombre completo</label><input type="text" id="th-name"></div>
-  <div class="field"><label>Especialidad</label><input type="text" id="th-spec"></div>
+  <div class="field-row two">
+    <div class="field"><label>Especialidad</label>
+      <!-- Espejo del CHECK de therapists.specialty (ver ESPECIALIDADES en js/utils.js) -->
+      <select id="th-specialty"><option value="fisica">Física</option><option value="respiratoria">Respiratoria</option></select>
+    </div>
+    <div class="field"><label>Descripción</label><input type="text" id="th-spec" placeholder="Ej. Fisioterapeuta deportivo"></div>
+  </div>
   <div class="field-row two">
     <div class="field"><label>Hora inicio</label>
       <select id="th-start">

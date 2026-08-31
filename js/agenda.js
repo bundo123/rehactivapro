@@ -2,7 +2,7 @@ import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor, pendientesActual, safeColor, orderedTherapists, startOfWeek,
          apptSlots, slotOf, isAlignedHour, findConflict, compactNoas, occupiedSlots, toTimeInput, parseTimeInput,
-         ordinalesDeCitas, ordinalTexto } from './utils.js';
+         ordinalesDeCitas, ordinalTexto, tipoSesion, TIPO_SESION_DEFAULT } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dbUpdateApptStatus } from './auth.js';
 import { hasPermission, canAccessTab } from './permissions.js';
@@ -265,7 +265,12 @@ export function renderGrid() {
         if(canAdd) card.classList.add('has-add');
         const ord=ordMap.get(appt)||null;
         if(ord) card.classList.add('has-ord');
-        card.innerHTML=`<div class="appt-name">${exactTag}${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub">${esc(appt.type)}${durLabel}${appt.status==='pend'?' · por confirmar':''}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}${canAdd?'<div class="appt-add" title="Agendar otra cita en esta franja">+</div>':''}${ordBadge(ord)}`;
+        // El subtítulo ya trunca con ellipsis (.appt-sub en screens.css) y en las columnas
+        // angostas 'Terapia respiratoria' no entra entero: el title deja leerlo al pasar el mouse
+        // sin robarle ancho a la tarjeta. Va en el div, no en la card: la card ya usa su title
+        // para el médico referente.
+        const subTxt=`${appt.type||''}${durLabel}${appt.status==='pend'?' · por confirmar':''}`;
+        card.innerHTML=`<div class="appt-name">${exactTag}${esc(pt?pt.name:(appt.patientName||'Sin paciente'))}</div><div class="appt-sub" title="${esc(subTxt)}">${esc(appt.type)}${durLabel}${appt.status==='pend'?' · por confirmar':''}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)} — click para cambiar"></div>${canDel?'<div class="appt-del">×</div>':''}${canAdd?'<div class="appt-add" title="Agendar otra cita en esta franja">+</div>':''}${ordBadge(ord)}`;
         card.style.cursor='pointer';
         card.addEventListener('click',e=>{if(!e.target.classList.contains('appt-dot')&&!e.target.classList.contains('appt-del')&&!e.target.classList.contains('appt-add')){e.stopPropagation();openEditApptModal(appt.id);}});
         card.querySelector('.appt-dot').addEventListener('click',e=>{e.stopPropagation();cycleStatus(appt.id);});
@@ -424,6 +429,9 @@ export function openApptModal() {
   const locSel=document.getElementById('m-location');
   if(locSel) locSel.value='centro';
   document.getElementById('m-note').value='';
+  // "Nueva cita" arranca SIEMPRE en el default: sin este reset el select se queda con el tipo de
+  // la última cita editada y una respiratoria se propagaría sola a la siguiente que se agende.
+  document.getElementById('m-type').value=TIPO_SESION_DEFAULT;
   document.getElementById('m-status').value='conf';
   document.getElementById('m-recurrente').checked=false;
   document.getElementById('recurrencia-panel').style.display='none';
@@ -462,7 +470,8 @@ export function openEditApptModal(id) {
   filterApptPatient();
   document.getElementById('m-therapist').innerHTML=orderedTherapists().map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.startH)}-${fmtTime(t.endH)})</option>`).join('');
   document.getElementById('m-therapist').value=String(a.therapistId);
-  document.getElementById('m-type').value=a.type||'Fisioterapia';
+  // tipoSesion(): un tipo que ya no está en el select (o vacío) dejaría el campo en blanco.
+  document.getElementById('m-type').value=tipoSesion(a.type);
   updateTimeSlots();
   // Una cita fuera de :00/:30 no existe como opción del select: abre directo en modo exacto.
   setHoraExacta(!isAlignedHour(a.hour), a.hour);

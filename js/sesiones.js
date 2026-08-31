@@ -1,6 +1,7 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { getPatient, esc, fmtDate, fmtTime, normHour, doneActual, pendientesActual, orderedTherapists } from './utils.js';
+import { getPatient, esc, fmtDate, fmtTime, normHour, doneActual, pendientesActual, orderedTherapists,
+         tipoSesion, TIPO_SESION_DEFAULT } from './utils.js';
 import { toastOk, toastErr, toastInfo, showToast } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { showFieldError, clearFieldError, clearAllErrors } from './validators.js';
@@ -106,12 +107,12 @@ export function openSessionModal(appt) {
   const pa=existing?(existing.pa!=null?existing.pa:5):5;
   renderEvaButtons('eva-before-btns','sess-eva-before-val',pb,'#E24B4A');
   renderEvaButtons('eva-after-btns','sess-eva-after-val',pa,'#1D9E75');
-  if(existing&&existing.type){
-    const sel=document.getElementById('sess-type');
-    for(let i=0;i<sel.options.length;i++){if(sel.options[i].value===existing.type){sel.selectedIndex=i;break;}}
-  }
   document.getElementById('sess-note').value=existing?(existing.note||''):'';
-  proTecnicasSel=[]; document.getElementById('sess-type').value='';
+  // El tipo se HEREDA de la cita: es el servicio que se agendó. Al re-registrar una sesión ya
+  // guardada manda igual la cita, que es donde se corrige el tipo si se agendó mal. saveSession()
+  // lee appt.type y no este campo; se sincroniza igual para que el modal (compartido con los modos
+  // manual y edición) no quede con el tipo de la sesión anterior.
+  proTecnicasSel=[]; document.getElementById('sess-type').value=tipoSesion(appt.type);
   renderProTecnicas();
   document.getElementById('session-modal').classList.add('open');
 }
@@ -150,7 +151,7 @@ export function openSessionModalManual(patientId) {
   renderEvaButtons('eva-before-btns','sess-eva-before-val',5,'#E24B4A');
   renderEvaButtons('eva-after-btns','sess-eva-after-val',5,'#1D9E75');
   document.getElementById('sess-note').value='';
-  document.getElementById('sess-type').value='';
+  document.getElementById('sess-type').value=TIPO_SESION_DEFAULT;   // sin cita de la que heredar
   proTecnicasSel=[];
   renderProTecnicas();
   document.getElementById('session-modal').classList.add('open');
@@ -183,7 +184,8 @@ async function saveSessionManual() {
   clearFieldError('sess-manual-date');
   const pb=parseInt(document.getElementById('sess-eva-before-val').textContent)||0;
   const pa=parseInt(document.getElementById('sess-eva-after-val').textContent)||0;
-  const type='Fisioterapia';                              // I1: tipo fijo (las técnicas van en tags)
+  // Carga retroactiva: no hay cita de la que heredar el tipo, así que va el default.
+  const type=tipoSesion(document.getElementById('sess-type').value);
   const therapistId=document.getElementById('sess-therapist')?.value||'';
   const note=document.getElementById('sess-note').value.trim();
   if(!therapistId){showFieldError('sess-therapist','Elegí el terapeuta que atendió la sesión');toastErr('Elegí el terapeuta que atendió la sesión');return;}
@@ -282,7 +284,9 @@ async function saveSessionEdit() {
   }
   const pb=parseInt(document.getElementById('sess-eva-before-val').textContent)||0;
   const pa=parseInt(document.getElementById('sess-eva-after-val').textContent)||0;
-  const type=document.getElementById('sess-type').value;
+  // Al editar NO se normaliza contra el catálogo de tipos: acá pasan también las filas
+  // 'Evaluación inicial', y pisarles el type rompería doneActual y el recorte de episodio.
+  const type=document.getElementById('sess-type').value||TIPO_SESION_DEFAULT;
   _savingSession=true; _setSaveBtn(true);
   try {
     const {data:upd,error}=await supa.from('session_log')
@@ -331,7 +335,9 @@ export async function saveSession() {
   const appt=_pendingSessionAppt;if(!appt)return;
   const pb=parseInt(document.getElementById('sess-eva-before-val').textContent)||0;
   const pa=parseInt(document.getElementById('sess-eva-after-val').textContent)||0;
-  const type='Fisioterapia';                              // I1: tipo fijo (las técnicas van en tags)
+  // El tipo de la sesión ES el de la cita (Fisioterapia / Terapia respiratoria). Se normaliza
+  // contra el catálogo para que una cita vieja sin tipo no escriba '' en el historial.
+  const type=tipoSesion(appt.type);
   const therapistId=appt.therapistId||null;               // I3: quién atendió = terapeuta de la cita
   const note=document.getElementById('sess-note').value.trim();
   if(!note){

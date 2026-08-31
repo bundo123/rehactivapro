@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { fmtDate, fmtTime, normHour, parseHourVal } from './utils.js';
+import { fmtDate, fmtTime, normHour, mapTherapistRow, tipoSesion } from './utils.js';
 import { toastErr, toastOk } from './toast.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -57,7 +57,7 @@ export async function loadAll(force=false) {
       supa.from('informes').select('*').eq('deleted',false).order('created_at',{ascending:false}),
     ]);
     for(const q of [th,doc,pat,appt,prot,cob,inf]){ if(q.error) throw q.error; }
-    state.therapists = (th.data||[]).map(r=>({id:r.id,name:r.name,initials:r.initials||r.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),spec:r.spec||'',startH:r.start_h,endH:r.end_h,colorId:r.color_id||'ca',displayOrder:r.display_order??null,workStart:parseHourVal(r.work_start),workEnd:parseHourVal(r.work_end)}));
+    state.therapists = (th.data||[]).map(mapTherapistRow);
     state.doctors = (doc.data||[]).map(r=>({id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'}));
     const cobData = cob.data||[];
     state.patients = (pat.data||[]).map(r=>({
@@ -72,7 +72,7 @@ export async function loadAll(force=false) {
     }));
     state.protocols = (prot.data||[]).map(r=>({id:r.id,name:r.name,diag:r.diag_keywords||'',sessions:r.sessions||20,freq:r.freq||3,alta:r.discharge_criteria||'',
       img:r.img||'',def:r.definition||'',clinicalContext:r.clinical_context||''}));
-    state.appointments = (appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:(r.patients&&r.patients.name)||null,hour:r.hour,duration:r.duration||60,type:r.type||'Fisioterapia',status:r.status||'pend',note:r.note||'',location:r.location||'centro'}));
+    state.appointments = (appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:(r.patients&&r.patients.name)||null,hour:r.hour,duration:r.duration||60,type:tipoSesion(r.type),status:r.status||'pend',note:r.note||'',location:r.location||'centro'}));
     state.informes = (inf.data||[]).map(r=>({id:r.id,patientId:r.patient_id,createdAt:r.created_at,createdBy:r.created_by,numero:r.numero,episodio:r.episodio,fechaEmision:r.fecha_emision,narrativa:r.narrativa||[],snapshot:r.snapshot||{}}));
     if(!state.protocols.length) state.protocols = [...DEFAULT_PROTOCOLS];
 
