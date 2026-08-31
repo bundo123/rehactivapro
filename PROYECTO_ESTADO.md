@@ -36,6 +36,50 @@
 
 ---
 
+## 🗓️ Sesión 2026-08-31 (c) — LOTE LOGIN: enlace de recuperación restaurado · cambio de contraseña con sesión activa
+
+Un commit (`f60028d`), revisado en rama `revision-login` (auditoría + pruebas manuales de Jefferson:
+enlace visible, recuperación completa por correo, y cambio con sesión activa incluyendo el rechazo
+de la contraseña actual incorrecta **sin perder la sesión**) y mergeado a `main` en fast-forward.
+Tests: **183 verdes** (+6 en `test/password.test.js`). Vercel verde por hashes: los **9** assets
+servidos por rehactivaec.com son byte a byte idénticos al `dist/` local (`index-CK7HtLn4.js`
+`8E3E7142…0D0D`, `index-kkG_r4Km.css` `917284D2…2DFB`, más los 5 estáticos y los 2 chunks lazy).
+Rama `revision-login` borrada del remoto.
+
+- **El enlace de recuperación estaba perdido, no la función.** `#ls-forgot`, `showForgotPassword()`,
+  `doSendRecoveryEmail()` y `doSetNewPassword()` ya existían completos y expuestos en `window`: lo
+  que se cayó en el rediseño del login fue el **único elemento que los abre**. Vuelve como
+  `.login-link` debajo del error de `#ls-login` ("¿Olvidaste tu contraseña?"). La recuperación
+  llevaba desde el rediseño inalcanzable desde la UI.
+- **Cambio de contraseña con sesión activa** (🔑 en el pie del sidebar, junto a "Cerrar sesión") →
+  `#password-modal`. El primer campo es la contraseña **actual** y es obligatorio: antes de tocar
+  `updateUser` se **reautentica** con `signInWithPassword({email de la sesión, actual})`, y si eso
+  falla no se llama a `updateUser`. Motivo: `supa.auth.updateUser()` **no pide la contraseña
+  vigente**, así que en la PC compartida de recepción cualquiera que encontrara la sesión abierta se
+  apropiaba de la cuenta. El email sale de `state.currentUserProfile` (lo llena `loadProfile()`
+  desde `supa.auth.getUser()`), nunca de un input.
+- **Validación compartida.** La regla de contraseña nueva estaba pegada a `doSetNewPassword`: se
+  extrae a `validarPassNueva()` / `PASS_MIN_LEN` en `utils.js` — pura y testeable, que es
+  justamente por qué no vive en `auth.js` (arrastra el cliente de Supabase) — y la usan los dos
+  caminos. El mínimo se unifica **6 → 8** (el camino de recuperación pedía 6); no invalida
+  contraseñas existentes, solo aplica a las nuevas.
+- `.login-link` pasa a `min-height:42px` con centrado flex: son los tres enlaces del login
+  (recuperar, volver, cancelar) y 12px de texto no era un objetivo táctil alcanzable.
+
+**Deuda que deja este lote:**
+- **(a) El error de red se disfraza de contraseña incorrecta.** Si `signInWithPassword` de la
+  reautenticación falla por conexión (no por credenciales), el modal igual muestra "La contraseña
+  actual no es correcta". Distinguir el fallo de red del rechazo real.
+- **(b) SMTP por defecto de Supabase.** Límite de envío bajo (sirve para pruebas, no para el
+  centro) y plantilla del correo de recuperación **en inglés y sin marca**. Pendiente: SMTP propio
+  del dominio + plantilla en español con el logo de Rehactiva.
+- **(c) Al migrar a `app.rehactivaec.com` hay que agregar esa URL a *Redirect URLs*** en el
+  dashboard de Supabase, o la recuperación se rompe: `doSendRecoveryEmail` arma el `redirectTo` en
+  runtime con `window.location.origin + window.location.pathname` (`auth.js`), sin constante ni
+  variable de entorno — hoy resuelve a `https://rehactivaec.com/`.
+
+---
+
 ## 🗓️ Sesión 2026-08-31 (b) — Tipo de sesión (Fisioterapia / Terapia respiratoria) heredado · especialidad de terapeuta
 
 Un commit (`40880fa`), revisado en rama `revision-tipo` y pusheado a `main` con el OK de la
