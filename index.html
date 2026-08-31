@@ -35,6 +35,9 @@
       <input class="login-input" type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
       <button class="login-btn" id="login-btn" onclick="doLogin()">Ingresar</button>
       <div class="login-error" id="login-error"></div>
+      <!-- El panel #ls-forgot y showForgotPassword() ya existían: lo que se había perdido en el
+           rediseño era ESTE enlace, el único que los abre. .login-link lleva el alto táctil. -->
+      <button class="login-link" onclick="showForgotPassword()">¿Olvidaste tu contraseña?</button>
     </div>
     <div id="ls-forgot" style="display:none">
       <label class="login-label">Correo electrónico</label>
@@ -50,7 +53,7 @@
     <img class="login-logo-img" src="img/logo-rehactiva.png" alt="Rehactiva — Centro de rehabilitación y fisioterapia">
     <div class="login-sub">Crea tu nueva contraseña de acceso</div>
     <label class="login-label">Nueva contraseña</label>
-    <input class="login-input" type="password" id="rec-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSetNewPassword()">
+    <input class="login-input" type="password" id="rec-pass" placeholder="Mínimo 8 caracteres" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSetNewPassword()">
     <label class="login-label">Confirmar contraseña</label>
     <input class="login-input" type="password" id="rec-pass2" placeholder="Repite tu nueva contraseña" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSetNewPassword()">
     <button class="login-btn" id="rec-btn" onclick="doSetNewPassword()">Guardar contraseña</button>
@@ -139,6 +142,10 @@
       <span id="conn-dot" title="Conectando..." style="width:7px;height:7px;border-radius:50%;display:inline-block;background:#9c9a92;flex-shrink:0;transition:background .4s"></span>
       <span id="conn-label" style="font-size:10px;color:#7a7a76">Conectando...</span>
     </div>
+    <button class="nav-item" onclick="openPasswordModal()" style="cursor:pointer;color:#5a5a56">
+      <span class="nav-icon">🔑</span>
+      <span style="font-size:11px">Cambiar contraseña</span>
+    </button>
     <button class="nav-item" onclick="doLogout()" style="cursor:pointer;color:#5a5a56">
       <span class="nav-icon">🚪</span>
       <span style="font-size:11px">Cerrar sesión</span>
@@ -665,6 +672,26 @@
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal('doctor-modal')">Cancelar</button>
     <button class="btn-save" onclick="saveDoctor()">Guardar</button>
+  </div>
+</div>
+</div>
+
+<!-- Cambio de contraseña con sesión activa. La contraseña ACTUAL va primero y es obligatoria:
+     supa.auth.updateUser() no la pide, y esto corre en la PC compartida de recepción. -->
+<div class="modal-bg" id="password-modal">
+<div class="modal">
+  <h3>Cambiar contraseña</h3>
+  <div class="field"><label>Contraseña actual</label>
+    <input type="password" id="pw-current" autocomplete="current-password" placeholder="••••••••"></div>
+  <div class="field"><label>Nueva contraseña</label>
+    <input type="password" id="pw-new" autocomplete="new-password" placeholder="Mínimo 8 caracteres"></div>
+  <div class="field"><label>Confirmar nueva contraseña</label>
+    <input type="password" id="pw-new2" autocomplete="new-password" placeholder="Repite la nueva contraseña"
+      onkeydown="if(event.key==='Enter')doCambiarPassword()"></div>
+  <div class="login-error" id="pw-error" style="text-align:left"></div>
+  <div class="modal-actions">
+    <button class="btn-cancel" onclick="closeModal('password-modal')">Cancelar</button>
+    <button class="btn-save" id="pw-btn" onclick="doCambiarPassword()">Guardar contraseña</button>
   </div>
 </div>
 </div>

@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { fmtDate, fmtTime, normHour, mapTherapistRow, tipoSesion } from './utils.js';
+import { fmtDate, fmtTime, normHour, mapTherapistRow, tipoSesion, validarPassNueva } from './utils.js';
 import { toastErr, toastOk } from './toast.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -201,8 +201,8 @@ export async function doSetNewPassword() {
   const pass2 = document.getElementById('rec-pass2').value;
   const btn = document.getElementById('rec-btn');
   const err = document.getElementById('rec-error');
-  if (pass.length < 6) { err.textContent = 'Mínimo 6 caracteres.'; return; }
-  if (pass !== pass2) { err.textContent = 'Las contraseñas no coinciden.'; return; }
+  const invalida = validarPassNueva(pass, pass2);
+  if (invalida) { err.textContent = invalida; return; }
   btn.disabled = true; btn.textContent = 'Guardando...'; err.textContent = '';
   const { error } = await supa.auth.updateUser({ password: pass });
   if (error) {
@@ -235,6 +235,51 @@ export async function cancelRecovery() {
   document.getElementById('rec-pass2').value = '';
   document.getElementById('rec-error').textContent = '';
   document.getElementById('login-screen').style.display = 'flex';
+}
+
+// ── Cambio de contraseña CON sesión activa ──
+// Camino distinto al de recuperación: acá no hay email de por medio, el usuario ya está dentro.
+export function openPasswordModal() {
+  ['pw-current','pw-new','pw-new2'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('pw-error').textContent = '';
+  const btn = document.getElementById('pw-btn');
+  btn.disabled = false; btn.textContent = 'Guardar contraseña';
+  document.getElementById('password-modal').classList.add('open');
+  document.getElementById('pw-current').focus();
+}
+
+export async function doCambiarPassword() {
+  const actual = document.getElementById('pw-current').value;
+  const pass   = document.getElementById('pw-new').value;
+  const pass2  = document.getElementById('pw-new2').value;
+  const btn = document.getElementById('pw-btn');
+  const err = document.getElementById('pw-error');
+  const email = state.currentUserProfile?.email || '';
+  if (!actual) { err.textContent = 'Ingresa tu contraseña actual.'; return; }
+  const invalida = validarPassNueva(pass, pass2);   // misma regla que el modo recuperación
+  if (invalida) { err.textContent = invalida; return; }
+  if (pass === actual) { err.textContent = 'La nueva contraseña debe ser distinta de la actual.'; return; }
+  if (!email) { err.textContent = 'No se pudo leer tu sesión. Cierra sesión y vuelve a entrar.'; return; }
+  btn.disabled = true; btn.textContent = 'Guardando...'; err.textContent = '';
+  // Reautenticación ANTES del updateUser: updateUser NO pide la contraseña actual, así que con
+  // solo encontrar la sesión abierta —y esto corre en la PC compartida de recepción— cualquiera
+  // se apropiaría de la cuenta. signInWithPassword con el email de la sesión es la verificación.
+  const { error: reauthErr } = await supa.auth.signInWithPassword({ email, password: actual });
+  if (reauthErr) {
+    btn.disabled = false; btn.textContent = 'Guardar contraseña';
+    err.textContent = 'La contraseña actual no es correcta.';
+    return;
+  }
+  const { error } = await supa.auth.updateUser({ password: pass });
+  if (error) {
+    btn.disabled = false; btn.textContent = 'Guardar contraseña';
+    err.textContent = 'No se pudo cambiar la contraseña. Intenta de nuevo.';
+    toastErr('No se pudo cambiar la contraseña: ' + (error.message || 'error desconocido'));
+    return;
+  }
+  window._app.closeModal('password-modal');
+  ['pw-current','pw-new','pw-new2'].forEach(id => { document.getElementById(id).value = ''; });
+  toastOk('Contraseña actualizada correctamente.');
 }
 
 // ── DB helpers ──

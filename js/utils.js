@@ -71,6 +71,18 @@ export function especialidad(v){
 export function especialidadLabel(v){
   return ESPECIALIDADES.find(e=>e.id===especialidad(v)).label;
 }
+// ── Contraseña nueva: una sola regla para los dos caminos ──
+// La usan el modo recuperación (doSetNewPassword, sin sesión, desde el email) y el cambio con
+// sesión activa (doCambiarPassword). Vive acá y no en auth.js porque es pura y testeable:
+// auth.js arrastra el cliente de Supabase.
+// Devuelve el mensaje de error, o null si la contraseña es válida.
+export const PASS_MIN_LEN = 8;
+export function validarPassNueva(pass, pass2){
+  if(String(pass||'').length < PASS_MIN_LEN) return `Mínimo ${PASS_MIN_LEN} caracteres.`;
+  if(pass !== pass2) return 'Las contraseñas no coinciden.';
+  return null;
+}
+
 export const allTabs = ['agenda','pacientes','seguimiento','informes','paciente_rpt','protocolos','resumen','terapeutas','doctores','facturacion'];
 
 export function escapeHtml(v){
