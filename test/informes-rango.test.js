@@ -6,7 +6,7 @@
 // si alguien vuelve a contar de más, falla.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { semanaRango, citasEnFechas, citasEnPrefijo, nuevosEnPrefijo, resumenCitas } from '../js/utils.js';
+import { semanaRango, citasEnFechas, citasEnPrefijo, nuevosEnPrefijo, resumenCitas, asistidasEn, hastaHoy } from '../js/utils.js';
 
 const cita = (date, status = 'conf', extra = {}) => ({ id: date + status, date, status, ...extra });
 
@@ -232,4 +232,130 @@ test('la continuidad NO es la asistencia: con pendientes en el rango difieren', 
                           cita('2026-08-05','noas'), cita('2026-08-06','pend')]);
   assert.equal(r.continuidad, 67);
   assert.equal(r.asistencia, 50);
+});
+
+// ── asistidasEn: "asistidas" no es lo mismo que "confirmadas" ─────────────────
+// El semanal contaba TODAS las conf de la semana visible. Un lunes, las conf del jueves y el
+// viernes todavía no ocurrieron: el número arrancaba inflado y se "corregía" solo al cerrar la
+// semana. Asistidas = conf con fecha <= hoy, y nada más.
+test('asistidasEn — una conf FUTURA de la semana en curso no cuenta como asistida', () => {
+  const { dates } = semanaRango(0, new Date(2026, 7, 5));   // lun 3 – vie 7 ago 2026
+  const agenda = [
+    cita('2026-08-03', 'conf'), cita('2026-08-04', 'conf'), cita('2026-08-05', 'conf'), // ya pasaron
+    cita('2026-08-06', 'conf'), cita('2026-08-07', 'conf'),                              // jue y vie: futuras
+    cita('2026-08-04', 'noas'), cita('2026-08-05', 'pend'),                              // ni noas ni pend suman
+    cita('2026-08-12', 'conf'),                                                          // otra semana
+  ];
+  const sem = citasEnFechas(agenda, dates);
+  assert.equal(asistidasEn(sem, '2026-08-05'), 3);            // miércoles: solo lo que ya ocurrió
+  assert.equal(resumenCitas(sem).conf, 5);                    // conf a secas sí las cuenta: por eso hace falta
+  assert.equal(asistidasEn(sem, new Date(2026, 7, 5)), 3);    // acepta Date, no solo 'YYYY-MM-DD'
+});
+
+test('asistidasEn — el día de hoy SÍ entra y la semana cerrada las cuenta todas', () => {
+  const { dates } = semanaRango(0, new Date(2026, 7, 5));
+  const sem = citasEnFechas([
+    cita('2026-08-03', 'conf'), cita('2026-08-05', 'conf'), cita('2026-08-07', 'conf'),
+  ], dates);
+  assert.equal(asistidasEn(sem, '2026-08-05'), 2);   // el borde (hoy) cuenta
+  assert.equal(asistidasEn(sem, '2026-08-09'), 3);   // domingo: la semana ya cerró
+  assert.equal(asistidasEn(sem, '2026-08-02'), 0);   // antes del lunes: ninguna
+});
+
+test('asistidasEn — lista nula, cita sin fecha o `hoy` vacío no rompen ni suman', () => {
+  assert.equal(asistidasEn(null, '2026-08-05'), 0);
+  assert.equal(asistidasEn([{ id: 'x', status: 'conf' }], '2026-08-05'), 0);
+  assert.equal(asistidasEn([cita('2026-08-03', 'conf')], null), 0);
+  assert.equal(asistidasEn([cita('2026-08-03', 'conf')], ''), 0);
+});
+
+// ── Una sola fórmula: la tarjeta del semanal ya no calcula su propia tasa ─────
+// El semanal mostraba "Asistencia" = conf/total (las pendientes en el denominador) y el mensual
+// "Continuidad" = conf/decididas. La misma clínica daba 84% el viernes y 92% el día 1. Ahora los
+// tres rangos leen resumenCitas().continuidad; si alguien vuelve a meter conf/total, falla acá.
+test('la continuidad semanal es resumenCitas().continuidad — la MISMA fórmula que mensual/anual', () => {
+  const { dates } = semanaRango(0, new Date(2026, 7, 5));
+  const agenda = [
+    cita('2026-08-03', 'conf'), cita('2026-08-04', 'conf'), cita('2026-08-05', 'conf'),
+    cita('2026-08-06', 'noas'), cita('2026-08-07', 'pend'),   // la pend NO entra en la tasa
+    cita('2026-08-20', 'conf'), cita('2026-08-21', 'noas'),   // mismo mes, fuera de la semana
+  ];
+  const sem = resumenCitas(citasEnFechas(agenda, dates));
+  const mes = resumenCitas(citasEnPrefijo(agenda, '2026-08'));
+
+  const formula = r => Math.round(r.conf / (r.conf + r.noas) * 100);
+  assert.equal(sem.continuidad, formula(sem));   // semanal
+  assert.equal(mes.continuidad, formula(mes));   // mensual: la misma cuenta, otro rango
+  assert.equal(sem.continuidad, 75);             // 3/4
+  assert.equal(sem.asistencia, 60);              // la vieja "Asistencia" (3/5) daba OTRO número
+  assert.notEqual(sem.continuidad, sem.asistencia);
+});
+
+test('la continuidad semanal es null (no 0%) en una semana sin citas decididas', () => {
+  const { dates } = semanaRango(0, new Date(2026, 7, 5));
+  const sem = resumenCitas(citasEnFechas([cita('2026-08-03', 'pend'), cita('2026-08-04', 'pend')], dates));
+  assert.equal(sem.continuidad, null);   // la tarjeta pinta '—'
+  assert.equal(asistidasEn(citasEnFechas([cita('2026-08-03', 'pend')], dates), '2026-08-05'), 0);
+});
+
+// ── hastaHoy: el rango EN CURSO no se cuenta entero ───────────────────────────
+// El bug que matan: "Asistidas" excluía las conf futuras y la "Continuidad" no. La pantalla
+// mostraba Asistidas 54, No asistieron 14 y Continuidad 89% — 54/(54+14) es 79%. El 89% salía de
+// contar también las 59 conf ya agendadas para el resto de la semana.
+test('hastaHoy — recorta el rango a lo que YA ocurrió; lo futuro queda afuera', () => {
+  const agenda = [
+    cita('2026-09-01', 'conf'), cita('2026-09-01', 'noas'), cita('2026-09-01', 'pend'),
+    cita('2026-09-02', 'conf'),   // hoy: entra (el borde cuenta)
+    cita('2026-09-03', 'conf'), cita('2026-09-04', 'pend'),   // futuras: fuera
+  ];
+  assert.equal(hastaHoy(agenda, '2026-09-02').length, 4);
+  assert.equal(hastaHoy(agenda, new Date(2026, 8, 2)).length, 4);   // acepta Date
+  assert.equal(hastaHoy(agenda, '2026-09-30').length, 6);           // rango cerrado: no recorta nada
+  assert.equal(hastaHoy(agenda, '2026-08-31').length, 0);
+  assert.equal(hastaHoy(null, '2026-09-02').length, 0);
+  assert.equal(hastaHoy(agenda, null).length, 0);                   // sin fecha, VACÍO, no el rango entero
+  assert.equal(hastaHoy([{ id: 'x', status: 'conf' }], '2026-09-02').length, 0);   // cita sin fecha
+});
+
+test('la continuidad de una semana EN CURSO no cuenta las conf futuras (79%, no 89%)', () => {
+  // Martes 1 sep 2026: 54 asistidas + 14 inasistencias ya ocurridas, y 59 conf agendadas mié–vie.
+  const { dates } = semanaRango(0, new Date(2026, 8, 1));   // lun 31 ago – vie 4 sep
+  const agenda = [
+    ...Array.from({ length: 54 }, (_, i) => cita('2026-08-31', 'conf', { id: 'c' + i })),
+    ...Array.from({ length: 14 }, (_, i) => cita('2026-09-01', 'noas', { id: 'n' + i })),
+    ...Array.from({ length: 59 }, (_, i) => cita('2026-09-03', 'conf', { id: 'f' + i })),   // futuras
+  ];
+  const sem = citasEnFechas(agenda, dates);
+
+  assert.equal(resumenCitas(sem).continuidad, 89);                        // lo que se veía: 113/127
+  assert.equal(resumenCitas(hastaHoy(sem, '2026-09-01')).continuidad, 79); // lo correcto: 54/68
+  assert.equal(asistidasEn(sem, '2026-09-01'), 54);                        // la tarjeta ya decía 54
+});
+
+test('asistidasEn(rango) === resumenCitas(hastaHoy(rango)).conf — por construcción', () => {
+  const { dates } = semanaRango(0, new Date(2026, 8, 1));
+  const agenda = [
+    cita('2026-08-31', 'conf'), cita('2026-09-01', 'conf'), cita('2026-09-01', 'noas'),
+    cita('2026-09-02', 'conf'), cita('2026-09-03', 'conf'), cita('2026-09-04', 'pend'),
+  ];
+  for (const hoy of ['2026-08-30', '2026-08-31', '2026-09-01', '2026-09-03', '2026-09-09']) {
+    const rango = citasEnFechas(agenda, dates);
+    assert.equal(asistidasEn(rango, hoy), resumenCitas(hastaHoy(rango, hoy)).conf, 'semana al ' + hoy);
+    // y lo mismo para el rango mensual y el anual, que es de donde salen las tarjetas de esas pestañas
+    for (const prefix of ['2026-09', '2026']) {
+      const r = citasEnPrefijo(agenda, prefix);
+      assert.equal(asistidasEn(r, hoy), resumenCitas(hastaHoy(r, hoy)).conf, prefix + ' al ' + hoy);
+    }
+  }
+});
+
+test('un rango ya CERRADO da lo mismo con y sin hastaHoy', () => {
+  // Agosto visto desde septiembre: no hay nada futuro que recortar. Si esto falla, hastaHoy está
+  // comiéndose citas pasadas.
+  const agosto = citasEnPrefijo([
+    cita('2026-08-03', 'conf'), cita('2026-08-20', 'conf'), cita('2026-08-25', 'noas'),
+    cita('2026-09-10', 'conf'),
+  ], '2026-08');
+  assert.deepEqual(resumenCitas(hastaHoy(agosto, '2026-09-01')), resumenCitas(agosto));
+  assert.equal(resumenCitas(agosto).continuidad, 67);
 });

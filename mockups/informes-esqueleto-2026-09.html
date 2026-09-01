@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maqueta — Informes RehactivaPro (3 pestañas, un esqueleto)</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ── Tokens y clases EXISTENTES del repo (copiadas de css/rehactiva-theme.css, layout.css, screens.css).
+   Nada de esto es nuevo: la maqueta tiene que poder implementarse sin reescribir CSS que ya funciona. ── */
+:root{--rh-blue:#29ABE2;--rh-blue-d:#1d8fbf;--rh-blue-dd:#155b7a;--rh-blue-soft:rgba(41,171,226,.14);--rh-blue-border:rgba(41,171,226,.25);--rh-blue-border-soft:rgba(41,171,226,.16);--rh-orange:#F5A623;--rh-orange-text:#a06a00;--rh-cream:#f0e8d8;--rh-cream2:#faf6ef;--rh-green:#1D9E75;--rh-green-d:#17865f;--rh-green-soft:rgba(29,158,117,.1);--rh-wa:#25a05a;--rh-yellow:#E0A850;--rh-yellow-d:#BA7517;--rh-red:#E24B4A;--rh-red-d:#c33a3a;--rh-red-soft:rgba(226,75,74,.08);--rh-mute:#7a7a76;--rh-mute2:#5a5a56;--rh-mute3:#9c9a92;--rh-ink:#1a1917}
+*{box-sizing:border-box}
+body{margin:0;background:var(--rh-cream);color:var(--rh-ink);font-family:'Public Sans',system-ui,sans-serif;font-size:13px}
+.main{max-width:1180px;margin:0 auto;background:var(--rh-cream)}
+.main-header{display:flex;align-items:center;gap:12px;padding:14px 22px;background:#fff;border-bottom:1px solid rgba(41,171,226,.16);flex-wrap:wrap;position:sticky;top:0;z-index:50}
+.page-title{font-size:18px;font-weight:800;color:var(--rh-ink);line-height:1.1}
+.page-sub{font-size:11.5px;color:var(--rh-mute);margin-top:2px}
+.seg{display:flex;gap:2px;background:#faf6ef;border:1px solid rgba(41,171,226,.16);border-radius:9px;padding:3px}
+.seg-item{padding:5px 13px;border-radius:7px;font-size:12px;color:#5a5a56;cursor:pointer;border:none;background:transparent;font-family:inherit;font-weight:500}
+.seg-item.active{background:#29ABE2;color:#fff;font-weight:600}
+.hdr-select{font-size:12px;background:#faf6ef;border:1px solid rgba(41,171,226,.25);border-radius:8px;padding:7px 10px;color:#1a1917;cursor:pointer;min-width:160px;font-family:inherit;outline:none}
+.icon-btn{width:30px;height:30px;border:1px solid rgba(41,171,226,.25);background:#fff;border-radius:8px;cursor:pointer;color:#5a5a56;font-size:15px;font-family:inherit}
+.week-nav{display:flex;align-items:center;gap:6px}
+.week-lbl{font-size:12.5px;font-weight:600;color:#1a1917;min-width:150px;text-align:center}
+.main-body{padding:16px 22px 40px}
+.informe-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.stat{background:#fff;border:1px solid rgba(41,171,226,.16);border-radius:10px;padding:10px 12px;min-width:0}
+.stat-lbl{font-size:10px;color:#5a5a56;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.stat-val{font-size:24px;font-weight:700;color:#1a1917;letter-spacing:-.5px}
+.stat-chg{font-size:11px;margin-top:3px}
+.up{color:#17865f}.down{color:#c33a3a}.neu{color:#5a5a56}
+.inf-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:12px;margin-bottom:12px}
+.panel{background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:12px;padding:14px 16px}
+.panel-title{font-size:11px;font-weight:700;color:#1a1917;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.avatar{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;flex-shrink:0}
+.ca{background:rgba(29,158,117,.13);color:#0d6e4e}.cb{background:rgba(41,171,226,.13);color:#155b7a}.cc{background:rgba(245,166,35,.15);color:#7a4900}.cd{background:rgba(212,83,126,.13);color:#8a2a50}.ce{background:rgba(127,119,221,.13);color:#4a3d9e}
+.util-bar{height:6px;border-radius:99px;overflow:hidden;background:#f0e8d8;margin-top:5px}
+.util-fill{height:100%;border-radius:99px}
+.ai-btn{background:var(--rh-blue);color:#fff;border:none;border-radius:8px;font-weight:700;font-family:inherit;padding:7px 14px;font-size:12px;cursor:pointer}
+.filter-pill{padding:5px 12px;border:1px solid rgba(41,171,226,.25);background:#fff;border-radius:99px;font-size:11px;color:#5a5a56;cursor:pointer;font-family:inherit;font-weight:500}
+.filter-pill.active{background:rgba(41,171,226,.14);border-color:#29ABE2;color:#1d8fbf;font-weight:600}
+.heatmap-grid{display:grid;gap:3px;font-size:10px;grid-template-columns:50px repeat(5,1fr)}
+.hm-cell{height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600}
+.hm-lbl{font-size:10px;color:#7a7a76;display:flex;align-items:center;justify-content:flex-end;padding-right:4px}
+.hm-hdr{font-size:10px;color:#7a7a76;text-align:center;padding-bottom:4px;font-weight:700}
+table.rk{width:100%;border-collapse:collapse}
+table.rk th{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#9c9a92;text-align:left;padding:4px 6px 6px 0;font-weight:700}
+table.rk td{padding:7px 6px 7px 0;border-top:1px solid rgba(0,0,0,.05);font-size:12px;vertical-align:middle}
+table.rk td.num,table.rk th.num{text-align:right;font-variant-numeric:tabular-nums}
+/* ── Lo ÚNICO nuevo de CSS (3 reglas), para la lectura IA y el aviso de datos ── */
+.ia-panel{background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column}
+.ia-body{font-size:12.5px;line-height:1.65;color:var(--rh-ink);white-space:pre-wrap;flex:1}
+.ia-body.empty{color:var(--rh-mute3);display:flex;align-items:center;justify-content:center;text-align:center;padding:18px 8px;border:1px dashed rgba(41,171,226,.3);border-radius:8px;min-height:120px}
+.ia-meta{font-size:10px;color:var(--rh-mute3);margin-top:8px;display:flex;justify-content:space-between}
+.data-warn{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--rh-yellow-d);background:rgba(224,168,80,.14);border:1px solid rgba(186,117,23,.3);border-radius:99px;padding:3px 10px;margin-left:auto}
+/* barras anuales en CSS (en la app va Chart.js, ya cargado) */
+.bars{display:grid;grid-template-columns:repeat(12,1fr);gap:8px;align-items:end;height:140px;padding-top:6px}
+.bar{display:flex;flex-direction:column-reverse;gap:1px;position:relative}
+.bar .ok{background:#1D9E75;border-radius:3px 3px 0 0}
+.bar .no{background:rgba(226,75,74,.55);border-radius:3px 3px 0 0}
+.bar .lbl{position:absolute;top:100%;left:0;right:0;text-align:center;font-size:9.5px;color:#7a7a76;margin-top:4px}
+.bar .val{position:absolute;bottom:100%;left:0;right:0;text-align:center;font-size:9.5px;color:#1a1917;font-weight:700;margin-bottom:2px}
+.avg{position:relative;height:0;border-top:1px dashed #9c9a92;margin-top:-84px;margin-bottom:84px}
+.avg span{position:absolute;right:0;top:-14px;font-size:9.5px;color:#7a7a76;background:#fff;padding:0 4px}
+.wa{font-size:10px;padding:3px 10px;background:rgba(37,160,90,.12);color:#25a05a;border:none;border-radius:99px;cursor:pointer;font-weight:600;font-family:inherit}
+.note{font-size:11px;color:var(--rh-mute);background:#fff;border:1px dashed rgba(41,171,226,.35);border-radius:8px;padding:8px 12px;margin:0 0 12px}
+.note b{color:var(--rh-blue-dd)}
+[hidden]{display:none!important}
+@media (max-width:900px){.inf-grid{grid-template-columns:1fr}.informe-stat-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="main">
+
+<div class="main-header">
+  <div><div class="page-title">Informes</div><div class="page-sub">Mismo esqueleto en las tres pestañas: cambia el rango, no la pantalla</div></div>
+  <div class="seg" style="margin-left:2px">
+    <button class="seg-item active" data-tab="sem" onclick="go('sem',this)">Semanal</button>
+    <button class="seg-item" data-tab="mes" onclick="go('mes',this)">Mensual</button>
+    <button class="seg-item" data-tab="ano" onclick="go('ano',this)">Anual</button>
+  </div>
+  <!-- Selector de período CONTEXTUAL: uno por pestaña, mismo lugar. Hoy semanal tiene flechas, mensual un select suelto dentro del contenido y anual nada. -->
+  <div class="week-nav" id="per-sem" style="margin-left:auto"><button class="icon-btn">‹</button><div class="week-lbl">31 ago – 4 sep 2026</div><button class="icon-btn">›</button></div>
+  <select class="hdr-select" id="per-mes" style="margin-left:auto" hidden><option>Agosto 2026</option><option>Julio 2026</option></select>
+  <select class="hdr-select" id="per-ano" style="margin-left:auto" hidden><option>2026</option></select>
+</div>
+
+<div class="main-body">
+
+<p class="note"><b>Cómo leer esta maqueta.</b> Datos inventados. Fila 1 = los mismos 4 números en las tres pestañas (comparados con el período anterior). Fila 2 = "Por terapeuta" + "Lectura del período (IA)", iguales en las tres. Fila 3 = lo único que cambia: el panel que responde la pregunta propia de ese rango. Lo que NO está acá se eliminó a propósito (ver la lista en el .md).</p>
+
+<!-- ═══════════════ SEMANAL ═══════════════ -->
+<section id="tab-sem">
+  <div class="informe-stat-grid">
+    <div class="stat"><div class="stat-lbl">Asistidas</div><div class="stat-val">112</div><div class="stat-chg up">+6 vs semana anterior</div></div>
+    <div class="stat"><div class="stat-lbl">Inasistencias</div><div class="stat-val" style="color:#E24B4A">9 <span style="font-size:13px;color:#7a7a76;font-weight:600">· 7%</span></div><div class="stat-chg down">+3 vs semana anterior</div></div>
+    <div class="stat"><div class="stat-lbl">Continuidad</div><div class="stat-val" style="color:#1D9E75">93%</div><div class="stat-chg neu">Meta 85% · asistidas / decididas</div></div>
+    <div class="stat"><div class="stat-lbl">Pacientes nuevos</div><div class="stat-val">5</div><div class="stat-chg neu">= semana anterior</div></div>
+  </div>
+  <div style="display:flex;align-items:center;margin:-6px 0 12px"><span class="data-warn">⚠ 4 citas pasadas siguen "pendientes" — no cuentan en ningún número hasta marcarlas</span></div>
+
+  <div class="inf-grid">
+    <div class="panel">
+      <div class="panel-title">Por terapeuta <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#9c9a92">ocupación = asistidas / slots del horario en la semana</span></div>
+      <table class="rk">
+        <thead><tr><th></th><th>Terapeuta</th><th class="num">Asistidas</th><th class="num">Inasist.</th><th style="width:34%">Ocupación</th></tr></thead>
+        <tbody>
+          <tr><td><span class="avatar ca">MB</span></td><td><b>Marco Barros</b></td><td class="num">31</td><td class="num" style="color:#c33a3a">1</td><td><div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:86%;background:#1D9E75"></div></div><b style="width:36px;text-align:right;color:#17865f">86%</b></div></td></tr>
+          <tr><td><span class="avatar cb">AE</span></td><td><b>Axel Escobar</b></td><td class="num">27</td><td class="num" style="color:#c33a3a">3</td><td><div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:75%;background:#F5A623"></div></div><b style="width:36px;text-align:right;color:#a06a00">75%</b></div></td></tr>
+          <tr><td><span class="avatar cd">JA</span></td><td><b>Josselyn Araujo</b></td><td class="num">24</td><td class="num" style="color:#c33a3a">2</td><td><div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:80%;background:#1D9E75"></div></div><b style="width:36px;text-align:right;color:#17865f">80%</b></div></td></tr>
+          <tr><td><span class="avatar cc">KP</span></td><td><b>Karina Parra</b></td><td class="num">18</td><td class="num" style="color:#c33a3a">3</td><td><div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:51%;background:#E24B4A"></div></div><b style="width:36px;text-align:right;color:#c33a3a">51%</b></div></td></tr>
+          <tr><td><span class="avatar ce">GB</span></td><td><b>Giovanni Berdejo</b></td><td class="num">12</td><td class="num" style="color:#c33a3a">0</td><td><div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:60%;background:#F5A623"></div></div><b style="width:36px;text-align:right;color:#a06a00">60%</b></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="ia-panel">
+      <div class="panel-title">Lectura de la semana <button class="ai-btn" style="padding:5px 12px">Generar con IA</button></div>
+      <div class="ia-body empty">Todavía no generaste la lectura de esta semana.<br>Usa los mismos números de arriba, nada más.</div>
+      <div class="ia-meta"><span>Rango: 31 ago – 4 sep · 5 días hábiles</span><span>Solo admin</span></div>
+    </div>
+  </div>
+
+  <div class="inf-grid">
+    <div class="panel">
+      <div class="panel-title">Ocupación por hora y día <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#9c9a92">¿dónde ofrezco turnos?</span></div>
+      <div class="heatmap-grid">
+        <div class="hm-hdr"></div><div class="hm-hdr">Lun</div><div class="hm-hdr">Mar</div><div class="hm-hdr">Mié</div><div class="hm-hdr">Jue</div><div class="hm-hdr">Vie</div>
+        <div class="hm-lbl">7:00</div><div class="hm-cell" style="background:rgba(41,171,226,.3);color:#155b7a">60%</div><div class="hm-cell" style="background:rgba(41,171,226,.5);color:#155b7a">80%</div><div class="hm-cell" style="background:#1d8fbf;color:#fff">90%</div><div class="hm-cell" style="background:rgba(41,171,226,.5);color:#155b7a">80%</div><div class="hm-cell" style="background:rgba(41,171,226,.3);color:#155b7a">60%</div>
+        <div class="hm-lbl">8:00</div><div class="hm-cell" style="background:#155b7a;color:#fff">100%</div><div class="hm-cell" style="background:#155b7a;color:#fff">100%</div><div class="hm-cell" style="background:#1d8fbf;color:#fff">90%</div><div class="hm-cell" style="background:#155b7a;color:#fff">100%</div><div class="hm-cell" style="background:#1d8fbf;color:#fff">90%</div>
+        <div class="hm-lbl">9:00</div><div class="hm-cell" style="background:#155b7a;color:#fff">100%</div><div class="hm-cell" style="background:#1d8fbf;color:#fff">90%</div><div class="hm-cell" style="background:#155b7a;color:#fff">100%</div><div class="hm-cell" style="background:#1d8fbf;color:#fff">90%</div><div class="hm-cell" style="background:rgba(41,171,226,.5);color:#155b7a">80%</div>
+        <div class="hm-lbl">10:00</div><div class="hm-cell" style="background:#1d8fbf;color:#fff">90%</div><div class="hm-cell" style="background:rgba(41,171,226,.5);color:#155b7a">80%</div><div class="hm-cell" style="background:#1d8fbf;color:#fff">90%</div><div class="hm-cell" style="background:rgba(41,171,226,.5);color:#155b7a">80%</div><div class="hm-cell" style="background:rgba(41,171,226,.5);color:#155b7a">70%</div>
+        <div class="hm-lbl">11:00</div><div class="hm-cell" style="background:rgba(41,171,226,.3);color:#155b7a">60%</div><div class="hm-cell" style="background:rgba(41,171,226,.3);color:#155b7a">50%</div><div class="hm-cell" style="background:rgba(41,171,226,.5);color:#155b7a">70%</div><div class="hm-cell" style="background:rgba(41,171,226,.3);color:#155b7a">60%</div><div class="hm-cell" style="background:rgba(41,171,226,.15);color:#155b7a">40%</div>
+        <div class="hm-lbl">14:00</div><div class="hm-cell" style="background:rgba(41,171,226,.5);color:#155b7a">80%</div><div class="hm-cell" style="background:rgba(41,171,226,.5);color:#155b7a">70%</div><div class="hm-cell" style="background:rgba(41,171,226,.5);color:#155b7a">80%</div><div class="hm-cell" style="background:rgba(41,171,226,.3);color:#155b7a">60%</div><div class="hm-cell" style="background:rgba(41,171,226,.15);color:#155b7a">40%</div>
+        <div class="hm-lbl">16:00</div><div class="hm-cell" style="background:rgba(41,171,226,.15);color:#155b7a">30%</div><div class="hm-cell" style="background:rgba(41,171,226,.15);color:#155b7a">40%</div><div class="hm-cell" style="background:rgba(41,171,226,.15);color:#155b7a">30%</div><div class="hm-cell" style="background:rgba(41,171,226,.15);color:#155b7a">20%</div><div class="hm-cell" style="background:#f5f2ea;color:#155b7a">10%</div>
+      </div>
+      <div style="font-size:10px;color:#9c9a92;margin-top:8px">Se conserva tal cual (renderHeatmap). Es el único gráfico de la pantalla que contesta una pregunta que el dueño se hace: a qué hora ofrecer los turnos nuevos.</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">No asistieron esta semana <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#9c9a92">llamar hoy</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(226,75,74,.08)"><div><div style="font-size:12px;font-weight:600">Paciente Ejemplo Uno</div><div style="font-size:10px;color:#9c9a92">mar 1 sep · Axel Escobar · 2ª falta del episodio</div></div><button class="wa">WA</button></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(226,75,74,.08)"><div><div style="font-size:12px;font-weight:600">Paciente Ejemplo Dos</div><div style="font-size:10px;color:#9c9a92">mar 1 sep · Karina Parra</div></div><button class="wa">WA</button></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0"><div><div style="font-size:12px;font-weight:600">Paciente Ejemplo Tres</div><div style="font-size:10px;color:#9c9a92">lun 31 ago · Josselyn Araujo · sin próxima cita</div></div><button class="wa">WA</button></div>
+      <div style="font-size:10px;color:#9c9a92;margin-top:8px">Se conserva y se mejora con una línea: "2ª falta del episodio" / "sin próxima cita" es lo que decide a quién llamar primero.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ MENSUAL ═══════════════ -->
+<section id="tab-mes" hidden>
+  <div class="informe-stat-grid">
+    <div class="stat"><div class="stat-lbl">Asistidas</div><div class="stat-val">468</div><div class="stat-chg up">+4% vs jul</div></div>
+    <div class="stat"><div class="stat-lbl">Inasistencias</div><div class="stat-val" style="color:#E24B4A">41 <span style="font-size:13px;color:#7a7a76;font-weight:600">· 8%</span></div><div class="stat-chg down">+9 vs jul</div></div>
+    <div class="stat"><div class="stat-lbl">Continuidad</div><div class="stat-val" style="color:#1D9E75">92%</div><div class="stat-chg neu">Meta 85% · jul: 94%</div></div>
+    <div class="stat"><div class="stat-lbl">Pacientes nuevos</div><div class="stat-val">22</div><div class="stat-chg up">+5 vs jul · 9 altas en el mes</div></div>
+  </div>
+
+  <div class="inf-grid">
+    <div class="panel">
+      <div class="panel-title">Por terapeuta <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#9c9a92">agosto · ocupación sobre días hábiles del mes</span></div>
+      <table class="rk">
+        <thead><tr><th></th><th>Terapeuta</th><th class="num">Asistidas</th><th class="num">Inasist.</th><th style="width:34%">Ocupación</th></tr></thead>
+        <tbody>
+          <tr><td><span class="avatar ca">MB</span></td><td><b>Marco Barros</b></td><td class="num">128</td><td class="num" style="color:#c33a3a">6</td><td><div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:84%;background:#1D9E75"></div></div><b style="width:36px;text-align:right;color:#17865f">84%</b></div></td></tr>
+          <tr><td><span class="avatar cb">AE</span></td><td><b>Axel Escobar</b></td><td class="num">110</td><td class="num" style="color:#c33a3a">12</td><td><div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:72%;background:#F5A623"></div></div><b style="width:36px;text-align:right;color:#a06a00">72%</b></div></td></tr>
+          <tr><td><span class="avatar cd">JA</span></td><td><b>Josselyn Araujo</b></td><td class="num">102</td><td class="num" style="color:#c33a3a">9</td><td><div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:79%;background:#F5A623"></div></div><b style="width:36px;text-align:right;color:#a06a00">79%</b></div></td></tr>
+          <tr><td><span class="avatar cc">KP</span></td><td><b>Karina Parra</b></td><td class="num">78</td><td class="num" style="color:#c33a3a">11</td><td><div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:53%;background:#E24B4A"></div></div><b style="width:36px;text-align:right;color:#c33a3a">53%</b></div></td></tr>
+          <tr><td><span class="avatar ce">GB</span></td><td><b>Giovanni Berdejo</b></td><td class="num">50</td><td class="num" style="color:#c33a3a">3</td><td><div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:62%;background:#F5A623"></div></div><b style="width:36px;text-align:right;color:#a06a00">62%</b></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="ia-panel">
+      <div class="panel-title">Lectura del mes <button class="ai-btn" style="padding:5px 12px;background:#fff;color:#1d8fbf;border:1px solid rgba(41,171,226,.35)">Regenerar</button></div>
+      <div class="ia-body">Agosto cerró con 468 sesiones asistidas, un 4% más que julio, y una continuidad del 92%, por encima de la meta del 85% aunque dos puntos por debajo del mes anterior.
+
+El dato a mirar es el aumento de inasistencias (41 contra 32): se concentra en dos terapeutas y en la franja de la tarde. Conviene revisar el recordatorio de las citas de 14:00–16:00 y contactar a los tres pacientes con dos faltas seguidas.
+
+Entraron 22 pacientes nuevos y se dieron 9 altas: el padrón activo crece; si la ocupación de la mañana ya está al tope, hay que abrir tardes o redistribuir.</div>
+      <div class="ia-meta"><span>Generado 1 sep 09:14 · Agosto vs julio</span><span>Solo admin</span></div>
+    </div>
+  </div>
+
+  <div class="inf-grid">
+    <div class="panel">
+      <div class="panel-title">Dejaron de venir <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#9c9a92">activos, última asistencia hace +21 días, sin cita futura</span></div>
+      <table class="rk">
+        <thead><tr><th>Paciente</th><th>Última asistencia</th><th class="num">Sesiones</th><th>Terapeuta</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><b>Paciente Ejemplo Cuatro</b></td><td>4 ago · hace 28 días</td><td class="num">6/15</td><td>Axel Escobar</td><td style="text-align:right"><button class="wa">WA</button></td></tr>
+          <tr><td><b>Paciente Ejemplo Cinco</b></td><td>31 jul · hace 32 días</td><td class="num">11/12</td><td>Marco Barros</td><td style="text-align:right"><button class="wa">WA</button></td></tr>
+          <tr><td><b>Paciente Ejemplo Seis</b></td><td>28 jul · hace 35 días</td><td class="num">3/20</td><td>Karina Parra</td><td style="text-align:right"><button class="wa">WA</button></td></tr>
+        </tbody>
+      </table>
+      <div style="font-size:10px;color:#9c9a92;margin-top:8px">Nuevo. Es la lista más accionable de la pantalla: cada fila es una llamada. 11/12 = le falta una para el alta y desapareció: o se da de alta o se recupera.</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Nuevos por doctor referente <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#9c9a92">agosto</span></div>
+      <table class="rk">
+        <tbody>
+          <tr><td><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#378ADD;margin-right:6px"></span>Dr. Matheus <span style="color:#9c9a92">(Traumatología)</span></td><td class="num"><b>8</b></td></tr>
+          <tr><td><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#1D9E75;margin-right:6px"></span>Dr. Longo <span style="color:#9c9a92">(Ortopedia)</span></td><td class="num"><b>5</b></td></tr>
+          <tr><td><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#BA7517;margin-right:6px"></span>Dr. Cueva <span style="color:#9c9a92">(Fisiatría)</span></td><td class="num"><b>4</b></td></tr>
+          <tr><td><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#9c9a92;margin-right:6px"></span>Independientes</td><td class="num"><b>5</b></td></tr>
+        </tbody>
+      </table>
+      <div style="font-size:10px;color:#9c9a92;margin-top:8px">Reemplaza a "Pacientes por doctor referente" (que contaba TODO el padrón, no el mes, y con texto #c8c6c0 casi invisible). Acá la pregunta es "¿quién me mandó gente este mes?" — y a quién agradecer.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ ANUAL ═══════════════ -->
+<section id="tab-ano" hidden>
+  <div class="informe-stat-grid">
+    <div class="stat"><div class="stat-lbl">Asistidas</div><div class="stat-val">3 412</div><div class="stat-chg neu">ene–ago 2026 · 186 pacientes distintos</div></div>
+    <div class="stat"><div class="stat-lbl">Inasistencias</div><div class="stat-val" style="color:#E24B4A">271 <span style="font-size:13px;color:#7a7a76;font-weight:600">· 7%</span></div><div class="stat-chg neu">acumuladas</div></div>
+    <div class="stat"><div class="stat-lbl">Continuidad</div><div class="stat-val" style="color:#1D9E75">93%</div><div class="stat-chg neu">Meta 85% · peor mes: mar 86%</div></div>
+    <div class="stat"><div class="stat-lbl">Pacientes nuevos</div><div class="stat-val">141</div><div class="stat-chg neu">62 altas en el año</div></div>
+  </div>
+
+  <div class="inf-grid">
+    <div class="panel">
+      <div class="panel-title">Por terapeuta <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#9c9a92">2026 · ocupación sobre días hábiles del año</span></div>
+      <table class="rk">
+        <thead><tr><th></th><th>Terapeuta</th><th class="num">Asistidas</th><th class="num">Inasist.</th><th style="width:34%">Ocupación</th></tr></thead>
+        <tbody>
+          <tr><td><span class="avatar ca">MB</span></td><td><b>Marco Barros</b></td><td class="num">1 004</td><td class="num" style="color:#c33a3a">51</td><td><div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:82%;background:#1D9E75"></div></div><b style="width:36px;text-align:right;color:#17865f">82%</b></div></td></tr>
+          <tr><td><span class="avatar cb">AE</span></td><td><b>Axel Escobar</b></td><td class="num">861</td><td class="num" style="color:#c33a3a">88</td><td><div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:70%;background:#F5A623"></div></div><b style="width:36px;text-align:right;color:#a06a00">70%</b></div></td></tr>
+          <tr><td><span class="avatar cd">JA</span></td><td><b>Josselyn Araujo</b></td><td class="num">790</td><td class="num" style="color:#c33a3a">60</td><td><div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:76%;background:#F5A623"></div></div><b style="width:36px;text-align:right;color:#a06a00">76%</b></div></td></tr>
+          <tr><td><span class="avatar cc">KP</span></td><td><b>Karina Parra</b></td><td class="num">520</td><td class="num" style="color:#c33a3a">62</td><td><div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:49%;background:#E24B4A"></div></div><b style="width:36px;text-align:right;color:#c33a3a">49%</b></div></td></tr>
+          <tr><td><span class="avatar ce">GB</span></td><td><b>Giovanni Berdejo</b></td><td class="num">237</td><td class="num" style="color:#c33a3a">10</td><td><div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:58%;background:#E24B4A"></div></div><b style="width:36px;text-align:right;color:#c33a3a">58%</b></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="ia-panel">
+      <div class="panel-title">Lectura del año <button class="ai-btn" style="padding:5px 12px">Generar con IA</button></div>
+      <div class="ia-body empty">Todavía no generaste la lectura de 2026.<br>Usa los meses de abajo y los cuatro números de arriba.</div>
+      <div class="ia-meta"><span>Enero a la fecha · 8 meses cerrados</span><span>Solo admin</span></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:12px">
+    <div class="panel-title">Asistidas e inasistencias por mes · 2026 <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#9c9a92">¿crece? ¿qué meses caen? (vacaciones del equipo, feriados)</span></div>
+    <div style="padding:22px 6px 26px">
+      <div class="bars">
+        <div class="bar"><div class="val">380</div><div class="ok" style="height:95px"></div><div class="no" style="height:8px"></div><div class="lbl">Ene</div></div>
+        <div class="bar"><div class="val">402</div><div class="ok" style="height:100px"></div><div class="no" style="height:9px"></div><div class="lbl">Feb</div></div>
+        <div class="bar"><div class="val">351</div><div class="ok" style="height:88px"></div><div class="no" style="height:14px"></div><div class="lbl">Mar</div></div>
+        <div class="bar"><div class="val">410</div><div class="ok" style="height:102px"></div><div class="no" style="height:7px"></div><div class="lbl">Abr</div></div>
+        <div class="bar"><div class="val">436</div><div class="ok" style="height:109px"></div><div class="no" style="height:8px"></div><div class="lbl">May</div></div>
+        <div class="bar"><div class="val">445</div><div class="ok" style="height:111px"></div><div class="no" style="height:7px"></div><div class="lbl">Jun</div></div>
+        <div class="bar"><div class="val">450</div><div class="ok" style="height:112px"></div><div class="no" style="height:8px"></div><div class="lbl">Jul</div></div>
+        <div class="bar"><div class="val">468</div><div class="ok" style="height:117px"></div><div class="no" style="height:10px"></div><div class="lbl">Ago</div></div>
+        <div class="bar"><div class="lbl">Sep</div></div><div class="bar"><div class="lbl">Oct</div></div><div class="bar"><div class="lbl">Nov</div></div><div class="bar"><div class="lbl">Dic</div></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:14px;font-size:10px;color:#7a7a76"><span><span style="display:inline-block;width:9px;height:9px;background:#1D9E75;border-radius:2px;margin-right:4px"></span>Asistidas</span><span><span style="display:inline-block;width:9px;height:9px;background:rgba(226,75,74,.55);border-radius:2px;margin-right:4px"></span>Inasistencias</span><span style="margin-left:auto">Chart.js, barras apiladas. Es el ÚNICO gráfico de barras que queda; el de "3 meses" del mensual se elimina (era este mismo dato con zoom, y mezclaba conteos con un % en el mismo eje).</span></div>
+  </div>
+</section>
+
+</div></div>
+
+<script>
+function go(t,btn){
+  ['sem','mes','ano'].forEach(x=>{document.getElementById('tab-'+x).hidden=(x!==t);document.getElementById('per-'+x).hidden=(x!==t);});
+  document.querySelectorAll('.seg-item').forEach(b=>b.classList.toggle('active',b===btn));
+  window.scrollTo(0,0);
+}
+</script>
+</body>
+</html>

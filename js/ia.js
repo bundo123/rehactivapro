@@ -1,6 +1,6 @@
 import { state } from './state.js';
-import { getDisplayAge, esc, doneActual, dmy, semanaRango, citasEnFechas, citasEnPrefijo,
-         nuevosEnPrefijo, resumenCitas, MES_LARGO } from './utils.js';
+import { getDisplayAge, esc, doneActual, dmy, fmtDate, semanaRango, citasEnFechas, citasEnPrefijo,
+         nuevosEnPrefijo, resumenCitas, hastaHoy, MES_LARGO } from './utils.js';
 import { toastErr } from './toast.js';
 import { supa } from './supabase-client.js';
 
@@ -47,13 +47,16 @@ const CIERRE='Responde en español, en texto plano (sin markdown ni viñetas), t
 
 export function genSemanalAI() {
   const {dates}=semanaRango(state.currentWeek);
-  const citas=citasEnFechas(state.appointments,dates);
+  const hoy=new Date();
+  // Solo lo que YA ocurrió: en la semana en curso las conf del jueves y el viernes todavía no son
+  // asistencias, y si entran el modelo lee una tasa inflada que además no cuadra con la pantalla.
+  const citas=hastaHoy(citasEnFechas(state.appointments,dates),hoy);
   const r=resumenCitas(citas);
   // Terapeutas CON citas en la semana, no el tamaño del equipo: el bloque dice "todos los datos
   // de esa semana" y state.therapists.length es una plantilla total que no depende del rango.
   const thSemana=new Set(citas.filter(a=>a.therapistId).map(a=>String(a.therapistId))).size;
   const prompt=`${CABECERA}
-Analiza la SEMANA del ${dmy(dates[0])} al ${dmy(dates[4])} (lunes a viernes). Estos son TODOS los datos de esa semana, nada más:
+Analiza la SEMANA del ${dmy(dates[0])} al ${dmy(dates[4])} (lunes a viernes). Estos son TODOS los datos de esa semana, contados hasta hoy (${dmy(fmtDate(hoy))}), nada más:
 - Total de citas agendadas: ${r.total}
 - Asistieron: ${r.conf}
 - No asistieron: ${r.noas}
@@ -71,14 +74,17 @@ export function genMensualAI() {
   const [y,m]=ym.split('-').map(Number);
   const prevD=new Date(y,m-2,1);
   const pym=`${prevD.getFullYear()}-${String(prevD.getMonth()+1).padStart(2,'0')}`;
-  const cur=resumenCitas(citasEnPrefijo(state.appointments,ym));
-  const prev=resumenCitas(citasEnPrefijo(state.appointments,pym));
+  // Mismo recorte que la pantalla (_apptStats en informes.js): un mes en curso no aporta sus
+  // conf futuras. Un mes ya cerrado no se mueve.
+  const stats=prefix=>resumenCitas(hastaHoy(citasEnPrefijo(state.appointments,prefix),now));
+  const cur=stats(ym);
+  const prev=stats(pym);
   const nuevos=nuevosEnPrefijo(state.patients,ym);
   const nuevosPrev=nuevosEnPrefijo(state.patients,pym);
   const nom=x=>`${MES_LARGO[parseInt(x.split('-')[1],10)-1]} ${x.split('-')[0]}`;
   const cont=v=>v==null?'sin citas decididas':v+'%';
   const prompt=`${CABECERA}
-Analiza el MES de ${nom(ym)} y compáralo con ${nom(pym)}. Estos son TODOS los datos de esos dos meses, nada más:
+Analiza el MES de ${nom(ym)} y compáralo con ${nom(pym)}. Estos son TODOS los datos de esos dos meses, contados hasta hoy (${dmy(fmtDate(now))}), nada más:
 
 ${nom(ym)} (mes analizado):
 - Sesiones realizadas: ${cur.conf}
@@ -101,19 +107,22 @@ Genera un análisis mensual (máximo 250 palabras) con: qué cambió respecto al
 export function genAnualAI() {
   const now=new Date();
   const year=now.getFullYear();
-  const r=resumenCitas(citasEnPrefijo(state.appointments,String(year)));
+  // Un solo recorte para todo el bloque: acumulados, desglose por mes y pacientes únicos salen
+  // de las citas del año que YA ocurrieron (septiembre en curso no aporta sus conf futuras).
+  const delAno=hastaHoy(citasEnPrefijo(state.appointments,String(year)),now);
+  const r=resumenCitas(delAno);
   // Mes a mes del año en curso: es lo que da la lectura de tendencia (el acumulado solo, no).
   const porMes=[];
   for(let m=0;m<12;m++){
     const ym=`${year}-${String(m+1).padStart(2,'0')}`;
-    const s=resumenCitas(citasEnPrefijo(state.appointments,ym));
+    const s=resumenCitas(citasEnPrefijo(delAno,ym));
     if(s.total>0) porMes.push(`- ${MES_LARGO[m]}: ${s.conf} sesiones, ${s.noas} inasistencias`);
   }
   const mesesCompletos=now.getMonth();   // meses ya cerrados este año
   const altas=state.patients.filter(p=>p.status==='alta').length;
-  const unicos=new Set(citasEnPrefijo(state.appointments,String(year)).map(a=>a.patientId)).size;
+  const unicos=new Set(delAno.map(a=>a.patientId)).size;
   const prompt=`${CABECERA}
-Analiza el AÑO ${year} en curso (datos de enero a la fecha, con ${mesesCompletos} ${mesesCompletos===1?'mes cerrado':'meses cerrados'}). Estos son TODOS los datos del año, nada más:
+Analiza el AÑO ${year} en curso (datos de enero a la fecha, con ${mesesCompletos} ${mesesCompletos===1?'mes cerrado':'meses cerrados'}). Estos son TODOS los datos del año, contados hasta hoy (${dmy(fmtDate(now))}), nada más:
 - Sesiones acumuladas: ${r.conf}
 - Inasistencias acumuladas: ${r.noas}
 - Continuidad del año (asistidas sobre citas decididas): ${r.continuidad==null?'sin citas decididas':r.continuidad+'%'}
@@ -125,14 +134,6 @@ ${porMes.length?porMes.join('\n'):'- Sin actividad registrada en el año'}
 
 Genera un análisis anual (máximo 250 palabras) con: la tendencia a lo largo del año y sus meses fuertes y flojos, el estado de la continuidad frente a la meta del 85%, y 2-3 prioridades concretas para lo que queda del año. No proyectes cifras a fin de año a partir de meses incompletos. ${CIERRE}`;
   callAI(prompt,'anual-ai-output');
-}
-
-// El botón "Análisis con IA" del header de Informes actúa sobre la sub-pestaña visible.
-export function genInformeAI() {
-  const n=state.informesSubTab;
-  if(n==='mensual') return genMensualAI();
-  if(n==='anual')   return genAnualAI();
-  return genSemanalAI();
 }
 
 // Limpia cualquier markdown que la IA pudiera devolver pese a las instrucciones (texto plano).

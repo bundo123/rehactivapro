@@ -172,11 +172,12 @@ export function nuevosEnPrefijo(patients, prefix){
   return (patients||[]).filter(x=>x&&x.createdAt&&String(x.createdAt).startsWith(p)).length;
 }
 
-// Conteos del bloque de datos que se le pasa a la IA. Dos tasas distintas a propósito, cada una
-// espejo de la tarjeta que le corresponde en pantalla:
-//   asistencia   = conf/total        (KPI "Asistencia" del semanal; cuenta las pendientes en el total)
-//   continuidad  = conf/(conf+noas)  (KPI "Continuidad" del mensual/anual; solo citas ya decididas)
-// continuidad es null si no hubo ninguna decidida — '—' en pantalla, jamás 0% inventado.
+// Conteos del bloque de datos que se le pasa a la IA y a las tarjetas de Informes.
+//   continuidad  = conf/(conf+noas)  (solo citas ya decididas) — la ÚNICA tasa que se muestra en
+//                  pantalla, idéntica en semanal, mensual y anual. null si no hubo ninguna decidida:
+//                  '—' en pantalla, jamás 0% inventado.
+//   asistencia   = conf/total        (cuenta las pendientes en el denominador) — ya no se pinta en
+//                  ninguna tarjeta; sobrevive porque el prompt semanal la nombra (ia.js).
 export function resumenCitas(appts){
   const list=(appts||[]);
   const conf=list.filter(a=>a.status==='conf').length;
@@ -187,6 +188,23 @@ export function resumenCitas(appts){
   return {total,conf,noas,pend,
     asistencia: total>0?Math.round(conf/total*100):0,
     continuidad: dec>0?Math.round(conf/dec*100):null};
+}
+
+// Recorta un rango a lo que YA ocurrió: citas con fecha <= hoy. Un rango EN CURSO (la semana de
+// hoy, el mes de hoy, el año en curso) arrastra confirmadas FUTURAS ya agendadas; si entran en una
+// tasa o en un acumulado, el número sale inflado un martes y se "corrige" solo al cerrar el rango
+// —y encima no cuadra con "Asistidas", que sí las excluye—. Los rangos ya cerrados no cambian.
+// `hoy` acepta Date o 'YYYY-MM-DD'; sin fecha válida devuelve vacío, jamás el rango entero.
+export function hastaHoy(appts, hoy){
+  const h = hoy instanceof Date ? fmtDate(hoy) : String(hoy||'');
+  if(!h) return [];
+  return (appts||[]).filter(a=>a&&a.date&&String(a.date)<=h);
+}
+
+// Asistidas del rango = las 'conf' que ya ocurrieron. Definida SOBRE hastaHoy para que valga por
+// construcción: asistidasEn(rango) === resumenCitas(hastaHoy(rango)).conf.
+export function asistidasEn(appts, hoy){
+  return hastaHoy(appts, hoy).filter(a=>a.status==='conf').length;
 }
 // Etiqueta corta de una fecha 'YYYY-MM-DD': 'Lun 12 ago'. Se parsea a mano (no `new Date(ds)`)
 // porque el string ISO suelto se interpreta en UTC y en Quito (UTC-5) devolvería el día anterior.

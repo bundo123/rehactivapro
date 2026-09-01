@@ -304,22 +304,25 @@
       <div class="week-lbl" id="week-lbl"></div>
       <button class="icon-btn sm" onclick="changeWeek(1)">›</button>
     </div>
-    <!-- Analiza la sub-pestaña visible (semanal/mensual/anual): cada una tiene su rango y su prompt.
-         El "Exportar PDF" que vivía acá exportaba el informe de PACIENTE y se movió a esa pantalla. -->
-    <button class="ai-btn" style="height:34px;padding:0 14px;font-size:12px" onclick="genInformeAI()" data-permission="admin">Análisis con IA</button>
   </div>
   <div class="main-body">
     <!-- Los *-ai-output son HERMANOS del contenedor que se re-renderiza, no hijos: así cambiar de
          semana o de mes no borra el análisis recién generado. -->
+    <!-- El botón de IA vive DENTRO de cada sub-tab, arriba de su propia salida: analiza el rango
+         que el usuario está viendo, sin depender de cuál pestaña estaba activa.
+         El "Exportar PDF" que vivía en el header exportaba el informe de PACIENTE y se movió a esa pantalla. -->
     <div id="subtab-semanal">
+      <button class="ai-btn" style="height:34px;padding:0 14px;font-size:12px;margin-bottom:12px" onclick="genSemanalAI()" data-permission="admin">Análisis con IA</button>
       <div id="semanal-ai-output" style="display:none;margin-bottom:14px"></div>
       <div id="semanal-stats"></div>
     </div>
     <div id="subtab-mensual" style="display:none">
+      <button class="ai-btn" style="height:34px;padding:0 14px;font-size:12px;margin-bottom:12px" onclick="genMensualAI()" data-permission="admin">Análisis con IA</button>
       <div id="mensual-ai-output" style="display:none;margin-bottom:14px"></div>
       <div id="mensual-content"></div>
     </div>
     <div id="subtab-anual" style="display:none">
+      <button class="ai-btn" style="height:34px;padding:0 14px;font-size:12px;margin-bottom:12px" onclick="genAnualAI()" data-permission="admin">Análisis con IA</button>
       <div id="anual-ai-output" style="display:none;margin-bottom:14px"></div>
       <div id="anual-content"></div>
     </div>

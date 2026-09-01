@@ -759,11 +759,7 @@
     grid-template-columns: 1fr;
   }
 
-  /* ── Informes: KPIs en 2 columnas, desempeño por terapeuta apilado ── */
-  .kpi-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
+  /* ── Informes: desempeño por terapeuta apilado ── */
   .perf-row {
     align-items: flex-start;
     flex-wrap: wrap;
