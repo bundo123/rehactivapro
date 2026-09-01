@@ -36,6 +36,84 @@
 
 ---
 
+## 🗓️ Sesión 2026-09-01 (d) — LOTE HISTORIAL DE CITAS
+
+Un commit (**`bcf2acc`**), revisado en la rama `revision-historial` (auditoría OK + prueba manual
+de Jefferson) y mergeado a `main` en fast-forward; la rama de revisión se borró local y remota.
+Tests: **284 verdes** (+31 en `test/historial.test.js`). Sin SQL, sin cambios de esquema, sin RLS
+nueva. La spec del lote quedó versionada en `PLAN_HISTORIAL.md`, igual que `PLAN_BIRTHDATE.md`.
+
+**Qué es la pantalla.** Pestaña `historial` en el nav (sección "Clínica", debajo de Agenda), para
+los **tres roles**. Contesta en segundos *"¿cuántas veces ha venido este paciente?"* sin abrir el
+informe clínico: buscador de paciente, cuatro tarjetas (el número grande son las **asistencias**),
+chips de corte por episodio, filtros de mes y estado, tabla agrupada por mes con subtotales,
+**Imprimir** con membrete y **Exportar CSV**. No agrega **ni una query**: todo se deriva de lo que
+`loadAll` ya trajo (`state.appointments` y `p.log`); filtrar por paciente es O(n) sobre ~13k citas
+al año (<1 ms) y los mapas caros —episodio por cita, ordinal por cita— se calculan **una vez por
+render**, no dentro del `.map` de las filas (mismo patrón que `ordinalesDeCitas` en la agenda).
+
+- **Una implementación, cuatro puertas.** `irAHistorial(patientId)` (`historial.js:34`) es la
+  **entrada única** —chequea el permiso, fija `state.historialPatientId`, resetea el filtro y llama
+  a `showTab`—, y la usan: **(1)** el modal de cita, **(2)** el side-card "Paciente" del informe,
+  **(3)** el chip "Citas" del buscador global, **(4)** el nav, que entra por `showTab('historial')`
+  a secas porque **no** debe resetear el paciente (si venís de una cita y volvés por el menú, la
+  consulta se conserva). `agenda.js` la llama vía `window._app` y no por `import`: `informes.js` ya
+  importa `agenda.js`, e importar `historial.js` cerraría un ciclo de módulos por una sola llamada.
+- **`#appt-goto-rpt` se partió en dos.** El botón único del modal de cita ("Ver informe del
+  paciente") ahora son dos hermanos, "Ver informe" e "Historial de citas", dentro de un contenedor
+  `#appt-shortcuts` que es **quien lleva el `data-pid` y el `[hidden]`**: así los dos leen el mismo
+  paciente y no pueden quedar desincronizados. El bloque de `responsive.css` que lo pintaba pasa a
+  aplicar a los dos, envolviendo en modal angosto.
+- **ASISTENCIA = cita `conf` con `date <= hoy`.** Una `conf` **futura no suma**: es una cita
+  agendada, y en la tabla se lee "Agendada". El motivo es `checkAutoNoas` (`agenda.js:95-106`), que
+  pasa a `noas` toda `pend` vencida — así que una `conf` ya pasada es, **por construcción**, una
+  cita atendida. Es la misma lectura que hace Seguimiento ("cita pasada = conf con fecha ≤ hoy").
+  Hay test: la `conf` futura no entra en el contador y la de **hoy** sí.
+- **Frontera de episodio ESTRICTA (`desde < date <= hasta`)** — la misma de `doneActual`,
+  `citasNumerables` y del recorte de los informes: la cita con la fecha **exacta** del marcador
+  pertenece al episodio que **cierra**, no al que abre (por eso `guardarNuevoEpisodio` fecha el
+  marcador el día **anterior** a la cita que abre el episodio nuevo). Testeada con una cita en la
+  fecha exacta del corte.
+- **El ordinal se unificó con un test, no con un refactor.** `ordinalesHistorial` numera **por
+  episodio** (reinicia en cada uno, la `no asistió` no consume número, `n` = plan de *ese*
+  episodio). `citasNumerables` / `citaOrdinal` / `ordinalesDeCitas` **no se tocaron**: están en
+  producción y la agenda depende de ellas. Lo que las ata es un **test de invariante** que exige
+  que, para el episodio **actual**, `ordinalesHistorial(...).get(cita).x` coincida exactamente con
+  `ordinalesDeCitas(...).get(cita).x`, con `noas` intercaladas —que es donde las dos numeraciones
+  podrían separarse— y verificando además que la agenda **no** numera los episodios cerrados y el
+  historial **sí**.
+- **`parseFinNote` (`utils.js`) — fuente única de la nota del marcador.** El formato
+  `"Episodio anterior: <diag> · <N> sesiones completadas"` se parseaba **a mano en dos lugares** de
+  `informes.js` (`:506` con separador `' · '` y `:538` con `' ·'`), que es exactamente lo que se
+  rompe solo cuando cambia el formato. Ahora hay una definición, con fallbacks
+  (`'Tratamiento anterior'`, `null`) y tests. **Deuda:** migrar `informes.js:506` y `:538` a ella.
+- **`js/patient-combo.js` — el combobox de paciente es ahora una fábrica.** `crearComboPaciente`
+  copia fiel el comportamiento de `informes.js:412-490` (lista ordenada, tope de 50, ↑/↓/Enter/Esc,
+  cierre al click afuera, selección por `mousedown` para ganarle al blur) pero **sin ids fijos ni
+  estado de módulo**: cada combo se lleva el suyo en el closure, así que pueden convivir dos en la
+  misma página. **El combobox de `informes.js` no se tocó** (acababa de pasar auditoría).
+  **Deuda:** migrarlo a la fábrica y borrar `_rptResults` / `_rptHi` / `filterPatientRptSelect` /
+  `rptSearchKeydown`.
+- **De paso: opción "1 semana" en el select de recurrencia** (`index.html`, `value="1"`, primera de
+  la lista; el default sigue en 4). `getRecDates` **no se tocó**: ya soportaba `semanas=1` —recorre
+  los 7 días siguientes a la base y filtra `ds > baseDate`—, lo único que faltaba era la opción.
+- **Cálculo puro y separado.** `js/historial-calc.js` (sin DOM, sin `state`) tiene las ocho
+  funciones del plan más `estadoHistorial`, y `buildHistorialPrintHtml` es pura (recibe un modelo
+  plano). Imprimir reusa **`openPdfWindow`**, ahora exportada de `informes.js` en vez de duplicar
+  la mecánica de `window.open`; el CSV usa el patrón de `exportAgendaCSV` (BOM, comillas dobladas,
+  `\r\n`, blob). Pantalla, impresión y CSV consumen **el mismo modelo**: no pueden discrepar.
+
+### ⚠️ Decisión — la `conf` futura ("Agendada") cae dentro del pill "Pendiente"
+
+La tabla muestra **cinco** textos de estado (Asistió / No asistió / Pendiente / **Agendada** para
+la `conf` futura) pero los pills de filtro son **cuatro** (Todas / Asistió / No asistió /
+Pendiente). Si "Pendiente" filtrara solo `status === 'pend'`, las "Agendada" quedarían **sin
+ningún pill que las muestre**. Por eso `estadoHistorial` las devuelve con la clave `pend`: así los
+tres pills son una **partición** de las citas (asistió + no asistió + pendiente = todas) y ninguna
+fila queda inalcanzable. Hay un test que asserta esa suma.
+
+---
+
 ## 🗓️ Sesión 2026-08-31 (c) — LOTE LOGIN: enlace de recuperación restaurado · cambio de contraseña con sesión activa
 
 Un commit (`f60028d`), revisado en rama `revision-login` (auditoría + pruebas manuales de Jefferson:
@@ -1323,7 +1401,10 @@ lo carga con `import()` al primer uso (chunk aparte).
 | `doctores.js` | CRUD de médicos derivadores y preferencias de notificación |
 | `protocolos.js` | Plantillas de protocolos de tratamiento |
 | `resumen.js` | Dashboard diario con overview de citas |
-| `search.js` | Búsqueda global de pacientes (sobre estado en memoria) |
+| `search.js` | Búsqueda global de pacientes (sobre estado en memoria) + chip "Citas" al historial |
+| `historial.js` | Pantalla Historial de citas: render, controles, imprimir con membrete y CSV. `irAHistorial()` es la entrada única de las cuatro puertas |
+| `historial-calc.js` | **Lógica pura del historial** (sin DOM ni `state`): episodios, ordinal por episodio, estado de la cita, resumen, filtros, agrupación por mes y filas del CSV |
+| `patient-combo.js` | Fábrica `crearComboPaciente` — combobox buscar+elegir reutilizable, sin ids fijos ni estado de módulo |
 | `ia.js` | Integración con Claude para insights de informes (vía `/api/informe.js`) |
 | `utils.js` | Constantes, formateadores, getters compartidos y **la lógica pura testeable**: `doneEnLog`/`doneActual`/`pendientesActual`, horas exactas (`slotOf`/`apptSlots`/`apptsOverlap`/`findConflict`) y slot liberado por no-asistió (`bloqueaSlot`/`compactNoas`/`occupiedSlots`) |
 | `toast.js` | Notificaciones toast (ok/error/info) |
@@ -1346,7 +1427,7 @@ lo carga con `import()` al primer uso (chunk aparte).
 | `protocolos.js` | `protocols` |
 | `cie10.js` | `patients` *(el CIE-10 es dato de la ficha, no de la cita)* |
 | `realtime.js` | `appointments`, `patients`, `session_log`, `cobros`, `therapists`, `doctors` |
-| `resumen.js`, `informes.js`, `search.js` | *(solo leen de `state`, sin queries directas)* |
+| `resumen.js`, `informes.js`, `search.js`, `historial.js` | *(solo leen de `state`, sin queries directas)* |
 
 ### Dependencias entre módulos (qué importa qué)
 
@@ -1407,6 +1488,7 @@ main.js         ← importa todos los módulos anteriores
 | Reportes semanales | ✅ | Heatmaps, estadísticas |
 | Reportes mensuales/anuales | ✅ | |
 | Reporte por paciente | ✅ | Historial, progreso, export PDF |
+| Historial de citas por paciente | ✅ | Pestaña `historial` para los tres roles: asistencias, cortes por episodio, imprimir y CSV — `bcf2acc` |
 | Realtime sync | ✅ | PostgREST subscriptions en todos los recursos |
 | Permisos UI por rol | ✅ | `hasPermission()` en todos los módulos de escritura |
 | Export CSV agenda | ✅ | `exportAgendaCSV()` en agenda.js |
@@ -1415,7 +1497,7 @@ main.js         ← importa todos los módulos anteriores
 | Notificaciones a médicos | 🟡 | Preferencias guardadas, **envío no implementado** — sigue en el roadmap |
 | Protocolos de tratamiento | ✅ | CRUD + adherencia |
 | Responsive / móvil | ✅ | Pasada con foco en el flujo del terapeuta (`bc8b276`); targets táctiles de 44 px |
-| Tests automatizados | ✅ | 154 verdes con `node --test` (`npm test`), sobre la lógica pura |
+| Tests automatizados | ✅ | 284 verdes con `node --test` (`npm test`), sobre la lógica pura |
 
 ---
 
@@ -1427,7 +1509,7 @@ main.js         ← importa todos los módulos anteriores
 ### Ya no aplica *(la versión anterior de esta sección era de mayo)*
 - ~~`app.js` monolítico~~ — borrado en `efd7471`; `index.html` solo carga los módulos de `/js/`.
 - ~~`src/` scaffolding de Vite~~ — borrado, ya no existe.
-- ~~No hay tests~~ — **154 verdes** con `node --test` (`npm test`), y el CI los corre.
+- ~~No hay tests~~ — **284 verdes** con `node --test` (`npm test`), y el CI los corre.
 - ~~URL y anon key hardcodeadas~~ — `supabase-client.js` lee `VITE_SUPABASE_URL` /
   `VITE_SUPABASE_ANON_KEY` y avisa por consola si faltan. La anon key es **pública por diseño**;
   la seguridad real es la RLS.
@@ -1452,8 +1534,20 @@ extrayendo a `utils.js` (puro y testeado) — `doneEnLog`, `findConflict`, `comp
 `occupiedSlots`. Ese es el camino a seguir si hay que tocarlos.
 
 ### Sigue abierto
+- **SEMÁNTICA DE LA NOTA DE FIN DE EPISODIO** *(hallazgo del LOTE HISTORIAL, 2026-09-01 (d))* —
+  `guardarNuevoEpisodio` (`pacientes.js:410`) escribe `doneActual(p)` = sesiones **HECHAS** al
+  cerrar, e `informes.js:539` lo lee como el **PLAN** del episodio cerrado → el informe de un
+  episodio cerrado dice siempre "N de N · 100%". `parseFinNote` (`utils.js`) conserva esa lectura a
+  propósito para que Historial e Informe digan lo mismo. Fix: escribir también el plan en la nota
+  ("… · X sesiones completadas de M") y parsear M; toca los dos lectores y necesita decidir qué
+  hacer con las notas viejas.
+- **Migrar los dos parseos a mano de la nota de fin** (`informes.js:506` y `:538`) a
+  `parseFinNote()`, que ya es la fuente única y está testeada.
+- **Migrar el combobox de `informes.js` a la fábrica `patient-combo.js`** y borrar `_rptResults`,
+  `_rptHi`, `filterPatientRptSelect` y `rptSearchKeydown`.
 - **`loadAll()` (`auth.js:44`)** — un `Promise.all` sin manejo granular: si falla una tabla,
-  aborta toda la carga.
+  aborta toda la carga. Además trae **todas** las citas sin ventana de fechas: hoy no molesta
+  (~13k/año), pero es el costo real que crece, no el filtrado en memoria del Historial.
 - **Render sin tests** — no hay jsdom en el proyecto; lo puramente visual (apilado de la agenda,
   targets táctiles) se verifica a ojo en dev.
 - **`cycleStatus` no chequea conflictos** — reactivar a `conf` una no-asistió sobre cuya franja ya
