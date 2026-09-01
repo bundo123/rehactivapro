@@ -82,7 +82,8 @@ Rama `revision-login` borrada del remoto.
 
 ## 🗓️ Sesión 2026-09-01 (b) — LOTE INFORMES: rangos correctos en la IA + rescate de mensual y anual
 
-Un commit en la rama **`revision-informes`** (pendiente de OK para `main`). Tests: **253 verdes**
+Un commit (**`a4a861a`**), revisado en la rama `revision-informes` (auditoría OK) y mergeado a
+`main` en fast-forward; la rama de revisión se borró local y remota. Tests: **253 verdes**
 (+29 en `test/informes-rango.test.js`). Sin SQL, sin cambios de esquema.
 
 **El bug de fondo.** Los tres botones "Análisis con IA" de Informes pasaban por `genSemanalAI`,
