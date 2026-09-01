@@ -82,10 +82,26 @@ Rama `revision-login` borrada del remoto.
 
 ## 🗓️ Sesión 2026-09-01 — LOTE FOTO DE AGENDA: PNG para compartir por WhatsApp
 
-Un commit en la rama `revision-foto`, **pendiente de auditoría** (no está en `main` ni en
-producción al cerrar esta entrada). Tests: **225 verdes** (+16 en `test/foto.test.js`).
-`npm run build` OK. `npm audit` **sin cambios**: html-to-image no tiene dependencias, así que las
-4 vulnerabilidades siguen siendo las mismas de antes (nanoid/postcss de vite·docx, uuid de exceljs).
+Un commit (**`24a3b6e`**), revisado en la rama `revision-foto` (auditoría OK) y mergeado a `main`
+en fast-forward. Tests: **225 verdes** (+16 en `test/foto.test.js`). `npm audit` **sin cambios**:
+html-to-image no tiene dependencias, así que las 4 vulnerabilidades siguen siendo las mismas de
+antes (nanoid/postcss de vite·docx, uuid de exceljs).
+
+Vercel verde **por hashes**: los **12** archivos servidos por rehactivaec.com son byte a byte
+idénticos al `dist/` local (`index-GXH4fmCd.js` `C2C9E987…890F`, `index-whLoBmtt.css`
+`4BBE9018…B347`, `index.html` `7AB0D4B7…976D` tras quitar los CR sueltos de la copia local, los 5
+estáticos y los 4 chunks lazy — entre ellos `es-3XpW1dxY.js` `02B83D31…6E0D`, que es html-to-image).
+Confirmado en el **bundle servido**: `"Exportar foto"`, `"Generando la foto"`, `"no entran en la
+grilla"`, `"Compartir cancelado"`, `"muy grande para imagen"` y `"Agenda Rehactiva"` en el JS;
+`cambiarFormatoExport` y `xl-fmt-foto` en el HTML. El chunk de html-to-image entra por
+`import('./es-3XpW1dxY.js')`, sirve **HTTP 200 (13 kB)** con la firma `foreignObject` adentro, y el
+HTML de entrada **no lo menciona**: la carga sigue siendo diferida.
+**Prueba negativa OK:** el `title="Todavía no disponible"` del botón Foto —que en el lote anterior
+era un hueco deshabilitado— **ya no está** en el HTML servido, y el `<button id="xl-fmt-foto">`
+llega **sin `disabled`**. Rama `revision-foto` borrada del remoto.
+
+La revisión pidió y se aplicaron **dos correcciones antes del merge** (amend sobre `2fec981`): las
+citas sobrantes ya no se pierden y la columna N° volvió (las dos, abajo).
 
 **Lo que entrega.** Segunda salida del mismo motor de export: el modal «Exportar» de la agenda
 ahora tiene un segmentado **Excel (.xlsx) / Foto (PNG)**. La foto genera **una imagen por día** y
@@ -172,6 +188,8 @@ sistema. Lo que sí está probado es la lógica de decisión (las cuatro ramas) 
 pasa a `share()` es un PNG válido con su nombre y tamaño. **La prueba en los dos teléfonos queda
 pendiente y es la que puede tumbar el flujo**: el riesgo concreto es iOS Safari rechazando `share()`
 por gesto vencido si el render tarda — está cubierto con la caída a descarga, pero hay que verlo.
+**Sigue abierta al cerrar esta entrada**: la feature está en producción sin que nadie haya
+compartido todavía una foto desde un teléfono. Es lo único del lote sin verificación propia.
 
 ---
 
