@@ -941,7 +941,8 @@
 <div class="modal-bg" id="export-modal">
 <div class="modal" style="max-width:440px">
   <h3>Exportar agenda</h3>
-  <div style="font-size:13px;color:#6b6a64;margin-bottom:16px">Genera el Excel con el formato de siempre: una hoja por día, un bloque por terapeuta.</div>
+  <div id="xl-desc" style="font-size:13px;color:#6b6a64;margin-bottom:16px">Genera el Excel con el formato de siempre: una hoja por día, un bloque por terapeuta.</div>
+  <input type="hidden" id="xl-formato" value="excel">
   <div class="field">
     <label>Rango</label>
     <select id="xl-preset" onchange="onExportPreset()">
@@ -967,14 +968,14 @@
   <div class="field">
     <label>Formato</label>
     <div class="seg" style="width:100%">
-      <button type="button" class="seg-item active" style="flex:1">Excel (.xlsx)</button>
-      <button type="button" class="seg-item" style="flex:1" disabled title="Todavía no disponible">Foto (PNG)</button>
+      <button type="button" class="seg-item active" id="xl-fmt-excel" style="flex:1" onclick="cambiarFormatoExport('excel')">Excel (.xlsx)</button>
+      <button type="button" class="seg-item" id="xl-fmt-foto" style="flex:1" onclick="cambiarFormatoExport('foto')" title="Imagen para mandar por WhatsApp">Foto (PNG)</button>
     </div>
   </div>
   <div id="xl-nota" style="font-size:12px;color:#6b6a64;margin:-4px 0 16px"></div>
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal('export-modal')">Cancelar</button>
-    <button class="btn-save" id="xl-btn" onclick="confirmarExportarExcel()">Exportar Excel</button>
+    <button class="btn-save" id="xl-btn" onclick="confirmarExportar()">Exportar Excel</button>
   </div>
 </div>
 </div>

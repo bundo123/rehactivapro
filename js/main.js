@@ -59,7 +59,8 @@ import {
   renderDoctorsList, openDoctorModal, selectDocColor,
   saveDoctor, deleteDoctor, showDoctoresTab, renderNotifList, initDoctorValidation
 } from './doctores.js';
-import { abrirExportModal, onExportPreset, actualizarResumenExport, confirmarExportarExcel } from './excel.js';
+import { abrirExportModal, onExportPreset, actualizarResumenExport,
+         confirmarExportarExcel, confirmarExportar, cambiarFormatoExport } from './excel.js';
 import { cie10Search, cie10Pick, cie10Clear } from './cie10.js';
 import { planGuardarSesiones, planNuevoEpisodio } from './plan.js';
 import { callAI } from './ia.js';
@@ -237,6 +238,7 @@ Object.assign(window, {
   planGuardarSesiones, planNuevoEpisodio,
   setAgendaView, setTherapistFilter, goToDateAndSelect, exportAgendaCSV,
   abrirExportModal, onExportPreset, actualizarResumenExport, confirmarExportarExcel,
+  confirmarExportar, cambiarFormatoExport,
   applyRolePermissions, hasPermission,
   doSendRecoveryEmail, doSetNewPassword, showForgotPassword, showLoginForm, cancelRecovery,
   openPasswordModal, doCambiarPassword,

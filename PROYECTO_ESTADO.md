@@ -1,6 +1,6 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-08-31 (e)
+> Generado: 2026-05-18 · Última actualización: 2026-09-01
 
 ---
 
@@ -77,6 +77,101 @@ Rama `revision-login` borrada del remoto.
   dashboard de Supabase, o la recuperación se rompe: `doSendRecoveryEmail` arma el `redirectTo` en
   runtime con `window.location.origin + window.location.pathname` (`auth.js`), sin constante ni
   variable de entorno — hoy resuelve a `https://rehactivaec.com/`.
+
+---
+
+## 🗓️ Sesión 2026-09-01 — LOTE FOTO DE AGENDA: PNG para compartir por WhatsApp
+
+Un commit en la rama `revision-foto`, **pendiente de auditoría** (no está en `main` ni en
+producción al cerrar esta entrada). Tests: **225 verdes** (+16 en `test/foto.test.js`).
+`npm run build` OK. `npm audit` **sin cambios**: html-to-image no tiene dependencias, así que las
+4 vulnerabilidades siguen siendo las mismas de antes (nanoid/postcss de vite·docx, uuid de exceljs).
+
+**Lo que entrega.** Segunda salida del mismo motor de export: el modal «Exportar» de la agenda
+ahora tiene un segmentado **Excel (.xlsx) / Foto (PNG)**. La foto genera **una imagen por día** y
+la manda por `navigator.share`, que abre la hoja del sistema — el camino corto al grupo de
+WhatsApp del equipo. Caso de uso real: un `.xlsx` no se abre desde el teléfono, una imagen se ve
+en la conversación.
+
+**Cero lógica duplicada, que era el punto del lote.** Los datos salen de `datosExport()` y el
+mapeo cita → (fila, bloque) de `planificarDia()` — los mismos que produce el `.xlsx`. Para que la
+dependencia fuera en UNA dirección (`foto.js` → datos, y no `excel.js` ↔ `foto.js`), `datosExport()`
+se movió de `js/excel.js` a **`js/export-datos.js`**. `js/foto.js` solo decide cómo se DIBUJA.
+
+**Cuatro diferencias deliberadas con el `.xlsx`** — el Excel es archivo de trabajo, la foto se mira
+en un teléfono:
+1. **Una imagen por día, no una tira apilada.** Una semana en un solo PNG da una imagen larguísima
+   que WhatsApp recomprime hasta volverla ilegible. Los días **sin citas se omiten** (una semana
+   con 3 días ocupados manda 3 imágenes, no 7) y el modal lo dice antes de generar.
+2. **Solo los terapeutas CON citas ese día tienen columna.** En el Excel están todos siempre (es la
+   plantilla); en una foto, una columna vacía son ~330 px de ancho tirados.
+3. **El título lleva tilde** («MIÉRCOLES 05 DE AGOSTO DEL 2026»). El Excel replica el histórico, que
+   las escribe sin tilde; una imagen nueva no tiene por qué heredar esa errata.
+4. **La grilla NO tiene el límite de papel de la plantilla.** La hoja de Excel tiene 13 filas y
+   punto, así que una cita que no entra se reporta como sobrante; una imagen se estira, así que se
+   dibuja igual (ver abajo).
+
+Lo demás sí imita la plantilla: bloque por terapeuta con **su color de la app** (paleta histórica de
+fallback), las 13 filas de 07:00 a 19:00, las mismas cuatro columnas **HORA | PACIENTE | N° |
+LUGAR**, la hora real en la celda de su hora truncada (12:30 en la fila de las 12), **'por confirmar'
+en FFC000 y sin N° ni LUGAR**, **'no asistió' tachado**, canceladas fuera. Lleva el logo, un
+subtítulo con el conteo y una leyenda al pie (ámbar / tachado / N° / C-D).
+
+**Rango: día o semana.** «Mes completo» queda **deshabilitado** con `title="muy grande para imagen"`
+cuando el formato es foto, y si estaba elegido baja solo a «Semana» avisando por toast. El tope real
+es `MAX_DIAS_FOTO = 7`, así que un rango personalizado más largo apaga el botón con el motivo escrito
+en la nota, en vez de dejar que se toque y contestar con un error.
+
+**Compartir.** `navigator.canShare({files})` → `navigator.share` con los PNG. Tres caídas cubiertas,
+verificadas una por una en Chromium con `navigator` falseado:
+`AbortError` (el usuario cerró la hoja) **no es un fallo**; `NotAllowedError` — el gesto del usuario
+caduca (~5 s en Safari) y si el render tardó, `share()` lo rechaza — **cae a descarga**; y un
+navegador sin compartir archivos (escritorio) descarga directo, espaciando los clicks 350 ms porque
+Chrome bloquea las descargas múltiples disparadas en la misma vuelta del event loop.
+
+**Peso.** `html-to-image` va por import dinámico como exceljs y docx, y es chico: chunk propio de
+**12.85 kB (gzip 5.10 kB)** — sale como `es-*.js` porque su entrada `module` es `es/index.js`. El
+bundle principal pasa de 450.31 kB a **458.91 kB** (gzip 141.82 → 144.29): +8.6 kB de `foto.js` +
+`export-datos.js`. Una foto de un día con 6 terapeutas: **4174 × 1066 px, 374 kB** (creció respecto
+de los 3694 px de la primera versión: es la columna N° restaurada, ~40 px por bloque).
+
+**Por qué 2×.** WhatsApp recomprime lo que se le manda a ~1600 px de lado largo. Renderizando a 2×,
+el layout lógico es de 2087 px, así que después de esa recompresión la imagen llega **cerca de 1:1
+con lo que se ve en pantalla**. A 1× llegaría a la mitad.
+
+**Las citas sobrantes ya no se pierden (lo pidió la auditoría, y era bloqueante).** La primera
+versión de `bloquesDeFoto()` ignoraba `b.sobrantes` de `planificarDia()`: con 15 citas de media hora,
+un terapeuta salía en la foto con 13 pacientes **y ningún aviso**. El `.xlsx` no puede hacer más que
+reportarlas por toast —la hoja tiene esas 13 filas y la suma de la fila 20 depende de eso— pero una
+imagen se estira. Ahora las sobrantes se dibujan al pie del bloque, ordenadas por hora entre ellas y
+con su hora real en la celda HORA, la tabla crece a `max(13, filas del bloque más largo)`, los
+bloques que no desbordaron dejan esas filas en blanco (sin hora inventada) y la leyenda lo explica.
+Perder pacientes en silencio en la foto que se manda al grupo es peor que una imagen más larga.
+Fijado con cuatro tests, incluido el caso exacto: **15 citas → 15 pacientes en el HTML, 0 perdidas**.
+
+**Un bug real, encontrado renderizando de verdad y no leyendo el código.** El font stack era
+`Arial, Helvetica, "Liberation Sans", sans-serif`, y esos estilos van **en línea** dentro de
+`style="…"`: las comillas dobles cerraban el atributo ahí mismo. html-to-image serializa el nodo
+dentro de un `<foreignObject>`, que **sí se parsea como XML estricto**, y el render entero fallaba
+con un `Event` pelado y sin mensaje (`Specification mandates value for attribute sans`). No era un
+caso borde: **fallaba todo export**. Ahora la familia va sin comillas. Segundo hallazgo del mismo
+camino: `cacheBust: true` le agrega `?t=…` a cada imagen y sobre el **data URI del logo** eso lo
+rompe — va desactivado, y acá no hay nada que cachear porque el logo va embebido.
+
+**Verificación.** `test/foto.test.js` fija el render sobre el HTML (que es puro): hora no en punto,
+'por confirmar' con ámbar y sin N° ni lugar, 'no asistió' tachado, los dos juntos, las cuatro
+columnas, el desborde (15 citas → 15 pacientes), escapado del nombre del paciente, y que los bloques
+salgan del mismo `planificarDia()`. Y en **Chromium con Playwright**, con
+`state` sembrado por imports dinámicos (no hay usuario de prueba con contraseña): render real del PNG,
+día y semana, un día con desborde de verdad (15 citas en un solo terapeuta), las notas del modal, el
+segmentado, «Mes» deshabilitado y las cuatro ramas de compartir. Cero errores de consola.
+
+**Lo que NO se verificó:** **Android y iPhone reales**. No hay dispositivos en el entorno de CC, y
+`navigator.share` con archivos es justo lo que no se puede emular — en headless no existe la hoja del
+sistema. Lo que sí está probado es la lógica de decisión (las cuatro ramas) y que el `File` que se le
+pasa a `share()` es un PNG válido con su nombre y tamaño. **La prueba en los dos teléfonos queda
+pendiente y es la que puede tumbar el flujo**: el riesgo concreto es iOS Safari rechazando `share()`
+por gesto vencido si el render tarda — está cubierto con la caída a descarga, pero hay que verlo.
 
 ---
 

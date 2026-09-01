@@ -18,13 +18,14 @@
 //    decida qué número es. Se dejan las celdas con su formato para llenarlas a mano.
 import { state } from './state.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
-import { esc, fmtDate, getColor, getPatient, getTherapist, orderedTherapists,
-         ordinalesDeCitas, startOfWeek } from './utils.js';
+import { esc, fmtDate, getColor, getTherapist, orderedTherapists, startOfWeek } from './utils.js';
 import { LOGO_DATA_URI } from './pdf-logo.js';
+import { datosExport, citasDelDia } from './export-datos.js';
 import { GRILLA, RESUMEN, ESPECIALIDADES_ORDEN, COLS_BLOQUE, PALETA_HISTORICA,
-         PRIMERA_HORA, ULTIMA_HORA, ESTADOS_EXPORTABLES, llevaRellenoPend, planificarDia,
+         PRIMERA_HORA, ULTIMA_HORA, llevaRellenoPend, planificarDia,
          diasDelRango, nombresHojaUnicos, colGranTotal, letraCol, horaExcel, nombreArchivo,
          aFecha } from './excel-layout.js';
+import { formatoExport, setExportFormato, notaFoto, confirmarExportarFoto } from './foto.js';
 
 const FUENTE = 'Aptos Narrow';
 const NEGRO = 'FF000000';
@@ -253,37 +254,10 @@ function construirHoja(wb, nombre, plan, logoId) {
   return ws;
 }
 
-// ── Motor ───────────────────────────────────────────────────────────────────────────────────
-// desde/hasta: 'YYYY-MM-DD' inclusive. terapeutaIds: null = todos; array = solo esos (en el orden
-// canónico de la agenda). Devuelve {blob, nombre, hojas, citas, sobrantes}.
+// ── Motor del .xlsx ─────────────────────────────────────────────────────────────────────────
+// Devuelve {blob, nombre, hojas, citas, sobrantes}.
 export async function generarExcel({ desde, hasta, terapeutaIds = null }) {
-  const dias = diasDelRango(desde, hasta);
-  if (!dias.length) throw new Error('El rango de fechas no es válido.');
-
-  const todos = orderedTherapists();
-  const terapeutas = terapeutaIds && terapeutaIds.length
-    ? todos.filter(t => terapeutaIds.some(id => String(id) === String(t.id)))
-    : todos;
-  if (!terapeutas.length) throw new Error('No hay terapeutas para exportar.');
-
-  // Ordinal "X del episodio" — el MISMO mapa que pinta el badge de la agenda, calculado una vez
-  // sobre TODAS las citas (el universo del ordinal es la secuencia completa del paciente, no el
-  // rango exportado).
-  const ordMap = ordinalesDeCitas(state.appointments, getPatient);
-
-  const idsOk = new Set(terapeutas.map(t => String(t.id)));
-  const citas = state.appointments
-    .filter(a => a && a.date >= desde && a.date <= hasta && idsOk.has(String(a.therapistId)))
-    .map(a => {
-      const pt = getPatient(a.patientId);
-      const ord = ordMap.get(a);
-      return {
-        id: a.id, date: a.date, hour: a.hour, status: a.status, therapistId: a.therapistId,
-        paciente: (pt ? pt.name : (a.patientName || 'Sin paciente')).toUpperCase(),
-        numero: ord ? ord.x : null,
-        lugar: a.location === 'domicilio' ? 'D' : 'C',
-      };
-    });
+  const { dias, terapeutas, citas, unico } = datosExport({ desde, hasta, terapeutaIds });
 
   const mod = await import('exceljs');
   const ExcelJS = mod.default || mod;
@@ -306,10 +280,9 @@ export async function generarExcel({ desde, hasta, terapeutaIds = null }) {
 
   const buf = await wb.xlsx.writeBuffer();
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const unica = terapeutas.length === 1 && terapeutaIds && terapeutaIds.length;
   return {
     blob,
-    nombre: nombreArchivo(desde, hasta, unica ? terapeutas[0].name : null),
+    nombre: nombreArchivo(desde, hasta, unico ? unico.name : null),
     hojas: dias.length,
     citas: pintadas,
     sobrantes,
@@ -353,19 +326,30 @@ export function onExportPreset() {
   actualizarResumenExport();
 }
 
-// Línea de ayuda del modal: cuántos días y cuántas citas saldrían con lo elegido. Es barato
-// (filtra un array que ya está en memoria) y evita el "exporté el mes equivocado".
+// Línea de ayuda del modal: qué saldría con lo elegido. Es barata (filtra arrays que ya están en
+// memoria) y evita el "exporté el mes equivocado". Despacha según el formato activo: la nota de
+// la foto la arma js/foto.js, que es el que sabe cuántas imágenes y con qué límite.
 export function actualizarResumenExport() {
   const el = document.getElementById('xl-nota');
   if (!el) return;
   const desde = document.getElementById('xl-desde').value;
   const hasta = document.getElementById('xl-hasta').value;
   const thId = document.getElementById('xl-terapeuta').value;
+
+  const foto = notaFoto(desde, hasta, thId);
+  const btn = document.getElementById('xl-btn');
+  if (foto) {
+    el.innerHTML = foto.html;
+    // Con un rango imposible para la foto el botón se apaga: es más claro que dejarlo vivo y
+    // contestar con un toast de error recién al tocarlo.
+    if (btn) btn.disabled = !!foto.error;
+    return;
+  }
+  if (btn) btn.disabled = false;
+
   const dias = diasDelRango(desde, hasta);
   if (!dias.length) { el.innerHTML = '<span style="color:#c33a3a">Revisá las fechas: "hasta" no puede ser anterior a "desde".</span>'; return; }
-  const n = state.appointments.filter(a => a && a.date >= desde && a.date <= hasta &&
-    (!thId || String(a.therapistId) === String(thId)) &&
-    ESTADOS_EXPORTABLES.includes(a.status)).length;
+  const n = dias.reduce((s, d) => s + citasDelDia(d, thId), 0);
   const th = thId ? getTherapist(thId) : null;
   el.innerHTML = `${dias.length} hoja${dias.length !== 1 ? 's' : ''} (una por día) · ${n} cita${n !== 1 ? 's' : ''}`
     + (th ? ` · solo ${esc(th.name)}` : '') + ` · <b>${esc(nombreArchivo(desde, hasta, th ? th.name : null))}</b>`;
@@ -382,8 +366,24 @@ export function abrirExportModal() {
   // Si la agenda ya está filtrada por un terapeuta, el modal arranca con ese mismo filtro.
   th.value = state.agendaTherapistFilter ? String(state.agendaTherapistFilter) : '';
 
+  // El modal siempre abre en Excel: es la salida "de archivo", y la foto es la excepción del día.
+  setExportFormato('excel');
   onExportPreset();
   document.getElementById('export-modal').classList.add('open');
+}
+
+// Cambio de formato desde el segmentado del modal. setExportFormato devuelve true cuando además
+// tuvo que corregir el rango ("Mes completo" no existe para la foto): ahí hay que recalcular las
+// fechas, no solo la nota.
+export function cambiarFormatoExport(f) {
+  if (setExportFormato(f)) onExportPreset();
+  else actualizarResumenExport();
+}
+
+// Punto de entrada único del botón del modal: despacha al motor del formato elegido.
+export async function confirmarExportar() {
+  if (formatoExport() === 'foto') return confirmarExportarFoto();
+  return confirmarExportarExcel();
 }
 
 export async function confirmarExportarExcel() {
