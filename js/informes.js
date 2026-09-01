@@ -1,19 +1,17 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, safeColor, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, safeColor, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnPrefijo, resumenCitas } from './utils.js';
 import { apptSlots } from './agenda.js';
-import { genSemanalAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
+import { genSemanalAI, genMensualAI, genAnualAI, genInformeAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasPermission } from './permissions.js';
 import { LOGO_DATA_URI } from './pdf-logo.js';
 import { generarInformeWord } from './word.js';
 
-export { genSemanalAI, genPatientAI };
+export { genSemanalAI, genMensualAI, genAnualAI, genInformeAI, genPatientAI };
 
 // ── Helpers de informes (cálculo sobre state real) ──
 // Contexto del último informe renderizado (episodio-aware) para que exportarPDF use exactamente los mismos datos que la pantalla.
 let _rptCtx = null;
-const MES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-const MES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
 function _ym(y, m) { return `${y}-${String(m + 1).padStart(2, '0')}`; } // m 0-based
 function _prevYm(ym) {
@@ -21,14 +19,10 @@ function _prevYm(ym) {
   const d = new Date(y, m - 2, 1);
   return _ym(d.getFullYear(), d.getMonth());
 }
-// prefix = 'YYYY-MM' (mes) o 'YYYY' (año). cont = null si no hubo citas decididas (sin NaN/0 falso).
-function _apptStats(prefix) {
-  const ap = state.appointments.filter(a => a.date && a.date.startsWith(prefix));
-  const conf = ap.filter(a => a.status === 'conf').length;
-  const noas = ap.filter(a => a.status === 'noas').length;
-  const dec = conf + noas;
-  return { total: ap.length, conf, noas, cont: dec > 0 ? Math.round(conf / dec * 100) : null };
-}
+// prefix = 'YYYY-MM' (mes) o 'YYYY' (año). Alias fino sobre los helpers de utils.js: la pantalla
+// y el prompt de la IA calculan conf/noas/continuidad con la MISMA fórmula, no con dos copias.
+// continuidad = null si no hubo citas decididas (sin NaN ni un 0% falso).
+const _apptStats = prefix => resumenCitas(citasEnPrefijo(state.appointments, prefix));
 function _nuevos(prefix) {
   return state.patients.filter(p => p.createdAt && p.createdAt.startsWith(prefix)).length;
 }
@@ -55,8 +49,9 @@ function _deltaChip(cur, prev, pym, kind, goodWhenUp) {
   return `<div class="stat-chg ${cls}">${txt}</div>`;
 }
 
-let _mensualMonth = null; // 'YYYY-MM' seleccionado en el informe mensual
-export function changeMensualMonth(ym) { _mensualMonth = ym; renderMensual(); }
+// El mes seleccionado vive en state (no en un módulo) porque lo leen dos módulos: renderMensual
+// para pintar y genMensualAI para acotar el rango que se le manda a la IA.
+export function changeMensualMonth(ym) { state.informesMes = ym; renderMensual(); }
 
 export function hmCol(p){
   if(p===null||p===0) return '#f0efe8';
@@ -94,12 +89,7 @@ function evaColor(v){ return v>=7?'#E24B4A':v>=4?'#E0A850':v>=1?'#1D9E75':'#29AB
 // La usan renderSemanal, renderTherapistUtil, renderHeatmap y renderInsights para que
 // las flechas de navegación muevan DATOS y rótulo de forma consistente.
 function semanaVisible() {
-  const base = new Date();
-  const s = new Date(base);
-  s.setDate(base.getDate() + state.currentWeek * 7 - (base.getDay() || 7) + 1);
-  const dates = [];
-  for (let i = 0; i < 5; i++) { const d = new Date(s); d.setDate(s.getDate() + i); dates.push(fmtDate(d)); }
-  return { start: s, dates };
+  return semanaRango(state.currentWeek);
 }
 
 export function renderHeatmap() {
@@ -296,7 +286,10 @@ export function renderSemanal() {
 }
 
 export function showSubTab(n,btn) {
+  state.informesSubTab=n;   // define el rango/prompt del botón "Análisis con IA" del header
   ['semanal','mensual','anual'].forEach(t=>document.getElementById('subtab-'+t).style.display=t===n?'':'none');
+  const wn=document.getElementById('informes-week-nav');
+  if(wn) wn.style.display=n==='semanal'?'':'none';   // las flechas de semana no significan nada en mensual/anual
   document.querySelectorAll('#tab-informes .sub-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
   if(n==='semanal')renderSemanal();if(n==='mensual')renderMensual();if(n==='anual')renderAnual();
 }
@@ -304,8 +297,8 @@ export function showSubTab(n,btn) {
 export function renderMensual() {
   const now = new Date();
   const curYm = _ym(now.getFullYear(), now.getMonth());
-  if (!_mensualMonth) _mensualMonth = curYm;
-  const ym = _mensualMonth;
+  if (!state.informesMes) state.informesMes = curYm;
+  const ym = state.informesMes;
   const pym = _prevYm(ym);
   const ppym = _prevYm(pym);
 
@@ -326,12 +319,12 @@ export function renderMensual() {
     return `<option value="${m}"${m === ym ? ' selected' : ''}>${MES_LARGO[mo - 1]} ${y}</option>`;
   }).join('');
 
-  const contColor = cur.cont == null ? '#6b6a64' : cur.cont >= 85 ? '#1D9E75' : cur.cont >= 70 ? '#BA7517' : '#E24B4A';
-  const contTxt = cur.cont == null ? '—' : cur.cont + '%';
+  const contColor = cur.continuidad == null ? '#6b6a64' : cur.continuidad >= 85 ? '#1D9E75' : cur.continuidad >= 70 ? '#BA7517' : '#E24B4A';
+  const contTxt = cur.continuidad == null ? '—' : cur.continuidad + '%';
 
+  // Sin botón de IA acá: el del header ya dispara el análisis de la sub-pestaña visible (genInformeAI).
   let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
     <select onchange="changeMensualMonth(this.value)" style="background:#ffffff;border:1px solid rgba(29,158,117,.2);border-radius:6px;padding:7px 12px;font-size:13px;color:#1a1917">${optsHtml}</select>
-    <button class="ai-btn" onclick="genSemanalAI()">Análisis con IA</button>
   </div>`;
   html += `<div class="informe-stat-grid">
     <div class="stat"><div class="stat-lbl">Sesiones del mes</div><div class="stat-val">${cur.conf}</div>${_deltaChip(cur.conf, prev.conf, pym, 'pct', true)}</div>
@@ -360,7 +353,7 @@ export function renderMensual() {
     Chart.defaults.color = '#6b6a64';
     new Chart(ctx, { type: 'bar', data: { labels: chartLabels, datasets: [
       { label: 'Sesiones', data: cs.map(s => s.conf), backgroundColor: '#1D9E75', borderRadius: 4 },
-      { label: 'Continuidad %', data: cs.map(s => s.cont ?? 0), backgroundColor: '#378ADD', borderRadius: 4 },
+      { label: 'Continuidad %', data: cs.map(s => s.continuidad ?? 0), backgroundColor: '#378ADD', borderRadius: 4 },
       { label: 'Inasistencias', data: cs.map(s => s.noas), backgroundColor: '#E24B4A', borderRadius: 4 },
     ] }, options: { responsive: true, plugins: { legend: { labels: { font: { size: 11 }, color: '#9c9a92' } } }, scales: { y: { beginAtZero: true, ticks: { color: '#6b6a64', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }, x: { ticks: { color: '#6b6a64' }, grid: { display: false } } } } });
   }, 50);
@@ -374,14 +367,14 @@ export function renderAnual() {
   const perMes = [];
   for (let m = 0; m < 12; m++) perMes.push(_apptStats(_ym(year, m)));
   const sArr = perMes.map(s => s.conf); // sesiones (conf) por mes; sin datos = 0
-  const sesAcum = sArr.reduce((a, b) => a + b, 0);
-  const noasAcum = perMes.reduce((a, s) => a + s.noas, 0);
-  const decAnual = sesAcum + noasAcum;
-  const contAnual = decAnual > 0 ? Math.round(sesAcum / decAnual * 100) : null;
+  // Los acumulados salen del rango 'YYYY' entero, no de sumar los doce meses a mano: misma
+  // fórmula de continuidad que el mensual y que el prompt anual.
+  const anual = _apptStats(ystr);
+  const sesAcum = anual.conf;
+  const noasAcum = anual.noas;
+  const contAnual = anual.continuidad;
   const altas = state.patients.filter(p => p.status === 'alta').length;
-  const uniq = new Set(
-    state.appointments.filter(a => a.date && a.date.startsWith(ystr)).map(a => a.patientId)
-  ).size;
+  const uniq = new Set(citasEnPrefijo(state.appointments, ystr).map(a => a.patientId)).size;
 
   // Proyección run-rate sobre MESES COMPLETOS (excluye el mes actual en curso).
   // Enero (mes en curso) => 0 meses completos => '—'.
@@ -393,7 +386,6 @@ export function renderAnual() {
 
   let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
     <div style="font-size:14px;font-weight:500;color:#1a1917">Informe anual ${year}</div>
-    <button class="ai-btn" onclick="genSemanalAI()">Análisis anual con IA</button>
   </div>`;
   html += `<div class="informe-stat-grid">
     <div class="stat"><div class="stat-lbl">Sesiones acumuladas</div><div class="stat-val">${sesAcum}</div><div class="stat-chg neu">Ene–${MES_CORTO[now.getMonth()]} ${year}</div></div>
@@ -693,6 +685,13 @@ export function renderPatientReport() {
         <div class="side-col">
           ${hasPermission('viewAI')?`<button class="side-btn primary" onclick="genPatientAI()">Informe clínico con IA</button>`:''}
           <button class="side-btn outline" onclick="abrirFirmanteModal()">Exportar Word</button>
+          <!-- SIN gate de permisos A PROPÓSITO (decisión de Jefferson, lote informes 2026-09-01).
+               Este botón vivía en el header de Informes, pestaña admin-only y con
+               data-permission="admin"; al moverlo acá lo ganan también secretaria y terapeuta.
+               Es deliberado: paridad con "Exportar Word", que ya estaba sin gate y saca los
+               MISMOS datos, en una pantalla que esos dos roles ya ven completa. No le pongas
+               data-permission creyendo que se coló. -->
+          <button class="side-btn outline" onclick="exportarPDF()">Exportar PDF</button>
           ${hasPermission('viewAI')?`<button class="side-btn outline" id="save-informe-btn" style="display:none" onclick="guardarInforme()">💾 Guardar informe</button>`:''}
         </div>
       </div>

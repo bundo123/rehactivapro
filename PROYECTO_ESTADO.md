@@ -26,7 +26,7 @@
 - **No-código (LOPDP):** documentar la decisión de "lectura abierta" de PHI (modelo "se cubren entre sí + todo auditado en `audit_log`") con base de licitud, y a Anthropic como sub-encargado.
 - **Mayor valor en producción:** redactar el `clinical_context` de los protocolos reales (alimenta la calidad del informe IA — corazón del "reemplazo de Reliv").
 
-**Pulidos opcionales remanentes (no bloquean):** buscador de diagnóstico del modal de paciente con UX pobre; ~~`": "` suelto al inicio de "Evaluación inicial"~~ ✅ **CERRADO 2026-08-31** (`c6b714d`: `limpiarParte()` en `utils.js`, aplicada en pantalla/PDF/Word); **táctil-42 en Pacientes** — `.patient-table .pl-act-btn{min-height:42px}` le gana por especificidad al bloque `@media (pointer: coarse)`, así que los botones de acción quedan en 42px en táctil real (detectado en la sesión 2026-08-12 (b); en Seguimiento ya está corregido con regla propia); **botón "Exportar PDF" huérfano en la pestaña Informes** (`index.html:272`) — vive en el header del tab **semanal** ("Análisis con IA" al lado) pero `exportarPDF()` (`informes.js:910`) opera sobre `_rptCtx`, el contexto del **informe de paciente**: si se clickea sin haber abierto antes un informe de paciente tira el toast "Abrí primero el informe de un paciente", que no tiene relación con la pestaña semanal en la que está parado. Defecto anterior al rediseño de Word (detectado en la auditoría pre-merge de `revision-word`, 2026-08-31); no se tocó a propósito — se ve aparte.
+**Pulidos opcionales remanentes (no bloquean):** buscador de diagnóstico del modal de paciente con UX pobre; ~~`": "` suelto al inicio de "Evaluación inicial"~~ ✅ **CERRADO 2026-08-31** (`c6b714d`: `limpiarParte()` en `utils.js`, aplicada en pantalla/PDF/Word); **táctil-42 en Pacientes** — `.patient-table .pl-act-btn{min-height:42px}` le gana por especificidad al bloque `@media (pointer: coarse)`, así que los botones de acción quedan en 42px en táctil real (detectado en la sesión 2026-08-12 (b); en Seguimiento ya está corregido con regla propia); ~~**botón "Exportar PDF" huérfano en la pestaña Informes**~~ ✅ **CERRADO 2026-09-01 (b)** (LOTE INFORMES, rama `revision-informes`): se movió a la tarjeta "Documento" del informe de paciente, junto a "Exportar Word" — que es la pantalla que construye el `_rptCtx` del que depende. **Queda sin gate de permisos a propósito** (decisión de Jefferson): ver la sesión 2026-09-01 (b) más abajo.
 
 ### 🗓️ Plan a julio — meta: audit final con 0 críticos / 0 importantes (solo pulidos opcionales)
 - **Semana 1** (cerrada hoy, salvo I-7): I-5 · LOTE A · I-4 · I-6 ✅. Queda **I-7** (necesita el SQL de la secuencia).
@@ -77,6 +77,49 @@ Rama `revision-login` borrada del remoto.
   dashboard de Supabase, o la recuperación se rompe: `doSendRecoveryEmail` arma el `redirectTo` en
   runtime con `window.location.origin + window.location.pathname` (`auth.js`), sin constante ni
   variable de entorno — hoy resuelve a `https://rehactivaec.com/`.
+
+---
+
+## 🗓️ Sesión 2026-09-01 (b) — LOTE INFORMES: rangos correctos en la IA + rescate de mensual y anual
+
+Un commit en la rama **`revision-informes`** (pendiente de OK para `main`). Tests: **253 verdes**
+(+29 en `test/informes-rango.test.js`). Sin SQL, sin cambios de esquema.
+
+**El bug de fondo.** Los tres botones "Análisis con IA" de Informes pasaban por `genSemanalAI`,
+que contaba `state.appointments` **entero** —todo el histórico de la clínica— y se lo mandaba al
+modelo rotulado como *"estos datos de la semana"*. El mensual y el anual, además, escribían la
+respuesta en `#insights`, que vive dentro del sub-tab semanal: desde mensual o anual el análisis
+se generaba, se cobraba el token y no se veía nunca.
+
+- **`ia.js`**: `genSemanalAI` / `genMensualAI` / `genAnualAI`, una por sub-tab, cada una con su
+  rango, su prompt y su destino (`#semanal-ai-output` / `#mensual-ai-output` / `#anual-ai-output`,
+  hermanos del contenedor que se re-renderiza, así que cambiar de semana o de mes no borra el
+  análisis). `genInformeAI()` despacha según la sub-pestaña visible (`state.informesSubTab`).
+- **`utils.js`**: `semanaRango` / `citasEnFechas` / `citasEnPrefijo` / `nuevosEnPrefijo` /
+  `resumenCitas` como **fuente única de rangos y conteos**, puras y testeables. `semanaVisible()`
+  y `_apptStats()` de `informes.js` delegan en ellas: la pantalla y el prompt calculan
+  conf/noas/continuidad con la misma fórmula **por construcción**, no por coincidencia.
+  `MES_LARGO`/`MES_CORTO` subieron a `utils.js` (ya los usaban dos módulos).
+- **Mensual y Anual reabiertos.** Estaban con `display:none` desde **`82952b3`** (el rediseño de
+  UI), no por código roto: el render estaba completo y se verificó en el navegador con datos
+  sembrados (KPIs, selector de meses, pacientes por doctor y ambos charts, 0 errores de consola).
+  Las flechas ‹ › de semana se ocultan fuera del sub-tab semanal.
+
+### ⚠️ Decisión consciente — "Exportar PDF" del informe de paciente queda SIN gate de permisos
+
+Cierra el pulido remanente del botón huérfano (ver arriba). El botón vivía en el header de
+**Informes** —pestaña admin-only *y* con `data-permission="admin"`— pero `exportarPDF()` opera
+sobre `_rptCtx`, que solo construye `renderPatientReport()`: desde esa pestaña siempre tiraba el
+toast "Abrí primero el informe de un paciente". Se **movió** a la tarjeta "Documento" del informe
+de paciente, junto a "Exportar Word" (ocultarlo no era opción: era el **único** punto de entrada
+de `exportarPDF()` en toda la app, esconderlo borraba la única forma de exportar en PDF el informe
+vivo).
+
+**Efecto colateral aceptado:** al moverlo, **secretaria y terapeuta también pueden exportar el
+PDF**. Es **deliberado — decisión de Jefferson**, por paridad con "Exportar Word", que ya estaba
+sin gate y saca **los mismos datos**, en una pantalla que esos dos roles ya ven completa. Hay un
+comentario junto al botón en `informes.js` para que nadie le ponga `data-permission` después
+creyendo que se coló por descuido.
 
 ---
 

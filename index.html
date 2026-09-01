@@ -264,27 +264,38 @@
   <div class="main-header">
     <div class="mh-title">
       <div class="page-title">Informes</div>
-      <div class="page-sub">Análisis semanal de la clínica</div>
+      <div class="page-sub">Análisis semanal, mensual y anual de la clínica</div>
     </div>
     <div class="seg" style="margin-left:2px">
       <button class="seg-item sub-tab active" onclick="showSubTab('semanal',this)">Semanal</button>
-      <button class="seg-item sub-tab" onclick="showSubTab('mensual',this)" style="display:none">Mensual</button>
-      <button class="seg-item sub-tab" onclick="showSubTab('anual',this)" style="display:none">Anual</button>
+      <button class="seg-item sub-tab" onclick="showSubTab('mensual',this)">Mensual</button>
+      <button class="seg-item sub-tab" onclick="showSubTab('anual',this)">Anual</button>
     </div>
-    <div class="week-nav" style="margin-left:auto">
+    <!-- Navegación de semana: solo aplica al sub-tab semanal (mensual tiene su selector de mes). -->
+    <div class="week-nav" id="informes-week-nav" style="margin-left:auto">
       <button class="icon-btn sm" onclick="changeWeek(-1)">‹</button>
       <div class="week-lbl" id="week-lbl"></div>
       <button class="icon-btn sm" onclick="changeWeek(1)">›</button>
     </div>
-    <button class="ai-btn" style="height:34px;padding:0 14px;font-size:12px" onclick="genSemanalAI()" data-permission="admin">Análisis con IA</button>
-    <button class="exp-btn" style="height:34px;padding:0 13px;font-size:12px;display:inline-flex;align-items:center;gap:6px" onclick="exportarPDF()" data-permission="admin"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exportar PDF</button>
+    <!-- Analiza la sub-pestaña visible (semanal/mensual/anual): cada una tiene su rango y su prompt.
+         El "Exportar PDF" que vivía acá exportaba el informe de PACIENTE y se movió a esa pantalla. -->
+    <button class="ai-btn" style="height:34px;padding:0 14px;font-size:12px" onclick="genInformeAI()" data-permission="admin">Análisis con IA</button>
   </div>
   <div class="main-body">
+    <!-- Los *-ai-output son HERMANOS del contenedor que se re-renderiza, no hijos: así cambiar de
+         semana o de mes no borra el análisis recién generado. -->
     <div id="subtab-semanal">
+      <div id="semanal-ai-output" style="display:none;margin-bottom:14px"></div>
       <div id="semanal-stats"></div>
     </div>
-    <div id="subtab-mensual" style="display:none"><div id="mensual-content"></div></div>
-    <div id="subtab-anual" style="display:none"><div id="anual-content"></div></div>
+    <div id="subtab-mensual" style="display:none">
+      <div id="mensual-ai-output" style="display:none;margin-bottom:14px"></div>
+      <div id="mensual-content"></div>
+    </div>
+    <div id="subtab-anual" style="display:none">
+      <div id="anual-ai-output" style="display:none;margin-bottom:14px"></div>
+      <div id="anual-content"></div>
+    </div>
   </div>
 </div>
 

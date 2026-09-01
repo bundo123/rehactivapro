@@ -137,6 +137,57 @@ export function startOfWeek(d){
   r.setDate(r.getDate()-(dow===0?6:dow-1));
   return r;
 }
+
+// ── Rangos de los informes (fuente ÚNICA para lo que se pinta y lo que se le manda a la IA) ──
+export const MES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+export const MES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+// Semana visible del informe semanal: Lun–Vie desplazada `offset` semanas (0 = la actual).
+// Pura (recibe la base) para poder testearla con una fecha fija.
+export function semanaRango(offset=0, base=new Date()){
+  const s=new Date(base);
+  s.setDate(base.getDate()+offset*7-(base.getDay()||7)+1);
+  const dates=[];
+  for(let i=0;i<5;i++){ const d=new Date(s); d.setDate(s.getDate()+i); dates.push(fmtDate(d)); }
+  return {start:s, dates};
+}
+
+// Citas cuya fecha está en la lista dada (semana visible). Lo de fuera del rango NO entra.
+export function citasEnFechas(appts, dates){
+  const set=new Set(dates||[]);
+  return (appts||[]).filter(a=>a&&a.date&&set.has(a.date));
+}
+
+// Citas del mes ('YYYY-MM') o del año ('YYYY'). Sin prefijo devuelve vacío: nunca "todo el histórico".
+export function citasEnPrefijo(appts, prefix){
+  if(!prefix) return [];
+  const p=String(prefix);
+  return (appts||[]).filter(a=>a&&a.date&&String(a.date).startsWith(p));
+}
+
+// Pacientes dados de alta en el sistema dentro del mes/año (created_at).
+export function nuevosEnPrefijo(patients, prefix){
+  if(!prefix) return 0;
+  const p=String(prefix);
+  return (patients||[]).filter(x=>x&&x.createdAt&&String(x.createdAt).startsWith(p)).length;
+}
+
+// Conteos del bloque de datos que se le pasa a la IA. Dos tasas distintas a propósito, cada una
+// espejo de la tarjeta que le corresponde en pantalla:
+//   asistencia   = conf/total        (KPI "Asistencia" del semanal; cuenta las pendientes en el total)
+//   continuidad  = conf/(conf+noas)  (KPI "Continuidad" del mensual/anual; solo citas ya decididas)
+// continuidad es null si no hubo ninguna decidida — '—' en pantalla, jamás 0% inventado.
+export function resumenCitas(appts){
+  const list=(appts||[]);
+  const conf=list.filter(a=>a.status==='conf').length;
+  const noas=list.filter(a=>a.status==='noas').length;
+  const pend=list.filter(a=>a.status==='pend').length;
+  const total=list.length;
+  const dec=conf+noas;
+  return {total,conf,noas,pend,
+    asistencia: total>0?Math.round(conf/total*100):0,
+    continuidad: dec>0?Math.round(conf/dec*100):null};
+}
 // Etiqueta corta de una fecha 'YYYY-MM-DD': 'Lun 12 ago'. Se parsea a mano (no `new Date(ds)`)
 // porque el string ISO suelto se interpreta en UTC y en Quito (UTC-5) devolvería el día anterior.
 const DIAS_CORTOS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];

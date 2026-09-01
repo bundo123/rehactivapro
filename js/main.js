@@ -40,7 +40,8 @@ import {
 import {
   renderSemanal, changeWeek, showSubTab, changeMensualMonth,
   renderPatientReportSelect, updateEpisodes, renderPatientReport,
-  filterPatientRptSelect, selectRptPatient, rptSearchKeydown, exportarPDF, genSemanalAI, genPatientAI,
+  filterPatientRptSelect, selectRptPatient, rptSearchKeydown, exportarPDF,
+  genSemanalAI, genMensualAI, genAnualAI, genInformeAI, genPatientAI,
   guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado,
   abrirFirmanteModal, confirmarExportarWord
 } from './informes.js';
@@ -228,7 +229,7 @@ Object.assign(window, {
   renderPatientReport, renderProtocols, protPage,
   toggleRecurrencia, toggleProTecnica,
   skipSession, simWA, simEmail, emitirFactura,
-  marcarTodosFacturados, exportarPDF, genSemanalAI, genResumenDiaAI,
+  marcarTodosFacturados, exportarPDF, genSemanalAI, genMensualAI, genAnualAI, genInformeAI, genResumenDiaAI,
   genPatientAI, guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado, globalSearch, selectGlobalResult,
   abrirFirmanteModal, confirmarExportarWord,
   updateRecPreview, populateDiagList,

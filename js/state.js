@@ -16,6 +16,8 @@ export const state = {
   resumenDate: new Date(),   // NUEVO 3: fecha seleccionada del Resumen del día (independiente de la agenda)
   currentWeek: 0,
   currentTab: 'agenda',
+  informesSubTab: 'semanal',  // sub-tab visible de Informes: define qué rango analiza el botón de IA
+  informesMes: null,          // 'YYYY-MM' del selector del informe mensual (lo comparten renderMensual y genMensualAI)
   dragData: null,
   facturaCounter: 10,
   thCounter: 10,

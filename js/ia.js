@@ -1,5 +1,6 @@
 import { state } from './state.js';
-import { getDisplayAge, esc, doneActual } from './utils.js';
+import { getDisplayAge, esc, doneActual, dmy, semanaRango, citasEnFechas, citasEnPrefijo,
+         nuevosEnPrefijo, resumenCitas, MES_LARGO } from './utils.js';
 import { toastErr } from './toast.js';
 import { supa } from './supabase-client.js';
 
@@ -36,20 +37,102 @@ export async function callAI(prompt, targetId, formatHtml) {
   }
 }
 
-export function genSemanalAI() {
-  const conf=state.appointments.filter(a=>a.status==='conf').length;
-  const noas=state.appointments.filter(a=>a.status==='noas').length;
-  const total=state.appointments.length;
-  const prompt=`Eres el asistente de gestión de Rehactiva, centro de rehabilitación y fisioterapia en Quito, Ecuador.
-Analiza estos datos de la semana:
-- Total de citas: ${total}
-- Confirmadas/asistidas: ${conf}
-- No asistieron: ${noas}
-- Terapeutas activos: ${state.therapists.length}
-- Tasa de asistencia: ${total>0?Math.round(conf/total*100):0}%
+// ── Análisis con IA de los informes de clínica ────────────────────────────────
+// Una función por sub-tab, cada una con SU rango, SU prompt y SU destino visible dentro del
+// sub-tab que la disparó. Antes las tres pasaban por genSemanalAI, que mandaba el histórico
+// COMPLETO de state.appointments rotulado como "la semana" y escribía en #insights (dentro del
+// sub-tab semanal, invisible desde mensual/anual).
+const CABECERA='Eres el asistente de gestión de Rehactiva, centro de rehabilitación y fisioterapia en Quito, Ecuador.';
+const CIERRE='Responde en español, en texto plano (sin markdown ni viñetas), tono profesional y directo. No inventes datos que no estén en la lista.';
 
-Genera un análisis ejecutivo breve (máximo 200 palabras) con: resumen del desempeño, puntos de atención y 2-3 recomendaciones concretas. Responde en español, tono profesional y directo.`;
-  callAI(prompt,'insights');
+export function genSemanalAI() {
+  const {dates}=semanaRango(state.currentWeek);
+  const citas=citasEnFechas(state.appointments,dates);
+  const r=resumenCitas(citas);
+  // Terapeutas CON citas en la semana, no el tamaño del equipo: el bloque dice "todos los datos
+  // de esa semana" y state.therapists.length es una plantilla total que no depende del rango.
+  const thSemana=new Set(citas.filter(a=>a.therapistId).map(a=>String(a.therapistId))).size;
+  const prompt=`${CABECERA}
+Analiza la SEMANA del ${dmy(dates[0])} al ${dmy(dates[4])} (lunes a viernes). Estos son TODOS los datos de esa semana, nada más:
+- Total de citas agendadas: ${r.total}
+- Asistieron: ${r.conf}
+- No asistieron: ${r.noas}
+- Aún pendientes de marcar: ${r.pend}
+- Tasa de asistencia: ${r.asistencia}%
+- Terapeutas con citas esa semana: ${thSemana} (de ${state.therapists.length} en el equipo)
+
+Genera un análisis ejecutivo breve (máximo 200 palabras) con: resumen del desempeño de la semana, puntos de atención y 2-3 recomendaciones concretas para la semana siguiente. Si la semana casi no tiene citas, dilo en vez de forzar conclusiones. ${CIERRE}`;
+  callAI(prompt,'semanal-ai-output');
+}
+
+export function genMensualAI() {
+  const now=new Date();
+  const ym=state.informesMes||`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const [y,m]=ym.split('-').map(Number);
+  const prevD=new Date(y,m-2,1);
+  const pym=`${prevD.getFullYear()}-${String(prevD.getMonth()+1).padStart(2,'0')}`;
+  const cur=resumenCitas(citasEnPrefijo(state.appointments,ym));
+  const prev=resumenCitas(citasEnPrefijo(state.appointments,pym));
+  const nuevos=nuevosEnPrefijo(state.patients,ym);
+  const nuevosPrev=nuevosEnPrefijo(state.patients,pym);
+  const nom=x=>`${MES_LARGO[parseInt(x.split('-')[1],10)-1]} ${x.split('-')[0]}`;
+  const cont=v=>v==null?'sin citas decididas':v+'%';
+  const prompt=`${CABECERA}
+Analiza el MES de ${nom(ym)} y compáralo con ${nom(pym)}. Estos son TODOS los datos de esos dos meses, nada más:
+
+${nom(ym)} (mes analizado):
+- Sesiones realizadas: ${cur.conf}
+- Inasistencias: ${cur.noas}
+- Continuidad (asistidas sobre citas decididas): ${cont(cur.continuidad)}
+- Pacientes nuevos: ${nuevos}
+
+${nom(pym)} (mes anterior, solo para comparar):
+- Sesiones realizadas: ${prev.conf}
+- Inasistencias: ${prev.noas}
+- Continuidad: ${cont(prev.continuidad)}
+- Pacientes nuevos: ${nuevosPrev}
+
+Contexto de la clínica hoy: ${state.patients.filter(p=>p.status==='active').length} pacientes en tratamiento y ${state.therapists.length} terapeutas activos.
+
+Genera un análisis mensual (máximo 250 palabras) con: qué cambió respecto al mes anterior y por qué importa, el estado de la continuidad frente a la meta del 85%, y 2-3 acciones concretas para el mes siguiente. Si el mes anterior no tiene datos, dilo y analiza el mes solo. ${CIERRE}`;
+  callAI(prompt,'mensual-ai-output');
+}
+
+export function genAnualAI() {
+  const now=new Date();
+  const year=now.getFullYear();
+  const r=resumenCitas(citasEnPrefijo(state.appointments,String(year)));
+  // Mes a mes del año en curso: es lo que da la lectura de tendencia (el acumulado solo, no).
+  const porMes=[];
+  for(let m=0;m<12;m++){
+    const ym=`${year}-${String(m+1).padStart(2,'0')}`;
+    const s=resumenCitas(citasEnPrefijo(state.appointments,ym));
+    if(s.total>0) porMes.push(`- ${MES_LARGO[m]}: ${s.conf} sesiones, ${s.noas} inasistencias`);
+  }
+  const mesesCompletos=now.getMonth();   // meses ya cerrados este año
+  const altas=state.patients.filter(p=>p.status==='alta').length;
+  const unicos=new Set(citasEnPrefijo(state.appointments,String(year)).map(a=>a.patientId)).size;
+  const prompt=`${CABECERA}
+Analiza el AÑO ${year} en curso (datos de enero a la fecha, con ${mesesCompletos} ${mesesCompletos===1?'mes cerrado':'meses cerrados'}). Estos son TODOS los datos del año, nada más:
+- Sesiones acumuladas: ${r.conf}
+- Inasistencias acumuladas: ${r.noas}
+- Continuidad del año (asistidas sobre citas decididas): ${r.continuidad==null?'sin citas decididas':r.continuidad+'%'}
+- Pacientes únicos con al menos una cita en ${year}: ${unicos}
+- Altas médicas registradas (total histórico): ${altas}
+
+Desglose por mes (solo los meses con actividad):
+${porMes.length?porMes.join('\n'):'- Sin actividad registrada en el año'}
+
+Genera un análisis anual (máximo 250 palabras) con: la tendencia a lo largo del año y sus meses fuertes y flojos, el estado de la continuidad frente a la meta del 85%, y 2-3 prioridades concretas para lo que queda del año. No proyectes cifras a fin de año a partir de meses incompletos. ${CIERRE}`;
+  callAI(prompt,'anual-ai-output');
+}
+
+// El botón "Análisis con IA" del header de Informes actúa sobre la sub-pestaña visible.
+export function genInformeAI() {
+  const n=state.informesSubTab;
+  if(n==='mensual') return genMensualAI();
+  if(n==='anual')   return genAnualAI();
+  return genSemanalAI();
 }
 
 // Limpia cualquier markdown que la IA pudiera devolver pese a las instrucciones (texto plano).
