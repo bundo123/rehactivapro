@@ -249,6 +249,55 @@
     padding: 8px 10px !important;
   }
 
+  /* ── Historial: la fila de mes NO es una tarjeta de datos ── */
+  /* Con el apilado de .patient-table cada <tr> se vuelve una tarjeta; la fila de subtotal (un solo
+     td con colspan) quedaría como una tarjeta vacía con la etiqueta del data-label encima. Acá se
+     la trata como lo que es: el encabezado del bloque del mes.
+     El Historial no es prioritario en móvil (el teléfono es "Mi día"), pero no debe verse roto. */
+  .hist-table tr.hist-mes {
+    background: #faf6ef;
+    border-color: rgba(41,171,226,.2);
+    padding: 9px 12px;
+    margin-bottom: 6px;
+  }
+
+  .hist-table tr.hist-mes td {
+    display: block;
+    padding: 0 !important;
+    border-bottom: none !important;
+  }
+
+  .hist-table tr.hist-mes td::before {
+    content: none;
+  }
+
+  .hist-mes-sub {
+    display: block;
+    margin-left: 0;
+    margin-top: 2px;
+  }
+
+  .hist-mes-ep {
+    margin-left: 0;
+    margin-top: 5px;
+  }
+
+  /* La primera celda es la FECHA y hace de título de la tarjeta (como el nombre en Pacientes). */
+  .hist-table td.hist-fecha {
+    font-size: 13.5px;
+  }
+
+  /* Imprimir / Exportar quedan a lo ancho en vez de apretados contra el borde. */
+  #tab-historial .hist-exports {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  #tab-historial .hist-exports .exp-btn {
+    flex: 1;
+    min-height: 40px;
+  }
+
   /* ── Seguimiento: mismo apilado en tarjetas que Pacientes ── */
   /* «Con días faltantes» no entra al lado de los otros dos en 390px, así que los filtros envuelven.
      Scoped a la pestaña: Pacientes sigue con sus tres en una fila. */
@@ -916,16 +965,25 @@
 
 }
 
-/* Atajo cita → informe, en TODOS los dispositivos (antes iba solo bajo pointer:coarse): mirar la
-   historia del paciente que se está agendando es la misma consulta con dedo que con mouse, y por
-   el menú lateral hay que elegir el paciente de nuevo. agenda.js pone [hidden] cuando la cita no
-   tiene paciente asignado; el display:none explícito cubre al navegador que ignore [hidden]. */
-#appt-goto-rpt:not([hidden]) {
-  display: block;
-  width: 100%;
-  min-height: 48px;
+/* Atajos de la cita al paciente, en TODOS los dispositivos (antes iba solo bajo pointer:coarse):
+   mirar la historia del paciente que se está agendando es la misma consulta con dedo que con mouse,
+   y por el menú lateral hay que elegir el paciente de nuevo. Son DOS botones hermanos —"Ver informe"
+   y "Historial de citas"— dentro de #appt-shortcuts, que es quien lleva el [hidden] y el data-pid:
+   agenda.js lo esconde cuando la cita no tiene paciente asignado, y el display:none explícito cubre
+   al navegador que ignore [hidden]. En un modal angosto los dos envuelven en vez de apretarse. */
+#appt-shortcuts:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin: 0 0 14px;
-  padding: 12px 14px;
+}
+#appt-shortcuts[hidden] {
+  display: none;
+}
+#appt-shortcuts button {
+  flex: 1 1 150px;
+  min-height: 48px;
+  padding: 12px 10px;
   border: 1px solid rgba(41,171,226,.35);
   border-radius: 8px;
   background: rgba(41,171,226,.08);
@@ -935,6 +993,6 @@
   font-weight: 700;
   cursor: pointer;
 }
-#appt-goto-rpt[hidden] {
-  display: none;
+#appt-shortcuts button:hover {
+  background: rgba(41,171,226,.16);
 }

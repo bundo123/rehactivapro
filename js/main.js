@@ -14,7 +14,7 @@ import {
   changeDay, openApptModal, openApptModalAt, openEditApptModal, updateTimeSlots, saveAppt, delAppt,
   goToDate, goToToday, openDatePicker, agendarCitaParaPaciente, checkAutoNoas,
   toggleRecurrencia, updateRecPreview, filterApptPatient,
-  setAgendaView, setTherapistFilter, verInformeDeCita, toggleHoraExacta,
+  setAgendaView, setTherapistFilter, verInformeDeCita, verHistorialDeCita, toggleHoraExacta,
   goToDateAndSelect, exportAgendaCSV
 } from './agenda.js';
 import {
@@ -33,6 +33,11 @@ import {
   renderSeguimiento, setSeguimientoFilter, toggleSeguimientoDetalle,
   verPacienteSeguimiento, setupSeguimientoSearch
 } from './seguimiento.js';
+import {
+  setupHistorial, renderHistorial, irAHistorial,
+  setHistorialCorte, setHistorialMes, setHistorialEstado,
+  exportarHistorialPDF, exportarHistorialCSV
+} from './historial.js';
 import {
   openSessionModal, openSessionModalManual, editSession, deleteSession, saveSession, skipSession,
   toggleProTecnica
@@ -83,13 +88,15 @@ window._app = {
   // ui helpers
   showTab, closeModal,
   // render
-  renderGrid, renderRefLegend, renderResumen, renderPatients, renderSeguimiento,
+  renderGrid, renderRefLegend, renderResumen, renderPatients, renderSeguimiento, renderHistorial,
   renderPatientReport, renderPatientReportSelect, renderTherapistList,
   renderDoctorsList, renderFacturacion,
   // badges
   updateResumenBadge, updateFacturaBadge,
   // episodes
   updateEpisodes, selectRptPatient,
+  // historial (agenda.js lo llama desde el modal de cita sin importarlo: evita un ciclo de módulos)
+  irAHistorial,
   // session
   openSessionModal,
   // patient
@@ -122,6 +129,9 @@ export function showTab(tab) {
   if(tab==='agenda')renderGrid();
   if(tab==='pacientes')renderPatients();
   if(tab==='seguimiento')renderSeguimiento();
+  // Historial NO resetea el paciente elegido: se puede haber llegado desde una cita o desde el
+  // informe, y perder la consulta al volver por el menú sería justo el peor momento.
+  if(tab==='historial')renderHistorial();
   if(tab==='informes')renderSemanal();
   if(tab==='paciente_rpt')renderPatientReportSelect();
   if(tab==='terapeutas')renderTherapistList();
@@ -223,7 +233,7 @@ Object.assign(window, {
   delAppt, deletePatient, deleteTherapist, deleteDoctor, deleteProtocol,
   cycleStatus, changeDay, changeWeek, goToDate, goToToday,
   changeResumenDay, goToResumenDate, resumenHoy, openResumenDatePicker, setResumenTherapist,
-  verInformeDeCita,
+  verInformeDeCita, verHistorialDeCita,
   showSubTab, changeMensualMonth, showDoctoresTab, selectColor, selectDocColor,
   filterApptPatient, filterPatientRptSelect, selectRptPatient, rptSearchKeydown, updateEpisodes, updateTimeSlots, toggleHoraExacta,
   renderPatientReport, renderProtocols, protPage,
@@ -235,6 +245,8 @@ Object.assign(window, {
   updateRecPreview, populateDiagList,
   goToPatientPage, toggleEvalFilter, setPatientStatusFilter, verPaciente, onPatientProtocolChange,
   setSeguimientoFilter, toggleSeguimientoDetalle, verPacienteSeguimiento,
+  irAHistorial, setHistorialCorte, setHistorialMes, setHistorialEstado,
+  exportarHistorialPDF, exportarHistorialCSV,
   cie10Search, cie10Pick, cie10Clear,
   planGuardarSesiones, planNuevoEpisodio,
   setAgendaView, setTherapistFilter, goToDateAndSelect, exportAgendaCSV,
@@ -252,6 +264,7 @@ initDoctorValidation();
 initProtocolValidation();
 setupPatientSearch();
 setupSeguimientoSearch();
+setupHistorial();
 renderGrid();
 updateFacturaBadge();
 initApp();

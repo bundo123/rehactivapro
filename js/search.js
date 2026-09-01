@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { esc, getTherapist, patientMatchesSearch } from './utils.js';
 import { toastErr } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
+import { irAHistorial } from './historial.js';
 
 export function globalSearch(q) {
   const res=document.getElementById('global-search-results');
@@ -29,6 +30,21 @@ export function globalSearch(q) {
       +'<div style="font-size:12px;font-weight:600;color:#1a1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.name)+(evalOk?'':' ⚠️')+'</div>'
       +'<div style="font-size:10px;color:#9c9a92">'+esc(p.diag||'Sin diagnóstico')+(th?' · '+esc(th.name):'')+'</div>'
       +'</div>';
+    // Atajo al historial SIN cambiar lo que la gente ya usa: el click en la fila sigue abriendo el
+    // informe; el chip (con stopPropagation) es la puerta nueva. Se agrega como elemento y no
+    // dentro del innerHTML porque necesita su propio handler.
+    const chip=document.createElement('button');
+    chip.className='gs-chip';
+    chip.type='button';
+    chip.textContent='Citas';
+    chip.title='Ver el historial de citas de '+p.name;
+    chip.onclick=e=>{
+      e.stopPropagation();
+      document.getElementById('global-search').value='';
+      res.style.display='none';
+      irAHistorial(p.id);
+    };
+    div.appendChild(chip);
     res.appendChild(div);
   });
 }

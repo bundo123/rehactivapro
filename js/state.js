@@ -41,4 +41,9 @@ export const state = {
   patientEvalFilter: false,
   patientStatusFilter: 'all',
   seguimientoFilter: 'con',
+  // Historial de citas: el paciente elegido SOBREVIVE al cambio de pestaña (se puede llegar desde
+  // una cita o desde el informe y volver por el menú sin perder la consulta), pero el filtro se
+  // resetea al cambiar de paciente — un corte por episodio no significa nada en otro paciente.
+  historialPatientId: null,
+  historialFiltro: { corte: 'all', mes: 'all', estado: 'all' },
 };

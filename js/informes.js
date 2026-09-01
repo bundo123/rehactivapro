@@ -699,6 +699,7 @@ export function renderPatientReport() {
         <div class="side-title">Paciente</div>
         <div class="side-col">
           <button class="side-btn soft" onclick="agendarCitaParaPaciente('${esc(p.id)}')">+ Agendar cita</button>
+          <button class="side-btn soft" onclick="irAHistorial('${esc(p.id)}')">Historial de citas</button>
           ${hasPermission('registerSession')?`<button class="side-btn soft" onclick="openSessionModalManual('${esc(p.id)}')">+ Sesión manual</button>`:''}
           ${isCurrentEpisode?`<button class="side-btn warn" onclick="nuevoEpisodio('${esc(p.id)}')">Nuevo episodio</button>`:''}
         </div>
@@ -899,7 +900,9 @@ function buildPdfHtml(m) {
     +'</body></html>';
 }
 
-function openPdfWindow(html) {
+// Exportada: el Historial de citas abre su hoja imprimible con esta MISMA ventana (mismo aviso de
+// pop-ups bloqueados, mismo document.write) en vez de duplicar la mecánica.
+export function openPdfWindow(html) {
   const win=window.open('','_blank');
   if(!win){window._app.toastErr('Permite ventanas emergentes para exportar PDF');return false;}
   win.document.write(html);win.document.close();

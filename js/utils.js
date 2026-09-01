@@ -83,7 +83,7 @@ export function validarPassNueva(pass, pass2){
   return null;
 }
 
-export const allTabs = ['agenda','pacientes','seguimiento','informes','paciente_rpt','protocolos','resumen','terapeutas','doctores','facturacion'];
+export const allTabs = ['agenda','historial','pacientes','seguimiento','informes','paciente_rpt','protocolos','resumen','terapeutas','doctores','facturacion'];
 
 export function escapeHtml(v){
   if(v==null) return '';
@@ -486,6 +486,23 @@ export function getFullAge(p) {
 export function lastFinDate(p) {
   const fins = (p?.log || []).filter(s => s.type === 'Fin de episodio').map(s => s.date).sort();
   return fins.length ? fins[fins.length - 1] : null;
+}
+
+// Nota del marcador 'Fin de episodio' → { diag, plan } del episodio que se cerró.
+// guardarNuevoEpisodio (pacientes.js:410) la escribe SIEMPRE con este formato:
+//   "Episodio anterior: <diag> · <N> sesiones completadas"
+// Hoy se parsea a mano en dos lugares de informes.js (:506 con separador ' · ' y :538 con ' ·'),
+// que es justo el tipo de duplicación que se rompe sola cuando cambia el formato de la nota.
+// Acá queda UNA definición para el Historial; informes.js puede migrar después (deuda anotada).
+// Ojo con `plan`: lo que la nota guarda es doneActual (sesiones HECHAS al cerrar), pero
+// informes.js:539 lo usa como epSessions — el "de N" del episodio cerrado. Se conserva esa
+// lectura para no cambiar lo que ya se muestra en producción.
+export function parseFinNote(note) {
+  const txt = String(note || '');
+  const tras = txt.split('Episodio anterior: ')[1];
+  const diag = tras ? (tras.split(' · ')[0] || '').trim() : '';
+  const ses = txt.match(/(\d+) sesiones/);
+  return { diag: diag || 'Tratamiento anterior', plan: ses ? parseInt(ses[1], 10) : null };
 }
 
 // Sesiones realizadas dentro de un tramo YA RECORTADO de session_log. Define, en un solo lugar,

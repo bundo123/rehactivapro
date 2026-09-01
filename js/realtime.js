@@ -91,11 +91,14 @@ function _mapDoctor(r){return{id:r.id,name:r.name,spec:r.spec||'',email:r.email|
 function _mapSession(s){return{id:s.id,date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null};}
 
 function _refreshTabAfterAppt() {
-  const {renderGrid,renderResumen,renderFacturacion,renderSeguimiento,updateResumenBadge,updateFacturaBadge}=window._app;
+  const {renderGrid,renderResumen,renderFacturacion,renderSeguimiento,renderHistorial,updateResumenBadge,updateFacturaBadge}=window._app;
   if(state.currentTab==='agenda')renderGrid();
   else if(state.currentTab==='resumen')renderResumen();
   else if(state.currentTab==='facturacion')renderFacturacion();
   else if(state.currentTab==='seguimiento')renderSeguimiento();
+  // El Historial se arma sobre las citas: si la secretaria mueve una desde otra PC, la pantalla
+  // abierta acá tiene que reflejarlo (si no, se contesta el teléfono con un conteo viejo).
+  else if(state.currentTab==='historial')renderHistorial();
   updateResumenBadge();updateFacturaBadge();
 }
 
@@ -132,11 +135,14 @@ function _onPatient(payload) {
     state.patients=state.patients.filter(p=>p.id!==payload.old.id);
     if(state.patients.length<before)queueRemoteToast('patients','Paciente eliminado');
   }
-  const {renderPatients,renderPatientReport,renderFacturacion,renderSeguimiento,updateFacturaBadge}=window._app;
+  const {renderPatients,renderPatientReport,renderFacturacion,renderSeguimiento,renderHistorial,updateFacturaBadge}=window._app;
   if(state.currentTab==='pacientes')renderPatients();
   else if(state.currentTab==='paciente_rpt'){const sel=document.getElementById('patient-rpt-select')?.value;if(sel)renderPatientReport();}
   else if(state.currentTab==='facturacion')renderFacturacion();
   else if(state.currentTab==='seguimiento')renderSeguimiento();
+  // La cabecera del Historial muestra diagnóstico, plan y terapeuta del paciente: si los editan en
+  // otra PC, hay que repintar.
+  else if(state.currentTab==='historial')renderHistorial();
   updateFacturaBadge();
 }
 
@@ -159,10 +165,14 @@ function _onSessionLog(payload) {
     p.log=p.log.filter(s=>!(s.date===payload.old.date&&normHour(s.hour)===normHour(payload.old.hour)));
     queueRemoteToast('session_log','Sesión eliminada');
   }
-  const {renderPatientReport,renderGrid,renderSeguimiento}=window._app;
+  const {renderPatientReport,renderGrid,renderSeguimiento,renderHistorial}=window._app;
   if(state.currentTab==='paciente_rpt'){const sel=document.getElementById('patient-rpt-select')?.value;if(String(sel)===String(pid))renderPatientReport();}
   if(state.currentTab==='agenda')renderGrid();
   if(state.currentTab==='seguimiento')renderSeguimiento();
+  // Un 'Fin de episodio' nuevo mueve la frontera y con ella TODOS los cortes y ordinales de la
+  // pantalla, así que el Historial se repinta aunque el paciente abierto sea otro (barato: es un
+  // render sobre datos que ya están en memoria).
+  if(state.currentTab==='historial')renderHistorial();
 }
 
 function _onCobro(payload) {

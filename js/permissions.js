@@ -2,10 +2,13 @@ import { state } from './state.js';
 
 // 'seguimiento' es de lectura para los tres roles (el terapeuta incluido): es la pantalla que
 // dice qué pacientes atendidos no tienen historia cargada, y quien la carga es el terapeuta.
+// 'historial' lo ven los TRES roles: son las mismas citas que ya ven en la agenda, ordenadas por
+// paciente. La secretaria lo necesita para contestar el teléfono y el terapeuta para saber en qué
+// sesión va; no hay dato clínico nuevo en esa pantalla.
 const ROLE_TABS = {
-  admin:     ['agenda','resumen','pacientes','seguimiento','paciente_rpt','protocolos','informes','facturacion','terapeutas','doctores'],
-  secretaria:['agenda','resumen','pacientes','seguimiento','paciente_rpt','protocolos','facturacion','terapeutas','doctores'],
-  terapeuta: ['agenda','resumen','pacientes','seguimiento','paciente_rpt','protocolos'],
+  admin:     ['agenda','historial','resumen','pacientes','seguimiento','paciente_rpt','protocolos','informes','facturacion','terapeutas','doctores'],
+  secretaria:['agenda','historial','resumen','pacientes','seguimiento','paciente_rpt','protocolos','facturacion','terapeutas','doctores'],
+  terapeuta: ['agenda','historial','resumen','pacientes','seguimiento','paciente_rpt','protocolos'],
 };
 
 // 'createTherapist' = alta y edición del terapeuta; 'deleteTherapist' = baja definitiva. Van

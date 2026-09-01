@@ -374,19 +374,24 @@ export function changeDay(d) {
   renderGrid();
 }
 
-// Atajo táctil del modal de cita: lo pinta CSS solo bajo (pointer: coarse) y aquí se
-// decide si hay paciente al que saltar. El id se guarda en el botón para no depender
-// de #m-patient, que el usuario puede haber tocado antes de saltar.
+// Atajos del modal de cita al paciente ("Ver informe" e "Historial de citas"). El id y el [hidden]
+// van en el CONTENEDOR #appt-shortcuts y no en cada botón: así los dos leen el mismo paciente y no
+// pueden quedar desincronizados. Se guarda acá y no se lee #m-patient porque el usuario puede haber
+// tocado el buscador de paciente antes de saltar.
 function setApptRptShortcut(patientId) {
-  const btn = document.getElementById('appt-goto-rpt');
-  if (!btn) return;
+  const box = document.getElementById('appt-shortcuts');
+  if (!box) return;
   const pid = patientId ? String(patientId) : '';
-  btn.dataset.pid = pid;
-  btn.hidden = !pid;
+  box.dataset.pid = pid;
+  box.hidden = !pid;
+}
+
+function _pidDeCitaAbierta() {
+  return document.getElementById('appt-shortcuts')?.dataset.pid || '';
 }
 
 export function verInformeDeCita() {
-  const pid = document.getElementById('appt-goto-rpt')?.dataset.pid;
+  const pid = _pidDeCitaAbierta();
   if (!pid) return;
   if (!canAccessTab('paciente_rpt')) { toastErr('No tienes permisos para acceder a esta sección'); return; }
   window._app.closeModal('appt-modal');
@@ -394,6 +399,18 @@ export function verInformeDeCita() {
   // resetea la selección al primer paciente. Seleccionar después es lo que la conserva.
   window._app.showTab('paciente_rpt');
   window._app.selectRptPatient(pid);
+}
+
+// Historial de citas del paciente de esta cita. A diferencia del informe no hace falta seleccionar
+// después: irAHistorial deja el paciente en el state ANTES de mostrar la pestaña, y el permiso lo
+// chequea ella (puerta única, js/historial.js).
+export function verHistorialDeCita() {
+  const pid = _pidDeCitaAbierta();
+  if (!pid) return;
+  window._app.closeModal('appt-modal');
+  // Vía window._app y no por import directo: agenda.js ya es importado por informes.js, e importar
+  // historial.js (que importa informes.js) cerraría un ciclo de módulos por una sola llamada.
+  window._app.irAHistorial(pid);
 }
 
 function _openApptModalBase() {

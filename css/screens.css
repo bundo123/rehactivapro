@@ -171,6 +171,43 @@
 .segd-item.falta .segd-estado{color:#c0392b}
 .segd-item.falta .segd-fecha{color:#c0392b}
 
+/* ===== HISTORIAL DE CITAS ===== */
+/* Sin sistema visual nuevo: reutiliza .patient-table (y con ella el apilado móvil), .stat/.stats-row,
+   .filter-pill y .hdr-select. Lo único propio es la fila de subtotal por mes, que .patient-table no
+   contempla, y la cabecera del paciente. */
+.hist-empty{padding:44px 20px;text-align:center;color:#6b6a64;font-size:13px}
+.hist-head{background:#fff;border:1px solid rgba(41,171,226,.18);border-radius:11px;padding:14px 16px;margin-bottom:14px}
+.hist-head-top{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.hist-ident{flex:1;min-width:0}
+.hist-pname{font-size:17px;font-weight:700;color:#1a1917;letter-spacing:-.01em}
+.hist-pmeta{font-size:11.5px;color:#7a7a76;margin-top:2px}
+.hist-head-actions{display:flex;gap:8px;flex-shrink:0;align-items:center}
+.hist-stats{margin-bottom:0}
+.hist-controls{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.hist-ctl-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.hist-ctl-lbl{font-size:10px;font-weight:700;color:#7a7a76;text-transform:uppercase;letter-spacing:.05em}
+.hist-exports{display:flex;gap:6px;margin-left:auto}
+.hist-table-card{border:1px solid rgba(41,171,226,.18);border-radius:11px;overflow:hidden;background:#ffffff}
+.hist-table{width:100%;table-layout:fixed}
+.hist-table td{font-size:13px}
+.hist-row{cursor:pointer}
+.hist-fecha{font-weight:600;white-space:nowrap}
+.hist-num{font-variant-numeric:tabular-nums;color:#5a5a56;white-space:nowrap}
+.hist-tipo{color:#7a7a76;font-size:12px}
+.hist-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+/* Fila de subtotal del mes. !important porque rehactiva-theme.css fija el fondo de .patient-table td
+   después de este archivo (mismo caso que .seg-table). */
+.hist-table tr.hist-mes td{background:#faf6ef!important;padding:7px 14px!important;border-bottom:1px solid rgba(41,171,226,.16)!important}
+.hist-mes-lbl{font-size:11px;font-weight:700;color:#1a1917;text-transform:uppercase;letter-spacing:.05em}
+.hist-mes-sub{font-size:11px;color:#7a7a76;margin-left:10px}
+/* Etiqueta del episodio: ámbar, el mismo código de color que usa el informe para "Episodio anterior". */
+.hist-mes-ep{display:inline-block;font-size:10px;font-weight:700;color:#a06a00;background:rgba(245,166,35,.15);border-radius:99px;padding:2px 9px;margin-left:10px;white-space:nowrap}
+
+/* Chip "Citas" del buscador global: puerta al historial sin tocar el click de la fila, que sigue
+   abriendo el informe. */
+.gs-chip{flex-shrink:0;padding:4px 10px;border:1px solid rgba(41,171,226,.3);background:rgba(41,171,226,.08);color:#1d8fbf;border-radius:99px;font-size:10px;font-weight:700;font-family:inherit;cursor:pointer}
+.gs-chip:hover{background:rgba(41,171,226,.2)}
+
 /* ===== INFORME PACIENTE — hoja membretada + sidebar de acciones ===== */
 .rpt-layout{display:flex;gap:16px;align-items:flex-start}
 .rpt-sheet{flex:1;min-width:0;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:4px;box-shadow:0 4px 18px rgba(0,0,0,.08);padding:30px 34px}
