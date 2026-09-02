@@ -36,6 +36,106 @@
 
 ---
 
+## 🗓️ Sesión 2026-09-01 (e) — LOTE INFORMES 4a: quitar lo que sobra
+
+Un commit (**`4000edd`**), revisado en la rama `revision-informes-4a` (auditoría + prueba manual de
+Jefferson, que encontró el bug de más abajo) y mergeado a `main` en fast-forward; la rama se borró
+local y remota. Tests: **293 verdes** (+9 en `test/informes-rango.test.js`). Sin SQL, sin cambios de
+esquema, sin RLS nueva. **Lote de RESTA**: no agrega paneles ni toca el esqueleto — eso es el 4b.
+
+La spec quedó versionada en **`PLAN_INFORMES.md`** (crítica con evidencia, el diseño y el plan por
+lotes) y la maqueta del esqueleto en **`mockups/informes-esqueleto-2026-09.html`**. Los dos son la
+spec del **4b** y el **4c**: no son documentación de lo hecho, son el pliego de lo que falta.
+
+### Lo que se eliminó y por qué *(tabla §3.4 de `PLAN_INFORMES.md`)*
+
+| Elemento | Por qué se fue |
+|---|---|
+| Gráfico "Tendencia — últimos 3 meses" (mensual) | Tres datasets en el **mismo eje Y**: sesiones (~400), continuidad (0–100) e inasistencias (~40). La barra de continuidad medía lo mismo que una de 92 sesiones. Duplicaba los chips de variación que ya están arriba, y con `continuidad ?? 0` pintaba **0%** justo donde `resumenCitas` devuelve `null` a propósito. |
+| Tarjetas **Citas totales**, **Atendidos** y **Activos** (semanal) | "Citas totales" incluía las pendientes (no es un dato, es carga sin cerrar); "Atendidos" en una semana ≈ asistidas/2.5; "Activos" es el **padrón**, no la semana. |
+| **Pacientes activos** y **Altas médicas (total)** (mensual), **Altas médicas (total)** (anual) | Números del padrón: valían lo mismo en agosto que en julio y salían idénticos en las tres pestañas. `patients.status='alta'` **no tiene fecha**, así que "altas del período" no se puede calcular todavía → vuelve cuando exista `discharge_date`. |
+| Tarjeta **Proyección anual** | Run-rate (`sesiones de meses completos / meses × 12`) sin estacionalidad — la clínica cierra en feriados y vacaciones. Y el prompt anual le **prohíbe exactamente eso** al modelo ("No proyectes cifras a fin de año a partir de meses incompletos", `ia.js`): la pantalla hacía lo que le prohibimos a la IA. |
+| Panel **Top diagnósticos** (semanal) | Partía `pt.diag` (texto libre) por coma y agrupaba el primer trozo: "Lumbalgia", "lumbalgia crónica" y "Dolor lumbar" contaban como tres cosas distintas. Vuelve **por código CIE-10** cuando la cobertura del campo lo permita. |
+| Panel **Próximos a alta ≥80%** (semanal) | Lista operativa (vive en Facturación/Pacientes), y encima con `slice(0,5)` **sin ordenar**: mostraba los cinco primeros del array, no los cinco más cercanos al alta. |
+| Panel **Insights automáticos** (semanal) | Trivia: "la franja con más citas", "X lidera la agenda" y "N inasistencias". La tercera ya estaba en una tarjeta; las otras dos no cambian ninguna decisión. |
+| Lista **Pacientes por doctor referente** (mensual) | Contaba **todo el padrón**, no el mes. De paso se fue su texto en `#c8c6c0` (gris de tema oscuro sobre fondo claro, casi invisible). La reemplaza "Nuevos por doctor referente **del período**" en el 4c. |
+| `renderTherapistUtil`, `hmCol` | Código muerto: la primera sin caller desde el rediseño, la segunda (paleta semáforo vieja) solo la usaba la primera. |
+| Botón **Análisis con IA** del header, `genInformeAI` | Ver más abajo. |
+
+El **mapa de calor** y la lista de **No asistieron + WA** se quedaron **tal cual**. Al irse los
+paneles que los acompañaban, los que sobreviven pasan a ancho completo: `.inf-grid` es `1.5fr 1fr`
+y con un solo hijo dejaba un 40% de hueco a la derecha.
+
+### Una sola fórmula y un solo nombre
+
+Antes la misma clínica veía **84% el viernes** (semanal, "Asistencia" = `conf/total`, con las
+pendientes en el denominador) y **92% el día 1** del mes siguiente (mensual, "Continuidad" =
+`conf/(conf+noas)`). Dos nombres y dos fórmulas para la misma pregunta: desconfianza gratuita.
+
+- **Continuidad = `resumenCitas(...).continuidad`** en las **tres** pestañas, con los mismos
+  umbrales de color (85/70) y `'—'` cuando no hay citas decididas — nunca un 0% inventado.
+- La vieja **"Asistencia" (`conf/total`) ya no se pinta en ninguna tarjeta**. El campo
+  `asistencia` sobrevive en `resumenCitas` porque **el prompt semanal lo nombra** (`ia.js`), y eso
+  no se tocó en este lote; el comentario de `utils.js` lo dice explícitamente para que nadie lo
+  vuelva a subir a la pantalla.
+- **Asistidas = `conf` con `date <= hoy`** (`asistidasEn(appts, hoy)`, pura, en `utils.js`) —
+  tarjeta nueva del semanal, y la misma lectura que ya usan Historial y Seguimiento. Es lo único
+  que este lote **agrega**.
+- Los tres sub-tabs usan `.informe-stat-grid` + `.stat`; el semanal deja de usar `.kpi-grid`/`.kpi`,
+  que se borraron del CSS junto con `.rank-row` (huérfana al irse los dos rankings). `.rpt-kpi-grid`
+  del informe de paciente es **otra clase** y queda.
+
+### ⚠️ El bug que encontró la prueba manual — un rango EN CURSO contaba las conf FUTURAS
+
+Semanal mostraba **Asistidas 54 · No asistieron 14 · Continuidad 89%**, pero 54/(54+14) = **79%**.
+El 89% salía de las **59 conf ya agendadas** para el resto de la semana (era martes): `asistidasEn`
+las excluía, `resumenCitas` no. Mismo error en el anual ("700 acumuladas Ene–Sep" incluía
+septiembre futuro) y en los **tres bloques de datos que recibe la IA**.
+
+El fix es **`hastaHoy(appts, hoy)`** (`utils.js`, pura, acepta `Date` o `'YYYY-MM-DD'`): recorta un
+rango a lo que **ya ocurrió**. `resumenCitas` **no se tocó** — el recorte va en el llamador, no en
+la fórmula.
+
+- **Pantalla:** todo lo que se muestra como **tasa o acumulado** se calcula sobre `hastaHoy(rango)`
+  en las tres pestañas — continuidad, `conf`/"sesiones", inasistencias, pacientes únicos y los
+  ✓/✗ por terapeuta. En mensual y anual entra por `_apptStats` (`informes.js`), que es la puerta
+  por la que pasan **todas** sus tarjetas y las barras del chart anual.
+- **IA:** las tres `gen*AI` pasan `hastaHoy(rango)` a `resumenCitas` y al desglose por mes. Único
+  cambio de texto en los prompts: `", contados hasta hoy (DD/MM/YYYY)"` detrás de "Estos son TODOS
+  los datos de esa semana / esos dos meses / del año". Nada más del prompt cambió.
+- **Invariante testeada:** `asistidasEn(rango) === resumenCitas(hastaHoy(rango)).conf`, sobre los
+  tres rangos y cinco fechas de corte. `asistidasEn` está **definida sobre `hastaHoy`**, así que
+  vale por construcción y no por coincidencia. Hay test del caso real (54/14/59 → **79%, no 89%**)
+  y de que un rango **ya cerrado** da exactamente lo mismo con y sin recorte.
+- **El mapa de calor NO se recorta, a propósito:** mide **agenda ocupada** (`conf`+`pend`), y ahí lo
+  futuro **sí** cuenta — es justamente la pregunta "¿qué franjas tengo libres?". Usa `semAppts`, no
+  `semHasta`.
+- **Efecto lateral aceptado:** el % de utilización por terapeuta **baja a mitad de semana**, porque
+  el numerador ya es hasta-hoy y el denominador sigue siendo los slots de los cinco días. El
+  denominador correcto (días hábiles **transcurridos** del rango) es del 4b — anotado en la deuda.
+
+### El botón de IA vive en la pestaña que analiza
+
+El header tenía **un** botón para las tres pestañas, que despachaba por `state.informesSubTab` vía
+`genInformeAI` (`ia.js`). Ahora hay **un botón por sub-tab**, arriba de su propia salida, llamando
+directo a `genSemanalAI` / `genMensualAI` / `genAnualAI`, con el mismo `data-permission="admin"`.
+`genInformeAI` quedó sin caller y se borró de `ia.js`, `informes.js` y `main.js`.
+`state.informesSubTab` **se conserva**: la lee el 4b para el panel de IA del esqueleto nuevo.
+
+### Arreglos sueltos
+
+- `grid.color` del chart anual: `rgba(255,255,255,0.05)` → `rgba(0,0,0,.05)`. Eran líneas
+  **blancas sobre fondo blanco**, resto del tema oscuro del que viene el componente.
+- `Chart.defaults.color` (que se seteaba **global** en cada render) → `options.color` del propio
+  chart. Ya no contamina los demás charts de la app.
+- `#c8c6c0` fuera de `informes.js`.
+- `.informe-stat-grid` pasa de `repeat(3,1fr)` a **`repeat(auto-fit, minmax(170px, 1fr))`**: hoy el
+  semanal tiene 3 tarjetas y mensual/anual 4 — con 4 fijas el semanal deja hueco y con 3 la cuarta
+  queda huérfana; además en móvil cae a 2 columnas solo (la clase no tenía regla responsive). El
+  4b lo fija en 4 cuando las tres pestañas tengan las mismas cuatro tarjetas.
+
+---
+
 ## 🗓️ Sesión 2026-09-01 (d) — LOTE HISTORIAL DE CITAS
 
 Un commit (**`bcf2acc`**), revisado en la rama `revision-historial` (auditoría OK + prueba manual
@@ -1509,7 +1609,7 @@ main.js         ← importa todos los módulos anteriores
 ### Ya no aplica *(la versión anterior de esta sección era de mayo)*
 - ~~`app.js` monolítico~~ — borrado en `efd7471`; `index.html` solo carga los módulos de `/js/`.
 - ~~`src/` scaffolding de Vite~~ — borrado, ya no existe.
-- ~~No hay tests~~ — **284 verdes** con `node --test` (`npm test`), y el CI los corre.
+- ~~No hay tests~~ — **293 verdes** con `node --test` (`npm test`), y el CI los corre.
 - ~~URL y anon key hardcodeadas~~ — `supabase-client.js` lee `VITE_SUPABASE_URL` /
   `VITE_SUPABASE_ANON_KEY` y avisa por consola si faltan. La anon key es **pública por diseño**;
   la seguridad real es la RLS.
@@ -1534,6 +1634,14 @@ extrayendo a `utils.js` (puro y testeado) — `doneEnLog`, `findConflict`, `comp
 `occupiedSlots`. Ese es el camino a seguir si hay que tocarlos.
 
 ### Sigue abierto
+- **INFORMES 4b pendiente** *(spec: `PLAN_INFORMES.md` + `mockups/informes-esqueleto-2026-09.html`)*
+  — esqueleto común a las tres pestañas (`renderInforme(rango)`; hoy cada `render*` arma el suyo);
+  **selector de período en el header** para las tres (hoy: flechas en el header el semanal, un
+  `<select>` dentro del contenido el mensual, y el anual **no tiene**); la **lectura de IA como
+  sección de hoja, NO como tarjeta** *(decisión de Jefferson, 2026-09-01)*; y la tabla **Por
+  terapeuta** con el denominador por **días hábiles TRANSCURRIDOS del rango** — hoy el % baja a
+  mitad de semana porque el numerador ya es hasta-hoy (`hastaHoy`) y el denominador sigue siendo
+  los slots de los cinco días completos.
 - **SEMÁNTICA DE LA NOTA DE FIN DE EPISODIO** *(hallazgo del LOTE HISTORIAL, 2026-09-01 (d))* —
   `guardarNuevoEpisodio` (`pacientes.js:410`) escribe `doneActual(p)` = sesiones **HECHAS** al
   cerrar, e `informes.js:539` lo lee como el **PLAN** del episodio cerrado → el informe de un
