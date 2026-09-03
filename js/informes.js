@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, therapistHours, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnPrefijo, resumenCitas, asistidasEn, hastaHoy } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnPrefijo, resumenCitas, asistidasEn, hastaHoy, findBlock, capacidadSlots } from './utils.js';
 import { apptSlots } from './agenda.js';
 import { genSemanalAI, genMensualAI, genAnualAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasPermission } from './permissions.js';
@@ -94,9 +94,18 @@ export function renderHeatmap() {
     html+=`<div class="hm-lbl">${hr}:00</div>`;
     DAYS.forEach((d,di)=>{
       const date=semDates[di];
-      // Capacidad = sub-slots de 30min cubiertos por los terapeutas en [hr, hr+1).
+      // Capacidad de la celda = sub-slots de 30' de los terapeutas dentro de [hr, hr+1), menos
+      // los que estén bloqueados ese día. El ALMUERZO no entra acá a propósito: lunch_minutes es
+      // una cantidad diaria SIN hora fija, así que baja la ocupación agregada (capacidadSlots)
+      // pero no se puede ubicar en una celda hora×día sin inventar a qué hora almuerza cada uno.
       let cap=0;
-      state.therapists.forEach(t=>{ if(hr>=t.startH&&hr<t.endH)cap++; if(hr+0.5>=t.startH&&hr+0.5<t.endH)cap++; });
+      state.therapists.forEach(t=>{
+        [hr, hr+0.5].forEach(h=>{
+          if(h<t.startH||h>=t.endH) return;
+          if(findBlock(state.blocks,{date,therapistId:t.id,hour:h,duration:30})) return;
+          cap++;
+        });
+      });
       if(!cap){ html+=`<div class="hm-cell" style="background:#f0efe8"><span style="font-size:9px;color:#444">—</span></div>`; return; }
       // Ocupados = sub-slots de citas (conf+pend) de ese día que caen en [hr, hr+1).
       let occ=0;
@@ -162,7 +171,10 @@ export function renderSemanal() {
         const thAppts=semHasta.filter(a=>a.therapistId===th.id);
         const thConf=thAppts.filter(a=>a.status==='conf').length;
         const thNoas=thAppts.filter(a=>a.status==='noas').length;
-        const slots=therapistHours(th).length*5;
+        // Capacidad real, no `turno*5`: solo días hábiles TRANSCURRIDOS, menos almuerzo y menos
+        // bloqueos. El numerador (thConf) ya venía recortado a hasta-hoy — el denominador viejo
+        // asumía los cinco días completos y hundía el % a mitad de semana. Cierra esa deuda.
+        const slots=capacidadSlots(th, semDates, state.blocks);
         const util=slots>0?Math.round(thConf/slots*100):0;
         const c=getColor(th.colorId);
         return '<div class="perf-row" style="display:flex;align-items:center;gap:10px">'

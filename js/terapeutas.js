@@ -57,6 +57,7 @@ export function openTherapistModal(ed=null) {
     document.getElementById('th-work-start').value=hourValToTime(th.workStart);
     document.getElementById('th-work-end').value=hourValToTime(th.workEnd);
     document.getElementById('th-order').value=th.displayOrder??'';
+    document.getElementById('th-lunch').value=String(th.lunchMinutes??60);
     state.selectedColor=th.colorId;
   } else {
     document.getElementById('th-name').value='';
@@ -67,6 +68,7 @@ export function openTherapistModal(ed=null) {
     document.getElementById('th-work-start').value='';
     document.getElementById('th-work-end').value='';
     document.getElementById('th-order').value='';
+    document.getElementById('th-lunch').value='60';
     state.selectedColor='ca';
   }
   renderColorPicker();
@@ -90,6 +92,8 @@ export async function saveTherapist() {
   const ordRaw=String(document.getElementById('th-order').value).trim();
   if(ordRaw!==''&&!/^\d+$/.test(ordRaw)){toastErr('El orden en agenda debe ser un número entero.');return;}
   const ord=ordRaw===''?null:parseInt(ordRaw,10);
+  // El select solo ofrece valores válidos; el parse es por si el DOM llega con basura.
+  const lunch=Math.max(0,Math.min(180,parseInt(document.getElementById('th-lunch').value,10)||0));
   const init=name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
   const spec=document.getElementById('th-spec').value;
   const specialty=especialidad(document.getElementById('th-specialty').value);
@@ -102,19 +106,19 @@ export async function saveTherapist() {
     const t=getTherapist(editing);
     if(!t){toastErr('No se encontró el terapeuta.');return;}
     prev={name:t.name,spec:t.spec,specialty:t.specialty,startH:t.startH,endH:t.endH,colorId:t.colorId,initials:t.initials,
-          displayOrder:t.displayOrder,workStart:t.workStart,workEnd:t.workEnd};
+          displayOrder:t.displayOrder,workStart:t.workStart,workEnd:t.workEnd,lunchMinutes:t.lunchMinutes};
     t.name=name;t.spec=spec;t.specialty=specialty;t.startH=s;t.endH=e;t.colorId=state.selectedColor;t.initials=init;
-    t.displayOrder=ord;t.workStart=parseHourVal(ws);t.workEnd=parseHourVal(we);
+    t.displayOrder=ord;t.workStart=parseHourVal(ws);t.workEnd=parseHourVal(we);t.lunchMinutes=lunch;
   } else {
     state.therapists.push({id:++state.thCounter,name,initials:init,spec,specialty,startH:s,endH:e,colorId:state.selectedColor,
-      displayOrder:ord,workStart:parseHourVal(ws),workEnd:parseHourVal(we)});
+      displayOrder:ord,workStart:parseHourVal(ws),workEnd:parseHourVal(we),lunchMinutes:lunch});
   }
   const _th=editing?getTherapist(editing):state.therapists[state.therapists.length-1];
   window._app.closeModal('therapist-modal'); renderTherapistList(); window._app.renderGrid();
   const tempId=_th.id;
   try {
     const payload={name:_th.name,initials:_th.initials,spec:_th.spec,specialty:_th.specialty,start_h:_th.startH,end_h:_th.endH,color_id:_th.colorId,
-      display_order:_th.displayOrder,work_start:ws||null,work_end:we||null};
+      display_order:_th.displayOrder,work_start:ws||null,work_end:we||null,lunch_minutes:_th.lunchMinutes};
     if(typeof _th.id==='string') payload.id=_th.id;
     markLocalChange('therapists');
     const {data,error}=await supa.from('therapists').upsert(payload).select().single();

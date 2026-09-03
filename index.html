@@ -193,6 +193,9 @@
   </div>
   <div class="sub-bar">
     <span id="agenda-stats" class="subbar-left"></span>
+    <!-- Visibilidad por hasPermission('manageBlocks') en renderGrid: va FUERA de #agenda-stats
+         porque ese span se reescribe entero en cada render. -->
+    <button id="btn-bloqueo" class="icon-btn txt" style="display:none" onclick="openBlockModal()" title="Bloquear una franja del terapeuta (vacaciones, curso, permiso)">Bloquear franja</button>
     <span id="ref-legend-bar" class="subbar-right"></span>
   </div>
   <div class="main-body">
@@ -704,11 +707,46 @@
     <div class="field"><label>Horario laboral · inicio (opcional)</label><input type="time" id="th-work-start" step="1800"></div>
     <div class="field"><label>Horario laboral · fin (opcional)</label><input type="time" id="th-work-end" step="1800"></div>
   </div>
+  <!-- Almuerzo: REGLA, no evento. No se marca cada día (se olvidaría); solo se descuenta de la
+       capacidad del terapeuta en el informe semanal y del contador de slots libres. -->
+  <div class="field"><label>Almuerzo (min)</label>
+    <select id="th-lunch">
+      <option value="0">Sin almuerzo</option>
+      <option value="30">30</option>
+      <option value="45">45</option>
+      <option value="60" selected>60</option>
+      <option value="90">90</option>
+    </select>
+  </div>
   <div class="field"><label>Orden en agenda (vacío = al final)</label><input type="number" id="th-order" min="0" step="1" placeholder="Sin orden"></div>
   <div class="field"><label>Color en agenda</label><div class="color-picker-row" id="color-picker"></div></div>
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal('therapist-modal')">Cancelar</button>
     <button class="btn-save" onclick="saveTherapist()">Guardar</button>
+  </div>
+</div>
+</div>
+
+<!-- Bloqueo de franja: vacaciones, curso, permiso. La EXCEPCIÓN se registra (el almuerzo no:
+     ese es lunch_minutes del terapeuta). El bloqueo se pinta en la agenda, no acepta citas y se
+     descuenta de la capacidad del informe semanal. -->
+<div class="modal-bg" id="block-modal">
+<div class="modal">
+  <h3 id="bk-modal-title">Bloquear franja</h3>
+  <div class="field"><label>Terapeuta</label><select id="bk-therapist" onchange="onBlockTherapistChange()"></select></div>
+  <div class="field"><label>Fecha</label><input type="date" id="bk-date"></div>
+  <div class="field">
+    <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:400;cursor:pointer;color:#1a1917;padding:4px 2px"><input type="checkbox" id="bk-allday" onchange="toggleBlockAllDay()" style="width:auto;padding:0;margin:0;cursor:pointer;flex-shrink:0"> Día completo (todo el turno)</label>
+  </div>
+  <div class="field-row two">
+    <div class="field"><label>Inicio</label><input type="time" id="bk-start" step="1800"></div>
+    <div class="field"><label>Fin</label><input type="time" id="bk-end" step="1800"></div>
+  </div>
+  <div class="field"><label>Motivo</label><input type="text" id="bk-motivo" maxlength="80" placeholder="Ej. Vacaciones, curso, permiso médico"></div>
+  <div class="modal-actions">
+    <button class="th-btn del" id="bk-delete" style="display:none;margin-right:auto" onclick="deleteBlockFromModal()">Eliminar</button>
+    <button class="btn-cancel" onclick="closeModal('block-modal')">Cancelar</button>
+    <button class="btn-save" onclick="saveBlock()">Guardar</button>
   </div>
 </div>
 </div>

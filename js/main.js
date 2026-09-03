@@ -72,6 +72,7 @@ import { planGuardarSesiones, planNuevoEpisodio } from './plan.js';
 import { callAI } from './ia.js';
 import { globalSearch, selectGlobalResult, checkCitasPendientes } from './search.js';
 import { initMobileMenu } from './mobile-menu.js';
+import { openBlockModal, saveBlock, deleteBlockFromModal, toggleBlockAllDay, onBlockTherapistChange } from './bloqueos.js';
 
 // ── Registro central de funciones para módulos cross-cutting ──
 window._app = {
@@ -91,6 +92,9 @@ window._app = {
   renderGrid, renderRefLegend, renderResumen, renderPatients, renderSeguimiento, renderHistorial,
   renderPatientReport, renderPatientReportSelect, renderTherapistList,
   renderDoctorsList, renderFacturacion,
+  // El informe semanal se re-renderiza desde realtime.js y bloqueos.js: los bloqueos entran en
+  // la capacidad, así que uno creado en otra PC cambia el % que hay en pantalla acá.
+  renderSemanal,
   // badges
   updateResumenBadge, updateFacturaBadge,
   // conciliación QuickBooks (estado administrativo de la cita)
@@ -252,6 +256,7 @@ Object.assign(window, {
   cie10Search, cie10Pick, cie10Clear,
   planGuardarSesiones, planNuevoEpisodio,
   setAgendaView, setTherapistFilter, goToDateAndSelect, exportAgendaCSV,
+  openBlockModal, saveBlock, deleteBlockFromModal, toggleBlockAllDay, onBlockTherapistChange,
   abrirExportModal, onExportPreset, actualizarResumenExport, confirmarExportarExcel,
   confirmarExportar, cambiarFormatoExport,
   applyRolePermissions, hasPermission,

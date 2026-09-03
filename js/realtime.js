@@ -1,11 +1,11 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { getPatient, fmtTime, normHour, mapTherapistRow, tipoSesion } from './utils.js';
+import { getPatient, fmtTime, normHour, mapTherapistRow, mapBlockRow, tipoSesion } from './utils.js';
 import { toastInfo } from './toast.js';
 
 // ── Anti-eco por tabla (ventana 3 s) ──
 const ANTI_ECHO_MS = 3000;
-const TRACKED_TABLES = new Set(['appointments','patients','session_log','cobros','therapists','doctors']);
+const TRACKED_TABLES = new Set(['appointments','patients','session_log','cobros','therapists','doctors','therapist_blocks']);
 const _lastLocalChangeByTable = new Map();
 
 export function markLocalChange(table) {
@@ -48,6 +48,7 @@ const _TOAST_PLURAL = {
   appointments:'Cambios en agenda',patients:'Pacientes actualizados',
   session_log:'Sesiones actualizadas',cobros:'Cobros registrados',
   therapists:'Terapeutas actualizados',doctors:'Doctores actualizados',
+  therapist_blocks:'Bloqueos actualizados',
 };
 
 export function queueRemoteToast(table,msg) {
@@ -212,6 +213,28 @@ function _onTherapist(payload) {
   if(state.currentTab==='agenda')renderGrid();
 }
 
+// Bloqueos de terapeuta. Se re-renderiza la agenda (la franja se pinta ahí) y, si está abierto,
+// el informe semanal: los bloqueos entran en la capacidad, así que un bloqueo creado desde otra
+// PC cambia el % de utilización que este navegador tiene en pantalla.
+function _onBlock(payload) {
+  touchLoaded('therapist_blocks');
+  const ev=payload.eventType;
+  if(ev==='INSERT'){
+    if(!state.blocks.find(b=>b.id===payload.new.id)){state.blocks.push(mapBlockRow(payload.new));queueRemoteToast('therapist_blocks','Bloqueo agregado');}
+  } else if(ev==='UPDATE'){
+    const i=state.blocks.findIndex(b=>b.id===payload.new.id);
+    if(i>=0)state.blocks[i]=mapBlockRow(payload.new);else state.blocks.push(mapBlockRow(payload.new));
+    queueRemoteToast('therapist_blocks','Bloqueo actualizado');
+  } else if(ev==='DELETE'){
+    const before=state.blocks.length;
+    state.blocks=state.blocks.filter(b=>b.id!==payload.old.id);
+    if(state.blocks.length<before)queueRemoteToast('therapist_blocks','Bloqueo eliminado');
+  }
+  const {renderGrid,renderSemanal}=window._app;
+  if(state.currentTab==='agenda')renderGrid();
+  else if(state.currentTab==='informes'&&state.informesSubTab==='semanal')renderSemanal();
+}
+
 function _onDoctor(payload) {
   touchLoaded('doctors');
   const ev=payload.eventType;
@@ -289,6 +312,7 @@ export function subscribeRealtime() {
     .on('postgres_changes',{event:'*',schema:'public',table:'cobros'},_onCobro)
     .on('postgres_changes',{event:'*',schema:'public',table:'therapists'},_onTherapist)
     .on('postgres_changes',{event:'*',schema:'public',table:'doctors'},_onDoctor)
+    .on('postgres_changes',{event:'*',schema:'public',table:'therapist_blocks'},_onBlock)
     .subscribe(status=>{
       if(status==='SUBSCRIBED'){
         _setConnState('connected');

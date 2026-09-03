@@ -16,13 +16,16 @@ const ROLE_TABS = {
 // el borrado lo conserva el admin: es la única acción de esta pantalla que no se puede deshacer.
 // 'conciliarQB' = marcar citas como pasadas a QuickBooks. Es administrativo, no clínico: lo hace
 // quien factura (admin/secretaria). El terapeuta no lo ve.
+// 'manageBlocks' = bloquear franjas del terapeuta (vacaciones, curso, permiso). Es agenda pura:
+// la maneja quien la agenda (admin/secretaria), no el terapeuta — si cada uno se bloqueara solo,
+// la recepción vendería horas que ya no existen.
 const ROLE_ACTIONS = {
   admin:     ['createAppt','deleteAppt','cycleStatus','createPatient','editPatient','deletePatient',
               'registerSession','deleteSession','evalInicial','createTherapist','deleteTherapist',
               'createDoctor','createProtocol','emitirFactura','viewAI','deleteInforme','apptPastDate',
-              'conciliarQB'],
+              'conciliarQB','manageBlocks'],
   secretaria:['createAppt','deleteAppt','cycleStatus','createPatient','editPatient',
-              'createTherapist','createDoctor','emitirFactura','apptPastDate','conciliarQB'],
+              'createTherapist','createDoctor','emitirFactura','apptPastDate','conciliarQB','manageBlocks'],
   terapeuta: ['cycleStatus','editPatient','registerSession','evalInicial','viewAI','deleteInforme'],
 };
 

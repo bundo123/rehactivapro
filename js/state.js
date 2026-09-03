@@ -5,6 +5,10 @@ export const state = {
   appointments: [],
   protocols: [],
   informes: [],
+  // Bloqueos de terapeuta (vacaciones, curso, permiso): franjas que la agenda pinta, no acepta
+  // como citas y descuenta de la capacidad. El almuerzo NO vive acá: es una regla del terapeuta
+  // (lunch_minutes), no un evento que alguien tenga que registrar cada día.
+  blocks: [],
   notifSettings: [
     {id:'wa_rec',label:'Recordatorio WhatsApp 24h antes',desc:'Envía mensaje automático al paciente 24h antes de su cita.',icon:'📱',on:true},
     {id:'email_th',label:'Email al terapeuta al asignar cita',desc:'Notifica al terapeuta cuando se le agenda una nueva cita.',icon:'✉️',on:true},

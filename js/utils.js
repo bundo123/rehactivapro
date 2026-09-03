@@ -419,6 +419,26 @@ export function mapTherapistRow(r){
     displayOrder:r.display_order??null,
     workStart:parseHourVal(r.work_start),
     workEnd:parseHourVal(r.work_end),
+    // Almuerzo POR TERAPEUTA, en minutos. Es una regla, no un evento: se descuenta de la
+    // capacidad todos los días hábiles sin que nadie tenga que marcarlo. 60 es el default de la
+    // columna; el ?? cubre la fila vieja que todavía llega sin la columna en un caché.
+    lunchMinutes:r.lunch_minutes ?? 60,
+  };
+}
+
+// Fila de `therapist_blocks` (DB) → bloqueo en memoria. Misma razón de existir que mapTherapistRow:
+// la usan la carga inicial (auth.js) y el realtime (realtime.js), y si hubiera dos copias el
+// bloqueo que llega por realtime terminaría distinto del que llegó al cargar.
+// start_h/end_h son `numeric` en Postgres y supabase-js los entrega como number, pero el Number()
+// explícito blinda contra el caso en que lleguen como string.
+export function mapBlockRow(r){
+  return {
+    id:r.id,
+    therapistId:r.therapist_id,
+    date:r.date,
+    startH:Number(r.start_h),
+    endH:Number(r.end_h),
+    motivo:r.motivo||'',
   };
 }
 // Inverso de parseHourVal: horas float → 'HH:MM' para los <input type="time"> del modal de
@@ -448,6 +468,65 @@ export function getPatient(id){return state.patients.find(p=>p.id===id)}
 export function getDoctor(id){return state.doctors.find(d=>d.id===id)}
 export function therapistHours(th){const h=[];for(let i=th.startH;i<th.endH;i+=0.5)h.push(i);return h;}
 export function getAvailHours(ths){const s=new Set();(ths||state.therapists).forEach(t=>therapistHours(t).forEach(h=>s.add(h)));return[...s].sort((a,b)=>a-b);}
+
+// ── Bloqueos de terapeuta y capacidad real ─────────────────────────────────────────────────────
+// Dos cosas distintas, a propósito:
+//   · El ALMUERZO es una REGLA (lunch_minutes por terapeuta). No se marca día a día — un botón
+//     diario se olvidaría y la métrica quedaría corrupta en silencio. Solo baja la capacidad.
+//   · La EXCEPCIÓN (vacaciones, curso, permiso) es un REGISTRO: una fila en therapist_blocks.
+//     Se pinta en la agenda, no acepta citas y también baja la capacidad.
+
+// Primer bloqueo del terapeuta/fecha que solapa con la franja propuesta (null si no hay).
+// Mismo criterio de solape que las citas (apptsOverlap): tocarse en el borde NO es solape, así
+// que un bloqueo 12:00–13:00 deja libre una cita que termina 12:00 y otra que empieza 13:00.
+export function findBlock(blocks,{date,therapistId,hour,duration}){
+  return (blocks||[]).find(b=>
+    b &&
+    b.date===date &&
+    String(b.therapistId)===String(therapistId) &&
+    apptsOverlap({hour,duration},{hour:b.startH,duration:(b.endH-b.startH)*60})
+  )||null;
+}
+
+// Lun–Vie. La capacidad se mide sobre días hábiles: contar sábado y domingo hundiría el % de
+// ocupación de toda la semana con horas que nadie planeó trabajar.
+export function esDiaHabil(ds){
+  const d=new Date(String(ds)+'T12:00:00');
+  const n=d.getDay();
+  return n>=1&&n<=5;
+}
+
+// Slots de 30' que se come el almuerzo de ese terapeuta (60 min → 2).
+export function lunchSlots(th){ return Math.round((th?.lunchMinutes ?? 60)/30); }
+
+// Slots de 30' del turno del terapeuta cubiertos por bloqueos de ESE día. Se cuenta slot por slot
+// (no sumando duraciones): dos bloqueos que se solapan no pueden restar dos veces la misma media
+// hora, y un bloqueo que se sale del turno solo resta lo que realmente pisaba.
+export function blockedSlots(th, ds, blocks){
+  if(!th) return 0;
+  return therapistHours(th).filter(h=>findBlock(blocks,{date:ds,therapistId:th.id,hour:h,duration:30})).length;
+}
+
+// Capacidad REAL del terapeuta en un rango de fechas, en slots de 30'.
+// Sustituye al viejo `therapistHours(th).length*5`, que asumía cinco días completos siempre:
+//   · Solo días hábiles (lun–vie).
+//   · Solo días YA TRANSCURRIDOS (fecha <= hoy). El miércoles la semana todavía no tuvo jueves ni
+//     viernes; meterlos en el denominador hunde el % de utilización a mitad de semana — la deuda
+//     que quedó anotada en el lote 4a de informes.
+//   · Menos almuerzo y menos bloqueos, por día. Nunca negativo: un bloqueo de día completo deja
+//     ese día en 0, no en -2.
+// Pura: `hoy` se inyecta en los tests. Acepta Date o 'YYYY-MM-DD'.
+export function capacidadSlots(th, dates, blocks, hoy=new Date()){
+  if(!th) return 0;
+  const hoyStr=typeof hoy==='string'?hoy:fmtDate(hoy);
+  const turno=therapistHours(th).length;
+  const lunch=lunchSlots(th);
+  return (dates||[]).reduce((acc,ds)=>{
+    if(!esDiaHabil(ds)) return acc;
+    if(String(ds)>hoyStr) return acc;
+    return acc+Math.max(0, turno-lunch-blockedSlots(th, ds, blocks));
+  },0);
+}
 export function dotColor(s){return s==='conf'?'#1D9E75':s==='pend'?'#E0A850':'#E24B4A';}
 export function getInitials(name){return(name||'').trim().split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase()||'??';}
 

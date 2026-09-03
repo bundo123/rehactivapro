@@ -3,13 +3,15 @@ import { state } from './state.js';
 import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor, pendientesActual, safeColor, orderedTherapists, startOfWeek,
          apptSlots, slotOf, isAlignedHour, findConflict, compactNoas, occupiedSlots, toTimeInput, parseTimeInput,
          ordinalesDeCitas, ordinalTexto, tipoSesion, TIPO_SESION_DEFAULT,
-         citasConciliables, payloadCambioStatus, dmy } from './utils.js';
+         citasConciliables, payloadCambioStatus, dmy,
+         findBlock, lunchSlots, blockedSlots } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dbUpdateApptStatus } from './auth.js';
 import { hasPermission, canAccessTab } from './permissions.js';
 import { showFieldError, clearFieldError, clearAllErrors } from './validators.js';
 import { setCie10Appt } from './cie10.js';
 import { setPlanAppt } from './plan.js';
+import { openBlockModal } from './bloqueos.js';
 
 // ── Helpers de slots/duración ──
 // apptSlots vive en utils.js (puro y testeable); se re-exporta porque informes.js lo consume
@@ -29,6 +31,17 @@ const setChip = (id,on) => document.getElementById(id)?.setAttribute('aria-press
 // arbitrarias, "ya tiene una cita" sin la franja obliga a ir a buscarla a mano.
 function conflictsWithExisting(date, thId, startHour, duration, excludeId) {
   return findConflict(state.appointments, { date, therapistId: thId, hour: startHour, duration }, excludeId);
+}
+
+// Bloqueo del terapeuta (vacaciones, curso, permiso) que pisa la franja propuesta, o null.
+// Se consulta ANTES que el conflicto de citas: una franja bloqueada no está "ocupada por otro
+// paciente", directamente no existe como oferta, y el mensaje tiene que decir eso.
+function blockedAt(date, thId, startHour, duration) {
+  return findBlock(state.blocks, { date, therapistId: thId, hour: startHour, duration });
+}
+
+function blockMsg(blk) {
+  return `Franja bloqueada: ${blk.motivo||'sin motivo'} (${fmtTime(blk.startH)}–${fmtTime(blk.endH)}).`;
 }
 
 // ── Tira compacta de "no asistió" ──
@@ -115,6 +128,11 @@ export function checkAutoNoas() {
 
 export function renderGrid() {
   checkAutoNoas();
+  // El botón de bloqueo vive fuera de #agenda-stats (ese span se reescribe entero en cada render)
+  // y se resuelve acá arriba: vale para las tres vistas, incluida la de mes que retorna antes.
+  const btnBlk=document.getElementById('btn-bloqueo');
+  if(btnBlk) btnBlk.style.display=hasPermission('manageBlocks')?'':'none';
+
   // Punto de entrada ÚNICO de re-render de la agenda (lo usan realtime, navegación y showTab):
   // despacha a la vista activa para que todas se refresquen en vivo.
   const view = state.agendaView || 'day';
@@ -142,7 +160,9 @@ export function renderGrid() {
   const conf=ta.filter(a=>a.status==='conf').length;
   const pend=ta.filter(a=>a.status==='pend').length;
   const noas=ta.filter(a=>a.status==='noas').length;
-  const totalSlots=visTherapists.reduce((s,t)=>s+therapistHours(t).length,0);
+  // Capacidad REAL del día: el turno menos el almuerzo (regla) menos lo bloqueado (excepción).
+  // Sin esto la barra ofrecía slots libres que el terapeuta no puede atender.
+  const totalSlots=visTherapists.reduce((s,t)=>s+Math.max(0,therapistHours(t).length-lunchSlots(t)-blockedSlots(t,ds,state.blocks)),0);
   // Las no-asistió no restan: su franja se puede volver a agendar (mismo criterio que el conflicto).
   const occupied=occupiedSlots(visTa);
   const libres=Math.max(0,totalSlots-occupied);
@@ -229,6 +249,25 @@ export function renderGrid() {
         return;
       }
 
+      // ── Franja bloqueada ──
+      // Gris rayada, sin listener de creación: no se agenda ahí. La CITA siempre manda: si por lo
+      // que sea ya hay una en la franja (o la cola de una vecina), se dibuja la cita — el bloqueo
+      // no puede tapar un dato real. Las tiras de "no asistió" sí se siguen viendo encima: ya no
+      // ocupan el slot, así que conviven con el bloqueo.
+      const blk=(!appt&&!covered)?findBlock(state.blocks,{date:ds,therapistId:th.id,hour:hr,duration:30}):null;
+      if(blk){
+        const editable=hasPermission('manageBlocks');
+        slot.className='slot slot-block'+(editable?' editable':'');
+        // El motivo se escribe UNA vez, en el slot que contiene la hora de inicio: repetirlo en
+        // cada media hora convertiría un bloqueo de mañana entera en una columna de texto.
+        if(slotOf(blk.startH)===hr) slot.innerHTML=`<span class="blk-lbl">${esc(blk.motivo||'Bloqueado')}</span>`;
+        slot.title=`${blk.motivo||'Bloqueado'} · ${fmtTime(blk.startH)}–${fmtTime(blk.endH)}${editable?' — click para editar':''}`;
+        strips.forEach((na,i)=>slot.appendChild(buildNoasStrip(na,i)));
+        if(editable) slot.addEventListener('click',()=>openBlockModal(th.id,ds,blk.id));
+        g.appendChild(slot);
+        return;
+      }
+
       // Pisado por esa tarjeta pero con tiras que mostrar (una no-asistió de 7:30 sobre una cita
       // de 7:00–8:00): el slot no puede pintar fondo ni quedarse el click — esos píxeles son de
       // la tarjeta de abajo. Solo flota la tira. Si no lo pisa nadie, con tiras sigue 'avail':
@@ -243,8 +282,12 @@ export function renderGrid() {
         if(state.dragData!=null){
           const a=state.appointments.find(x=>x.id===state.dragData);
           if(a){
-            const clash=conflictsWithExisting(a.date,th.id,hr,a.duration||60,a.id);
-            if(!clash){
+            // El slot bloqueado no tiene listener de drop, pero una cita larga soltada en un
+            // slot libre puede meterse en el bloqueo de al lado: se revisa el intervalo entero.
+            const blkDrop=blockedAt(a.date,th.id,hr,a.duration||60);
+            const clash=blkDrop?null:conflictsWithExisting(a.date,th.id,hr,a.duration||60,a.id);
+            if(blkDrop) toastErr(blockMsg(blkDrop));
+            else if(!clash){
               // Soltar en un slot re-alinea la cita a la media hora del slot (10:45 → 10:30):
               // el destino del gesto es la fila, y así lo que se ve es lo que queda guardado.
               a.therapistId=th.id;a.hour=hr;renderGrid();
@@ -672,6 +715,10 @@ export async function saveAppt() {
   if(!dateVal){showFieldError('m-date','Elegí la fecha de la cita');toastErr('Elegí la fecha de la cita.');return;}
   const ds=dateVal;
   const excludeId=isEdit?editingId:null;
+  // El bloqueo se consulta primero: si la franja no existe como oferta, decir "el terapeuta ya
+  // tiene una cita" sería mentira y mandaría a buscar una cita que no está.
+  const blk=blockedAt(ds,thId,hr,dur);
+  if(blk){toastErr(blockMsg(blk));return;}
   const clash=conflictsWithExisting(ds,thId,hr,dur,excludeId);
   if(clash){toastErr(conflictMsg(clash));return;}
 
@@ -731,16 +778,21 @@ export async function saveAppt() {
         const semanas=parseInt(document.getElementById('m-rec-semanas')?.value||'4');
         if(dias.length){
           const fechas=getRecDates(_a.date,dias,semanas);
-          let creadas=0,omitidas=0;
+          let creadas=0,omitidas=0,bloqueadas=0;
           for(const fecha of fechas){
+            // Las fechas bloqueadas se saltan, pero se cuentan aparte: el toast final tiene que
+            // decir cuántas de las pedidas NO se crearon y por qué — si no, la secretaria se
+            // queda creyendo que la serie completa quedó agendada.
+            if(blockedAt(fecha,_a.therapistId,_a.hour,_a.duration)){bloqueadas++;continue;}
             if(conflictsWithExisting(fecha,_a.therapistId,_a.hour,_a.duration,null)){omitidas++;continue;}
             const {error:re}=await supa.from('appointments').insert({date:fecha,therapist_id:_a.therapistId,patient_id:_a.patientId,hour:_a.hour,duration:_a.duration,type:_a.type,status:'pend',note:_a.note||'',location:_a.location});
             if(!re){state.appointments.push({..._a,id:'rec-'+fecha+'-'+Math.random(),date:fecha,status:'pend'});creadas++;}
           }
-          if(creadas>0||omitidas>0){
+          if(creadas>0||omitidas>0||bloqueadas>0){
             const tot=creadas+1;
             toastOk('✓ '+tot+' cita'+(tot!==1?'s':'')+' creada'+(tot!==1?'s':'')+
-              (omitidas>0?' · '+omitidas+' omitida'+(omitidas!==1?'s':'')+' por conflicto de horario':''));
+              (omitidas>0?' · '+omitidas+' omitida'+(omitidas!==1?'s':'')+' por conflicto de horario':'')+
+              (bloqueadas>0?' · '+bloqueadas+' bloqueada'+(bloqueadas!==1?'s':''):''));
           }
         }
       }
@@ -917,6 +969,18 @@ export function renderWeekView() {
       if(covered && !enFranja.length){ slot.className = 'slot slot-tail'; g.appendChild(slot); return; }
       const strips = enFranja.filter(a => compactSet.has(a));
       const appt = enFranja.find(a => !compactSet.has(a)) || null;
+      // Misma regla que en la vista Día, compacta: acá la columna es el DÍA y el terapeuta es uno.
+      const blkWk = (!appt && !covered) ? findBlock(state.blocks, {date: ds, therapistId: th.id, hour: hr, duration: 30}) : null;
+      if(blkWk){
+        const editableWk = hasPermission('manageBlocks');
+        slot.className = 'slot slot-block' + (editableWk ? ' editable' : '');
+        if(slotOf(blkWk.startH) === hr) slot.innerHTML = `<span class="blk-lbl">${esc(blkWk.motivo || 'Bloqueado')}</span>`;
+        slot.title = `${blkWk.motivo || 'Bloqueado'} · ${fmtTime(blkWk.startH)}–${fmtTime(blkWk.endH)}${editableWk ? ' — click para editar' : ''}`;
+        strips.forEach((na, i) => slot.appendChild(buildNoasStrip(na, i)));
+        if(editableWk) slot.addEventListener('click', () => openBlockModal(th.id, ds, blkWk.id));
+        g.appendChild(slot);
+        return;
+      }
       const stripOver = covered && !appt;   // pisado por la tarjeta vecina: solo flota la tira
       slot.className = 'slot' + (stripOver ? ' slot-strip-over' : (!appt ? ' avail' : ''));
       strips.forEach((na, i) => slot.appendChild(buildNoasStrip(na, i)));

@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { fmtDate, fmtTime, normHour, mapTherapistRow, tipoSesion, validarPassNueva } from './utils.js';
+import { fmtDate, fmtTime, normHour, mapTherapistRow, mapBlockRow, tipoSesion, validarPassNueva } from './utils.js';
 import { toastErr, toastOk } from './toast.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -47,7 +47,7 @@ export async function loadAll(force=false) {
     return {cached:true};
   }
   try {
-    const [th,doc,pat,appt,prot,cob,inf] = await Promise.all([
+    const [th,doc,pat,appt,prot,cob,inf,blk] = await Promise.all([
       supa.from('therapists').select('*').order('created_at'),
       supa.from('doctors').select('*').order('created_at'),
       supa.from('patients').select('*,session_log(*)').order('created_at'),
@@ -55,9 +55,11 @@ export async function loadAll(force=false) {
       supa.from('protocols').select('*').order('created_at'),
       supa.from('cobros').select('*').order('created_at'),
       supa.from('informes').select('*').eq('deleted',false).order('created_at',{ascending:false}),
+      supa.from('therapist_blocks').select('*').order('date'),
     ]);
-    for(const q of [th,doc,pat,appt,prot,cob,inf]){ if(q.error) throw q.error; }
+    for(const q of [th,doc,pat,appt,prot,cob,inf,blk]){ if(q.error) throw q.error; }
     state.therapists = (th.data||[]).map(mapTherapistRow);
+    state.blocks = (blk.data||[]).map(mapBlockRow);
     state.doctors = (doc.data||[]).map(r=>({id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'}));
     const cobData = cob.data||[];
     state.patients = (pat.data||[]).map(r=>({
@@ -95,7 +97,7 @@ export async function loadAll(force=false) {
     });
     const now=Date.now();
     state.dataLoaded=true;
-    state.lastLoaded={all:now,therapists:now,doctors:now,patients:now,appointments:now,protocols:now,cobros:now};
+    state.lastLoaded={all:now,therapists:now,doctors:now,patients:now,appointments:now,protocols:now,cobros:now,therapist_blocks:now};
     window._app?.updateLastLoadedLabels?.();
     return {cached:false};
   } catch(e) {
@@ -315,6 +317,24 @@ export async function dbSaveProtocol(p){
     img:p.img||null,definition:p.def||null,clinical_context:p.clinicalContext||null};
   if(typeof p.id==='string') d.id=p.id;
   return supa.from('protocols').upsert(d).select().single();
+}
+// ── Bloqueos de terapeuta ──
+// Mismo patrón que los protocolos: upsert con el id solo cuando ya es un UUID de la DB (los ids
+// optimistas son números y romperían el insert).
+export async function dbSaveBlock(b){
+  markLocalChange('therapist_blocks');
+  const d={therapist_id:b.therapistId,date:b.date,start_h:b.startH,end_h:b.endH,motivo:b.motivo||''};
+  if(typeof b.id==='string') d.id=b.id;
+  // created_by SOLO en el alta: en la edición se conserva quién lo creó, no quién lo tocó último.
+  else if(state.currentUserId) d.created_by=state.currentUserId;
+  return supa.from('therapist_blocks').upsert(d).select().single();
+}
+export async function dbDeleteBlock(id){
+  markLocalChange('therapist_blocks');
+  if(typeof id!=='string') return;
+  try{const{error}=await supa.from('therapist_blocks').delete().eq('id',id);
+    if(error) toastErr('No se pudo eliminar el bloqueo. Verifica tu conexión.');}
+  catch(e){toastErr('No se pudo eliminar. Verifica tu conexión.');}
 }
 export async function dbDeleteProtocol(id){
   markLocalChange('protocols');
