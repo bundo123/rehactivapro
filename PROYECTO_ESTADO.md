@@ -36,6 +36,41 @@
 
 ---
 
+## 🗓️ Sesión 2026-09-03 (c) — LOTE INFORMES 4b: esqueleto común (`becd6b1`, rama `informes-4b`)
+
+- Las tres pestañas comparten **`renderEsqueleto(cfg)`** (`informes.js`): **FILA 1** = 4 tarjetas
+  fijas (Asistidas · Inasistencias n·% · Continuidad · Pacientes nuevos) con `_deltaChip`
+  generalizado a `(cur, prev, prevHasData, lbl, kind, goodWhenUp)`; **FILA 2** = tabla "Por
+  terapeuta" + panel "Lectura del período" (IA). Cada `render*` solo agrega **su FILA 3**.
+- **P1 CERRADO:** `ocupacionTerapeuta()` en `utils.js` — numerador = `Σ apptSlots()` de las `conf`
+  hasta hoy, denominador = `capacidadSlots()`. `pct` **null** (no 0) sin capacidad.
+  `test/ocupacion.test.js` (+9). Tests: **326 → 335**.
+- **IA integrada:** el texto vive en `state.informesIA[tab]` `{text, at, label, loading}` y
+  **sobrevive a cambiar de período**. `callAI(prompt, targetId, formatHtml, onDone)`: con `onDone`
+  no pinta la caja inline; `onDone(null)` en error. Botones y `#*-ai-output` del `index.html`
+  eliminados. Gate: `hasPermission('viewAI')` (antes `data-permission="admin"`; sin efecto
+  práctico, Informes es admin-only en `ROLE_TABS`).
+- **Selector de período en el header** para las tres: `week-nav` (semanal), `#informes-mes`
+  (mensual, salió del contenido), `#informes-anio` (anual, nuevo) + `state.informesAnio` +
+  `changeAnualYear`. `genAnualAI` lee el año elegido; `mesesCompletos` = 12 si el año ya cerró.
+- **Anual:** chart de barras → **dos líneas** (Asistidas eje `y`, Inasistencia % eje `y1` 0–100),
+  `null` en meses sin datos. Tabla mes a mes (Mes | Asistidas | Faltas | Inasist. % | Continuidad |
+  Nuevos), "—" en meses vacíos, chip "en curso", fila **Total = `_apptStats(año)`, no suma**.
+  "Pacientes únicos" pasó a subtexto de Asistidas.
+- **CSS:** `.ia-panel` / `.ia-body` / `.ia-body.empty` / `.ia-meta` en `screens.css` (del mockup).
+- **Deuda nueva (P2, no bloquea):**
+  - Import **circular** `ia.js` ↔ `informes.js` (`ia.js:8`): las `render*` solo se llaman en clic,
+    así que funciona; fix limpio = que `callAI` reciba el render como callback.
+  - `_panelIA` **no deshabilita el botón** con `ia.loading` → doble clic = dos requests al
+    rate-limit.
+  - **Error de IA** deja la caja roja pintada en `#ia-*` sin re-render; si había texto previo, la
+    meta sigue diciendo el "Generado" viejo.
+- Se verá **casi vacío el anual hasta diciembre** (la clínica arrancó en agosto 2026): honesto,
+  no bug.
+- **Vercel verde** verificado en `becd6b1` por commit-status y hashes de `dist/`.
+
+---
+
 ## 🗓️ Sesión 2026-09-03 — LOTE QB (conciliación QuickBooks) y LOTE BLOQUEOS (capacidad real)
 
 Dos lotes, **un commit cada uno**, revisados en rama y mergeados a `main` en fast-forward; las dos
@@ -1724,7 +1759,7 @@ main.js         ← importa todos los módulos anteriores
 | Notificaciones a médicos | 🟡 | Preferencias guardadas, **envío no implementado** — sigue en el roadmap |
 | Protocolos de tratamiento | ✅ | CRUD + adherencia |
 | Responsive / móvil | ✅ | Pasada con foco en el flujo del terapeuta (`bc8b276`); targets táctiles de 44 px |
-| Tests automatizados | ✅ | 326 verdes con `node --test` (`npm test`), sobre la lógica pura |
+| Tests automatizados | ✅ | 335 verdes con `node --test` (`npm test`), sobre la lógica pura |
 
 ---
 
@@ -1736,7 +1771,7 @@ main.js         ← importa todos los módulos anteriores
 ### Ya no aplica *(la versión anterior de esta sección era de mayo)*
 - ~~`app.js` monolítico~~ — borrado en `efd7471`; `index.html` solo carga los módulos de `/js/`.
 - ~~`src/` scaffolding de Vite~~ — borrado, ya no existe.
-- ~~No hay tests~~ — **326 verdes** con `node --test` (`npm test`), y el CI los corre.
+- ~~No hay tests~~ — **335 verdes** con `node --test` (`npm test`), y el CI los corre.
 - ~~URL y anon key hardcodeadas~~ — `supabase-client.js` lee `VITE_SUPABASE_URL` /
   `VITE_SUPABASE_ANON_KEY` y avisa por consola si faltan. La anon key es **pública por diseño**;
   la seguridad real es la RLS.
@@ -1761,18 +1796,18 @@ extrayendo a `utils.js` (puro y testeado) — `doneEnLog`, `findConflict`, `comp
 `occupiedSlots`. Ese es el camino a seguir si hay que tocarlos.
 
 ### Sigue abierto
-- **P1 — INFORMES 4b: el NUMERADOR de la ocupación semanal está en otra unidad que el denominador**
-  (`informes.js:172-178`). `thConf` cuenta **citas** (`.filter(...).length`) y `capacidadSlots()`
-  devuelve **slots de 30'**: una cita de 60 min ocupa 2 slots pero suma 1, así que el % sale
-  **subestimado** —hasta a la mitad si el grueso de la agenda es de una hora—. Fix: el numerador
-  pasa a `Σ apptSlots(a).length` sobre las `conf`, que es exactamente la unidad del denominador y
-  ya es la función que usa la grilla. **El denominador ya está bien** desde `e4f3886`
-  (`capacidadSlots`, ver sesión 2026-09-03).
-- **Resto de INFORMES 4b** *(spec: `PLAN_INFORMES.md` + `mockups/informes-esqueleto-2026-09.html`)*
-  — esqueleto común a las tres pestañas (`renderInforme(rango)`; hoy cada `render*` arma el suyo);
-  **selector de período en el header** para las tres (hoy: flechas en el header el semanal, un
-  `<select>` dentro del contenido el mensual, y el anual **no tiene**); y la **lectura de IA como
-  sección de hoja, NO como tarjeta** *(decisión de Jefferson, 2026-09-01)*.
+- ~~**P1 — INFORMES 4b: el NUMERADOR de la ocupación semanal está en otra unidad que el
+  denominador**~~ ✅ **CERRADO 2026-09-03 (c)** (`becd6b1`): `ocupacionTerapeuta()` en `utils.js`
+  suma `Σ apptSlots()` de las `conf`, la misma unidad que `capacidadSlots()`.
+- ~~**Resto de INFORMES 4b**~~ ✅ **CERRADO 2026-09-03 (c)** (`becd6b1`): esqueleto común
+  (`renderEsqueleto(cfg)`), selector de período en el header para las tres pestañas y la lectura
+  de IA como panel de la FILA 2. Ver la sesión 2026-09-03 (c) arriba.
+- **INFORMES 4c pendiente** — FILA 3 del mensual: "Dejaron de venir" (sin cita ≥21 días y sesiones
+  pendientes, terapeuta + WhatsApp), nuevos por médico referente (barras horizontales top 6 + sin
+  referente), mini-heatmap franja×día de inasistencias (reusar `renderHeatmap`), tabla faltas por
+  episodio (1 / 2 / 3+), aviso de `pend` pasadas, y pasarle las listas nuevas al prompt mensual de
+  la IA. Además: **rediseño visual pendiente de Jefferson en Claude Design** (entra como mockup en
+  `mockups/`, se traduce con las clases existentes; nunca se pega su CSS directo).
 - **P2 — `dbUpdateApptStatus()` (`auth.js:294`) escribe solo `{status}`**, salteándose
   `payloadCambioStatus()`. Es la **única** escritura de estado que no pasa por el invariante de la
   baja de QuickBooks. Hoy no rompe nada porque su único caller es `checkAutoNoas`
