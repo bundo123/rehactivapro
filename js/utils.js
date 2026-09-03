@@ -527,6 +527,28 @@ export function capacidadSlots(th, dates, blocks, hoy=new Date()){
     return acc+Math.max(0, turno-lunch-blockedSlots(th, ds, blocks));
   },0);
 }
+
+// Ocupación REAL de un terapeuta en un rango (semana, mes o año): las tres pestañas de Informes
+// usan esta misma función, no una copia por pestaña.
+//   · asistidas   = sus 'conf' con fecha <= hoy (una conf del jueves, vista un lunes, todavía no
+//                   es una asistencia).
+//   · slotsUsados = Σ apptSlots() de esas conf. Es el numerador correcto del %: el viejo cálculo
+//                   dividía CANTIDAD de citas entre SLOTS de 30' de capacidad, así que una cita
+//                   de 60' ocupaba dos slots pero contaba como una y el % salía a la mitad.
+//   · capacidad   = capacidadSlots (días hábiles transcurridos, menos almuerzo y bloqueos).
+//   · pct         = null si no hay capacidad — '—' en pantalla, jamás un 0% inventado.
+// Pura: `hoy` se inyecta en los tests. Acepta Date o 'YYYY-MM-DD'.
+export function ocupacionTerapeuta(th, citas, dates, blocks, hoy=new Date()){
+  if(!th) return {asistidas:0, noas:0, slotsUsados:0, capacidad:0, pct:null};
+  const delTh=hastaHoy((citas||[]).filter(a=>a&&a.therapistId===th.id), hoy);
+  const conf=delTh.filter(a=>a.status==='conf');
+  const slotsUsados=conf.reduce((n,a)=>n+apptSlots(a).length, 0);
+  const capacidad=capacidadSlots(th, dates, blocks, hoy);
+  return {asistidas:conf.length,
+    noas:delTh.filter(a=>a.status==='noas').length,
+    slotsUsados, capacidad,
+    pct: capacidad>0?Math.round(slotsUsados/capacidad*100):null};
+}
 export function dotColor(s){return s==='conf'?'#1D9E75':s==='pend'?'#E0A850':'#E24B4A';}
 export function getInitials(name){return(name||'').trim().split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase()||'??';}
 

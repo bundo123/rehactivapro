@@ -43,7 +43,7 @@ import {
   toggleProTecnica
 } from './sesiones.js';
 import {
-  renderSemanal, changeWeek, showSubTab, changeMensualMonth,
+  renderSemanal, changeWeek, showSubTab, changeMensualMonth, changeAnualYear,
   renderPatientReportSelect, updateEpisodes, renderPatientReport,
   filterPatientRptSelect, selectRptPatient, rptSearchKeydown, exportarPDF,
   genSemanalAI, genMensualAI, genAnualAI, genPatientAI,
@@ -240,7 +240,7 @@ Object.assign(window, {
   cycleStatus, changeDay, changeWeek, goToDate, goToToday,
   changeResumenDay, goToResumenDate, resumenHoy, openResumenDatePicker, setResumenTherapist,
   verInformeDeCita, verHistorialDeCita,
-  showSubTab, changeMensualMonth, showDoctoresTab, selectColor, selectDocColor,
+  showSubTab, changeMensualMonth, changeAnualYear, showDoctoresTab, selectColor, selectDocColor,
   filterApptPatient, filterPatientRptSelect, selectRptPatient, rptSearchKeydown, updateEpisodes, updateTimeSlots, toggleHoraExacta,
   renderPatientReport, renderProtocols, protPage,
   toggleRecurrencia, toggleProTecnica,

@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnPrefijo, resumenCitas, asistidasEn, hastaHoy, findBlock, capacidadSlots } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta } from './utils.js';
 import { apptSlots } from './agenda.js';
 import { genSemanalAI, genMensualAI, genAnualAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasPermission } from './permissions.js';
@@ -29,14 +29,12 @@ const _apptStats = prefix => resumenCitas(hastaHoy(citasEnPrefijo(state.appointm
 function _nuevos(prefix) {
   return state.patients.filter(p => p.createdAt && p.createdAt.startsWith(prefix)).length;
 }
-function _monthHasData(ym) {
-  return state.appointments.some(a => a.date && a.date.startsWith(ym));
-}
 // Chip de variación honesto. kind:'pct'|'abs'. goodWhenUp: si subir es bueno (verde).
-// Mes anterior sin datos -> '—'. % con prev===0 -> '—' (jamás dividir por cero). Nunca inventa.
-function _deltaChip(cur, prev, pym, kind, goodWhenUp) {
-  if (!_monthHasData(pym)) return '<div class="stat-chg neu">—</div>';
-  const lbl = 'vs ' + MES_CORTO[parseInt(pym.split('-')[1], 10) - 1].toLowerCase();
+// Período anterior sin datos -> '—'. % con prev===0 -> '—' (jamás dividir por cero). Nunca inventa.
+// `prevHasData` y `lbl` llegan del caller (antes se derivaban de un 'YYYY-MM'): la misma tarjeta la
+// pintan ahora semanal ('vs sem. anterior'), mensual ('vs jul') y anual ('vs 2025').
+function _deltaChip(cur, prev, prevHasData, lbl, kind, goodWhenUp) {
+  if (!prevHasData) return '<div class="stat-chg neu">—</div>';
   let txt, dir;
   if (kind === 'pct') {
     if (prev === 0) return '<div class="stat-chg neu">—</div>';
@@ -55,6 +53,32 @@ function _deltaChip(cur, prev, pym, kind, goodWhenUp) {
 // El mes seleccionado vive en state (no en un módulo) porque lo leen dos módulos: renderMensual
 // para pintar y genMensualAI para acotar el rango que se le manda a la IA.
 export function changeMensualMonth(ym) { state.informesMes = ym; renderMensual(); }
+// Idem para el año del informe anual (null = año actual): lo leen renderAnual y genAnualAI.
+export function changeAnualYear(y) { state.informesAnio = Number(y) || null; renderAnual(); }
+
+// Todos los días 'YYYY-MM-DD' de un mes ('YYYY-MM') o de un año ('YYYY'). Es lo que necesita
+// capacidadSlots para el denominador de la ocupación: ella misma descarta finde y futuro.
+function _diasDelPrefijo(prefix) {
+  const p = String(prefix || '');
+  const [y, m] = p.split('-').map(Number);
+  const out = [];
+  const meses = m ? [m - 1] : [0,1,2,3,4,5,6,7,8,9,10,11];
+  meses.forEach(mi => {
+    const n = new Date(y, mi + 1, 0).getDate();
+    for (let d = 1; d <= n; d++) out.push(`${y}-${String(mi + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+  });
+  return out;
+}
+// Pacientes creados dentro de una lista de fechas (el equivalente semanal de _nuevos(prefijo)).
+function _nuevosEnFechas(dates) {
+  const set = new Set(dates || []);
+  return state.patients.filter(p => p.createdAt && set.has(String(p.createdAt).slice(0, 10))).length;
+}
+// '3 sep 09:14' — sello del momento en que se generó la lectura con IA.
+function _fmtGen(ts) {
+  const d = new Date(ts), p = n => String(n).padStart(2, '0');
+  return `${d.getDate()} ${MES_CORTO[d.getMonth()].toLowerCase()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 // Rediseño: mapa de calor en escala de azules de marca; texto blanco desde 70%.
 function hmColBlue(p){
@@ -82,6 +106,102 @@ function evaColor(v){ return v>=7?'#E24B4A':v>=4?'#E0A850':v>=1?'#1D9E75':'#29AB
 // DATOS y rótulo de forma consistente.
 function semanaVisible() {
   return semanaRango(state.currentWeek);
+}
+
+// ── Esqueleto común de las tres pestañas (FILA 1 + FILA 2) ───────────────────
+// Semanal, mensual y anual son el MISMO tablero con otro rango: cuatro tarjetas, ocupación por
+// terapeuta y la lectura de la IA. Antes cada render tenía su copia (semanal 3 tarjetas, mensual
+// 4 con otros nombres, anual 4 con otros más) y el mismo dato salía con nombre distinto según la
+// pestaña. Acá se arma una sola vez; cada render solo concatena SU fila 3.
+// cfg = { citas, citasPrev, dates, labelPrev, labelPeriodo, aiId, tab, nuevos, nuevosPrev, subAsistidas }
+//   · citas y citasPrev YA vienen recortadas al rango y a hasta-hoy por el caller.
+//   · el período anterior "tiene datos" si trajo alguna cita: los tres rangos previos (semana, mes
+//     y año anteriores) están enteros en el pasado, así que hastaHoy no los recorta.
+//   · subAsistidas: línea extra bajo el chip de Asistidas (el anual mete ahí los pacientes únicos).
+const _GEN_FN = { semanal: 'genSemanalAI', mensual: 'genMensualAI', anual: 'genAnualAI' };
+
+function renderEsqueleto(cfg) {
+  const cur = resumenCitas(cfg.citas);
+  const prev = resumenCitas(cfg.citasPrev);
+  const prevHas = cfg.citasPrev.length > 0;
+
+  // % de inasistencia sobre DECIDIDAS, la misma base que la continuidad (son complementarias):
+  // sobre el total, las pendientes sin marcar lo maquillarían hacia abajo.
+  const dec = cur.conf + cur.noas;
+  const pctNoas = dec > 0 ? Math.round(cur.noas / dec * 100) : null;
+  const contColor = cur.continuidad == null ? '#6b6a64' : cur.continuidad >= 85 ? '#1D9E75' : cur.continuidad >= 70 ? '#BA7517' : '#E24B4A';
+
+  const fila1 = `<div class="informe-stat-grid">
+    <div class="stat"><div class="stat-lbl">Asistidas</div><div class="stat-val">${cur.conf}</div>
+      ${_deltaChip(cur.conf, prev.conf, prevHas, cfg.labelPrev, 'pct', true)}${cfg.subAsistidas ? `<div class="stat-chg neu">${esc(cfg.subAsistidas)}</div>` : ''}</div>
+    <div class="stat"><div class="stat-lbl">Inasistencias</div>
+      <div class="stat-val" style="color:#E24B4A">${cur.noas}${pctNoas == null ? '' : ` <span style="font-size:13px;color:#7a7a76;font-weight:600">· ${pctNoas}%</span>`}</div>
+      ${_deltaChip(cur.noas, prev.noas, prevHas, cfg.labelPrev, 'abs', false)}</div>
+    <div class="stat"><div class="stat-lbl">Continuidad</div>
+      <div class="stat-val" style="color:${contColor}">${cur.continuidad == null ? '—' : cur.continuidad + '%'}</div>
+      <div class="stat-chg neu">Meta 85% · asistidas / decididas</div></div>
+    <div class="stat"><div class="stat-lbl">Pacientes nuevos</div><div class="stat-val">${cfg.nuevos}</div>
+      ${_deltaChip(cfg.nuevos, cfg.nuevosPrev, prevHas, cfg.labelPrev, 'abs', true)}</div>
+  </div>`;
+
+  return fila1 + `<div class="inf-grid">${_panelTerapeutas(cfg)}${_panelIA(cfg)}</div>`;
+}
+
+// Panel "Por terapeuta": asistidas, faltas y ocupación real (slots usados / capacidad del rango).
+// Reemplaza al panel de desempeño que solo existía en el semanal, y que además dividía
+// CANTIDAD de citas entre SLOTS de capacidad.
+function _panelTerapeutas(cfg) {
+  const TH = 'font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#9c9a92;text-align:left;padding:4px 6px 6px 0;font-weight:700';
+  const THN = TH + ';text-align:right;padding-right:14px';
+  const TD = 'padding:7px 6px 7px 0;border-top:1px solid rgba(0,0,0,.05);font-size:12px;vertical-align:middle';
+  const TDN = TD + ';text-align:right;padding-right:14px;font-variant-numeric:tabular-nums';
+  const hoy = new Date();
+
+  const filas = orderedTherapists().map(th => {
+    const o = ocupacionTerapeuta(th, cfg.citas, cfg.dates, state.blocks, hoy);
+    const c = getColor(th.colorId);
+    // Sin capacidad en el rango (terapeuta sin turno, o rango sin días hábiles transcurridos) el %
+    // es null: se dice '—', no un 0% que parecería un terapeuta ocioso.
+    const ocup = o.pct == null
+      ? '<span style="font-size:11px;color:#9c9a92">—</span>'
+      : `<div style="display:flex;align-items:center;gap:8px"><div class="util-bar" style="flex:1;margin:0"><div class="util-fill" style="width:${Math.min(o.pct, 100)}%;background:${utilColor(o.pct)}"></div></div>`
+        + `<b style="width:36px;text-align:right;color:${utilText(o.pct)}">${o.pct}%</b></div>`;
+    return `<tr><td style="${TD};width:34px"><span class="avatar" style="background:${c.bg};color:${c.text}">${esc(th.initials)}</span></td>`
+      + `<td style="${TD}"><b>${esc(th.name)}</b></td>`
+      + `<td style="${TDN}">${o.asistidas}</td>`
+      + `<td style="${TDN};color:#c33a3a">${o.noas}</td>`
+      + `<td style="${TD};width:34%">${ocup}</td></tr>`;
+  }).join('');
+
+  return `<div class="panel">
+    <div class="panel-title">Por terapeuta <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#9c9a92">ocupación = slots usados / capacidad del período</span></div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr><th style="${TH}"></th><th style="${TH}">Terapeuta</th><th style="${THN}">Asistidas</th><th style="${THN}">Faltas</th><th style="${TH};width:34%">Ocupación</th></tr></thead>
+      <tbody>${filas}</tbody>
+    </table>
+  </div>`;
+}
+
+// Panel "Lectura del período (IA)". Se pinta SIEMPRE, en tres estados (vacío / cargando / generado).
+// Sin permiso viewAI no hay botón, pero el panel no desaparece: que exista explica por qué el
+// resto del equipo ve un tablero sin análisis.
+function _panelIA(cfg) {
+  const ia = state.informesIA[cfg.tab] || {};
+  const puede = hasPermission('viewAI');
+  const btn = puede
+    ? `<button class="ai-btn" style="padding:5px 12px" onclick="${_GEN_FN[cfg.tab]}()">${ia.text ? 'Regenerar' : 'Generar con IA'}</button>`
+    : '';
+  const body = ia.loading
+    ? `<div class="ia-body" id="${cfg.aiId}">⏳ Generando…</div>`
+    : ia.text
+      ? `<div class="ia-body" id="${cfg.aiId}">${esc(ia.text)}</div>`
+      : `<div class="ia-body empty" id="${cfg.aiId}">Todavía no generaste la lectura de ${esc(cfg.labelPeriodo)}.</div>`;
+  const meta = ia.text && ia.at ? `Generado ${_fmtGen(ia.at)} · ${esc(ia.label || cfg.labelPeriodo)}` : '';
+  return `<div class="ia-panel">
+    <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;gap:8px">Lectura del período${btn}</div>
+    ${body}
+    <div class="ia-meta"><span>${meta}</span><span>${puede ? '' : 'Solo admin'}</span></div>
+  </div>`;
 }
 
 export function renderHeatmap() {
@@ -141,82 +261,60 @@ export function updateWeekLabel() {
 
 export function renderSemanal() {
   updateWeekLabel();
-  const {dates:semDates}=semanaVisible();
-  const semAppts=state.appointments.filter(a=>semDates.includes(a.date));
+  const hoy = new Date();
+  const { dates: semDates } = semanaVisible();
+  const { dates: prevDates } = semanaRango(state.currentWeek - 1);
+  const semAppts = state.appointments.filter(a => semDates.includes(a.date));
   // TODO lo que se muestra como tasa o acumulado se cuenta sobre lo que YA ocurrió: la semana en
   // curso trae conf futuras y, si entran, la continuidad no cuadra con "Asistidas" (que sí las
   // excluye). Lo que sigue ocupando agenda —el mapa de calor— usa semAppts, no esto.
-  const semHasta=hastaHoy(semAppts,new Date());
-  const noas=semHasta.filter(a=>a.status==='noas');
-  const patsNoas=new Set(noas.map(a=>a.patientId)).size;
-  // Asistidas: confirmadas con fecha <= hoy. Una conf del jueves, vista un lunes, todavía no es
-  // una asistencia. Continuidad: la MISMA fórmula (conf/decididas) que el mensual y el anual —
-  // la vieja "Asistencia" (conf/total, con las pendientes en el denominador) ya no existe.
-  const asistidas=asistidasEn(semAppts,new Date());
-  const {continuidad}=resumenCitas(semHasta);
-  const contColor=continuidad==null?'#6b6a64':continuidad>=85?'#1D9E75':continuidad>=70?'#BA7517':'#E24B4A';
-  const stat=(lbl,val,sub,color)=>`<div class="stat"><div class="stat-lbl">${lbl}</div><div class="stat-val"${color?` style="color:${color}"`:''}>${val}</div><div class="stat-chg neu">${sub}</div></div>`;
+  const semHasta = hastaHoy(semAppts, hoy);
+  const prevHasta = hastaHoy(citasEnFechas(state.appointments, prevDates), hoy);
+  const noas = semHasta.filter(a => a.status === 'noas');
+  const f = ds => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ds); return m ? `${Number(m[3])} ${MES_CORTO[Number(m[2]) - 1].toLowerCase()}` : ds; };
 
-  // "Ingreso estimado" excluido a propósito (la app no maneja dinero por diseño).
-  const statsHtml=`
-  <div class="informe-stat-grid">
-    ${stat('Asistidas',asistidas,'confirmadas hasta hoy')}
-    ${stat('Continuidad',continuidad==null?'—':continuidad+'%','Meta: 85%',contColor)}
-    ${stat('No asistieron',noas.length,`${patsNoas} paciente${patsNoas!==1?'s':''}`,'#E24B4A')}
-  </div>
-  <div class="panel" style="margin-bottom:12px">
-    <div class="panel-title">Desempeño por terapeuta</div>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      ${orderedTherapists().map(th=>{
-        const thAppts=semHasta.filter(a=>a.therapistId===th.id);
-        const thConf=thAppts.filter(a=>a.status==='conf').length;
-        const thNoas=thAppts.filter(a=>a.status==='noas').length;
-        // Capacidad real, no `turno*5`: solo días hábiles TRANSCURRIDOS, menos almuerzo y menos
-        // bloqueos. El numerador (thConf) ya venía recortado a hasta-hoy — el denominador viejo
-        // asumía los cinco días completos y hundía el % a mitad de semana. Cierra esa deuda.
-        const slots=capacidadSlots(th, semDates, state.blocks);
-        const util=slots>0?Math.round(thConf/slots*100):0;
-        const c=getColor(th.colorId);
-        return '<div class="perf-row" style="display:flex;align-items:center;gap:10px">'
-          +'<span class="avatar" style="background:'+c.bg+';color:'+c.text+'">'+esc(th.initials)+'</span>'
-          +'<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:700;color:#1a1917">'+esc(th.name)+'</span>'
-          +'<span style="font-size:11px;color:#7a7a76"><b style="color:#17865f">✓ '+thConf+'</b> · <b style="color:#c33a3a">✗ '+thNoas+'</b></span></div>'
-          +'<div style="margin-top:4px;height:5px;background:#f0e8d8;border-radius:3px"><div style="height:5px;width:'+Math.min(util,100)+'%;background:'+utilColor(util)+';border-radius:3px"></div></div>'
-          +'</div><span style="font-size:14px;font-weight:700;color:'+utilText(util)+';width:40px;text-align:right;flex-shrink:0">'+util+'%</span></div>';
-      }).join('')}
-    </div>
-  </div>
-  <div class="panel" style="margin-bottom:12px">
+  const html = renderEsqueleto({
+    citas: semHasta, citasPrev: prevHasta, dates: semDates,
+    labelPrev: 'vs sem. anterior',
+    labelPeriodo: `la semana del ${f(semDates[0])} al ${f(semDates[4])}`,
+    aiId: 'ia-semanal', tab: 'semanal',
+    nuevos: _nuevosEnFechas(semDates), nuevosPrev: _nuevosEnFechas(prevDates),
+  })
+  // FILA 3 del semanal: dónde ofrecer turnos y a quién llamar hoy. Es lo único propio de la semana.
+  + `<div class="panel" style="margin-bottom:12px">
     <div class="panel-title">Mapa de calor — utilización por hora y día</div>
     <div id="heatmap-container"></div>
     <div id="heatmap-legend" style="display:flex;align-items:center;gap:5px;margin-top:10px;font-size:10px;color:#9c9a92"></div>
-  </div>
-  ${(function(){
-    if(!noas.length)return'';
-    let r='<div class="panel"><div class="panel-title">No asistieron — requieren seguimiento</div>';
-    noas.slice(0,6).forEach(function(a){
-      var pt=getPatient(a.patientId);var th=getTherapist(a.therapistId);
-      var tel=pt&&pt.tel?'593'+pt.tel.replace(/[^0-9]/g,'').slice(-9):'';
-      var waBtn=tel?'<button onclick="window.open(\'https://wa.me/'+tel+'\',\'_blank\')" style="font-size:10px;padding:3px 10px;background:rgba(37,160,90,.12);color:#25a05a;border:none;border-radius:99px;cursor:pointer;font-weight:600;font-family:inherit">WA</button>':'';
-      r+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(226,75,74,.08)">'
-        +'<div><div style="font-size:12px;font-weight:600;color:#1a1917">'+esc(pt?pt.name:'Paciente')+'</div>'
-        +'<div style="font-size:10px;color:#9c9a92">'+a.date+(th?' · '+esc(th.name):'')+'</div></div>'
-        +waBtn+'</div>';
+  </div>`
+  + (function () {
+    if (!noas.length) return '';
+    let r = '<div class="panel"><div class="panel-title">No asistieron — requieren seguimiento</div>';
+    noas.slice(0, 6).forEach(function (a) {
+      var pt = getPatient(a.patientId); var th = getTherapist(a.therapistId);
+      var tel = pt && pt.tel ? '593' + pt.tel.replace(/[^0-9]/g, '').slice(-9) : '';
+      var waBtn = tel ? '<button onclick="window.open(\'https://wa.me/' + tel + '\',\'_blank\')" style="font-size:10px;padding:3px 10px;background:rgba(37,160,90,.12);color:#25a05a;border:none;border-radius:99px;cursor:pointer;font-weight:600;font-family:inherit">WA</button>' : '';
+      r += '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(226,75,74,.08)">'
+        + '<div><div style="font-size:12px;font-weight:600;color:#1a1917">' + esc(pt ? pt.name : 'Paciente') + '</div>'
+        + '<div style="font-size:10px;color:#9c9a92">' + a.date + (th ? ' · ' + esc(th.name) : '') + '</div></div>'
+        + waBtn + '</div>';
     });
-    r+='</div>';return r;
-  })()}`;
+    r += '</div>'; return r;
+  })();
 
-  document.getElementById('semanal-stats').innerHTML=statsHtml;
+  document.getElementById('semanal-stats').innerHTML = html;
   renderHeatmap();
 }
 
-export function showSubTab(n,btn) {
-  state.informesSubTab=n;   // sub-tab visible (cada uno tiene su propio botón de IA)
-  ['semanal','mensual','anual'].forEach(t=>document.getElementById('subtab-'+t).style.display=t===n?'':'none');
-  const wn=document.getElementById('informes-week-nav');
-  if(wn) wn.style.display=n==='semanal'?'':'none';   // las flechas de semana no significan nada en mensual/anual
-  document.querySelectorAll('#tab-informes .sub-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
-  if(n==='semanal')renderSemanal();if(n==='mensual')renderMensual();if(n==='anual')renderAnual();
+export function showSubTab(n, btn) {
+  state.informesSubTab = n;   // sub-tab visible (define el rango que analiza su propio botón de IA)
+  ['semanal', 'mensual', 'anual'].forEach(t => document.getElementById('subtab-' + t).style.display = t === n ? '' : 'none');
+  // Selector de período contextual: cada pestaña tiene el suyo, y siempre en el mismo lugar del header.
+  const wn = document.getElementById('informes-week-nav');
+  if (wn) wn.style.display = n === 'semanal' ? '' : 'none';
+  const sm = document.getElementById('informes-mes'); if (sm) sm.hidden = n !== 'mensual';
+  const sa = document.getElementById('informes-anio'); if (sa) sa.hidden = n !== 'anual';
+  document.querySelectorAll('#tab-informes .sub-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active');
+  if (n === 'semanal') renderSemanal(); if (n === 'mensual') renderMensual(); if (n === 'anual') renderAnual();
 }
 
 export function renderMensual() {
@@ -225,72 +323,140 @@ export function renderMensual() {
   if (!state.informesMes) state.informesMes = curYm;
   const ym = state.informesMes;
   const pym = _prevYm(ym);
+  const [y, mo] = ym.split('-').map(Number);
 
-  const cur = _apptStats(ym);
-  const prev = _apptStats(pym);
-  const nuevos = _nuevos(ym);
-  const nuevosPrev = _nuevos(pym);
+  // Opciones del selector: meses con datos + siempre el mes actual, desc. El <select> vive en el
+  // header (#informes-mes), no dentro del contenido, que se re-pinta entero en cada render.
+  const sel = document.getElementById('informes-mes');
+  if (sel) {
+    const mset = new Set([curYm]);
+    state.appointments.forEach(a => { if (a.date) mset.add(a.date.slice(0, 7)); });
+    state.patients.forEach(p => { if (p.createdAt) mset.add(p.createdAt.slice(0, 7)); });
+    sel.innerHTML = [...mset].filter(Boolean).sort().reverse().map(m => {
+      const [yy, mm] = m.split('-').map(Number);
+      return `<option value="${m}"${m === ym ? ' selected' : ''}>${MES_LARGO[mm - 1]} ${yy}</option>`;
+    }).join('');
+  }
 
-  // Opciones del selector: meses con datos + siempre el mes actual, desc.
-  const mset = new Set([curYm]);
-  state.appointments.forEach(a => { if (a.date) mset.add(a.date.slice(0, 7)); });
-  state.patients.forEach(p => { if (p.createdAt) mset.add(p.createdAt.slice(0, 7)); });
-  const optsHtml = [...mset].filter(Boolean).sort().reverse().map(m => {
-    const [y, mo] = m.split('-').map(Number);
-    return `<option value="${m}"${m === ym ? ' selected' : ''}>${MES_LARGO[mo - 1]} ${y}</option>`;
-  }).join('');
-
-  const contColor = cur.continuidad == null ? '#6b6a64' : cur.continuidad >= 85 ? '#1D9E75' : cur.continuidad >= 70 ? '#BA7517' : '#E24B4A';
-  const contTxt = cur.continuidad == null ? '—' : cur.continuidad + '%';
-
-  // El botón de IA vive arriba, dentro del propio sub-tab (index.html), no acá.
-  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-    <select onchange="changeMensualMonth(this.value)" style="background:#ffffff;border:1px solid rgba(29,158,117,.2);border-radius:6px;padding:7px 12px;font-size:13px;color:#1a1917">${optsHtml}</select>
-  </div>`;
-  html += `<div class="informe-stat-grid">
-    <div class="stat"><div class="stat-lbl">Sesiones del mes</div><div class="stat-val">${cur.conf}</div>${_deltaChip(cur.conf, prev.conf, pym, 'pct', true)}</div>
-    <div class="stat"><div class="stat-lbl">Continuidad promedio</div><div class="stat-val" style="color:${contColor}">${contTxt}</div><div class="stat-chg neu">Meta: 85%</div></div>
-    <div class="stat"><div class="stat-lbl">Inasistencias</div><div class="stat-val" style="color:#E24B4A">${cur.noas}</div>${_deltaChip(cur.noas, prev.noas, pym, 'abs', false)}</div>
-    <div class="stat"><div class="stat-lbl">Nuevos pacientes</div><div class="stat-val">${nuevos}</div>${_deltaChip(nuevos, nuevosPrev, pym, 'abs', true)}</div>
-  </div>`;
-  document.getElementById('mensual-content').innerHTML = html;
+  // FILA 3 del mensual ("Dejaron de venir" y "Nuevos por doctor referente"): lote 4c.
+  document.getElementById('mensual-content').innerHTML = renderEsqueleto({
+    citas: hastaHoy(citasEnPrefijo(state.appointments, ym), now),
+    citasPrev: hastaHoy(citasEnPrefijo(state.appointments, pym), now),
+    dates: _diasDelPrefijo(ym),
+    labelPrev: 'vs ' + MES_CORTO[parseInt(pym.split('-')[1], 10) - 1].toLowerCase(),
+    labelPeriodo: `${MES_LARGO[mo - 1]} ${y}`,
+    aiId: 'ia-mensual', tab: 'mensual',
+    nuevos: _nuevos(ym), nuevosPrev: _nuevos(pym),
+  });
 }
 
 export function renderAnual() {
   const now = new Date();
-  const year = now.getFullYear();
+  const year = Number(state.informesAnio) || now.getFullYear();
   const ystr = String(year);
+  const enCurso = year === now.getFullYear();
 
+  // Opciones del selector de año: años con citas + siempre el actual, desc.
+  const sel = document.getElementById('informes-anio');
+  if (sel) {
+    const yset = new Set([String(now.getFullYear())]);
+    state.appointments.forEach(a => { if (a.date) yset.add(String(a.date).slice(0, 4)); });
+    sel.innerHTML = [...yset].filter(Boolean).sort().reverse()
+      .map(yy => `<option value="${yy}"${yy === ystr ? ' selected' : ''}>${yy}</option>`).join('');
+  }
+
+  const citas = hastaHoy(citasEnPrefijo(state.appointments, ystr), now);
+  const citasPrev = hastaHoy(citasEnPrefijo(state.appointments, String(year - 1)), now);
+  // Los pacientes distintos del año son el único acumulado que no pasa por _apptStats. Ya no
+  // tienen tarjeta propia: son la segunda línea de "Asistidas", que es de lo que hablan.
+  const uniq = new Set(citas.map(a => a.patientId)).size;
+
+  let html = renderEsqueleto({
+    citas, citasPrev, dates: _diasDelPrefijo(ystr),
+    labelPrev: `vs ${year - 1}`, labelPeriodo: ystr,
+    aiId: 'ia-anual', tab: 'anual',
+    nuevos: _nuevos(ystr), nuevosPrev: _nuevos(String(year - 1)),
+    subAsistidas: `${uniq} paciente${uniq !== 1 ? 's' : ''} distinto${uniq !== 1 ? 's' : ''}`,
+  });
+
+  // FILA 3 del anual: la forma del año. Dos series en el MISMO gráfico —asistidas (conteo) e
+  // inasistencia (%)— con su propio eje cada una; en un solo eje un 8% junto a 400 sesiones es
+  // una línea pegada al piso que no se puede leer.
   const perMes = [];
-  for (let m = 0; m < 12; m++) perMes.push(_apptStats(_ym(year, m)));
-  const sArr = perMes.map(s => s.conf); // sesiones (conf) por mes; sin datos = 0
-  // Los acumulados salen del rango 'YYYY' entero, no de sumar los doce meses a mano: misma
-  // fórmula de continuidad que el mensual y que el prompt anual.
+  for (let m = 0; m < 12; m++) perMes.push(resumenCitas(citasEnPrefijo(citas, _ym(year, m))));
+  // Mes sin citas = null, no 0: Chart.js deja el hueco. Un 0 dibujaría una caída a cero que no
+  // ocurrió (diciembre "cae" solo porque todavía no llegó).
+  const asisArr = perMes.map(s => s.total > 0 ? s.conf : null);
+  const inasArr = perMes.map(s => { const d = s.conf + s.noas; return s.total > 0 && d > 0 ? Math.round(s.noas / d * 100) : null; });
+
+  html += `<div class="panel" style="margin-bottom:12px">
+    <div class="panel-title">Asistidas e inasistencia por mes · ${year} <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#9c9a92">¿crece? ¿qué meses caen?</span></div>
+    <canvas id="anual-chart" height="80"></canvas>
+  </div>`;
+
+  // Tabla mes a mes. El Total NO es la suma de las filas: sale de _apptStats(año) entero, igual
+  // que las tarjetas de arriba — la continuidad de un año no es el promedio de doce porcentajes.
+  const TH = 'font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#9c9a92;text-align:left;padding:4px 6px 6px 0;font-weight:700';
+  const THN = TH + ';text-align:right;padding-right:14px';
+  const TD = 'padding:7px 6px 7px 0;border-top:1px solid rgba(0,0,0,.05);font-size:12px';
+  const TDN = TD + ';text-align:right;padding-right:14px;font-variant-numeric:tabular-nums';
+  const TOP = 'border-top:2px solid rgba(41,171,226,.3)';
   const anual = _apptStats(ystr);
-  const sesAcum = anual.conf;
-  const noasAcum = anual.noas;
-  const contAnual = anual.continuidad;
-  // 'Pacientes únicos' es el único acumulado del anual que no pasa por _apptStats.
-  const uniq = new Set(hastaHoy(citasEnPrefijo(state.appointments, ystr), new Date()).map(a => a.patientId)).size;
-
-  const contColor = contAnual == null ? '#6b6a64' : contAnual >= 85 ? '#1D9E75' : contAnual >= 70 ? '#BA7517' : '#E24B4A';
-
-  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-    <div style="font-size:14px;font-weight:500;color:#1a1917">Informe anual ${year}</div>
+  const filas = perMes.map((sm, m) => {
+    const chip = enCurso && m === now.getMonth()
+      ? ' <span style="font-size:9.5px;font-weight:700;color:#1d8fbf;background:rgba(41,171,226,.14);border-radius:99px;padding:1px 7px">en curso</span>' : '';
+    // Mes sin ninguna cita: '—' en todo. Vale igual para un mes futuro y para uno vacío: no hubo
+    // nada que medir, y un 0 se leería como "vinieron cero" en vez de "todavía no pasó".
+    if (!sm.total) return `<tr><td style="${TD}">${MES_LARGO[m]}${chip}</td>`
+      + `<td style="${TDN};color:#9c9a92">—</td><td style="${TDN};color:#9c9a92">—</td><td style="${TDN};color:#9c9a92">—</td><td style="${TDN};color:#9c9a92">—</td><td style="${TDN};color:#9c9a92">—</td></tr>`;
+    const dec = sm.conf + sm.noas;
+    const cCol = sm.continuidad == null ? '#9c9a92' : sm.continuidad >= 85 ? '#17865f' : sm.continuidad >= 70 ? '#BA7517' : '#c33a3a';
+    return `<tr><td style="${TD}">${MES_LARGO[m]}${chip}</td>`
+      + `<td style="${TDN}">${sm.conf}</td>`
+      + `<td style="${TDN};color:#c33a3a">${sm.noas}</td>`
+      + `<td style="${TDN}">${dec > 0 ? Math.round(sm.noas / dec * 100) + '%' : '—'}</td>`
+      + `<td style="${TDN};color:${cCol};font-weight:700">${sm.continuidad == null ? '—' : sm.continuidad + '%'}</td>`
+      + `<td style="${TDN}">${_nuevos(_ym(year, m))}</td></tr>`;
+  }).join('');
+  const decA = anual.conf + anual.noas;
+  html += `<div class="panel">
+    <div class="panel-title">Mes a mes · ${year}</div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr><th style="${TH}">Mes</th><th style="${THN}">Asistidas</th><th style="${THN}">Faltas</th><th style="${THN}">Inasist. %</th><th style="${THN}">Continuidad</th><th style="${THN}">Nuevos</th></tr></thead>
+      <tbody>${filas}
+        <tr style="font-weight:700"><td style="${TD};${TOP}">Total ${year}</td>
+          <td style="${TDN};${TOP}">${anual.conf}</td>
+          <td style="${TDN};${TOP};color:#c33a3a">${anual.noas}</td>
+          <td style="${TDN};${TOP}">${decA > 0 ? Math.round(anual.noas / decA * 100) + '%' : '—'}</td>
+          <td style="${TDN};${TOP}">${anual.continuidad == null ? '—' : anual.continuidad + '%'}</td>
+          <td style="${TDN};${TOP}">${_nuevos(ystr)}</td></tr>
+      </tbody>
+    </table>
   </div>`;
-  html += `<div class="informe-stat-grid">
-    <div class="stat"><div class="stat-lbl">Sesiones acumuladas</div><div class="stat-val">${sesAcum}</div><div class="stat-chg neu">Ene–${MES_CORTO[now.getMonth()]} ${year}</div></div>
-    <div class="stat"><div class="stat-lbl">Continuidad prom.</div><div class="stat-val" style="color:${contColor}">${contAnual == null ? '—' : contAnual + '%'}</div><div class="stat-chg neu">Meta: 85%</div></div>
-    <div class="stat"><div class="stat-lbl">Pacientes únicos</div><div class="stat-val">${uniq}</div><div class="stat-chg neu">con cita en ${year}</div></div>
-    <div class="stat"><div class="stat-lbl">Inasistencias</div><div class="stat-val" style="color:#E24B4A">${noasAcum}</div><div class="stat-chg neu">Acumuladas</div></div>
-  </div>`;
-  html += `<div class="full-card"><div class="card-title">Sesiones por mes — ${year}</div><canvas id="anual-chart" height="80"></canvas></div>`;
+
   document.getElementById('anual-content').innerHTML = html;
   setTimeout(() => {
     const ctx = document.getElementById('anual-chart'); if (!ctx) return;
     Chart.getChart(ctx)?.destroy();   // destruir chart previo del mismo canvas (evita "Canvas already in use")
-    new Chart(ctx, { type: 'bar', data: { labels: MES_CORTO, datasets: [{ label: 'Sesiones', data: sArr, backgroundColor: sArr.map(v => v > 0 ? '#1D9E75' : '#1a1917'), borderRadius: 4 }] },
-      options: { responsive: true, color: '#6b6a64', plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { color: '#6b6a64', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.05)' } }, x: { ticks: { color: '#6b6a64' }, grid: { display: false } } } } });
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: MES_CORTO,
+        datasets: [
+          { label: 'Asistidas', data: asisArr, yAxisID: 'y', borderColor: '#1D9E75', backgroundColor: '#1D9E75', tension: .3, borderWidth: 2, pointRadius: 3 },
+          { label: 'Inasistencia %', data: inasArr, yAxisID: 'y1', borderColor: '#E24B4A', backgroundColor: '#E24B4A', tension: .3, borderWidth: 2, pointRadius: 3, borderDash: [5, 4] },
+        ],
+      },
+      options: {
+        responsive: true, color: '#6b6a64',
+        plugins: { legend: { display: true, labels: { boxWidth: 10, font: { size: 10 } } } },
+        scales: {
+          y: { beginAtZero: true, position: 'left', ticks: { color: '#6b6a64', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.05)' } },
+          y1: { min: 0, max: 100, position: 'right', ticks: { color: '#6b6a64', font: { size: 10 }, callback: v => v + '%' }, grid: { display: false } },
+          x: { ticks: { color: '#6b6a64' }, grid: { display: false } },
+        },
+      },
+    });
   }, 50);
 }
 

@@ -301,32 +301,29 @@
       <button class="seg-item sub-tab" onclick="showSubTab('mensual',this)">Mensual</button>
       <button class="seg-item sub-tab" onclick="showSubTab('anual',this)">Anual</button>
     </div>
-    <!-- Navegación de semana: solo aplica al sub-tab semanal (mensual tiene su selector de mes). -->
+    <!-- Selector de período CONTEXTUAL: uno por sub-tab, siempre en el mismo lugar del header.
+         showSubTab muestra el que corresponde y oculta los otros dos. El de mes vivía suelto
+         dentro del contenido del mensual y el anual no tenía ninguno. -->
     <div class="week-nav" id="informes-week-nav" style="margin-left:auto">
       <button class="icon-btn sm" onclick="changeWeek(-1)">‹</button>
       <div class="week-lbl" id="week-lbl"></div>
       <button class="icon-btn sm" onclick="changeWeek(1)">›</button>
     </div>
+    <select class="hdr-select" id="informes-mes" style="margin-left:auto" onchange="changeMensualMonth(this.value)" hidden></select>
+    <select class="hdr-select" id="informes-anio" style="margin-left:auto" onchange="changeAnualYear(this.value)" hidden></select>
   </div>
   <div class="main-body">
-    <!-- Los *-ai-output son HERMANOS del contenedor que se re-renderiza, no hijos: así cambiar de
-         semana o de mes no borra el análisis recién generado. -->
-    <!-- El botón de IA vive DENTRO de cada sub-tab, arriba de su propia salida: analiza el rango
-         que el usuario está viendo, sin depender de cuál pestaña estaba activa.
+    <!-- El botón de IA y su salida viven DENTRO del panel "Lectura del período" que arma
+         renderEsqueleto, no acá: el texto generado se guarda en state.informesIA, así que
+         cambiar de semana/mes/año re-renderiza el panel sin perderlo.
          El "Exportar PDF" que vivía en el header exportaba el informe de PACIENTE y se movió a esa pantalla. -->
     <div id="subtab-semanal">
-      <button class="ai-btn" style="height:34px;padding:0 14px;font-size:12px;margin-bottom:12px" onclick="genSemanalAI()" data-permission="admin">Análisis con IA</button>
-      <div id="semanal-ai-output" style="display:none;margin-bottom:14px"></div>
       <div id="semanal-stats"></div>
     </div>
     <div id="subtab-mensual" style="display:none">
-      <button class="ai-btn" style="height:34px;padding:0 14px;font-size:12px;margin-bottom:12px" onclick="genMensualAI()" data-permission="admin">Análisis con IA</button>
-      <div id="mensual-ai-output" style="display:none;margin-bottom:14px"></div>
       <div id="mensual-content"></div>
     </div>
     <div id="subtab-anual" style="display:none">
-      <button class="ai-btn" style="height:34px;padding:0 14px;font-size:12px;margin-bottom:12px" onclick="genAnualAI()" data-permission="admin">Análisis con IA</button>
-      <div id="anual-ai-output" style="display:none;margin-bottom:14px"></div>
       <div id="anual-content"></div>
     </div>
   </div>

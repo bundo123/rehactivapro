@@ -22,6 +22,11 @@ export const state = {
   currentTab: 'agenda',
   informesSubTab: 'semanal',  // sub-tab visible de Informes: define qué rango analiza el botón de IA
   informesMes: null,          // 'YYYY-MM' del selector del informe mensual (lo comparten renderMensual y genMensualAI)
+  informesAnio: null,         // año del selector del informe anual (null = año actual). Igual que informesMes: lo leen renderAnual y genAnualAI.
+  // Lectura de la IA por pestaña de Informes. Vive en state y no en el DOM porque el panel se
+  // re-renderiza entero al cambiar de semana/mes/año: si el texto viviera en el HTML, navegar el
+  // período borraría el análisis recién generado. {text, at (ms), label, loading} por pestaña.
+  informesIA: { semanal: {}, mensual: {}, anual: {} },
   dragData: null,
   facturaCounter: 10,
   thCounter: 10,

@@ -269,12 +269,17 @@
 @media (max-width:900px){.inf-grid{grid-template-columns:1fr}}
 .panel{background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:12px;padding:14px 16px}
 .panel-title{font-size:11px;font-weight:700;color:#1a1917;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
+/* Panel de la lectura con IA: mismo marco que .panel pero en columna, para que el cuerpo del
+   texto ocupe el alto que le sobra al panel vecino (Por terapeuta) dentro de la misma .inf-grid. */
+.ia-panel{background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column}
+.ia-body{font-size:12.5px;line-height:1.65;color:#1a1917;white-space:pre-wrap;flex:1}
+.ia-body.empty{color:#9c9a92;display:flex;align-items:center;justify-content:center;text-align:center;padding:18px 8px;border:1px dashed rgba(41,171,226,.3);border-radius:8px;min-height:120px}
+.ia-meta{font-size:10px;color:#9c9a92;margin-top:8px;display:flex;justify-content:space-between}
 .week-nav{display:flex;align-items:center;gap:6px}
 .week-lbl{font-size:12.5px;font-weight:600;color:#1a1917;min-width:150px;text-align:center}
 .export-row{display:flex;gap:8px;margin-top:14px}
-/* auto-fit y no un número fijo: hoy el semanal tiene 3 tarjetas y mensual/anual 4; con 4 fijas
-   el semanal deja hueco y con 3 la cuarta queda huérfana. Además en móvil cae a 2 columnas solo.
-   El 4b lo fija en 4 cuando las tres pestañas tengan las mismas 4. */
+/* auto-fit y no un número fijo: con las mismas 4 tarjetas en las tres pestañas da 4 columnas en
+   escritorio, y en móvil cae a 2 (y a 1) solo, sin un media query por ancho. */
 .informe-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px}
 
 /* Heatmap */

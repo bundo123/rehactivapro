@@ -2,16 +2,26 @@ import { state } from './state.js';
 import { getDisplayAge, esc, doneActual, dmy, fmtDate, semanaRango, citasEnFechas, citasEnPrefijo,
          nuevosEnPrefijo, resumenCitas, hastaHoy, MES_LARGO } from './utils.js';
 import { toastErr } from './toast.js';
+// Import circular a propósito: informes.js importa las tres gen*AI de acá y acá se importan sus
+// tres renders. Se usan SOLO dentro del cuerpo de las gen*AI (al hacer clic) y son declaraciones
+// de función exportadas, así que el binding ya está resuelto cuando se las llama.
+import { renderSemanal, renderMensual, renderAnual } from './informes.js';
 import { supa } from './supabase-client.js';
 
 // formatHtml: opcional. Si se pasa, recibe el texto crudo de la IA y devuelve el HTML a inyectar
 // (usado por la narrativa del informe paciente para mostrar 2 párrafos bajo encabezados propios).
-export async function callAI(prompt, targetId, formatHtml) {
+// onDone: opcional. Si viene, el texto NO se inyecta acá: se lo pasa al caller, que lo guarda y
+// re-renderiza su pantalla (los tres informes de clínica, cuyo panel de IA vive dentro de un
+// contenedor que se re-pinta entero). Se lo llama con null si falló, para que el caller pueda
+// apagar su estado "cargando" sin borrar la caja de error que queda pintada en targetId.
+export async function callAI(prompt, targetId, formatHtml, onDone) {
   const el=document.getElementById(targetId);if(!el)return;
   const { data:{ session } }=await supa.auth.getSession();
-  if(!session?.access_token){toastErr('Tu sesión expiró. Vuelve a iniciar sesión.');return;}
+  if(!session?.access_token){toastErr('Tu sesión expiró. Vuelve a iniciar sesión.');if(onDone)onDone(null);return;}
   el.style.display='block';
-  el.innerHTML='<div style="background:rgba(29,158,117,.08);border:1px solid rgba(29,158,117,.2);'
+  // Con onDone el "cargando" ya lo pintó el caller en SU panel (y sobrevive a un re-render); acá
+  // solo se pisaría con una caja de otro estilo.
+  if(!onDone) el.innerHTML='<div style="background:rgba(29,158,117,.08);border:1px solid rgba(29,158,117,.2);'
     +'border-radius:8px;padding:14px;font-size:12px;color:#6b6a64">⏳ Generando informe…</div>';
   let errMsg='No se pudo generar el informe. Intenta de nuevo.';
   try {
@@ -26,6 +36,7 @@ export async function callAI(prompt, targetId, formatHtml) {
     const data=await res.json();
     const text=data&&data.text?data.text:'';
     if(!text) throw new Error('respuesta vacía');
+    if(onDone){ onDone(text); return; }
     el.innerHTML=formatHtml?formatHtml(text)
       :'<div style="background:rgba(29,158,117,.08);border:1px solid rgba(29,158,117,.2);'
       +'border-radius:8px;padding:14px;font-size:13px;color:#1a1917;line-height:1.6;white-space:pre-wrap">'
@@ -34,7 +45,24 @@ export async function callAI(prompt, targetId, formatHtml) {
     toastErr(errMsg);
     el.innerHTML='<div style="background:rgba(226,75,74,.08);border:1px solid rgba(226,75,74,.25);'
       +'border-radius:8px;padding:14px;font-size:12px;color:#c33a3a">'+esc(errMsg)+'</div>';
+    if(onDone) onDone(null);
   }
+}
+
+// Estado del panel de IA de una pestaña de Informes: lo guarda en state (no en el DOM) y re-pinta.
+// Con texto null solo apaga el "cargando": el error ya quedó pintado en la caja y re-renderizar
+// lo borraría.
+function _iaDone(tab, label, render){
+  return text => {
+    const prev=state.informesIA[tab]||{};
+    if(!text){ state.informesIA[tab]={...prev, loading:false}; return; }
+    state.informesIA[tab]={text, at:Date.now(), label, loading:false};
+    render();
+  };
+}
+function _iaLoading(tab, render){
+  state.informesIA[tab]={...(state.informesIA[tab]||{}), loading:true};
+  render();
 }
 
 // ── Análisis con IA de los informes de clínica ────────────────────────────────
@@ -65,7 +93,8 @@ Analiza la SEMANA del ${dmy(dates[0])} al ${dmy(dates[4])} (lunes a viernes). Es
 - Terapeutas con citas esa semana: ${thSemana} (de ${state.therapists.length} en el equipo)
 
 Genera un análisis ejecutivo breve (máximo 200 palabras) con: resumen del desempeño de la semana, puntos de atención y 2-3 recomendaciones concretas para la semana siguiente. Si la semana casi no tiene citas, dilo en vez de forzar conclusiones. ${CIERRE}`;
-  callAI(prompt,'semanal-ai-output');
+  _iaLoading('semanal', renderSemanal);
+  callAI(prompt,'ia-semanal',null,_iaDone('semanal',`la semana del ${dmy(dates[0])} al ${dmy(dates[4])}`,renderSemanal));
 }
 
 export function genMensualAI() {
@@ -101,12 +130,13 @@ ${nom(pym)} (mes anterior, solo para comparar):
 Contexto de la clínica hoy: ${state.patients.filter(p=>p.status==='active').length} pacientes en tratamiento y ${state.therapists.length} terapeutas activos.
 
 Genera un análisis mensual (máximo 250 palabras) con: qué cambió respecto al mes anterior y por qué importa, el estado de la continuidad frente a la meta del 85%, y 2-3 acciones concretas para el mes siguiente. Si el mes anterior no tiene datos, dilo y analiza el mes solo. ${CIERRE}`;
-  callAI(prompt,'mensual-ai-output');
+  _iaLoading('mensual', renderMensual);
+  callAI(prompt,'ia-mensual',null,_iaDone('mensual',nom(ym),renderMensual));
 }
 
 export function genAnualAI() {
   const now=new Date();
-  const year=now.getFullYear();
+  const year=Number(state.informesAnio)||now.getFullYear();   // el que eligió el selector del header
   // Un solo recorte para todo el bloque: acumulados, desglose por mes y pacientes únicos salen
   // de las citas del año que YA ocurrieron (septiembre en curso no aporta sus conf futuras).
   const delAno=hastaHoy(citasEnPrefijo(state.appointments,String(year)),now);
@@ -118,7 +148,7 @@ export function genAnualAI() {
     const s=resumenCitas(citasEnPrefijo(delAno,ym));
     if(s.total>0) porMes.push(`- ${MES_LARGO[m]}: ${s.conf} sesiones, ${s.noas} inasistencias`);
   }
-  const mesesCompletos=now.getMonth();   // meses ya cerrados este año
+  const mesesCompletos=year<now.getFullYear()?12:now.getMonth();   // meses ya cerrados de ESE año
   const altas=state.patients.filter(p=>p.status==='alta').length;
   const unicos=new Set(delAno.map(a=>a.patientId)).size;
   const prompt=`${CABECERA}
@@ -133,7 +163,8 @@ Desglose por mes (solo los meses con actividad):
 ${porMes.length?porMes.join('\n'):'- Sin actividad registrada en el año'}
 
 Genera un análisis anual (máximo 250 palabras) con: la tendencia a lo largo del año y sus meses fuertes y flojos, el estado de la continuidad frente a la meta del 85%, y 2-3 prioridades concretas para lo que queda del año. No proyectes cifras a fin de año a partir de meses incompletos. ${CIERRE}`;
-  callAI(prompt,'anual-ai-output');
+  _iaLoading('anual', renderAnual);
+  callAI(prompt,'ia-anual',null,_iaDone('anual',String(year),renderAnual));
 }
 
 // Limpia cualquier markdown que la IA pudiera devolver pese a las instrucciones (texto plano).
