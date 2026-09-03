@@ -1,6 +1,6 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-09-01
+> Generado: 2026-05-18 · Última actualización: 2026-09-03
 
 ---
 
@@ -33,6 +33,130 @@
 - **Semana 2:** auto-logout (15 min) · I-13 (alerts→toasts) · P-11 (CSP parcial).
 - **Semana 3:** I-12 (focus-trap/Escape) · I-15 (tests `node --test`) · `npm audit fix` · decisión P-2/P-6.
 - **Semana 4:** `clinical_context` de protocolos reales · papeleo LOPDP (lectura abierta + sub-encargado Anthropic) · **audit final**.
+
+---
+
+## 🗓️ Sesión 2026-09-03 — LOTE QB (conciliación QuickBooks) y LOTE BLOQUEOS (capacidad real)
+
+Dos lotes, **un commit cada uno**, revisados en rama y mergeados a `main` en fast-forward; las dos
+ramas (`qb-conciliacion` y `bloqueos-capacidad`) se borraron local y remota tras el merge. Tests:
+**326 verdes** (+12 en `test/qb.test.js`, +21 en `test/bloqueos.test.js`). Los dos necesitaron
+**SQL**, aplicado por Jefferson en producción antes del merge. Vercel verde verificado en los dos
+por commit-status **y** por hashes de `dist/` contra lo servido en `rehactivaec.com`.
+
+### Lote QB — `qb_at` es administrativo y ORTOGONAL al estado clínico (`d06ce43`)
+
+La pregunta que responde la columna es *"¿esta cita ya se pasó a QuickBooks?"*, y no es una pregunta
+clínica: **no** entra en el ciclo `conf → pend → noas` ni agrega un cuarto estado. Por eso `qb_at` es
+una columna aparte y no un valor de `status`.
+
+- **Lo único que arrastra es la baja.** Al salir de `'conf'` la cita se **desconcilia**: lo que no
+  es asistencia no puede quedar pasado a QuickBooks. Eso vive en **`payloadCambioStatus()`**
+  (`utils.js:728`), que devuelve `{status}` para `'conf'` y `{status, qb_at:null}` para el resto — y
+  se aplica en la **MISMA escritura** que el estado, para que no exista un instante (ni una falla de
+  red) con una no-asistió conciliada. Es un **invariante**, no una rama del `if`: se aplica aunque el
+  rol no vea la casilla, porque un terapeuta puede pasar a `'pend'` una cita ya conciliada.
+- **Solo se concilian las confirmadas** (`citasConciliables()`, `utils.js:721`): la no-asistió no se
+  cobra, y una `'pend'` de un día pasado es un error de registro, así que el botón las deja intactas.
+- **"Conciliar día (N)"** en la subbarra de la agenda, para `admin`/`secretaria` y solo de hoy hacia
+  atrás — un día futuro no tiene nada que facturar. **N se calcula sobre TODAS las citas del día**,
+  no sobre las visibles: el filtro por terapeuta es una **lente de la grilla**, no un recorte de lo
+  que se pasa a QuickBooks; conciliar filtrado dejaría medio día sin conciliar sin que se note.
+  Conciliado el día, el botón se queda a la vista como "Día conciliado ✓".
+- **Una sola query**, filtrando por `date + status + qb_at is null` en vez de por una lista de ids:
+  así alcanza también a la cita creada por otro usuario **entre el render y el click**, y repetir la
+  acción es inocuo. Optimista con reversión.
+- **Toggle "Pasada a QuickBooks"** en el modal de cita para la corrección individual, visible solo
+  sobre una cita confirmada y para quien factura. Al **crear** una cita nunca se manda `qb_at`.
+  Marcar una ya conciliada **conserva su fecha original**: no se re-timbra sin motivo.
+- **`.appt-qb`** (`screens.css:47`) apaga la tarjeta a gris papel, **sin** `filter:saturate`: el
+  punto de estado tiene que seguir mostrando el **estado clínico**, que es otra cosa.
+- **Permiso `conciliarQB`** (admin + secretaria). Es trabajo administrativo, no clínico: lo hace
+  quien factura. El terapeuta no lo ve.
+- De paso, los dos toggles del modal de cita (QuickBooks y "repetir esta cita") pasaron de
+  `<input type=checkbox>` a `<button aria-pressed>` con `.toggle-chip`: el blanco de un checkbox
+  nativo es de ~13 px y estos se tocan con el dedo → `min-height:42px` (táctil-42). El estado **ES**
+  el atributo, así que no hay una segunda fuente de verdad que se pueda desincronizar del DOM, y el
+  listener va por JS (hay CSP).
+
+**SQL:** la columna `appointments.qb_at` la aplicó Jefferson en producción.
+**Tests (12):** `citasConciliables` (filtra por día, por estado y por ya-conciliadas) y
+`payloadCambioStatus` (el invariante de la baja en las tres transiciones).
+
+### Lote BLOQUEOS — regla → regla, excepción → registro (`e4f3886`)
+
+Dos cosas que parecen la misma y **no** lo son, y por eso se modelan distinto:
+
+- El **ALMUERZO** es una **REGLA**: `therapists.lunch_minutes` (select en el modal de terapeuta:
+  0 / 30 / 45 / 60 / 90, default 60). **No hay botón diario de almuerzo** — se olvidaría un martes
+  cualquiera y la métrica de ocupación quedaría inflada **en silencio**. Solo se descuenta de la
+  capacidad; no se pinta en la grilla.
+- La **EXCEPCIÓN** (vacaciones, curso, permiso) es un **REGISTRO**: una fila en `therapist_blocks`.
+  Se pinta, no acepta citas y también baja la capacidad.
+
+**En la agenda.** La franja bloqueada se pinta `.slot-block` (rayado gris de
+`repeating-linear-gradient`, `screens.css`), **sin** el listener de `openApptModalAt`: no es un slot
+libre y no puede parecerlo. El motivo se escribe **una sola vez**, en el slot que contiene la hora de
+inicio — repetirlo en cada media hora convertiría un bloqueo de mañana entera en una columna de
+texto. Va en **Día y Semana**; la vista Mes no se tocó. La **cita siempre manda**: si por lo que sea
+ya hay una en la franja, se dibuja la cita — el bloqueo nunca tapa un dato real. Las tiras de "no
+asistió" se siguen viendo encima, porque ya no ocupan el slot. Con `manageBlocks`, el click sobre la
+franja pintada abre el modal en modo edición.
+
+**El guard, en los cuatro caminos.** `findBlock()` (`utils.js`, mismo criterio de solape que las
+citas: tocarse en el borde **no** es solape) se consulta en `saveAppt` (alta y edición), en el
+**drop** del drag & drop —el slot bloqueado no tiene listener, pero una cita larga soltada al lado
+puede meterse en el bloqueo— y en el bucle de **recurrencia**, donde las fechas bloqueadas se saltan
+y se **reportan aparte** en el toast final ("N creadas · M bloqueadas"): si no, la secretaria se
+queda creyendo que la serie completa quedó agendada. Se consulta **ANTES** que el conflicto de citas,
+a propósito: una franja bloqueada no está *"ocupada por otro paciente"*, directamente **no existe
+como oferta**, y decir lo otro mandaría a buscar una cita que no está.
+
+**El sistema NUNCA borra citas para hacerle lugar a un bloqueo.** Si la franja ya está vendida, el
+guardado se rechaza con el número de citas que choca ("El bloqueo choca con N cita(s). Reagendalas
+primero.") y hay que reagendarlas antes. Es la única decisión que no puede tomar sola la app: atrás
+de cada cita hay un paciente al que hay que avisarle. Las `noas` **no** cuentan como choque — ya no
+ocupan la franja, mismo criterio que `bloqueaSlot`.
+
+**Capacidad — lo que justifica el lote.** `capacidadSlots(th, dates, blocks, hoy)` (`utils.js`, pura,
+`hoy` inyectable) reemplaza al **`therapistHours(th).length*5`** hardcodeado del "Desempeño por
+terapeuta": suma **solo días hábiles**, **solo fechas ya transcurridas** (`<= hoy`), y por día resta
+almuerzo y bloqueos, **nunca por debajo de 0** (un bloqueo de día completo deja ese día en 0, no en
+−2). Cierra la deuda del denominador del lote 4a (sesión 2026-09-01 (e), más abajo): el % ya no se hunde
+a mitad de semana. El contador de **"slots libres"** de la agenda usa la misma capacidad real, así
+que dejó de ofrecer horas que el terapeuta no puede atender.
+
+**El mapa de calor descuenta los bloqueos pero NO el almuerzo, a propósito.** `lunch_minutes` es una
+cantidad **diaria sin hora fija**: baja la ocupación agregada, pero no se puede ubicar en una celda
+hora×día sin inventar a qué hora almuerza cada uno. Queda comentado en `informes.js`.
+
+**Permiso `manageBlocks`** (admin + secretaria). Es agenda pura, la maneja quien la agenda: si cada
+terapeuta se bloqueara solo, la recepción vendería horas que ya no existen.
+
+**`mapBlockRow()` es la ÚNICA copia del mapeo DB→memoria** (carga inicial en `auth.js` + realtime),
+misma lección que `mapTherapistRow`: con dos copias, el bloqueo que llega por realtime termina
+distinto del que llegó al cargar. Realtime suscrito a `therapist_blocks` (INSERT/UPDATE/DELETE +
+anti-eco): re-renderiza la agenda y, si está abierto, el informe semanal — un bloqueo creado en otra
+PC cambia el % de utilización que hay en esta pantalla.
+
+**SQL (aplicado por Jefferson):** `therapists.lunch_minutes int not null default 60` con
+`check (0..180)`; tabla `therapist_blocks` (`therapist_id`, `date`, `start_h`, `end_h`, `motivo`,
+`created_by`, `check (end_h > start_h)`) + índice `(date, therapist_id)`; RLS con SELECT abierto a
+`authenticated` e INSERT/UPDATE/DELETE para admin+secretaria (misma expresión de rol que
+`rls_therapists_secretaria.sql`); `alter publication supabase_realtime add table therapist_blocks`.
+
+**Tests (21):** `findBlock` (dentro, borde que no solapa, otro terapeuta, otra fecha, id comparado
+como string), `blockedSlots` (parcial, día completo, **dos bloqueos solapados sin doble conteo**, lo
+que se sale del turno no cuenta), `capacidadSlots` (almuerzo −2/día, fin de semana fuera, futuro
+fuera, día completo → 0, nunca negativa, acepta `Date` o string), `lunchSlots`, `esDiaHabil` y
+`mapBlockRow`.
+
+### 🔧 Tareas manuales que deja la sesión
+
+- **Revisar el `lunch_minutes` de los terapeutas que NO almuercen 60 min.** La columna entró con
+  default 60 **para todos**; el que tenga 30, 45, 90 o ninguno hay que corregirlo a mano en
+  Terapeutas → Editar. Mientras tanto su capacidad —y por lo tanto su % de utilización— sale
+  desviada, y en silencio.
 
 ---
 
@@ -110,9 +234,12 @@ la fórmula.
 - **El mapa de calor NO se recorta, a propósito:** mide **agenda ocupada** (`conf`+`pend`), y ahí lo
   futuro **sí** cuenta — es justamente la pregunta "¿qué franjas tengo libres?". Usa `semAppts`, no
   `semHasta`.
-- **Efecto lateral aceptado:** el % de utilización por terapeuta **baja a mitad de semana**, porque
+- ~~**Efecto lateral aceptado:** el % de utilización por terapeuta **baja a mitad de semana**, porque
   el numerador ya es hasta-hoy y el denominador sigue siendo los slots de los cinco días. El
-  denominador correcto (días hábiles **transcurridos** del rango) es del 4b — anotado en la deuda.
+  denominador correcto (días hábiles **transcurridos** del rango) es del 4b — anotado en la deuda.~~
+  ✅ **CERRADA 2026-09-03** (`e4f3886`): `capacidadSlots()` en `utils.js` reemplazó al
+  `therapistHours(th).length*5` hardcodeado — días hábiles **transcurridos**, menos almuerzo, menos
+  bloqueos. El numerador quedó con su propia deuda (P1, ver «Deuda técnica»).
 
 ### El botón de IA vive en la pestaña que analiza
 
@@ -1597,7 +1724,7 @@ main.js         ← importa todos los módulos anteriores
 | Notificaciones a médicos | 🟡 | Preferencias guardadas, **envío no implementado** — sigue en el roadmap |
 | Protocolos de tratamiento | ✅ | CRUD + adherencia |
 | Responsive / móvil | ✅ | Pasada con foco en el flujo del terapeuta (`bc8b276`); targets táctiles de 44 px |
-| Tests automatizados | ✅ | 284 verdes con `node --test` (`npm test`), sobre la lógica pura |
+| Tests automatizados | ✅ | 326 verdes con `node --test` (`npm test`), sobre la lógica pura |
 
 ---
 
@@ -1609,7 +1736,7 @@ main.js         ← importa todos los módulos anteriores
 ### Ya no aplica *(la versión anterior de esta sección era de mayo)*
 - ~~`app.js` monolítico~~ — borrado en `efd7471`; `index.html` solo carga los módulos de `/js/`.
 - ~~`src/` scaffolding de Vite~~ — borrado, ya no existe.
-- ~~No hay tests~~ — **293 verdes** con `node --test` (`npm test`), y el CI los corre.
+- ~~No hay tests~~ — **326 verdes** con `node --test` (`npm test`), y el CI los corre.
 - ~~URL y anon key hardcodeadas~~ — `supabase-client.js` lee `VITE_SUPABASE_URL` /
   `VITE_SUPABASE_ANON_KEY` y avisa por consola si faltan. La anon key es **pública por diseño**;
   la seguridad real es la RLS.
@@ -1634,14 +1761,38 @@ extrayendo a `utils.js` (puro y testeado) — `doneEnLog`, `findConflict`, `comp
 `occupiedSlots`. Ese es el camino a seguir si hay que tocarlos.
 
 ### Sigue abierto
-- **INFORMES 4b pendiente** *(spec: `PLAN_INFORMES.md` + `mockups/informes-esqueleto-2026-09.html`)*
+- **P1 — INFORMES 4b: el NUMERADOR de la ocupación semanal está en otra unidad que el denominador**
+  (`informes.js:172-178`). `thConf` cuenta **citas** (`.filter(...).length`) y `capacidadSlots()`
+  devuelve **slots de 30'**: una cita de 60 min ocupa 2 slots pero suma 1, así que el % sale
+  **subestimado** —hasta a la mitad si el grueso de la agenda es de una hora—. Fix: el numerador
+  pasa a `Σ apptSlots(a).length` sobre las `conf`, que es exactamente la unidad del denominador y
+  ya es la función que usa la grilla. **El denominador ya está bien** desde `e4f3886`
+  (`capacidadSlots`, ver sesión 2026-09-03).
+- **Resto de INFORMES 4b** *(spec: `PLAN_INFORMES.md` + `mockups/informes-esqueleto-2026-09.html`)*
   — esqueleto común a las tres pestañas (`renderInforme(rango)`; hoy cada `render*` arma el suyo);
   **selector de período en el header** para las tres (hoy: flechas en el header el semanal, un
-  `<select>` dentro del contenido el mensual, y el anual **no tiene**); la **lectura de IA como
-  sección de hoja, NO como tarjeta** *(decisión de Jefferson, 2026-09-01)*; y la tabla **Por
-  terapeuta** con el denominador por **días hábiles TRANSCURRIDOS del rango** — hoy el % baja a
-  mitad de semana porque el numerador ya es hasta-hoy (`hastaHoy`) y el denominador sigue siendo
-  los slots de los cinco días completos.
+  `<select>` dentro del contenido el mensual, y el anual **no tiene**); y la **lectura de IA como
+  sección de hoja, NO como tarjeta** *(decisión de Jefferson, 2026-09-01)*.
+- **P2 — `dbUpdateApptStatus()` (`auth.js:294`) escribe solo `{status}`**, salteándose
+  `payloadCambioStatus()`. Es la **única** escritura de estado que no pasa por el invariante de la
+  baja de QuickBooks. Hoy no rompe nada porque su único caller es `checkAutoNoas`
+  (`agenda.js:124`), que mueve `pend → noas` y una `'pend'` nunca está conciliada — pero es un
+  agujero latente: el segundo caller que llegue con otra transición deja una no-asistió con
+  `qb_at`. Fix de una línea: `update(payloadCambioStatus(status))`.
+- **P2 — mover una cita conciliada CONSERVA su `qb_at`** *(decisión documentada, no bug)*. Cambiar
+  fecha, hora o terapeuta de una `'conf'` ya pasada a QuickBooks no la desconcilia: lo que se
+  facturó fue **la sesión**, no la franja, y re-timbrarla obligaría a revisarla de nuevo en
+  QuickBooks sin motivo. Queda anotado porque es contraintuitivo al leer el código: el único
+  disparador de la desconciliación es el **cambio de estado**, no el de posición.
+- **P2 — `parseTimeInput()` no redondea a la media hora.** El `step="1800"` de los `<input
+  type="time">` del modal de bloqueo (y el `step="300"` de la hora exacta de la cita) es una
+  **pista del navegador, no una restricción**: una hora tecleada a mano entra sin redondear. Si el
+  `CHECK` de la columna la rechaza, el error de Postgres sube **crudo** al toast
+  (`'Error al guardar el bloqueo: ' + error.message`), que no es un mensaje para recepción. Fix:
+  redondear en `parseTimeInput` o validar antes de escribir, y traducir el error.
+- **Follow-up — columna QB en el export a Excel.** El export por rango (`excel.js`, sesión
+  2026-08-31 (e)) no lleva `qb_at`, así que la conciliación no se puede cruzar fuera de la app;
+  es justo el archivo que se usa para revisar contra QuickBooks.
 - **SEMÁNTICA DE LA NOTA DE FIN DE EPISODIO** *(hallazgo del LOTE HISTORIAL, 2026-09-01 (d))* —
   `guardarNuevoEpisodio` (`pacientes.js:410`) escribe `doneActual(p)` = sesiones **HECHAS** al
   cerrar, e `informes.js:539` lo lee como el **PLAN** del episodio cerrado → el informe de un
