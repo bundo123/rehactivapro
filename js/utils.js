@@ -632,6 +632,24 @@ export function indiceCitaCierre(citas, hoy = fmtDate(new Date())) {
   return idx >= 0 ? idx : (lista.length ? 0 : -1);
 }
 
+// ── Conciliación con QuickBooks ───────────────────────────────────────────────
+// `qbAt` es estado ADMINISTRATIVO (¿esta cita ya se pasó a QuickBooks?) y es ORTOGONAL al estado
+// clínico `status`: no entra en el ciclo conf→pend→noas ni lo modifica.
+//
+// Citas de un día que todavía hay que pasar a QuickBooks: solo las CONFIRMADAS (la no-asistió no
+// se cobra, y una 'pend' de un día pasado es un error de registro, no una asistencia) y solo las
+// que no se conciliaron antes (`qbAt` vacío) — conciliar es idempotente.
+export function citasConciliables(appts, ds) {
+  return (appts || []).filter(a => a && a.date === ds && a.status === 'conf' && !a.qbAt);
+}
+
+// Campos de DB para un cambio de estado clínico. Una cita que deja de ser asistencia no puede
+// quedar conciliada: al salir de 'conf' se limpia `qb_at` en la MISMA escritura que el estado,
+// para que no exista un instante (ni una falla de red) con una no-asistió pasada a QuickBooks.
+export function payloadCambioStatus(nuevoStatus) {
+  return nuevoStatus === 'conf' ? { status: nuevoStatus } : { status: nuevoStatus, qb_at: null };
+}
+
 // Texto del badge: "3/10" con plan, "3" sin plan.
 export function ordinalTexto(ord) {
   if (!ord) return '';

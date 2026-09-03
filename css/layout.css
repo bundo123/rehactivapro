@@ -58,6 +58,11 @@
 .count-pill b{font-size:13px}
 .count-item{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 2px}
 .count-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+/* "Conciliar día": vive en la subbarra de la agenda, junto a los contadores. Deshabilitado = el
+   día ya está conciliado, y se queda a la vista como confirmación (no desaparece). */
+.btn-conciliar{padding:4px 12px;border:1px solid rgba(41,171,226,.35);background:rgba(41,171,226,.08);border-radius:99px;font-size:12px;font-family:inherit;color:#1a1917;cursor:pointer}
+.btn-conciliar:hover:not(:disabled){background:rgba(41,171,226,.18)}
+.btn-conciliar:disabled{cursor:default;color:#8a8984;background:#f2f1ec;border-color:#dcdad3}
 .leg-item{display:inline-flex;align-items:center;gap:5px}
 .leg-stripe{width:3px;height:12px;border-radius:2px;display:inline-block;flex-shrink:0}
 .leg-tint{width:14px;height:12px;border-radius:3px;display:inline-block;flex-shrink:0;border:1px solid rgba(0,0,0,.08)}

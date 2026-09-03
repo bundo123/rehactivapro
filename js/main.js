@@ -10,7 +10,7 @@ import { loadAll, doLogin, doLogout, loadProfile,
 import { applyRolePermissions, canAccessTab, hasPermission } from './permissions.js';
 import { markLocalChange, subscribeRealtime, unsubscribeRealtime } from './realtime.js';
 import {
-  renderGrid, renderRefLegend, cycleStatus, updateFacturaBadge,
+  renderGrid, renderRefLegend, cycleStatus, updateFacturaBadge, conciliarDia,
   changeDay, openApptModal, openApptModalAt, openEditApptModal, updateTimeSlots, saveAppt, delAppt,
   goToDate, goToToday, openDatePicker, agendarCitaParaPaciente, checkAutoNoas,
   toggleRecurrencia, updateRecPreview, filterApptPatient,
@@ -93,6 +93,8 @@ window._app = {
   renderDoctorsList, renderFacturacion,
   // badges
   updateResumenBadge, updateFacturaBadge,
+  // conciliación QuickBooks (estado administrativo de la cita)
+  conciliarDia,
   // episodes
   updateEpisodes, selectRptPatient,
   // historial (agenda.js lo llama desde el modal de cita sin importarlo: evita un ciclo de módulos)

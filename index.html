@@ -562,12 +562,18 @@
     </div>
   </div>
 
-  <!-- CITAS RECURRENTES -->
+  <!-- OPCIONES DE LA CITA — los dos toggles en una sola fila, al pie del modal. El estado de cada
+       uno vive en su aria-pressed y el listener lo pone agenda.js (hay CSP, nada de onchange).
+       "Repetir" va primero porque el panel que abre cuelga de esta fila y porque el de QuickBooks
+       está oculto casi siempre (solo quien factura, y solo sobre una cita confirmada): con ese
+       orden, "Repetir" no se corre de lugar según el rol.
+       El de QuickBooks NO puede ir arriba dentro del .field de Estado: ahí la regla .field label
+       lo deformaría a 10px uppercase. -->
   <div style="border-top:1px solid rgba(29,158,117,.15);margin-top:14px;padding-top:14px">
-    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:#1a1917">
-      <input type="checkbox" id="m-recurrente" onchange="toggleRecurrencia()">
-      🔁 Repetir esta cita
-    </label>
+    <div class="toggle-row">
+      <button type="button" id="m-recurrente" class="toggle-chip" aria-pressed="false">🔁 Repetir esta cita</button>
+      <button type="button" id="m-qb" class="toggle-chip" aria-pressed="false" hidden>Pasada a QuickBooks</button>
+    </div>
     <div id="recurrencia-panel" style="display:none;margin-top:12px">
       <div class="field-row two">
         <div class="field">

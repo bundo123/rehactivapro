@@ -72,7 +72,8 @@ export async function loadAll(force=false) {
     }));
     state.protocols = (prot.data||[]).map(r=>({id:r.id,name:r.name,diag:r.diag_keywords||'',sessions:r.sessions||20,freq:r.freq||3,alta:r.discharge_criteria||'',
       img:r.img||'',def:r.definition||'',clinicalContext:r.clinical_context||''}));
-    state.appointments = (appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:(r.patients&&r.patients.name)||null,hour:r.hour,duration:r.duration||60,type:tipoSesion(r.type),status:r.status||'pend',note:r.note||'',location:r.location||'centro'}));
+    // qbAt: conciliación con QuickBooks. Estado ADMINISTRATIVO, ortogonal al clínico (status).
+    state.appointments = (appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:(r.patients&&r.patients.name)||null,hour:r.hour,duration:r.duration||60,type:tipoSesion(r.type),status:r.status||'pend',note:r.note||'',location:r.location||'centro',qbAt:r.qb_at||null}));
     state.informes = (inf.data||[]).map(r=>({id:r.id,patientId:r.patient_id,createdAt:r.created_at,createdBy:r.created_by,numero:r.numero,episodio:r.episodio,fechaEmision:r.fecha_emision,narrativa:r.narrativa||[],snapshot:r.snapshot||{}}));
     if(!state.protocols.length) state.protocols = [...DEFAULT_PROTOCOLS];
 

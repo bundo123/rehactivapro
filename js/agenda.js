@@ -2,7 +2,8 @@ import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, therapistHours, getAvailHours, dotColor, pendientesActual, safeColor, orderedTherapists, startOfWeek,
          apptSlots, slotOf, isAlignedHour, findConflict, compactNoas, occupiedSlots, toTimeInput, parseTimeInput,
-         ordinalesDeCitas, ordinalTexto, tipoSesion, TIPO_SESION_DEFAULT } from './utils.js';
+         ordinalesDeCitas, ordinalTexto, tipoSesion, TIPO_SESION_DEFAULT,
+         citasConciliables, payloadCambioStatus, dmy } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dbUpdateApptStatus } from './auth.js';
 import { hasPermission, canAccessTab } from './permissions.js';
@@ -14,6 +15,13 @@ import { setPlanAppt } from './plan.js';
 // apptSlots vive en utils.js (puro y testeable); se re-exporta porque informes.js lo consume
 // desde acá desde antes de la migración.
 export { apptSlots };
+
+// ── Toggles del modal de cita (QuickBooks, "repetir esta cita") ──
+// Son <button aria-pressed> y no <input type=checkbox>: el blanco de un checkbox nativo es
+// demasiado chico para el dedo (ver .toggle-chip). El estado ES el atributo, así que no hay una
+// segunda fuente de verdad que se pueda desincronizar del DOM.
+const chipOn  = id => document.getElementById(id)?.getAttribute('aria-pressed')==='true';
+const setChip = (id,on) => document.getElementById(id)?.setAttribute('aria-pressed', on?'true':'false');
 
 // Solape por intervalo real, no por slots de media hora: con horas exactas una cita de
 // 10:45–11:45 choca con otra de 11:00 aunque no compartan el mismo slot de inicio.
@@ -139,12 +147,24 @@ export function renderGrid() {
   const occupied=occupiedSlots(visTa);
   const libres=Math.max(0,totalSlots-occupied);
 
+  // Conciliación QuickBooks del día. Se calcula sobre `ta` (TODAS las citas del día) y no sobre
+  // `visTa`: el filtro por terapeuta es una lente de la grilla, no un recorte de lo que se pasa a
+  // QuickBooks — conciliar filtrado dejaría medio día sin conciliar sin que se note.
+  const porConciliar=citasConciliables(ta, ds).length;
+  // Solo hacia atrás (hoy incluido): un día futuro no tiene nada que facturar todavía.
+  const mostrarQB=hasPermission('conciliarQB') && ds<=fmtDate(new Date()) && conf>0;
+  const qbBtn=!mostrarQB?'':(porConciliar>0
+    ? `<button id="btn-conciliar" class="btn-conciliar">Conciliar día (${porConciliar})</button>`
+    : `<button id="btn-conciliar" class="btn-conciliar" disabled>Día conciliado ✓</button>`);
+
   const statsEl=document.getElementById('agenda-stats');
   if(statsEl) statsEl.innerHTML=`
     <span class="count-pill"><b>${ta.length}</b>&nbsp;cita${ta.length!==1?'s':''} hoy · ${libres} slots libres</span>
     <span class="count-item" style="color:#17865f"><span class="count-dot" style="background:#1D9E75"></span>${conf} confirmada${conf!==1?'s':''}</span>
     <span class="count-item" style="color:#BA7517"><span class="count-dot" style="background:#E0A850"></span>${pend} pendiente${pend!==1?'s':''}</span>
-    <span class="count-item" style="color:#c33a3a"><span class="count-dot" style="background:#E24B4A"></span>${noas} no asistió</span>`;
+    <span class="count-item" style="color:#c33a3a"><span class="count-dot" style="background:#E24B4A"></span>${noas} no asistió</span>${qbBtn}`;
+  // addEventListener y no onclick inline: hay CSP y el atributo no ejecutaría.
+  if(mostrarQB&&porConciliar>0) document.getElementById('btn-conciliar')?.addEventListener('click',()=>conciliarDia(ds));
 
   // Filas: unión de horarios de los terapeutas visibles + horas de citas del día.
   // NUEVO 2: las citas fuera del horario son válidas y deben verse SIEMPRE.
@@ -246,6 +266,9 @@ export function renderGrid() {
         const pt=getPatient(appt.patientId);
         const card=document.createElement('div');
         let sc='';if(appt.status==='pend')sc=' status-pend';else if(appt.status==='noas')sc=' status-noas';
+        // Ya pasada a QuickBooks: la tarjeta se apaga (trabajo administrativo cerrado). El punto
+        // de estado NO se toca: sigue diciendo el estado clínico.
+        if(appt.qbAt)sc+=' appt-qb';
         // Tinte de fondo por MODALIDAD (centro verde / domicilio naranja); el ESTADO pisa el
         // tinte cuando aplica (reglas .status-* posteriores en CSS).
         const locCls=appt.location==='domicilio'?'loc-domicilio':'loc-centro';
@@ -253,7 +276,9 @@ export function renderGrid() {
         card.draggable=true;
         const doc=pt&&pt.doctorId?getDoctor(pt.doctorId):null;
         card.style.borderLeftColor=doc?doc.color:'rgba(0,0,0,.1)';
-        if(doc) card.title=`Ref: ${doc.name} (${doc.spec})${appt.status==='conf'?' · Doble click para registrar sesión':''}`;
+        const qbTag=appt.qbAt?' · QB ✓':'';
+        if(doc) card.title=`Ref: ${doc.name} (${doc.spec})${appt.status==='conf'?' · Doble click para registrar sesión':''}${qbTag}`;
+        else if(appt.qbAt) card.title='Pasada a QuickBooks ✓';
         const durLabel=dur!==60?` · ${dur}min`:'';
         const canDel=hasPermission('deleteAppt');
         // La cita no alineada se dibuja en la fila de su media hora: sin la hora exacta en la
@@ -328,8 +353,43 @@ export async function cycleStatus(id) {
   const a=state.appointments.find(x=>x.id===id);if(!a)return;
   const c=['conf','pend','noas'];
   a.status=c[(c.indexOf(a.status)+1)%3];
+  // El ciclo es CLÍNICO: QuickBooks no participa (no hay un cuarto estado "conciliada"). Lo único
+  // que arrastra es la baja: al salir de 'conf' la cita se desconcilia, porque lo que no es
+  // asistencia no puede quedar pasado a QuickBooks.
+  if(a.status!=='conf') a.qbAt=null;
   renderGrid(); window._app.updateResumenBadge(); updateFacturaBadge();
-  await commitApptChange(a, {status:a.status});   // solo persiste la fila
+  await commitApptChange(a, payloadCambioStatus(a.status));   // solo persiste la fila
+}
+
+// ── Conciliación QuickBooks de un día ──
+// Marca en UNA sola query todas las confirmadas del día que aún no se pasaron a QuickBooks. El
+// filtro va en la query (date + status + qb_at is null) y no en una lista de ids: así una cita
+// creada por otro usuario entre el render y el click también queda conciliada, y repetir la
+// acción es inocuo.
+export async function conciliarDia(ds) {
+  if(!hasPermission('conciliarQB')){toastErr('No tienes permisos para conciliar con QuickBooks.');return;}
+  const pendientes=citasConciliables(state.appointments, ds);
+  if(!pendientes.length){toastInfo('No hay citas confirmadas pendientes de conciliar en este día.');return;}
+  const n=pendientes.length;
+  if(!confirm(`¿Marcar ${n} cita${n!==1?'s':''} confirmada${n!==1?'s':''} del ${dmy(ds)} como pasada${n!==1?'s':''} a QuickBooks?`)) return;
+
+  const nowIso=new Date().toISOString();
+  // Ids optimistas (numéricos / 'rec-') no existen como fila: el UPDATE no las alcanza, así que
+  // tampoco se marcan en memoria — la grilla no puede mostrar un ✓ que la DB no tiene.
+  const tocadas=pendientes.filter(a=>esRealApptId(a.id));
+  tocadas.forEach(a=>{a.qbAt=nowIso;});
+  renderGrid();
+
+  const revertir=()=>{tocadas.forEach(a=>{a.qbAt=null;});renderGrid();};
+  try {
+    const {error}=await supa.from('appointments').update({qb_at:nowIso})
+      .eq('date',ds).eq('status','conf').is('qb_at',null);
+    if(error){revertir();toastErr('No se pudo conciliar el día: '+error.message);return;}
+  } catch(e){
+    revertir();toastErr('Error de conexión al conciliar el día.');return;
+  }
+  const m=tocadas.length;
+  toastOk(`${m} cita${m!==1?'s':''} pasada${m!==1?'s':''} a QuickBooks`);
 }
 
 export async function delAppt(id,e) {
@@ -413,7 +473,21 @@ export function verHistorialDeCita() {
   window._app.irAHistorial(pid);
 }
 
+// Los toggles son botones, así que su estado lo invierte JS. Se cablean UNA vez (el markup del
+// modal es estático en index.html) y no en cada apertura: si no, cada open sumaría un listener
+// más y un click terminaría alternando el chip N veces. Se llama desde las DOS puertas del modal
+// —_openApptModalBase (crear) y openEditApptModal (editar), que no pasa por la primera—: quien
+// solo abre citas existentes también tiene que poder tocar el chip de QuickBooks.
+let _chipsWired=false;
+function _wireApptChips() {
+  if(_chipsWired) return;
+  _chipsWired=true;
+  document.getElementById('m-recurrente')?.addEventListener('click',()=>toggleRecurrencia());
+  document.getElementById('m-qb')?.addEventListener('click',()=>setChip('m-qb',!chipOn('m-qb')));
+}
+
 function _openApptModalBase() {
+  _wireApptChips();
   document.getElementById('m-therapist').innerHTML=orderedTherapists().map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.startH)}-${fmtTime(t.endH)})</option>`).join('');
   updateTimeSlots();
   document.getElementById('appt-modal').classList.add('open');
@@ -450,7 +524,11 @@ export function openApptModal() {
   // la última cita editada y una respiratoria se propagaría sola a la siguiente que se agende.
   document.getElementById('m-type').value=TIPO_SESION_DEFAULT;
   document.getElementById('m-status').value='conf';
-  document.getElementById('m-recurrente').checked=false;
+  // Una cita que todavía no existe no puede estar conciliada: el toggle QB no se ofrece al crear.
+  const qbNew=document.getElementById('m-qb');
+  if(qbNew) qbNew.hidden=true;
+  setChip('m-qb',false);
+  setChip('m-recurrente',false);
   document.getElementById('recurrencia-panel').style.display='none';
   setApptRptShortcut(null);
   setCie10Appt(null);   // "Nueva cita": el CIE-10 se carga desde la ficha, no al agendar
@@ -463,6 +541,7 @@ export function openApptModal() {
 export function openEditApptModal(id) {
   const a=state.appointments.find(x=>x.id===id);
   if(!a){toastErr('Cita no encontrada.');return;}
+  _wireApptChips();
   clearAllErrors(['m-date','m-patient-search','m-therapist','m-time','m-time-exact']);
   const pt=getPatient(a.patientId);
   document.getElementById('m-editing-id').value=String(id);
@@ -479,7 +558,12 @@ export function openEditApptModal(id) {
   if(locSel) locSel.value=a.location||'centro';
   document.getElementById('m-note').value=a.note||'';
   document.getElementById('m-status').value=a.status||'conf';
-  document.getElementById('m-recurrente').checked=false;
+  // El toggle QB solo aparece para quien factura y solo sobre una cita CONFIRMADA: es la única
+  // que se concilia. Su visibilidad al abrir es lo que saveAppt lee para saber si tocar qb_at.
+  const qbEl=document.getElementById('m-qb');
+  if(qbEl) qbEl.hidden=!(hasPermission('conciliarQB')&&a.status==='conf');
+  setChip('m-qb', !!a.qbAt);
+  setChip('m-recurrente',false);
   document.getElementById('recurrencia-panel').style.display='none';
   setApptRptShortcut(pt ? a.patientId : null);
   setCie10Appt(pt ? a.patientId : null);   // dato del paciente: sin paciente, no hay sección
@@ -600,11 +684,23 @@ export async function saveAppt() {
     existing.therapistId=thId;existing.hour=hr;existing.duration=dur;existing.location=loc;
     existing.patientId=patId;existing.type=document.getElementById('m-type').value;
     existing.status=document.getElementById('m-status').value;existing.note=document.getElementById('m-note').value;existing.date=ds;
-    window._app.closeModal('appt-modal'); renderGrid();
-    const ok=await commitApptChange(existing, {
+    const dbFields={
       date:ds,therapist_id:thId,patient_id:patId,hour:hr,duration:dur,
       type:existing.type,status:existing.status,note:existing.note||'',location:loc
-    });
+    };
+    // Invariante, SIEMPRE (aunque el rol no vea la casilla): si el estado nuevo no es 'conf', la
+    // cita se desconcilia — un terapeuta puede pasar a 'pend' una cita ya conciliada.
+    Object.assign(dbFields, payloadCambioStatus(existing.status));
+    if(existing.status!=='conf') existing.qbAt=null;
+    // El toggle solo se lee si estaba a la vista (permiso + cita confirmada al abrir el modal).
+    // Marcar una ya conciliada conserva su fecha original: no se re-timbra sin motivo.
+    const qbEd=document.getElementById('m-qb');
+    if(qbEd&&!qbEd.hidden&&existing.status==='conf'){
+      existing.qbAt=chipOn('m-qb')?(existing.qbAt||new Date().toISOString()):null;
+      dbFields.qb_at=existing.qbAt;
+    }
+    window._app.closeModal('appt-modal'); renderGrid();
+    const ok=await commitApptChange(existing, dbFields);
     if(ok) toastOk('Cita actualizada');
     updateFacturaBadge();
     return;
@@ -630,7 +726,7 @@ export async function saveAppt() {
     }
     else {
       _a.id=data.id;
-      if(document.getElementById('m-recurrente')?.checked){
+      if(chipOn('m-recurrente')){
         const dias=[...document.querySelectorAll('.rec-day:checked')].map(c=>parseInt(c.value));
         const semanas=parseInt(document.getElementById('m-rec-semanas')?.value||'4');
         if(dias.length){
@@ -677,7 +773,10 @@ export function agendarCitaParaPaciente(patientId) {
 }
 
 export function toggleRecurrencia() {
-  const on=document.getElementById('m-recurrente').checked;
+  // El click no cambia el atributo por sí solo (es un <button>, no un checkbox): lo invierte acá,
+  // que es el único lugar que lo hace, y el panel se abre según el valor NUEVO.
+  const on=!chipOn('m-recurrente');
+  setChip('m-recurrente',on);
   document.getElementById('recurrencia-panel').style.display=on?'block':'none';
   if(on) updateRecPreview();
 }
@@ -830,6 +929,7 @@ export function renderWeekView() {
         const doc = pt && pt.doctorId ? getDoctor(pt.doctorId) : null;
         const card = document.createElement('div');
         let sc = ''; if(appt.status === 'pend') sc = ' status-pend'; else if(appt.status === 'noas') sc = ' status-noas';
+        if(appt.qbAt) sc += ' appt-qb';   // mismo apagado que en la vista Día
         const locCls = appt.location === 'domicilio' ? 'loc-domicilio' : 'loc-centro';
         card.className = `appt ${locCls}${sc}`;
         card.style.borderLeftColor = doc ? doc.color : 'rgba(0,0,0,.1)';
@@ -838,7 +938,7 @@ export function renderWeekView() {
         if(canAddWk) card.classList.add('has-add');
         const ordWk = ordMap.get(appt) || null;
         if(ordWk) card.classList.add('has-ord');
-        card.innerHTML = `<div class="appt-name">${exactTagWk}${esc(pt ? pt.name : (appt.patientName || 'Sin paciente'))}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)}"></div>${canAddWk ? '<div class="appt-add" title="Agendar otra cita en esta franja">+</div>' : ''}${ordBadge(ordWk)}`;
+        card.innerHTML = `<div class="appt-name">${exactTagWk}${esc(pt ? pt.name : (appt.patientName || 'Sin paciente'))}</div><div class="appt-dot" style="background:${dotColor(appt.status)}" title="Estado: ${esc(appt.status)}${appt.qbAt ? ' · QB ✓' : ''}"></div>${canAddWk ? '<div class="appt-add" title="Agendar otra cita en esta franja">+</div>' : ''}${ordBadge(ordWk)}`;
         card.addEventListener('click', e => { if(e.target.classList.contains('appt-add')) return; e.stopPropagation(); openEditApptModal(appt.id); });
         if(canAddWk) card.querySelector('.appt-add').addEventListener('click', e => { e.stopPropagation(); openApptModalAt(th.id, hr, ds); });
         const off = strips.length * STRIP_STEP;
