@@ -367,6 +367,18 @@ export function normHour(h){
   const p=String(h||'').split(':');
   return `${String(parseInt(p[0]||'0',10)).padStart(2,'0')}:${(p[1]||'00').padStart(2,'0')}:${(p[2]||'00').padStart(2,'0')}`;
 }
+// Índice de una fila de session_log dentro de p.log. Por id cuando la fila lo trae (siempre, salvo
+// payloads legacy); el fallback por (date,hour) solo aplica a entradas de memoria SIN id, para no
+// confundir dos sesiones distintas del mismo slot (eso es exactamente CORR-04/05).
+export function findSessionIdx(log, row){
+  if(!Array.isArray(log)||!row)return -1;
+  if(row.id!=null){
+    const byId=log.findIndex(s=>s.id!=null&&String(s.id)===String(row.id));
+    if(byId>=0)return byId;
+    return log.findIndex(s=>s.id==null&&s.date===row.date&&normHour(s.hour)===normHour(row.hour));
+  }
+  return log.findIndex(s=>s.date===row.date&&normHour(s.hour)===normHour(row.hour));
+}
 // ── CIE-10: helpers puros (el catálogo se carga lazy desde cie10.js) ──
 
 // Busca en el catálogo CIE-10 (array de {c,d}) por código o descripción. Pura: recibe el

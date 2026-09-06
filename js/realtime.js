@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { getPatient, fmtTime, normHour, mapTherapistRow, mapBlockRow, tipoSesion } from './utils.js';
+import { getPatient, fmtTime, normHour, findSessionIdx, mapTherapistRow, mapBlockRow, tipoSesion } from './utils.js';
 import { toastInfo } from './toast.js';
 
 // ── Anti-eco por tabla (ventana 3 s) ──
@@ -24,6 +24,20 @@ function touchLoaded(table) {
   state.lastLoaded.all=now;
   if(table)state.lastLoaded[table]=now;
   window._app?.updateLastLoadedLabels?.();
+}
+
+// Coalescing: un lote de N filas (ej. recurrentes, agenda.js:809) llega como N eventos y cada uno
+// pedía un renderGrid completo (255 líneas que rearman el DOM). Se agrupan las funciones de render
+// pedidas y se ejecuta cada una UNA vez en el próximo frame.
+const _pendingRenders=new Set();
+let _renderFlushScheduled=false;
+function _scheduleRender(fn){
+  if(typeof fn!=='function')return;
+  _pendingRenders.add(fn);
+  if(_renderFlushScheduled)return;
+  _renderFlushScheduled=true;
+  const flush=()=>{_renderFlushScheduled=false;const fns=[..._pendingRenders];_pendingRenders.clear();fns.forEach(f=>f());};
+  if(typeof requestAnimationFrame==='function')requestAnimationFrame(flush);else setTimeout(flush,0);
 }
 
 // ── Wrapper sobre supa.from ──
@@ -94,13 +108,13 @@ function _mapSession(s){return{id:s.id,date:s.date,type:s.type,hour:s.hour,statu
 
 function _refreshTabAfterAppt() {
   const {renderGrid,renderResumen,renderFacturacion,renderSeguimiento,renderHistorial,updateResumenBadge,updateFacturaBadge}=window._app;
-  if(state.currentTab==='agenda')renderGrid();
-  else if(state.currentTab==='resumen')renderResumen();
-  else if(state.currentTab==='facturacion')renderFacturacion();
-  else if(state.currentTab==='seguimiento')renderSeguimiento();
+  if(state.currentTab==='agenda')_scheduleRender(renderGrid);
+  else if(state.currentTab==='resumen')_scheduleRender(renderResumen);
+  else if(state.currentTab==='facturacion')_scheduleRender(renderFacturacion);
+  else if(state.currentTab==='seguimiento')_scheduleRender(renderSeguimiento);
   // El Historial se arma sobre las citas: si la secretaria mueve una desde otra PC, la pantalla
   // abierta acá tiene que reflejarlo (si no, se contesta el teléfono con un conteo viejo).
-  else if(state.currentTab==='historial')renderHistorial();
+  else if(state.currentTab==='historial')_scheduleRender(renderHistorial);
   updateResumenBadge();updateFacturaBadge();
 }
 
@@ -138,13 +152,19 @@ function _onPatient(payload) {
     if(state.patients.length<before)queueRemoteToast('patients','Paciente eliminado');
   }
   const {renderPatients,renderPatientReport,renderFacturacion,renderSeguimiento,renderHistorial,updateFacturaBadge}=window._app;
-  if(state.currentTab==='pacientes')renderPatients();
-  else if(state.currentTab==='paciente_rpt'){const sel=document.getElementById('patient-rpt-select')?.value;if(sel)renderPatientReport();}
-  else if(state.currentTab==='facturacion')renderFacturacion();
-  else if(state.currentTab==='seguimiento')renderSeguimiento();
+  if(state.currentTab==='pacientes')_scheduleRender(renderPatients);
+  // El informe solo se repinta si el paciente en pantalla es el del evento (CORR-09): antes,
+  // cualquier alta o edición de OTRO paciente rearmaba el informe abierto.
+  else if(state.currentTab==='paciente_rpt'){
+    const sel=document.getElementById('patient-rpt-select')?.value;
+    const pid=(payload.new||payload.old)?.id;
+    if(sel&&pid!=null&&String(sel)===String(pid))_scheduleRender(renderPatientReport);
+  }
+  else if(state.currentTab==='facturacion')_scheduleRender(renderFacturacion);
+  else if(state.currentTab==='seguimiento')_scheduleRender(renderSeguimiento);
   // La cabecera del Historial muestra diagnóstico, plan y terapeuta del paciente: si los editan en
   // otra PC, hay que repintar.
-  else if(state.currentTab==='historial')renderHistorial();
+  else if(state.currentTab==='historial')_scheduleRender(renderHistorial);
   updateFacturaBadge();
 }
 
@@ -156,25 +176,28 @@ function _onSessionLog(payload) {
   const p=getPatient(pid);if(!p)return;
   if(!p.log)p.log=[];
   if(ev==='INSERT'){
-    if(!p.log.find(s=>s.date===payload.new.date&&normHour(s.hour)===normHour(payload.new.hour))){p.log.push(_mapSession(payload.new));queueRemoteToast('session_log','Sesión clínica registrada');}
+    if(findSessionIdx(p.log,payload.new)<0){p.log.push(_mapSession(payload.new));queueRemoteToast('session_log','Sesión clínica registrada');}
     const a=state.appointments.find(x=>x.patientId===pid&&x.date===payload.new.date&&normHour(fmtTime(x.hour))===normHour(payload.new.hour));
     if(a)a.hasSession=true;
   } else if(ev==='UPDATE'){
-    const idx=p.log.findIndex(s=>s.date===payload.new.date&&normHour(s.hour)===normHour(payload.new.hour));
+    const idx=findSessionIdx(p.log,payload.new);
     if(idx>=0)p.log[idx]=_mapSession(payload.new);else p.log.push(_mapSession(payload.new));
     queueRemoteToast('session_log','Sesión actualizada');
   } else if(ev==='DELETE'){
-    p.log=p.log.filter(s=>!(s.date===payload.old.date&&normHour(s.hour)===normHour(payload.old.hour)));
+    // Si la fila no aparece por id no se borra nada: filtrar por (date,hour) tiraría una sesión
+    // DISTINTA del mismo slot.
+    const idx=findSessionIdx(p.log,payload.old);
+    if(idx>=0)p.log.splice(idx,1);
     queueRemoteToast('session_log','Sesión eliminada');
   }
   const {renderPatientReport,renderGrid,renderSeguimiento,renderHistorial}=window._app;
-  if(state.currentTab==='paciente_rpt'){const sel=document.getElementById('patient-rpt-select')?.value;if(String(sel)===String(pid))renderPatientReport();}
-  if(state.currentTab==='agenda')renderGrid();
-  if(state.currentTab==='seguimiento')renderSeguimiento();
+  if(state.currentTab==='paciente_rpt'){const sel=document.getElementById('patient-rpt-select')?.value;if(String(sel)===String(pid))_scheduleRender(renderPatientReport);}
+  if(state.currentTab==='agenda')_scheduleRender(renderGrid);
+  if(state.currentTab==='seguimiento')_scheduleRender(renderSeguimiento);
   // Un 'Fin de episodio' nuevo mueve la frontera y con ella TODOS los cortes y ordinales de la
   // pantalla, así que el Historial se repinta aunque el paciente abierto sea otro (barato: es un
   // render sobre datos que ya están en memoria).
-  if(state.currentTab==='historial')renderHistorial();
+  if(state.currentTab==='historial')_scheduleRender(renderHistorial);
 }
 
 function _onCobro(payload) {
@@ -190,7 +213,7 @@ function _onCobro(payload) {
     queueRemoteToast('cobros','Cobro registrado');
   }
   const {renderFacturacion,updateFacturaBadge}=window._app;
-  if(state.currentTab==='facturacion')renderFacturacion();
+  if(state.currentTab==='facturacion')_scheduleRender(renderFacturacion);
   updateFacturaBadge();
 }
 
@@ -209,8 +232,8 @@ function _onTherapist(payload) {
     if(state.therapists.length<before)queueRemoteToast('therapists','Terapeuta eliminado');
   }
   const {renderTherapistList,renderGrid}=window._app;
-  if(state.currentTab==='terapeutas')renderTherapistList();
-  if(state.currentTab==='agenda')renderGrid();
+  if(state.currentTab==='terapeutas')_scheduleRender(renderTherapistList);
+  if(state.currentTab==='agenda')_scheduleRender(renderGrid);
 }
 
 // Bloqueos de terapeuta. Se re-renderiza la agenda (la franja se pinta ahí) y, si está abierto,
@@ -231,8 +254,8 @@ function _onBlock(payload) {
     if(state.blocks.length<before)queueRemoteToast('therapist_blocks','Bloqueo eliminado');
   }
   const {renderGrid,renderSemanal}=window._app;
-  if(state.currentTab==='agenda')renderGrid();
-  else if(state.currentTab==='informes'&&state.informesSubTab==='semanal')renderSemanal();
+  if(state.currentTab==='agenda')_scheduleRender(renderGrid);
+  else if(state.currentTab==='informes'&&state.informesSubTab==='semanal')_scheduleRender(renderSemanal);
 }
 
 function _onDoctor(payload) {
