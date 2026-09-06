@@ -1,6 +1,6 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-09-03
+> Generado: 2026-05-18 · Última actualización: 2026-09-06
 
 ---
 
@@ -33,6 +33,37 @@
 - **Semana 2:** auto-logout (15 min) · I-13 (alerts→toasts) · P-11 (CSP parcial).
 - **Semana 3:** I-12 (focus-trap/Escape) · I-15 (tests `node --test`) · `npm audit fix` · decisión P-2/P-6.
 - **Semana 4:** `clinical_context` de protocolos reales · papeleo LOPDP (lectura abierta + sub-encargado Anthropic) · **audit final**.
+
+---
+
+## 🗓️ Sesión 2026-09-06 — LOTE AUDIT-1 (`200b91c`, rama `audit-1-sesion-select`)
+
+Dos bugs de producción que salieron de la auditoría (`AUDITORIA.md`), ambos XS. La rama **no
+está mergeada a `main`**: queda a la espera del OK de revisión.
+
+- **CORR-06 — el SELECT de `saveSession()` no abortaba (`sesiones.js`).** El `maybeSingle()` que
+  busca la sesión ya registrada para `(patient_id, date, hour)` solo miraba `.data` y nunca
+  `.error`. Cuando ya hay **más de una fila** para esa clave, postgrest-js devuelve
+  `{data:null, error:PGRST116}`: el flujo leía `data:null`, concluía "no existe" y **caía al
+  INSERT**, así que cada «Completar sesión» sobre un duplicado agregaba **otro** duplicado — el
+  bug se retroalimentaba. Un error de red hacía exactamente lo mismo. Ahora se desestructura
+  `{data:ex, error:exErr}` y con `exErr` se avisa (`No se pudo verificar la sesión. Reintentá en
+  unos segundos.`) y se corta **antes** del `if` que decide UPDATE vs INSERT: con error nunca se
+  inserta a ciegas. El `finally` de siempre libera `_savingSession`, así que el candado no queda
+  trabado. Resto del flujo intacto.
+- **CORR-12 — WhatsApp sin código de país (`resumen.js`).** El botón WA de «No asistieron» abría
+  `wa.me/0991234567` tal cual salía de la ficha; WhatsApp **rechaza** el número sin código de
+  país, así que el botón no servía. `informes.js:294` ya lo hacía bien, pero con la fórmula
+  repetida inline.
+- **`waNumber(tel)` en `utils.js`** (puro, junto a los helpers de formato) es ahora la **fuente
+  única**: `593` + los **últimos 9 dígitos**, lo que descarta por igual el `0` nacional y un `593`
+  ya presente; devuelve `''` con menos de 9 dígitos y el llamador decide el aviso. Lo usan
+  `resumen.js` (que conserva su `toastErr`) e `informes.js`.
+- **Tests: 335 → 341.** `test/whatsapp.test.js` cubre los 6 casos (`'0991234567'`,
+  `'+593 99 123 4567'`, `'593991234567'`, `''`, `null`/`undefined`, `'12345'`). `npx vite build`
+  sin errores.
+- **Archivos tocados:** `js/sesiones.js`, `js/utils.js`, `js/resumen.js`, `js/informes.js`,
+  `test/whatsapp.test.js`.
 
 ---
 
