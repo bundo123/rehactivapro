@@ -36,6 +36,51 @@
 
 ---
 
+## 🗓️ Sesión 2026-09-06 — LOTE AUDIT-5 (`6f5473c`, rama `audit-5-recurrentes`)
+
+**CORR-02 + CORR-03 — las citas recurrentes vivían con un id inventado y sus fallos eran mudos
+(`agenda.js`).** El bucle de recurrencia insertaba cita por cita **sin `.select()`**, así que no
+tenía el UUID de vuelta y pusheaba en memoria un id sintético `'rec-'+fecha+Math.random()`. Ese
+id no existe como fila, y hasta el próximo F5 rompía tres cosas distintas:
+
+1. **Editar o arrastrar** una recurrente: `commitApptChange` corta en `esRealApptId` y devuelve
+   `true` → toast «Cita actualizada» sin haber escrito nada.
+2. **Borrarla:** `delAppt` decidía con `typeof id==='string'`, que es `true` para `'rec-…'` →
+   hacía `.eq('id','rec-…')`, no borraba ninguna fila, y la cita **reaparecía** al día siguiente.
+3. **Realtime:** el eco llega con el UUID real (`realtime.js:111`), no matchea el `'rec-'` → cada
+   cita de la serie quedaba **duplicada** en pantalla.
+
+Y encima los fallos eran invisibles: el `error` de cada insert solo servía para no incrementar el
+contador — sin toast. Si fallaban **todas**, `creadas>0||omitidas>0||bloqueadas>0` era falso y el
+único mensaje que veía la secretaria era «Cita guardada correctamente».
+
+- **Un solo insert en lote.** Las fechas válidas se acumulan en un array y se mandan en una
+  llamada con `.select('id,date')`; en memoria se pushea el **UUID real**. Era el único N+1 del
+  repo: hasta **84 awaits secuenciales** para una serie de 3 días × 4 semanas.
+- **El lote es atómico**: si falla, no se creó ninguna fila → `fallidas = filas.length`.
+- **El toast de la serie sale SIEMPRE** que se pidió una (antes dependía de que algo hubiera
+  salido bien), con el detalle de omitidas por conflicto, bloqueadas y **fallidas** («N no se
+  pudieron crear — revisá la agenda»), y usa `toastErr` en vez de `toastOk` si hubo fallidas. El
+  `toastOk('Cita guardada correctamente')` final se mantiene: corresponde a la cita **base**, que
+  sí se guardó.
+- **`delAppt`** pasa a decidir con `esRealApptId(id)` en vez de `typeof id==='string'`. Tras este
+  lote ya no se generan ids `'rec-'`, pero el guard cubre cualquier resto en memoria.
+- **La config de recurrencia se lee ANTES de `closeModal`.** Estaba leyéndose del DOM *después*
+  del `await` del insert base, con el modal ya cerrado — funcionaba de casualidad, porque los
+  campos siguen en el DOM hasta que `openApptModal` los resetea.
+- **`getRecDates` se muda a `utils.js`** (sigue siendo pura; `agenda.js` la re-exporta por
+  compatibilidad). No es cosmético: `node --test` **no puede importar `agenda.js`**, que arrastra
+  el cliente de Supabase (`import.meta.env`) y el DOM, así que en su sitio anterior era
+  intesteable.
+- **Tests: 341 → 346.** `test/recurrencia.test.js` cubre serie L/M/V a 2 semanas, orden y
+  unicidad, lista de días vacía, exclusión de la fecha base y cruce de mes. `npx vite build` sin
+  errores.
+- **Archivos tocados:** `js/agenda.js`, `js/utils.js`, `test/recurrencia.test.js`.
+
+La rama **no está mergeada a `main`**: queda a la espera del OK de revisión.
+
+---
+
 ## 🗓️ Sesión 2026-09-06 — LOTE AUDIT-4 (`4355678`, rama `audit-4-filas-afectadas`)
 
 **CORR-01 — `commitApptChange()` daba por bueno un UPDATE que la base rechazó (`agenda.js`,
