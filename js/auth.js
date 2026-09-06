@@ -300,10 +300,20 @@ export function markLocalChange(table){
 }
 
 export async function dbUpdateApptStatus(id,status){
-  if(typeof id!=='string') return;
+  // 'rec-' son ids sintéticos de recurrencia: no matchean ninguna fila.
+  if(typeof id!=='string'||id.startsWith('rec-')) return;
   markLocalChange('appointments');
-  const {error}=await supa.from('appointments').update({status}).eq('id',id);
-  if(error) toastErr('No se pudo guardar el estado de la cita.');
+  const {data,error}=await supa.from('appointments').update({status}).eq('id',id).select('id');
+  if(error){ toastErr('No se pudo guardar el estado de la cita.'); return; }
+  // 0 filas = RLS. checkAutoNoas corre en CADA renderGrid y desde cualquier rol, así que un
+  // terapeuta que no puede tocar citas ajenas dispararía un toast por cita en cada render: acá
+  // solo se avisa por consola. El 'noas' local se CONSERVA a propósito: es el estado correcto
+  // (lo persistirá quien sí tenga permiso) y revertirlo a 'pend' volvería a entrar en el filtro
+  // de checkAutoNoas, reintentando el UPDATE en cada repintado. Que checkAutoNoas no esté
+  // gateado por rol es deuda MEDIO pendiente.
+  if(!data||!data.length){
+    console.warn(`[dbUpdateApptStatus] cita ${id} no actualizada (0 filas): sin permiso o inexistente`);
+  }
 }
 export async function dbDeleteTherapist(id){
   markLocalChange('therapists');

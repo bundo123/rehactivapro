@@ -290,9 +290,13 @@ export function renderGrid() {
             else if(!clash){
               // Soltar en un slot re-alinea la cita a la media hora del slot (10:45 → 10:30):
               // el destino del gesto es la fila, y así lo que se ve es lo que queda guardado.
+              const prev={therapistId:a.therapistId,hour:a.hour};
               a.therapistId=th.id;a.hour=hr;renderGrid();
               // Reubicación: commit solo persiste la nueva posición de la fila.
-              await commitApptChange(a, {hour:hr, therapist_id:th.id});
+              const ok=await commitApptChange(a, {hour:hr, therapist_id:th.id});
+              // Si la base no aceptó el UPDATE, la cita vuelve a donde estaba: lo que se ve en
+              // la grilla no puede quedar por delante de lo que hay guardado.
+              if(!ok){Object.assign(a,prev);renderGrid();}
             } else toastErr(conflictMsg(clash));
           }
         }
@@ -386,14 +390,18 @@ const esRealApptId = id => typeof id === 'string' && !id.startsWith('rec-');
 async function commitApptChange(appt, dbFields) {
   if (!esRealApptId(appt.id)) return true;   // numéricos optimistas / 'rec-': solo memoria
   try {
-    const { error } = await supa.from('appointments').update(dbFields).eq('id', appt.id);
+    // .select('id'): un UPDATE bloqueado por RLS vuelve con 0 filas y error:null. Sin contar las
+    // filas afectadas, un cambio que la base rechazó se reportaría como guardado.
+    const { data, error } = await supa.from('appointments').update(dbFields).eq('id', appt.id).select('id');
     if (error) { toastErr('No se pudo guardar el cambio de la cita: ' + error.message); return false; }
+    if (!data || !data.length) { toastErr('No se pudo guardar (sin permiso o la cita ya no existe). Refrescá la página.'); return false; }
   } catch (e) { toastErr('Error de conexión al guardar el cambio de la cita.'); return false; }
   return true;
 }
 
 export async function cycleStatus(id) {
   const a=state.appointments.find(x=>x.id===id);if(!a)return;
+  const prev={status:a.status,qbAt:a.qbAt};
   const c=['conf','pend','noas'];
   a.status=c[(c.indexOf(a.status)+1)%3];
   // El ciclo es CLÍNICO: QuickBooks no participa (no hay un cuarto estado "conciliada"). Lo único
@@ -401,7 +409,8 @@ export async function cycleStatus(id) {
   // asistencia no puede quedar pasado a QuickBooks.
   if(a.status!=='conf') a.qbAt=null;
   renderGrid(); window._app.updateResumenBadge(); updateFacturaBadge();
-  await commitApptChange(a, payloadCambioStatus(a.status));   // solo persiste la fila
+  const ok=await commitApptChange(a, payloadCambioStatus(a.status));   // solo persiste la fila
+  if(!ok){Object.assign(a,prev);renderGrid();window._app.updateResumenBadge();updateFacturaBadge();}
 }
 
 // ── Conciliación QuickBooks de un día ──
@@ -728,6 +737,7 @@ export async function saveAppt() {
     const today=fmtDate(new Date());
     // Registro retroactivo: admin/secretaria pueden mover a días pasados (apptPastDate).
     if(ds<today && ds!==existing.date && !hasPermission('apptPastDate')){toastErr('No se pueden mover citas a días pasados.');return;}
+    const prev={...existing};
     existing.therapistId=thId;existing.hour=hr;existing.duration=dur;existing.location=loc;
     existing.patientId=patId;existing.type=document.getElementById('m-type').value;
     existing.status=document.getElementById('m-status').value;existing.note=document.getElementById('m-note').value;existing.date=ds;
@@ -749,6 +759,7 @@ export async function saveAppt() {
     window._app.closeModal('appt-modal'); renderGrid();
     const ok=await commitApptChange(existing, dbFields);
     if(ok) toastOk('Cita actualizada');
+    else {Object.assign(existing,prev);renderGrid();}
     updateFacturaBadge();
     return;
   }
