@@ -36,6 +36,62 @@
 
 ---
 
+## 🗓️ Sesión 2026-09-06 — LOTE AUDIT-6 (`0dbb6f4`, rama `audit-6-realtime`)
+
+**RT-01 — los eventos de `session_log` se ubicaban en memoria por `(date, hour)`, no por `id`
+(`realtime.js`).** El slot no identifica a una sesión: puede cambiar (mover una sesión de fecha u
+hora) y puede repetirse (dos sesiones distintas en el mismo hueco). Con el match por slot:
+
+1. **UPDATE de una sesión movida:** el `findIndex` por `(date,hour)` no encontraba la fila vieja
+   → caía en el `else p.log.push(...)` y la sesión quedaba **duplicada** en el informe hasta el
+   próximo F5, inflando el conteo de `done`.
+2. **DELETE:** era un `filter` por `(date,hour)` → si había **otra** sesión en ese mismo slot, la
+   borraba también de la pantalla. Se perdía de vista una sesión que en la DB seguía viva.
+
+- **Helper puro `findSessionIdx(log,row)` en `utils.js`.** Matchea por `id`; solo si la fila no
+  trae `id` (payloads legacy) cae al `(date,hour)`. El fallback secundario — fila **con** id que no
+  está en el log — solo puede engancharse con entradas de memoria **sin** id, nunca con otra sesión
+  que sí tiene el suyo. Vive en `utils.js` porque `realtime.js` arrastra el cliente de Supabase y
+  el DOM: en su sitio natural sería intesteable con `node --test`.
+- **El DELETE ya no borra a ciegas:** si `findSessionIdx` devuelve `-1`, no toca el log.
+- Apoyo del cambio (verificado antes de tocar nada): `session_log` tiene **REPLICA IDENTITY FULL**,
+  así que `payload.old` de un DELETE trae la fila completa con su `id`; y toda sesión en memoria
+  tiene `id`, tanto la de la carga inicial (`auth.js:78`) como la del mapper realtime
+  (`realtime.js:93`).
+
+**CORR-09 — el informe de paciente se repintaba ante eventos de OTROS pacientes.** `_onPatient`
+solo comprobaba que el `<select>` tuviera algo (`if(sel)`), así que dar de alta o editar a
+cualquier paciente desde otra PC rearmaba el informe abierto en pantalla. Ahora compara el id del
+select con el del evento, exactamente como ya hacía `_onSessionLog`.
+
+**Coalescing de renders.** Un lote de N filas (una serie de recurrentes es el caso típico) llega
+como N eventos realtime, y cada uno pedía un `renderGrid()` completo — 255 líneas que rearman el
+DOM de la agenda. `_scheduleRender` acumula las funciones de render pedidas en un `Set` y ejecuta
+cada una **una sola vez** en el próximo `requestAnimationFrame`. Detalles:
+
+- **Las condiciones de pestaña no se tocaron:** se evalúan igual que antes, en el momento del
+  evento; lo único que se difiere es la ejecución del render.
+- **La deduplicación funciona porque `window._app` es un objeto literal armado una sola vez**
+  (`main.js:78`) con las funciones importadas: la identidad de `renderGrid` es estable entre
+  eventos.
+- **Los badges (`updateResumenBadge`, `updateFacturaBadge`) NO se coalescen** a propósito: son
+  baratos y ya se llamaban al final del handler.
+- Aplicado a `_refreshTabAfterAppt`, `_onPatient`, `_onSessionLog`, `_onCobro`, `_onTherapist` y
+  `_onBlock`. **`_onDoctor` quedó fuera del alcance de este lote** (no estaba en la lista) — es el
+  único handler que sigue renderizando de forma síncrona.
+
+- **Tests: 346 → 353.** `test/realtime-match.test.js` cubre los 7 casos de `findSessionIdx`: fila
+  con id existente pero fecha distinta (el caso que duplicaba), id nuevo sobre un slot ya ocupado
+  por otra sesión con id (devuelve `-1`, no la pisa), fallback legacy sobre entrada sin id, fila
+  sin id, id string vs numérico, segundos en la hora, y entradas vacías/nulas. `npm run build` sin
+  errores.
+- **Archivos tocados:** `js/realtime.js`, `js/utils.js`, `test/realtime-match.test.js`.
+- **Sin SQL.**
+
+La rama **no está mergeada a `main`**: queda a la espera del OK de revisión.
+
+---
+
 ## 🗓️ Sesión 2026-09-06 — LOTE AUDIT-5 (`6f5473c`, rama `audit-5-recurrentes`)
 
 **CORR-02 + CORR-03 — las citas recurrentes vivían con un id inventado y sus fallos eran mudos
