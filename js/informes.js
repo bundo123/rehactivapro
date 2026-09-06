@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber } from './utils.js';
 import { apptSlots } from './agenda.js';
 import { genSemanalAI, genMensualAI, genAnualAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasPermission } from './permissions.js';
@@ -291,7 +291,7 @@ export function renderSemanal() {
     let r = '<div class="panel"><div class="panel-title">No asistieron — requieren seguimiento</div>';
     noas.slice(0, 6).forEach(function (a) {
       var pt = getPatient(a.patientId); var th = getTherapist(a.therapistId);
-      var tel = pt && pt.tel ? '593' + pt.tel.replace(/[^0-9]/g, '').slice(-9) : '';
+      var tel = waNumber(pt && pt.tel);   // CORR-12: una sola fuente para el número de wa.me
       var waBtn = tel ? '<button onclick="window.open(\'https://wa.me/' + tel + '\',\'_blank\')" style="font-size:10px;padding:3px 10px;background:rgba(37,160,90,.12);color:#25a05a;border:none;border-radius:99px;cursor:pointer;font-weight:600;font-family:inherit">WA</button>' : '';
       r += '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(226,75,74,.08)">'
         + '<div><div style="font-size:12px;font-weight:600;color:#1a1917">' + esc(pt ? pt.name : 'Paciente') + '</div>'

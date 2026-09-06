@@ -352,11 +352,15 @@ export async function saveSession() {
     let savedId=null;                                        // id real de la fila (para llevarlo a memoria)
     if(appt.id&&appt.patientId){
       const apptHourFmt=fmtTime(appt.hour);
-      const existingInDB=await supa.from('session_log').select('id').eq('patient_id',appt.patientId).eq('date',appt.date).eq('hour',apptHourFmt).maybeSingle();
+      // CORR-06: el SELECT también puede fallar (red, o PGRST116 cuando hay >1 fila duplicada para
+      // el mismo patient_id+date+hour). Sin mirar .error se caía al INSERT y se creaba OTRO duplicado
+      // en cada «Completar sesión». Con error se aborta: nunca se inserta a ciegas.
+      const {data:ex,error:exErr}=await supa.from('session_log').select('id').eq('patient_id',appt.patientId).eq('date',appt.date).eq('hour',apptHourFmt).maybeSingle();
+      if(exErr){toastErr('No se pudo verificar la sesión. Reintentá en unos segundos.');return;}
       let dbError;
-      if(existingInDB.data){
-        savedId=existingInDB.data.id;
-        const {error}=await supa.from('session_log').update({type,pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,therapist_id:therapistId}).eq('id',existingInDB.data.id);
+      if(ex){
+        savedId=ex.id;
+        const {error}=await supa.from('session_log').update({type,pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,therapist_id:therapistId}).eq('id',ex.id);
         dbError=error;
       } else {
         const {data:ins,error}=await supa.from('session_log').insert({

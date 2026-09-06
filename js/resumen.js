@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { esc, fmtDate, fmtTime, getPatient, getTherapist, getDoctor, getInitials, getColor, safeColor, orderedTherapists,
-         desgloseTipos, textoDesglose } from './utils.js';
+         desgloseTipos, textoDesglose, waNumber } from './utils.js';
 import { toastErr } from './toast.js';
 
 // ── Filtro manual por terapeuta (chips junto al selector de fecha) ──
@@ -185,7 +185,7 @@ export function renderResumen() {
 }
 
 export function simWA(nombre, tel) {
-  const num = (tel || '').replace(/[^0-9]/g, '');
+  const num = waNumber(tel);   // CORR-12: wa.me exige código de país; sin el 593 WhatsApp rechaza el link
   if (!num) { toastErr('El paciente no tiene teléfono registrado. Agrégalo en su perfil.'); return; }
   const msg = encodeURIComponent('Hola ' + nombre + ', le contactamos desde Rehactiva Rehabilitación. Notamos que no pudo asistir a su cita de hoy. ¿Le ayudamos a reagendar?');
   window.open('https://wa.me/' + num + '?text=' + msg, '_blank');

@@ -236,6 +236,16 @@ export function fmtTime(h){
   return `${Math.floor(t/60)}:${String(((t%60)+60)%60).padStart(2,'0')}`;
 }
 
+// Teléfono -> número E.164 sin '+' para wa.me. WhatsApp rechaza el número sin código de país,
+// así que se normaliza SIEMPRE a Ecuador (593) con los últimos 9 dígitos: eso descarta por igual
+// el 0 inicial del formato nacional ('0991234567') y un 593 ya presente ('+593 99 123 4567').
+// Devuelve '' cuando no hay suficientes dígitos — el llamador decide qué avisar.
+export function waNumber(tel){
+  const d=String(tel||'').replace(/[^0-9]/g,'');
+  if(d.length<9) return '';
+  return '593'+d.slice(-9);
+}
+
 // ── Horas exactas: helpers puros (la grilla sigue siendo de media hora) ──
 const HORA_EPS = 1e-9;
 
