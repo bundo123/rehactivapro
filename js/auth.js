@@ -48,16 +48,24 @@ export async function loadAll(force=false) {
   }
   try {
     const [th,doc,pat,appt,prot,cob,inf,blk] = await Promise.all([
-      supa.from('therapists').select('*').order('created_at'),
-      supa.from('doctors').select('*').order('created_at'),
-      supa.from('patients').select('*,session_log(*)').order('created_at'),
-      supa.from('appointments').select('*,patients(name)').order('date').order('hour'),
-      supa.from('protocols').select('*').order('created_at'),
-      supa.from('cobros').select('*').order('created_at'),
-      supa.from('informes').select('*').eq('deleted',false).order('created_at',{ascending:false}),
-      supa.from('therapist_blocks').select('*').order('date'),
+      supa.from('therapists').select('*',{count:'exact'}).order('created_at'),
+      supa.from('doctors').select('*',{count:'exact'}).order('created_at'),
+      supa.from('patients').select('*,session_log(*)',{count:'exact'}).order('created_at'),
+      supa.from('appointments').select('*,patients(name)',{count:'exact'}).order('date').order('hour'),
+      supa.from('protocols').select('*',{count:'exact'}).order('created_at'),
+      supa.from('cobros').select('*',{count:'exact'}).order('created_at'),
+      supa.from('informes').select('*',{count:'exact'}).eq('deleted',false).order('created_at',{ascending:false}),
+      supa.from('therapist_blocks').select('*',{count:'exact'}).order('date'),
     ]);
     for(const q of [th,doc,pat,appt,prot,cob,inf,blk]){ if(q.error) throw q.error; }
+    // Supabase corta la respuesta en 'Max rows' (10000) con HTTP 200 y error:null.
+    const TABLAS=['therapists','doctors','patients','appointments','protocols','cobros','informes','therapist_blocks'];
+    [th,doc,pat,appt,prot,cob,inf,blk].forEach((q,i)=>{
+      if(q.count!=null && q.data && q.count>q.data.length){
+        console.warn(`[loadAll] ${TABLAS[i]} truncada: ${q.data.length} de ${q.count} filas`);
+        toastErr(`Datos incompletos en ${TABLAS[i]} (${q.data.length} de ${q.count}). Avisá al administrador.`);
+      }
+    });
     state.therapists = (th.data||[]).map(mapTherapistRow);
     state.blocks = (blk.data||[]).map(mapBlockRow);
     state.doctors = (doc.data||[]).map(r=>({id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'}));
