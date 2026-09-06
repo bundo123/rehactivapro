@@ -36,6 +36,30 @@
 
 ---
 
+## 🗓️ Sesión 2026-09-06 — LOTE AUDIT-3 (`8ac61c3`, rama `audit-3-truncamiento`)
+
+**DATOS-02 — `loadAll()` no detectaba respuestas truncadas por Max rows (`auth.js`).** Las 8
+consultas que cargan la app entera se hacían sin `.range()` ni `.limit()`. Supabase corta la
+respuesta en el tope de **Max rows** (hoy 10000) devolviendo **HTTP 200 con `error:null`** y
+filas de menos: el único chequeo del bucle (`if(q.error) throw q.error`) no ve nada y la app
+sigue como si tuviera todo. El caso peor es `appointments`, que ordena por `date` ASC — lo que
+se pierde al cortar son **las citas recién agendadas**, justo las que se están usando.
+
+- Las 8 `.select(...)` piden ahora `{count:'exact'}`, así que la respuesta trae el total real de
+  la tabla además de las filas entregadas. En `patients` el `count` es de `patients` y no del
+  embed `session_log(*)` — es lo que queremos.
+- Tras el chequeo de errores se compara `q.count > q.data.length` tabla por tabla: si no cuadra,
+  `console.warn` con el detalle y un `toastErr` nombrando la tabla y cuántas filas de cuántas
+  llegaron. Es **detección, no paginación**: la app no se rompe, pero deja de mentir en silencio
+  y queda el aviso para actuar antes de que el dato faltante llegue a una decisión clínica.
+- **Ningún render tocado.** El bloque va entre el `throw` de errores y el primer `state.* =`.
+- **Tests: 341/341** sin cambios. `npx vite build` sin errores.
+- **Archivos tocados:** `js/auth.js` (único).
+
+La rama **no está mergeada a `main`**: queda a la espera del OK de revisión.
+
+---
+
 ## 🗓️ Sesión 2026-09-06 — LOTE AUDIT-1 (`200b91c`, rama `audit-1-sesion-select`)
 
 Dos bugs de producción que salieron de la auditoría (`AUDITORIA.md`), ambos XS. La rama **no
