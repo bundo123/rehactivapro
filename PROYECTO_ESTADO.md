@@ -36,6 +36,45 @@
 
 ---
 
+## 🗓️ Sesión 2026-09-06 — LOTE AUDIT-4 (`4355678`, rama `audit-4-filas-afectadas`)
+
+**CORR-01 — `commitApptChange()` daba por bueno un UPDATE que la base rechazó (`agenda.js`,
+`auth.js`).** Un UPDATE bloqueado por **RLS no es un error**: postgrest devuelve **0 filas y
+`error:null`**. `commitApptChange` no pedía `.select()` ni contaba filas, así que retornaba
+`true` siempre que no hubiera excepción. Sus tres llamadores ya habían mutado el estado local
+**antes** de esperar la promesa, y ninguno revertía. El síntoma: un terapeuta arrastra la cita de
+un colega, la grilla la muestra movida, sale el toast «Cita actualizada»… y en la base no cambió
+nada. Al siguiente `loadAll()` la cita reaparece donde estaba, sin explicación.
+
+- **Regla nueva del módulo: toda escritura optimista a `appointments` verifica filas afectadas y
+  revierte.** Pintar antes de confirmar está bien —la agenda se siente instantánea—, pero el
+  estado local no puede quedar por delante de la base: si el commit falla, la UI vuelve atrás.
+- `commitApptChange` usa ahora `.update(...).eq('id',...).select('id')` y trata `!data.length`
+  como fallo, con toast propio (`sin permiso o la cita ya no existe`). Es el mismo patrón que ya
+  usaba `sesiones.js:319` en su `delete().select()`.
+- **Los 3 llamadores** toman snapshot **antes** de mutar y hacen `Object.assign` de vuelta si el
+  retorno es `false`: el **drop** de drag&drop (`{therapistId,hour}` + `renderGrid`), **`cycleStatus`**
+  (`{status,qbAt}` — restaura también la desconciliación de QuickBooks y refresca los dos badges) y
+  la **rama de edición de `saveAppt`** (copia entera de `existing`, que es plano). Antes los dos
+  primeros descartaban el retorno y el tercero lo usaba solo para elegir el toast.
+- **`dbUpdateApptStatus` (`auth.js`)** tenía el mismo defecto; su único caller es `checkAutoNoas`.
+  También cuenta filas, pero con 0 filas **solo avisa por `console.warn`**: sin toast y **sin
+  revertir**. Sin toast porque `checkAutoNoas` corre en **cada** `renderGrid()` y desde cualquier
+  rol, así que un terapeuta que por RLS no puede tocar citas ajenas vería un toast por cita en
+  cada render. Y sin revertir porque `checkAutoNoas` **solo mira las `'pend'`**: devolver el
+  estado a `'pend'` la reingresaría al filtro y el UPDATE se reintentaría en cada repintado, en
+  bucle. El `'noas'` local se conserva a propósito — es el estado correcto, y lo persistirá quien
+  sí tenga permiso. **Deuda MEDIO pendiente:** `checkAutoNoas` debería estar gateado por rol y no
+  intentar la escritura desde quien no puede hacerla. Se le agrega además el guard de ids `'rec-'`
+  (recurrencias sintéticas que no matchean ninguna fila), que `agenda.js` ya tenía en
+  `esRealApptId`.
+- **Tests: 341/341** sin cambios. `npx vite build` sin errores.
+- **Archivos tocados:** `js/agenda.js`, `js/auth.js`.
+
+La rama **no está mergeada a `main`**: queda a la espera del OK de revisión.
+
+---
+
 ## 🗓️ Sesión 2026-09-06 — LOTE AUDIT-3 (`8ac61c3`, rama `audit-3-truncamiento`)
 
 **DATOS-02 — `loadAll()` no detectaba respuestas truncadas por Max rows (`auth.js`).** Las 8
