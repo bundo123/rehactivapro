@@ -129,6 +129,26 @@ export function relativeTime(ts){
   return `hace ${d} dia${d===1?'':'s'}`;
 }
 export function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+
+// Fechas de una serie recurrente. Pura (vive acá y no en agenda.js para poder testearla en node,
+// que no puede importar agenda.js: arrastra el cliente de Supabase y el DOM).
+// Recorre semanas*7 días desde la base y se queda con los que caen en `dias` (0=dom … 6=sáb).
+// La fecha base NUNCA entra (se filtra con ds>baseDate): esa cita ya se creó aparte.
+export function getRecDates(baseDate,dias,semanas) {
+  const fechas=[];
+  const start=new Date(baseDate+'T12:00:00');
+  for(let w=0;w<semanas;w++){
+    for(let d=0;d<7;d++){
+      const fecha=new Date(start);
+      fecha.setDate(start.getDate()+w*7+d);
+      if(dias.includes(fecha.getDay())){
+        const ds=fmtDate(fecha);
+        if(ds>baseDate) fechas.push(ds);
+      }
+    }
+  }
+  return [...new Set(fechas)].sort();
+}
 // Lunes (00:00) de la semana de la fecha dada; el domingo pertenece a la semana que empezó
 // el lunes anterior. Pura: no muta el argumento.
 export function startOfWeek(d){

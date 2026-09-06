@@ -4,7 +4,7 @@ import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, t
          apptSlots, slotOf, isAlignedHour, findConflict, compactNoas, occupiedSlots, toTimeInput, parseTimeInput,
          ordinalesDeCitas, ordinalTexto, tipoSesion, TIPO_SESION_DEFAULT,
          citasConciliables, payloadCambioStatus, dmy,
-         findBlock, lunchSlots, blockedSlots } from './utils.js';
+         findBlock, lunchSlots, blockedSlots, getRecDates } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dbUpdateApptStatus } from './auth.js';
 import { hasPermission, canAccessTab } from './permissions.js';
@@ -451,7 +451,7 @@ export async function delAppt(id,e) {
   // Eliminar la cita NO altera done/billing: esos derivan de session_log (la fila clínica, si existe, persiste).
   state.appointments=state.appointments.filter(a=>a.id!==id);
   renderGrid(); updateFacturaBadge();
-  if(typeof id==='string'){
+  if(esRealApptId(id)){
     const {error}=await supa.from('appointments').delete().eq('id',id);
     if(error) toastErr('Error al eliminar cita: '+error.message);
     else toastOk('Cita eliminada');
@@ -769,6 +769,11 @@ export async function saveAppt() {
   if(ds<today && !hasPermission('apptPastDate')){toastErr('No se pueden agendar citas en días pasados.');return;}
   const _a={id:++state.apptCounter,date:ds,therapistId:thId,hour:hr,duration:dur,location:loc,patientId:patId,type:document.getElementById('m-type').value,status:document.getElementById('m-status').value,note:document.getElementById('m-note').value};
   state.appointments.push(_a);
+  // La config de recurrencia se lee ANTES de cerrar el modal: leerla después del await del insert
+  // base es leer un DOM que ya se cerró (y que openApptModal puede haber reseteado).
+  const recOn=chipOn('m-recurrente');
+  const recDias=recOn?[...document.querySelectorAll('.rec-day:checked')].map(c=>parseInt(c.value)):[];
+  const recSemanas=parseInt(document.getElementById('m-rec-semanas')?.value||'4');
   window._app.closeModal('appt-modal'); renderGrid();
   const tempId=_a.id;
   try {
@@ -784,28 +789,39 @@ export async function saveAppt() {
     }
     else {
       _a.id=data.id;
-      if(chipOn('m-recurrente')){
-        const dias=[...document.querySelectorAll('.rec-day:checked')].map(c=>parseInt(c.value));
-        const semanas=parseInt(document.getElementById('m-rec-semanas')?.value||'4');
-        if(dias.length){
-          const fechas=getRecDates(_a.date,dias,semanas);
-          let creadas=0,omitidas=0,bloqueadas=0;
-          for(const fecha of fechas){
-            // Las fechas bloqueadas se saltan, pero se cuentan aparte: el toast final tiene que
-            // decir cuántas de las pedidas NO se crearon y por qué — si no, la secretaria se
-            // queda creyendo que la serie completa quedó agendada.
-            if(blockedAt(fecha,_a.therapistId,_a.hour,_a.duration)){bloqueadas++;continue;}
-            if(conflictsWithExisting(fecha,_a.therapistId,_a.hour,_a.duration,null)){omitidas++;continue;}
-            const {error:re}=await supa.from('appointments').insert({date:fecha,therapist_id:_a.therapistId,patient_id:_a.patientId,hour:_a.hour,duration:_a.duration,type:_a.type,status:'pend',note:_a.note||'',location:_a.location});
-            if(!re){state.appointments.push({..._a,id:'rec-'+fecha+'-'+Math.random(),date:fecha,status:'pend'});creadas++;}
-          }
-          if(creadas>0||omitidas>0||bloqueadas>0){
-            const tot=creadas+1;
-            toastOk('✓ '+tot+' cita'+(tot!==1?'s':'')+' creada'+(tot!==1?'s':'')+
-              (omitidas>0?' · '+omitidas+' omitida'+(omitidas!==1?'s':'')+' por conflicto de horario':'')+
-              (bloqueadas>0?' · '+bloqueadas+' bloqueada'+(bloqueadas!==1?'s':''):''));
+      if(recOn&&recDias.length){
+        const fechas=getRecDates(_a.date,recDias,recSemanas);
+        const filas=[];
+        let creadas=0,fallidas=0,omitidas=0,bloqueadas=0;
+        for(const fecha of fechas){
+          // Las fechas bloqueadas se saltan, pero se cuentan aparte: el toast final tiene que
+          // decir cuántas de las pedidas NO se crearon y por qué — si no, la secretaria se
+          // queda creyendo que la serie completa quedó agendada.
+          if(blockedAt(fecha,_a.therapistId,_a.hour,_a.duration)){bloqueadas++;continue;}
+          if(conflictsWithExisting(fecha,_a.therapistId,_a.hour,_a.duration,null)){omitidas++;continue;}
+          filas.push({date:fecha,therapist_id:_a.therapistId,patient_id:_a.patientId,hour:_a.hour,duration:_a.duration,type:_a.type,status:'pend',note:_a.note||'',location:_a.location});
+        }
+        if(filas.length){
+          // UN insert en lote (era el único N+1 del repo: hasta 84 awaits secuenciales). El
+          // .select() devuelve el UUID REAL de cada fila: antes se inventaba un id 'rec-…' que no
+          // matcheaba nada, así que editar o borrar una recurrente no escribía en la base y el eco
+          // de realtime la duplicaba en pantalla.
+          const {data:recData,error:recErr}=await supa.from('appointments').insert(filas).select('id,date');
+          // Un insert en lote es atómico: si falla, no se creó ninguna de las filas.
+          if(recErr||!recData){ fallidas=filas.length; }
+          else {
+            recData.forEach(r=>state.appointments.push({..._a,id:r.id,date:r.date,status:'pend'}));
+            creadas=recData.length; fallidas=filas.length-creadas;
           }
         }
+        // El toast sale SIEMPRE que se pidió una serie, aunque no se haya creado ninguna: antes,
+        // si fallaban todas, la condición era falsa y el único mensaje era "Cita guardada".
+        const tot=creadas+1;
+        const msg='✓ '+tot+' cita'+(tot!==1?'s':'')+' creada'+(tot!==1?'s':'')+
+          (omitidas>0?' · '+omitidas+' omitida'+(omitidas!==1?'s':'')+' por conflicto de horario':'')+
+          (bloqueadas>0?' · '+bloqueadas+' bloqueada'+(bloqueadas!==1?'s':''):'')+
+          (fallidas>0?' · '+fallidas+' no se '+(fallidas===1?'pudo':'pudieron')+' crear — revisá la agenda':'');
+        (fallidas>0?toastErr:toastOk)(msg);
       }
       renderGrid(); toastOk('Cita guardada correctamente');
     }
@@ -853,21 +869,8 @@ export function updateRecPreview() {
   document.getElementById('rec-preview').textContent=`Se crearán ${fechas.length} citas: ${fechas.slice(0,3).join(', ')}${fechas.length>3?'... y '+(fechas.length-3)+' más':''}`;
 }
 
-export function getRecDates(baseDate,dias,semanas) {
-  const fechas=[];
-  const start=new Date(baseDate+'T12:00:00');
-  for(let w=0;w<semanas;w++){
-    for(let d=0;d<7;d++){
-      const fecha=new Date(start);
-      fecha.setDate(start.getDate()+w*7+d);
-      if(dias.includes(fecha.getDay())){
-        const ds=fmtDate(fecha);
-        if(ds>baseDate) fechas.push(ds);
-      }
-    }
-  }
-  return [...new Set(fechas)].sort();
-}
+// getRecDates vive en utils.js (pura y testeable); se re-exporta acá por compatibilidad.
+export { getRecDates };
 
 // ── Modos de vista ──
 
