@@ -36,6 +36,65 @@
 
 ---
 
+## 🗓️ Sesión 2026-09-07 — LOTE AUDIT-22 (`bdbe8d9`, rama `audit-22-baratas`)
+
+Seis arreglos chicos e independientes: cosas que estaban **rotas** (no perfectibles) y que salían
+baratas. Sin SQL, sin cambios de esquema, sin tocar flujos.
+
+**1 — Los buscadores de Terapeutas y Doctores nunca filtraron (`main.js`).** `index.html:418` y
+`:438` llaman por `oninput` a `renderTherapistList()` / `renderDoctorsList()` **a secas**, pero
+`main.js` solo las exponía en `window._app` (93-94), no en `window` → `ReferenceError` en cada
+tecla y la lista entera siempre visible. Se suman al `Object.assign(window, {...})` de `main.js`.
+No se toca el HTML: el resto de los `oninput` de la app usa la misma convención de nombre pelado.
+
+**2 — El campo de documento solo aceptaba cédula ecuatoriana (`validators.js`, `pacientes.js`,
+`index.html`).** Un paciente extranjero, o uno que da su RUC, no se podía guardar. Nuevo
+`validateDocumento()`, que detecta el tipo **por la forma** (sin selector que llenar):
+
+| Entrada | Se valida como |
+|---|---|
+| 10 dígitos | cédula ecuatoriana (dígito verificador) |
+| 13 dígitos | RUC de persona natural: cédula válida + `001` |
+| cualquier otra cosa | pasaporte: 5 a 20 alfanuméricos |
+
+El pasaporte **no exige letras** a propósito: el de EE.UU. son 9 dígitos. `validateCedulaEcuatoriana`
+queda **intacta** — sigue siendo la base de las otras dos ramas y la usan sus tests. `pacientes.js`
+pasa a `validateDocumento` en los dos puntos (`:109` en `savePatient`, `:450` en
+`initPatientValidation`) y el label de `index.html:626` dice ahora "Cédula / RUC / Pasaporte".
+
+**3 — El teléfono se rechazaba si venía con separadores (`validators.js:30`).** `validateTelefono`
+hacía `value.trim()` y después exigía `+\d{7,15}` o `0\d{8,9}`, así que `+593 99 123 4567` y
+`(09) 9123-4567` — que es como la gente los copia de WhatsApp — daban error. Ahora limpia espacios,
+guiones, paréntesis y puntos antes de validar. **No cambia lo que se guarda:** `waNumber()`
+(`utils.js`, AUDIT-1) ya normaliza al momento de enviar.
+
+**4 — La contraseña quedaba viva en el DOM (`auth.js:149`).** `#login-pass` conservaba el valor
+después del login. Las PCs de recepción son compartidas y ya hay auto-logout a los 15 min, pero el
+`value` sobrevivía a la sesión. Se limpia apenas vuelve `signInWithPassword`, **antes** del
+`if(error)`: también en fallo, porque una contraseña mal tipeada por un carácter es igual de
+sensible.
+
+**5 — El combo de pacientes no encontraba «maria» ni buscaba por cédula (`patient-combo.js:57-61`).**
+Filtraba con `toLowerCase()` a secas, o sea las tildes rompían el match (`María`, `Muñoz`) y el
+número de cédula no era criterio. Pasa a `normalizeSearch()` (`utils.js:101` — NFD + quita
+diacríticos + lower + trim, lo que ya usa el resto de la app) y suma match por los dígitos de la
+cédula. El `|| '\u0000'` del comparador evita que una búsqueda sin dígitos matchee **toda** cédula
+por `includes('')`.
+
+**6 — `exportAgendaCSV` borrada (`agenda.js:1092-1135`, `main.js:18` y `:258`).** Código muerto:
+ningún `onclick` ni JS la llamaba, solo colgaba de `window` **sin gate de permisos** — que era la
+deuda anotada en AUDIT-8. La agenda se exporta a Excel desde `excel.js`, que sí tiene botón y
+gate. Se limpia también la referencia colgada en el comentario de `historial.js:441`;
+`exportarHistorialCSV` **no** se toca (esa sí tiene botón).
+
+**Tests: +8 (365 → 373, 0 fail).** `test/validators.test.js`: `validateDocumento` (cédula válida e
+inválida, RUC `+001` vs `+002` vs cédula base rota, pasaporte alfanumérico / solo numérico / con
+separadores, muy corto, con símbolos, vacío) y `validateTelefono` con espacios, guiones y
+paréntesis. `test/utils.test.js`: `normalizeSearch` con tildes y ñ. `patient-combo.js` **no** se
+testea: toca el DOM. `npx vite build` limpio.
+
+---
+
 ## 🗓️ Sesión 2026-09-07 — LOTE AUDIT-8 (`7a12f77`, rama `audit-8-permisos`)
 
 Dos acciones nuevas en la matriz de `permissions.js` y el gate real detrás de cada una. Hasta acá
@@ -75,7 +134,7 @@ test se repitiera a sí mismo en vez de probar algo. Cubre además rol desconoci
 tabs), rol `undefined` (cae al default `terapeuta`, nunca a admin) y los dos casos nuevos.
 `npm test` 365/365, `npx vite build` limpio.
 
-**Deuda que queda:** `exportAgendaCSV` sigue gateado **solo en HTML** — pendiente decisión.
+**Deuda que queda:** `exportAgendaCSV` borrado en AUDIT-22 (era código muerto; la agenda se exporta a Excel desde `excel.js`).
 
 ---
 
