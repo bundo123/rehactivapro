@@ -545,7 +545,17 @@ function _openApptModalBase() {
   document.getElementById('appt-modal').classList.add('open');
 }
 
+// Modal de cita en solo lectura para quien no tiene 'editAppt'. Se llama SIEMPRE al abrir el
+// modal (alta o edición) para que el estado no se arrastre de una apertura a la siguiente.
+const _APPT_MODAL_FIELDS=['m-date','m-patient-search','m-therapist','m-time','m-time-exact','m-duration','m-location','m-type','m-status','m-note'];
+function _setApptModalReadonly(ro){
+  _APPT_MODAL_FIELDS.forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!!ro;});
+  const save=document.getElementById('appt-modal-save-btn');if(save)save.style.display=ro?'none':'';
+  const chips=document.querySelectorAll('#appt-modal .toggle-chip');chips.forEach(c=>c.style.pointerEvents=ro?'none':'');
+}
+
 export function openApptModalAt(thId, hr, ds) {
+  _setApptModalReadonly(false);
   openApptModal();
   setTimeout(()=>{
     if(ds){const de=document.getElementById('m-date');if(de) de.value=ds;}
@@ -557,6 +567,7 @@ export function openApptModalAt(thId, hr, ds) {
 }
 
 export function openApptModal() {
+  _setApptModalReadonly(false);
   if(!state.therapists.length){toastErr('Primero agrega al menos un terapeuta.');window._app.showTab('terapeutas');return;}
   if(!state.patients.length){toastErr('Primero agrega al menos un paciente.');window._app.showTab('pacientes');return;}
   clearAllErrors(['m-date','m-patient-search','m-therapist','m-time','m-time-exact']);
@@ -594,6 +605,7 @@ export function openEditApptModal(id) {
   const a=state.appointments.find(x=>x.id===id);
   if(!a){toastErr('Cita no encontrada.');return;}
   _wireApptChips();
+  _setApptModalReadonly(!hasPermission('editAppt'));
   clearAllErrors(['m-date','m-patient-search','m-therapist','m-time','m-time-exact']);
   const pt=getPatient(a.patientId);
   document.getElementById('m-editing-id').value=String(id);
@@ -732,6 +744,7 @@ export async function saveAppt() {
   if(clash){toastErr(conflictMsg(clash));return;}
 
   if(isEdit){
+    if(!hasPermission('editAppt')){toastErr('No tienes permisos para editar citas.');return;}
     const existing=state.appointments.find(a=>String(a.id)===editingId);
     if(!existing){toastErr('Cita no encontrada.');return;}
     const today=fmtDate(new Date());

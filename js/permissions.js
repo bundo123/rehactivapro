@@ -19,14 +19,21 @@ const ROLE_TABS = {
 // 'manageBlocks' = bloquear franjas del terapeuta (vacaciones, curso, permiso). Es agenda pura:
 // la maneja quien la agenda (admin/secretaria), no el terapeuta — si cada uno se bloqueara solo,
 // la recepción vendería horas que ya no existen.
+// 'editAppt' = reprogramar/reasignar una cita existente (fecha, hora, paciente, terapeuta, nota).
+// Es agenda pura como 'createAppt': lo hace recepción. El terapeuta cambia el ESTADO desde la
+// tarjeta ('cycleStatus'); el modal de edición se le abre en solo lectura.
+// 'newEpisode' = cerrar el episodio clínico e iniciar otro (marcador 'Fin de episodio' + diag
+// nuevo). Es decisión clínica y resetea el conteo que alimenta facturación: admin y terapeuta.
 const ROLE_ACTIONS = {
   admin:     ['createAppt','deleteAppt','cycleStatus','createPatient','editPatient','deletePatient',
               'registerSession','deleteSession','evalInicial','createTherapist','deleteTherapist',
               'createDoctor','createProtocol','emitirFactura','viewAI','deleteInforme','apptPastDate',
-              'conciliarQB','manageBlocks'],
+              'conciliarQB','manageBlocks','editAppt','newEpisode'],
   secretaria:['createAppt','deleteAppt','cycleStatus','createPatient','editPatient',
-              'createTherapist','createDoctor','emitirFactura','apptPastDate','conciliarQB','manageBlocks'],
-  terapeuta: ['cycleStatus','editPatient','registerSession','evalInicial','viewAI','deleteInforme'],
+              'createTherapist','createDoctor','emitirFactura','apptPastDate','conciliarQB','manageBlocks',
+              'editAppt'],
+  terapeuta: ['cycleStatus','editPatient','registerSession','evalInicial','viewAI','deleteInforme',
+              'newEpisode'],
 };
 
 export function hasPermission(action) {

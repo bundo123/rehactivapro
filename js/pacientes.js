@@ -380,6 +380,7 @@ function renderNeHint(fechaInicio) {
 }
 
 export function nuevoEpisodio(patientId) {
+  if(!hasPermission('newEpisode')){toastErr('No tienes permisos para iniciar un episodio.');return;}
   _nePatientId=patientId;
   const p=getPatient(patientId);if(!p)return;
   document.getElementById('ne-patient-name').textContent=p.name+' · Episodio anterior: '+(p.diag||'Sin diagnóstico');
@@ -392,6 +393,7 @@ export function nuevoEpisodio(patientId) {
 }
 
 export async function guardarNuevoEpisodio() {
+  if(!hasPermission('newEpisode')){toastErr('No tienes permisos para iniciar un episodio.');return;}
   if(!_nePatientId)return;
   const p=getPatient(_nePatientId);if(!p)return;
   const newDiag=document.getElementById('ne-diag').value.trim();
@@ -417,8 +419,15 @@ export async function guardarNuevoEpisodio() {
   // Sin el marcador no hay frontera de episodio: abortar acá deja todo consistente (ni diag nuevo,
   // ni push a memoria, ni modal cerrado).
   if(errFin){toastErr('Error al iniciar episodio: '+errFin.message);return;}
-  const {error}=await supa.from('patients').update({diag:newDiag,sessions:newSessions,status:'active'}).eq('id',_nePatientId);
-  if(error){toastErr('Error: '+error.message);return;}
+  const {data:updRows,error}=await supa.from('patients').update({diag:newDiag,sessions:newSessions,status:'active'}).eq('id',_nePatientId).select('id');
+  if(error||!updRows?.length){
+    // El marcador ya está en DB y sin diag nuevo sería una frontera falsa: se intenta retirarlo.
+    // Si el retiro también falla, se avisa con el id para que un admin lo borre desde Sesiones.
+    const {error:errUndo}=await supa.from('session_log').delete().eq('id',insFin?.id);
+    const base=error?('Error: '+error.message):'No se pudo actualizar el paciente (0 filas)';
+    toastErr(errUndo?base+`. Marcador 'Fin de episodio' quedó huérfano (id ${insFin?.id}); avisar a un admin.`:base+'. Episodio no iniciado.');
+    return;
+  }
   p.diag=newDiag; p.sessions=newSessions; p.status='active';
   // El log en memoria aún no tiene la fila recién insertada (el wrapper supa anti-eco no la reenvía).
   // Agregarla para que doneActual/pendientesActual reflejen el corte de inmediato (sin esperar recarga).
