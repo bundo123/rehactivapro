@@ -1,6 +1,6 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-09-06
+> Generado: 2026-05-18 · Última actualización: 2026-09-07
 
 ---
 
@@ -33,6 +33,49 @@
 - **Semana 2:** auto-logout (15 min) · I-13 (alerts→toasts) · P-11 (CSP parcial).
 - **Semana 3:** I-12 (focus-trap/Escape) · I-15 (tests `node --test`) · `npm audit fix` · decisión P-2/P-6.
 - **Semana 4:** `clinical_context` de protocolos reales · papeleo LOPDP (lectura abierta + sub-encargado Anthropic) · **audit final**.
+
+---
+
+## 🗓️ Sesión 2026-09-07 — LOTE AUDIT-8 (`7a12f77`, rama `audit-8-permisos`)
+
+Dos acciones nuevas en la matriz de `permissions.js` y el gate real detrás de cada una. Hasta acá
+los dos flujos estaban abiertos a cualquier rol autenticado: la única barrera era que el botón no
+se viera, y el botón sí se veía.
+
+**Decisión de roles.** `editAppt` = **admin + secretaria** (NO terapeuta): reprogramar o reasignar
+una cita es agenda pura, igual que `createAppt`, y la hace recepción; el terapeuta ya tiene lo
+suyo, que es cambiar el **estado** desde la tarjeta (`cycleStatus`). `newEpisode` = **admin +
+terapeuta** (NO secretaria): cerrar un episodio e iniciar otro es decisión clínica, y además
+resetea el conteo de sesiones que alimenta la facturación.
+
+**SEG-01 — el modal de cita se le abría editable al terapeuta (`agenda.js`).** El terapeuta podía
+abrir una cita ajena y cambiarle fecha, hora, paciente o terapeuta. Ahora:
+
+- `_setApptModalReadonly(ro)` deja los 10 campos del modal en `disabled`, oculta "Guardar cita" y
+  desactiva los chips (`#appt-modal .toggle-chip`). Se llama **siempre** al abrir el modal — en
+  `openApptModalAt`, en `openApptModal` (con `false`) y en `openEditApptModal` según `editAppt` —
+  para que el estado no se arrastre de una apertura a la siguiente.
+- El gate real está en `saveAppt`: primera línea de la rama `isEdit`, antes de tocar nada. Ocultar
+  el botón no alcanza; `saveAppt()` está en `window._app`. El resto de la rama (`apptPastDate`,
+  rollback de `commitApptChange`) queda intacto.
+
+**SEG-03 — cualquiera podía cerrar un episodio (`pacientes.js`, `informes.js`).** Gate en
+`nuevoEpisodio` (abrir el modal) y en `guardarNuevoEpisodio` (grabar), más los dos botones
+"Nuevo episodio" de `informes.js` (631 y 758) condicionados a `hasPermission('newEpisode')`.
+
+En el mismo flujo, el `UPDATE` de `patients` pasa a `.select('id')` y verifica filas afectadas: la
+RLS devuelve **0 filas sin error**, así que el marcador `Fin de episodio` podía quedar insertado
+con el paciente sin actualizar — una **frontera falsa** que resetea el conteo sin diagnóstico
+nuevo. Si el update no afecta filas se compensa borrando el marcador recién insertado; si ese
+borrado también falla, el toast da el `id` para que un admin lo limpie desde Sesiones.
+
+**Test de la matriz — `test/permissions.test.js` (+12 tests, 353 → 365).** Tabla rol × acción
+(3 roles × 21 acciones) y rol × tab, **escrita a mano**: derivarla de `ROLE_ACTIONS` haría que el
+test se repitiera a sí mismo en vez de probar algo. Cubre además rol desconocido (sin permisos ni
+tabs), rol `undefined` (cae al default `terapeuta`, nunca a admin) y los dos casos nuevos.
+`npm test` 365/365, `npx vite build` limpio.
+
+**Deuda que queda:** `exportAgendaCSV` sigue gateado **solo en HTML** — pendiente decisión.
 
 ---
 
