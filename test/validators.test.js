@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   validateCedulaEcuatoriana,
+  validateDocumento,
   validateEmail,
   validateTelefono,
 } from '../js/validators.js';
@@ -61,4 +62,46 @@ test('teléfono — inválidos', () => {
   assert.equal(validateTelefono('abc').valid, false);
   assert.equal(validateTelefono('+59').valid, false);       // muy corto para internacional
   assert.equal(validateTelefono('1991234567').valid, false); // nacional debe empezar en 0
+});
+
+// ── validateDocumento: cédula / RUC / pasaporte, detectados por forma ──
+
+test('documento — cédula ecuatoriana (10 dígitos) delega en el validador de cédula', () => {
+  assert.equal(validateDocumento('1710034065').valid, true);
+  assert.equal(validateDocumento('1710 034 065').valid, true);
+  assert.equal(validateDocumento('1710034064').valid, false); // verificador roto
+  assert.equal(validateDocumento('1710034064').error, 'Cédula ecuatoriana inválida');
+});
+
+test('documento — RUC de persona natural (cédula válida + 001)', () => {
+  assert.equal(validateDocumento('1710034065001').valid, true);
+  assert.equal(validateDocumento('1710034065002').valid, false); // sufijo ≠ 001
+  assert.equal(validateDocumento('1710034065002').error, 'RUC inválido (cédula + 001)');
+  assert.equal(validateDocumento('1710034064001').valid, false); // cédula base inválida
+});
+
+test('documento — pasaporte (5 a 20 alfanuméricos, puede ser solo numérico)', () => {
+  assert.equal(validateDocumento('AB123456').valid, true);
+  assert.equal(validateDocumento('123456789').valid, true);  // EE.UU.: 9 dígitos
+  assert.equal(validateDocumento('PA-1234 56').valid, true); // normaliza espacios y guiones
+  assert.equal(validateDocumento('ab123456').valid, true);   // no distingue mayúsculas
+});
+
+test('documento — inválido: muy corto o con símbolos', () => {
+  assert.equal(validateDocumento('AB12').valid, false);
+  assert.equal(validateDocumento('AB12@34').valid, false);
+  assert.equal(validateDocumento('AB12@34').error, 'Documento inválido (cédula, RUC o pasaporte)');
+});
+
+test('documento — vacío es válido (campo opcional)', () => {
+  assert.equal(validateDocumento('').valid, true);
+  assert.equal(validateDocumento('   ').valid, true);
+  assert.equal(validateDocumento(null).valid, true);
+});
+
+test('teléfono — acepta espacios, guiones y paréntesis (lo que la gente tipea)', () => {
+  assert.equal(validateTelefono('+593 99 123 4567').valid, true);
+  assert.equal(validateTelefono('(09) 9123-4567').valid, true);
+  assert.equal(validateTelefono('099 123 4567').valid, true);
+  assert.equal(validateTelefono('099 12').valid, false); // limpio sigue siendo muy corto
 });

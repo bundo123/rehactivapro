@@ -24,8 +24,27 @@ export function validateCedulaEcuatoriana(value) {
   return { valid, error: valid ? '' : 'Cédula ecuatoriana inválida' };
 }
 
+// Documento de identidad del paciente, detectado por forma (sin selector de tipo):
+//  - 10 dígitos           → cédula ecuatoriana (dígito verificador)
+//  - 13 dígitos           → RUC de persona natural: cédula válida + '001'
+//  - cualquier otra cosa  → pasaporte: 5 a 20 alfanuméricos. NO exige letras porque hay
+//                           pasaportes solo numéricos (EE.UU. = 9 dígitos).
+// Vacío es válido: el campo es opcional.
+export function validateDocumento(value) {
+  const v = String(value || '').replace(/[\s\-]/g, '').toUpperCase();
+  if (!v) return { valid: true, error: '' };
+  if (/^\d{10}$/.test(v)) return validateCedulaEcuatoriana(v);
+  if (/^\d{13}$/.test(v)) {
+    const base = validateCedulaEcuatoriana(v.slice(0, 10));
+    const valid = base.valid && v.slice(10) === '001';
+    return { valid, error: valid ? '' : 'RUC inválido (cédula + 001)' };
+  }
+  const valid = /^[A-Z0-9]{5,20}$/.test(v);
+  return { valid, error: valid ? '' : 'Documento inválido (cédula, RUC o pasaporte)' };
+}
+
 export function validateTelefono(value) {
-  const v = value.trim();
+  const v = String(value || '').replace(/[\s\-().]/g, '');
   if (!v) return { valid: true, error: '' };
   const valid = /^\+\d{7,15}$/.test(v) || /^0\d{8,9}$/.test(v);
   return { valid, error: valid ? '' : 'Teléfono inválido (10 dígitos o formato internacional con +)' };

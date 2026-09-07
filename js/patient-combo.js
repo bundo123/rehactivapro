@@ -10,7 +10,7 @@
 // informes.js NO se toca en este lote (acaba de pasar auditoría); migrarlo a esta fábrica queda
 // como deuda anotada.
 import { state } from './state.js';
-import { esc, getTherapist } from './utils.js';
+import { esc, getTherapist, normalizeSearch } from './utils.js';
 
 // inputId    = <input type="text"> visible (el que se escribe)
 // resultsId  = <div> del desplegable
@@ -55,10 +55,12 @@ export function crearComboPaciente({ inputId, resultsId, hiddenId, onSelect, get
   };
 
   const filtrar = () => {
-    const q = (inp.value || '').toLowerCase().trim();
+    const q = normalizeSearch(inp.value);
     const todos = getPatients() || [];
     let list = q
-      ? todos.filter(p => (p.name || '').toLowerCase().includes(q) || (p.diag || '').toLowerCase().includes(q))
+      ? todos.filter(p => normalizeSearch(p.name).includes(q)
+                       || normalizeSearch(p.diag).includes(q)
+                       || String(p.cedula || '').replace(/\D/g,'').includes(q.replace(/\D/g,'') || '\u0000'))
       : todos;
     // Tope de 50: el desplegable es para elegir, no para listar los ~190 pacientes.
     list = [...list].sort((a, b) => (a.name || '').localeCompare(b.name || '')).slice(0, 50);

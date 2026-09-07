@@ -6,7 +6,7 @@ import { esc, fmtDate, fmtTime, fmtFechaCorta, diaAnterior, getPatient, getDocto
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';
-import { validateRequired, validateMinChars, validatePositiveInt, validateCedulaEcuatoriana, validateTelefono, validateEmail, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker, validateBirthDate } from './validators.js';
+import { validateRequired, validateMinChars, validatePositiveInt, validateDocumento, validateTelefono, validateEmail, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker, validateBirthDate } from './validators.js';
 import { resetCie10Pm, getCie10Pm } from './cie10.js';
 
 const _patientDirty = createDirtyTracker();
@@ -106,7 +106,7 @@ export async function savePatient() {
   const _cedula = document.getElementById('pm-cedula').value.trim();
   const _toValidate = [
     { id: 'pm-name',     fn: _patNameFn,              always: true },
-    { id: 'pm-cedula',   fn: validateCedulaEcuatoriana, always: false },
+    { id: 'pm-cedula',   fn: validateDocumento,       always: false },
     { id: 'pm-tel',      fn: validateTelefono,        always: false },
     { id: 'pm-email',    fn: validateEmail,           always: false },
     { id: 'pm-birth',    fn: validateBirthDate,       always: false },
@@ -447,7 +447,7 @@ export async function guardarNuevoEpisodio() {
 export function initPatientValidation() {
   const fields = [
     { id: 'pm-name',     fn: _patNameFn,              req: true },
-    { id: 'pm-cedula',   fn: validateCedulaEcuatoriana, req: false },
+    { id: 'pm-cedula',   fn: validateDocumento,       req: false },
     { id: 'pm-tel',      fn: validateTelefono,        req: false },
     { id: 'pm-email',    fn: validateEmail,           req: false },
     { id: 'pm-birth',    fn: validateBirthDate,       req: false },

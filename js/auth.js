@@ -148,6 +148,7 @@ export async function doLogin() {
   if(!email||!pass){err.textContent='Ingresa tu correo y contraseña.';return;}
   btn.disabled=true; btn.textContent='Ingresando...'; err.textContent='';
   const {error} = await supa.auth.signInWithPassword({email,password:pass});
+  document.getElementById('login-pass').value='';   // no dejar la contraseña viva en el DOM (PC compartida)
   if(error){
     err.textContent='Correo o contraseña incorrectos.';
     btn.disabled=false; btn.textContent='Ingresar';

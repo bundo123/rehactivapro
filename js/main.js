@@ -15,7 +15,7 @@ import {
   goToDate, goToToday, openDatePicker, agendarCitaParaPaciente, checkAutoNoas,
   toggleRecurrencia, updateRecPreview, filterApptPatient,
   setAgendaView, setTherapistFilter, verInformeDeCita, verHistorialDeCita, toggleHoraExacta,
-  goToDateAndSelect, exportAgendaCSV
+  goToDateAndSelect
 } from './agenda.js';
 import {
   updateResumenBadge, renderResumen, simWA, simEmail,
@@ -255,7 +255,8 @@ Object.assign(window, {
   exportarHistorialPDF, exportarHistorialCSV,
   cie10Search, cie10Pick, cie10Clear,
   planGuardarSesiones, planNuevoEpisodio,
-  setAgendaView, setTherapistFilter, goToDateAndSelect, exportAgendaCSV,
+  setAgendaView, setTherapistFilter, goToDateAndSelect,
+  renderTherapistList, renderDoctorsList,
   openBlockModal, saveBlock, deleteBlockFromModal, toggleBlockAllDay, onBlockTherapistChange,
   abrirExportModal, onExportPreset, actualizarResumenExport, confirmarExportarExcel,
   confirmarExportar, cambiarFormatoExport,

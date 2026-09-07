@@ -2,7 +2,7 @@
 // Lógica pura derivada de session_log; frontera del episodio = último 'Fin de episodio'.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { doneActual, doneEnLog, pendientesActual, lastFinDate } from '../js/utils.js';
+import { doneActual, doneEnLog, pendientesActual, lastFinDate, normalizeSearch } from '../js/utils.js';
 
 const ses = (date, status = 'asistió', type = 'Fisioterapia') => ({ date, type, status });
 const evalInicial = (date) => ({ date, type: 'Evaluación inicial', status: 'asistió' });
@@ -133,4 +133,17 @@ test('doneEnLog — log vacío o nulo devuelve 0', () => {
   assert.equal(doneEnLog([]), 0);
   assert.equal(doneEnLog(null), 0);
   assert.equal(doneEnLog(undefined), 0);
+});
+
+// ── normalizeSearch: base de todos los buscadores (nombres con tildes y ñ) ──
+
+test('normalizeSearch — quita tildes y baja a minúsculas', () => {
+  assert.equal(normalizeSearch('María'), 'maria');
+  assert.equal(normalizeSearch('MUÑOZ'), 'munoz');
+});
+
+test('normalizeSearch — recorta espacios y tolera nulos', () => {
+  assert.equal(normalizeSearch('  Ándres  '), 'andres');
+  assert.equal(normalizeSearch(null), '');
+  assert.equal(normalizeSearch(undefined), '');
 });

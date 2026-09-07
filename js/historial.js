@@ -438,8 +438,7 @@ export function exportarHistorialPDF() {
   openPdfWindow(buildHistorialPrintHtml(_modeloImpresion(m)));
 }
 
-// Mismo cuerpo que exportAgendaCSV (agenda.js): BOM para que Excel abra los acentos, comillas
-// dobladas, saltos \r\n y descarga por blob. No se inventa otro formato.
+// BOM para que Excel abra los acentos, comillas escapadas, saltos \r\n y descarga por blob.
 export function exportarHistorialCSV() {
   const m = _modelo();
   if (!m) { toastErr('Elegí primero un paciente'); return; }
