@@ -88,7 +88,8 @@ cada una **una sola vez** en el próximo `requestAnimationFrame`. Detalles:
 - **Archivos tocados:** `js/realtime.js`, `js/utils.js`, `test/realtime-match.test.js`.
 - **Sin SQL.**
 
-La rama **no está mergeada a `main`**: queda a la espera del OK de revisión.
+Mergeado a `main` el 2026-09-06 (fast-forward, `db6a59c`) y desplegado en producción: Vercel
+en verde y `rehactivaec.com` sirviendo `index-CumkRNhD.js`, el hash de este build.
 
 ---
 
@@ -133,7 +134,7 @@ contador — sin toast. Si fallaban **todas**, `creadas>0||omitidas>0||bloqueada
   errores.
 - **Archivos tocados:** `js/agenda.js`, `js/utils.js`, `test/recurrencia.test.js`.
 
-La rama **no está mergeada a `main`**: queda a la espera del OK de revisión.
+Mergeado a `main` el 2026-09-06 (fast-forward, `6f5473c`).
 
 ---
 
@@ -172,7 +173,7 @@ nada. Al siguiente `loadAll()` la cita reaparece donde estaba, sin explicación.
 - **Tests: 341/341** sin cambios. `npx vite build` sin errores.
 - **Archivos tocados:** `js/agenda.js`, `js/auth.js`.
 
-La rama **no está mergeada a `main`**: queda a la espera del OK de revisión.
+Mergeado a `main` el 2026-09-06 (fast-forward, `4355678`).
 
 ---
 
@@ -196,7 +197,7 @@ se pierde al cortar son **las citas recién agendadas**, justo las que se están
 - **Tests: 341/341** sin cambios. `npx vite build` sin errores.
 - **Archivos tocados:** `js/auth.js` (único).
 
-La rama **no está mergeada a `main`**: queda a la espera del OK de revisión.
+Mergeado a `main` el 2026-09-06 (fast-forward, `8ac61c3`).
 
 ---
 
