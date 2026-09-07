@@ -203,8 +203,7 @@ Mergeado a `main` el 2026-09-06 (fast-forward, `8ac61c3`).
 
 ## 🗓️ Sesión 2026-09-06 — LOTE AUDIT-1 (`200b91c`, rama `audit-1-sesion-select`)
 
-Dos bugs de producción que salieron de la auditoría (`AUDITORIA.md`), ambos XS. La rama **no
-está mergeada a `main`**: queda a la espera del OK de revisión.
+Dos bugs de producción que salieron de la auditoría (`AUDITORIA.md`), ambos XS. Mergeada a `main` (ff-only).
 
 - **CORR-06 — el SELECT de `saveSession()` no abortaba (`sesiones.js`).** El `maybeSingle()` que
   busca la sesión ya registrada para `(patient_id, date, hour)` solo miraba `.data` y nunca
