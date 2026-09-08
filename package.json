@@ -11,7 +11,7 @@
     "test": "node --test"
   },
   "devDependencies": {
-    "vite": "^8.0.10"
+    "vite": "^8.2.2"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.104.1",
