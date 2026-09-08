@@ -1,0 +1,2 @@
+# Los git hooks deben quedar con LF: sh no interpreta bien CRLF.
+.githooks/** text eol=lf

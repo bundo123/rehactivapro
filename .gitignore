@@ -7,8 +7,8 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
+node_modules/
+dist/
 dist-ssr
 *.local
 
@@ -24,7 +24,15 @@ dist-ssr
 *.sw?
 
 .env
-.claude/
+.env.*
+!.env.example
+*.bundle
+gitleaks*.json
+
+# .claude/: solo se versiona settings.json (permisos compartidos del equipo).
+.claude/*
+!.claude/settings.json
+
 node_modules.zip
 
 # Directorio literal "~" creado por un cp con path Windows sin expandir

@@ -1,0 +1,22 @@
+#!/bin/sh
+# Guarda anti-push-a-main (LOTE SEC-1).
+# Recibe por stdin: <local_ref> <local_sha> <remote_ref> <remote_sha>
+# Bloquea cualquier push cuyo destino sea refs/heads/main salvo que se declare
+# la intencion explicitamente con ALLOW_MAIN_PUSH=1.
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+	[ -z "$remote_ref" ] && continue
+	case "$remote_ref" in
+		refs/heads/main)
+			if [ "$ALLOW_MAIN_PUSH" != "1" ]; then
+				echo "pre-push: push a main bloqueado." >&2
+				echo "  Trabaja en una rama y abre un PR." >&2
+				echo "  Si de verdad lo necesitas: ALLOW_MAIN_PUSH=1 git push origin main" >&2
+				exit 1
+			fi
+			echo "pre-push: ALLOW_MAIN_PUSH=1 -> push a main permitido." >&2
+			;;
+	esac
+done
+
+exit 0

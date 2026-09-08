@@ -2,18 +2,25 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
 
 jobs:
-  syntax:
-    name: node --check (js/ y api/)
+  build:
+    name: tests + build + gitleaks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
       # package.json tiene "type": "module", así que node --check parsea los archivos como ESM.
       - name: Chequeo de sintaxis de todos los módulos
         run: |
@@ -22,7 +29,14 @@ jobs:
             node --check "$f"
             echo "OK $f"
           done
-      # Tests de lógica pura (validators, utils/done/pendientes, billingInfo). Sin dependencias:
-      # solo importan js/*.js entre sí, así que no requieren `npm install`.
+
       - name: Tests (node --test)
         run: npm test
+
+      - name: Build de producción
+        run: npx vite build
+
+      - name: Escaneo de secretos (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
