@@ -1,0 +1,7 @@
+# Hallazgos históricos de SEC-1 (escaneo de los 223 commits): los tres son la MISMA
+# anon key de Supabase, pública por diseño, revisada 2026-09-08.
+# Ya no está en HEAD; la seguridad real la da la RLS (ver CLAUDE.md).
+# Formato: commit:archivo:regla:línea
+2c16ff09f69b52a866c54e3089119c717808554b:js/supabase-client.js:jwt:3
+fea1b86657d68e1fdac7d7a66287ca3cf2cecb50:index.html:jwt:682
+73d80b3ac16aa852df5d47e11baf1e53126129ff:index.html:jwt:691

@@ -2,6 +2,8 @@
 // La API key vive SOLO en process.env.ANTHROPIC_API_KEY: nunca se loguea ni se devuelve al cliente.
 // Sin console.log a propósito: los datos clínicos del prompt no deben quedar en los logs de Vercel.
 
+import { scrubPII } from '../lib/informe-scrub.js';
+
 // Rate-limit in-memory por usuario. Vive por instancia serverless (se resetea en cold start y no
 // se comparte entre instancias), pero corta el spam sostenido desde una misma sesión sin infra extra.
 const RATE_MAX = 10;              // llamadas
@@ -86,6 +88,10 @@ export default async function handler(req, res) {
   if (prompt.length > 20000) {
     return res.status(413).json({ error: 'Prompt demasiado largo' });
   }
+  // Red de seguridad PII (SEC-2): el texto libre de las sesiones lo escribe una persona, así que
+  // se tachan cédulas, correos y celulares antes de salir del servidor. El tope de 20k de arriba
+  // sigue midiendo el prompt original a propósito: es un control de abuso, no de contenido.
+  const safePrompt = scrubPII(prompt);
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -97,7 +103,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
-        messages: [{ role: 'user', content: prompt }]
+        messages: [{ role: 'user', content: safePrompt }]
       })
     });
     if (!r.ok) {
