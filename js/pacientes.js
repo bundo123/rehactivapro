@@ -273,8 +273,8 @@ export function renderPatients() {
     const ageStr=getFullAge(p);
     const ageCell=ageStr==='Sin edad'?'<span class="pl-muted">Sin edad</span>':esc(ageStr);
     const emailCell=p.email?highlightMatch(p.email,q):'<span class="pl-muted">—</span>';
-    const delBtn = canDelete ? `<button class='th-btn del pl-act-btn' onclick='deletePatient("${p.id}")'>Eliminar</button>` : '';
-    const evalBtn = canEval && !hasEvalInicial(p) ? `<button class='th-btn pl-act-btn' onclick='openEvalInicial("${p.id}")'>Eval. inicial</button>` : '';
+    const delBtn = canDelete ? `<button class='th-btn del pl-act-btn' onclick='deletePatient(${esc(JSON.stringify(p.id))})'>Eliminar</button>` : '';
+    const evalBtn = canEval && !hasEvalInicial(p) ? `<button class='th-btn pl-act-btn' onclick='openEvalInicial(${esc(JSON.stringify(p.id))})'>Eval. inicial</button>` : '';
     return`<tr>
       <td class="pl-name"><span class="pname-row"><span class="pl-pname" title="${esc(p.name)}">${highlightMatch(p.name,q)}</span>${statusBadge}${evalBadge}</span></td>
       <td class="pl-age" data-label="Edad">${ageCell}</td>
@@ -283,7 +283,7 @@ export function renderPatients() {
       <td class="pl-doc" data-label="Doctor">${dc}</td>
       <td class="pl-action-cell" data-label="Acciones">
         <div class="pl-actions">
-          <button class='th-btn pl-act-btn' onclick='openEditPatient("${p.id}")'>Editar</button>${delBtn}${evalBtn}<button class="ver-btn pl-act-btn" onclick='verPaciente("${p.id}")'>Ver</button>
+          <button class='th-btn pl-act-btn' onclick='openEditPatient(${esc(JSON.stringify(p.id))})'>Editar</button>${delBtn}${evalBtn}<button class="ver-btn pl-act-btn" onclick='verPaciente(${esc(JSON.stringify(p.id))})'>Ver</button>
         </div>
       </td>
     </tr>`;

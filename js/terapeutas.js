@@ -20,8 +20,8 @@ export function renderTherapistList() {
     // Cada botón se RENDERIZA solo con su permiso (ausente, no deshabilitado): la secretaria
     // gestiona el equipo pero no ve la baja.
     const acciones=[
-      hasPermission('createTherapist')?`<button class="th-btn" onclick="openEditTherapist('${th.id}')">Editar</button>`:'',
-      hasPermission('deleteTherapist')?`<button class="th-btn del" onclick="deleteTherapist('${th.id}')">Eliminar</button>`:'',
+      hasPermission('createTherapist')?`<button class="th-btn" onclick="openEditTherapist(${esc(JSON.stringify(th.id))})">Editar</button>`:'',
+      hasPermission('deleteTherapist')?`<button class="th-btn del" onclick="deleteTherapist(${esc(JSON.stringify(th.id))})">Eliminar</button>`:'',
     ].join('');
     return`<div class="th-manage-row">
       <div class="avatar" style="background:${c.border}22;color:${c.text};width:36px;height:36px;font-size:12px">${esc(th.initials)}</div>

@@ -20,8 +20,8 @@ export function renderDoctorsList() {
         <div style="font-size:11px;color:#5a5a56;margin-top:2px">${esc(d.email||'')}${d.tel?' · '+esc(d.tel):''}</div>
       </div>
       <div class="th-actions">
-        <button class="th-btn" onclick="openDoctorModal('${d.id}')">Editar</button>
-        <button class="th-btn del" onclick="deleteDoctor('${d.id}')">Eliminar</button>
+        <button class="th-btn" onclick="openDoctorModal(${esc(JSON.stringify(d.id))})">Editar</button>
+        <button class="th-btn del" onclick="deleteDoctor(${esc(JSON.stringify(d.id))})">Eliminar</button>
       </div>
     </div>`).join('')||'<div style="color:#6b6a64;font-size:13px">Sin doctores registrados.</div>'}</div>`;
 }

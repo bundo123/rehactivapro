@@ -128,7 +128,7 @@ export function renderProtocols() {
           ${p.def?`<div class="prot-def">${esc(p.def)}</div>`:''}
           <div class="prot-meta"><span><b style="color:#1a1917">${p.sessions}</b> sesiones</span><span><b style="color:#1a1917">${fl[p.freq]||p.freq+'×'}</b>/semana</span></div>
           ${p.alta?`<div class="prot-alta">Alta: ${esc(p.alta)}</div>`:''}
-          ${hasPermission('createProtocol')?`<div class="prot-btns"><button class="prot-btn edit" onclick="openProtocolModal('${p.id}')">Editar</button><button class="prot-btn del" onclick="deleteProtocol('${p.id}')">Eliminar</button></div>`:''}
+          ${hasPermission('createProtocol')?`<div class="prot-btns"><button class="prot-btn edit" onclick="openProtocolModal(${esc(JSON.stringify(p.id))})">Editar</button><button class="prot-btn del" onclick="deleteProtocol(${esc(JSON.stringify(p.id))})">Eliminar</button></div>`:''}
         </div>
       </div>`;
     }).join('')+`</div>`;
