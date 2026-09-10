@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /privacidad
+Allow: /terminos
+Disallow: /
