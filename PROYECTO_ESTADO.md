@@ -1,6 +1,6 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-09-07
+> Generado: 2026-05-18 · Última actualización: 2026-09-15
 
 ---
 
@@ -33,6 +33,42 @@
 - **Semana 2:** auto-logout (15 min) · I-13 (alerts→toasts) · P-11 (CSP parcial).
 - **Semana 3:** I-12 (focus-trap/Escape) · I-15 (tests `node --test`) · `npm audit fix` · decisión P-2/P-6.
 - **Semana 4:** `clinical_context` de protocolos reales · papeleo LOPDP (lectura abierta + sub-encargado Anthropic) · **audit final**.
+
+---
+
+## 🗓️ Sesión 2026-09-10 — SEC-5: páginas legales (`6cd862a`, en `main`)
+
+`privacidad.html` y `terminos.html` estáticos en la raíz (sin bundle ni script inline, pasan la CSP), `vite.config.js` multi-página nuevo, `css/legal.css` autocontenido, `cleanUrls` en `vercel.json`, `public/robots.txt` que solo indexa `/privacidad` y `/terminos`, y enlace «Privacidad · Términos» + aviso de acceso restringido en el login y en el pie de la barra lateral.
+
+---
+
+## 🗓️ Sesión 2026-09-09 — SEC-4: SRI en Chart.js + ids escapados en onclick (`ff4fff7`, en `main`)
+
+`index.html` carga Chart.js 4.4.0 con `integrity="sha384-…"` y `crossorigin="anonymous"` (hash verificado por doble vía contra el SRI que publica cdnjs), y 10 interpolaciones de id en handlers inline de `pacientes.js`, `doctores.js`, `protocolos.js` y `terapeutas.js` pasan a `esc(JSON.stringify(id))`, lo que además conserva el tipo numérico de los ids optimistas.
+
+---
+
+## 🗓️ Sesión 2026-09-09 — SEC-3: Content-Security-Policy en `vercel.json` (`f9830bd`, en `main`)
+
+Única cabecera nueva sobre las ya existentes: `script-src` con cdnjs (Chart.js), `style-src`/`font-src` con Google Fonts, `img-src data: blob:` (logo del PDF, gráfico EVA, rasterizado de `word.js`), sin `frame-src`, `worker-src` ni `unsafe-eval`; `'unsafe-inline'` se mantiene en script y style por los ~168 `onclick` inline, así que **P-11 (CSP estricta) sigue abierto**.
+
+---
+
+## 🗓️ Sesión 2026-09-08 — SEC-DB-1: hallazgos del Security Advisor (SQL manual, Jefferson)
+
+Sin commit: SQL ejecutado a mano en Supabase. `search_path` fijo en `audit_log_block_changes`; `EXECUTE` revocado a `public`/`anon`/`authenticated` en las tres funciones trigger (`audit_trigger_fn`, `handle_new_user`, `audit_log_block_changes`); `EXECUTE` revocado a `public`/`anon` y concedido explícitamente a `authenticated`/`service_role` en `is_admin`, `is_secretaria`, `is_terapeuta` y `user_role`. Advisor: 0 errores.
+
+---
+
+## 🗓️ Sesión 2026-09-08 — SEC-2: red de seguridad PII en el prompt del informe IA (`9789d0f`, en `main`)
+
+`lib/informe-scrub.js` nuevo con `scrubPII()` (tacha cédulas de 10 dígitos, correos y celulares con +593 o 09; deja intactos los números de 1-8 dígitos porque el prompt clínico está lleno de cifras), aplicado en `api/informe.js` justo antes del fetch a Anthropic sin tocar auth, rol, rate limit ni tope de 20k; 10 tests en `test/informe-scrub.test.js` (383 en total) y `.gitleaksignore` con los 3 hallazgos históricos de SEC-1 (la anon key, pública por diseño).
+
+---
+
+## 🗓️ Sesión 2026-09-07 — SEC-1: higiene de repo (`446479a`, en `main`)
+
+gitleaks sobre los 223 commits del historial (3 hallazgos, todos la anon key de Supabase en commits viejos; no se rota: anon key pública por diseño; RLS verificada con el Security Advisor el 2026-09-08), `.gitignore` que cubre `.env*`/`dist/`/`gitleaks*.json`, hook `.githooks/pre-push` que bloquea push a `main` salvo `ALLOW_MAIN_PUSH=1` (activado por `prepare` → `core.hooksPath`), `.claude/settings.json` versionado con deny de push a main y `--force`, `.github/dependabot.yml` semanal (tope 5 PRs), `ci.yml` que corre `npm ci` + `node --check` + `npm test` + `vite build` + gitleaks-action en push y PR, y `npm audit fix` sin `--force` (nanoid y postcss).
 
 ---
 

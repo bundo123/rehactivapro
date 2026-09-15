@@ -1,7 +1,7 @@
 # RehactivaPro — Historial de sesiones de desarrollo
 
-> **Período:** 2026-03-31 → 2026-08-14 · **171 entregas** en **37 jornadas de trabajo**
-> **Última actualización:** 2026-08-14
+> **Período:** 2026-03-31 → 2026-09-10 · **228 entregas** en **48 jornadas de trabajo**
+> **Última actualización:** 2026-09-15
 
 ---
 
@@ -39,10 +39,11 @@ git log --oneline --reverse   # ver la lista completa en orden cronológico
 | **2 · Producto clínico** | 05-21 → 06-06 | 13 | 59 | Historia clínica, informes con IA, protocolos, bitácora legal |
 | **3 · Endurecimiento** | 06-17 → 07-09 | 5 | 21 | Auditoría pre-lanzamiento: corrección de fallos y pruebas |
 | **4 · Producción** | 07-31 → 08-14 | 9 | 29 | App en uso real: agenda avanzada, móvil, CIE-10, seguimiento |
+| **5 · Consolidación y seguridad** | 08-24 → 09-10 | 11 | 57 | Informe Word, Excel, historial, QuickBooks, auditoría de 147 hallazgos, endurecimiento SEC-1…5 |
 
 **Estado al cierre:** aplicación en producción en `rehactivaec.com`, con despliegue automático
-verificado, **154 pruebas automatizadas** en verde y bitácora de auditoría inmutable conforme a
-LOPDP.
+verificado, **383 pruebas automatizadas** en verde, integración continua en cada cambio y bitácora
+de auditoría inmutable conforme a LOPDP.
 
 ---
 
@@ -87,8 +88,19 @@ LOPDP.
 | 35 | 2026-08-12 | 4 | 16 | 1.018 | 19 | Ordinal de cita + **pestaña Seguimiento** |
 | 36 | 2026-08-13 | 1 | 7 | 237 | 31 | Secretaría gestiona el equipo + borrado que no arrastra citas |
 | 37 | 2026-08-14 | 3 | 14 | 520 | 56 | Plan de sesiones en la cita + cierre de episodio por la cita real |
+| 38 | 2026-08-24 | 4 | 16 | 1.207 | 437 | **Exportar informe a Word** + cierre de episodio por la cita que lo abre |
+| 39 | 2026-08-28 | 8 | 16 | 2.641 | 258 | Informe Word según el diseño final de la clínica |
+| 40 | 2026-08-31 | 10 | 34 | 2.635 | 62 | Tipo de sesión + cambio de contraseña + **exportación Excel** histórica |
+| 41 | 2026-09-01 | 7 | 46 | 3.690 | 356 | **Foto de agenda para WhatsApp** + **Historial de citas** + informes depurados |
+| 42 | 2026-09-02 | 1 | 1 | 109 | 1 | Documentación del lote de informes |
+| 43 | 2026-09-03 | 5 | 34 | 1.552 | 217 | **Conciliación QuickBooks** + bloqueos de terapeuta + informes unificados |
+| 44 | 2026-09-06 | 11 | 20 | 1.086 | 152 | **Auditoría de 147 hallazgos** + 5 lotes de corrección |
+| 45 | 2026-09-07 | 7 | 27 | 455 | 89 | Permisos de cita y episodio + arreglos baratos + **higiene del repositorio (SEC-1)** |
+| 46 | 2026-09-08 | 1 | 4 | 125 | 1 | Anonimización de datos personales antes de la IA (SEC-2) |
+| 47 | 2026-09-09 | 2 | 6 | 11 | 10 | Content-Security-Policy + integridad de librerías externas (SEC-3, SEC-4) |
+| 48 | 2026-09-10 | 1 | 8 | 231 | 0 | Páginas legales de privacidad y términos (SEC-5) |
 
-**Totales:** 171 entregas · 527 archivos modificados · **32.587 líneas añadidas** · **13.206 retiradas**.
+**Totales:** 228 entregas · 739 archivos modificados · **46.329 líneas añadidas** · **14.789 retiradas**.
 
 *Nota de lectura:* en 2026-04-17 y 2026-04-19 hay una entrega cada día que no registró cambio de
 contenido, por eso «Entregas» supera a «Archivos» esos dos días. Las imágenes y demás binarios
@@ -290,6 +302,117 @@ terapeuta puede reasignar esa franja y la cita sigue contando en resumen, inform
 
 ---
 
+## Fase 5 — Consolidación y seguridad (2026-08-24 → 2026-09-10) · 11 jornadas · 57 entregas
+
+Con la app en uso, el trabajo se reparte en tres frentes: **documentos y exportaciones** que pide la
+operación (Word, Excel, foto de agenda, historial), **una auditoría técnica completa** con sus
+lotes de corrección, y **un ciclo de endurecimiento de seguridad** (SEC-1 a SEC-5). Las
+funcionalidades pasaron por rama de revisión y prueba manual antes de llegar a producción.
+
+**2026-08-24 — Exportar el informe a Word y cierre de episodio por la cita que lo abre**
+(`de0d855`, `dbbb9a4`, `e4ef52b`, `b57c395`)
+- **El informe clínico se exporta a Word (.docx)** con firmante y firma, editable por el terapeuta
+  antes de entregarlo al médico. Reemplaza al botón de PDF en la pantalla del informe: primero un
+  prototipo de validación (`dbbb9a4`), luego la versión de producción (`e4ef52b`) y un primer
+  rediseño visual (`b57c395`).
+- **El modal de nuevo episodio pregunta por la cita que abre el tratamiento nuevo** (`de0d855`), y
+  el corte se registra el día anterior, para que el conteo de sesiones arranque bien.
+
+**2026-08-28 — Informe Word según el diseño final de la clínica** (`5afa4f1`, `f7f6e2d`,
+`6b02e76`, `95717ad`, `4bca075`, `dce56af`, `bfb1504`, `0d9639b`)
+- El documento Word se reescribió para seguir **literalmente la plantilla final entregada por la
+  clínica** (`6b02e76`), leída desde el propio archivo de referencia, que quedó versionado en el
+  repositorio (`f7f6e2d`).
+- Tres correcciones de paginación y del gráfico EVA comprobadas abriendo el archivo en Word real
+  (`95717ad`, `dce56af`, `bfb1504`) y una distinción entre sesión sin técnicas y sesión sin nota
+  (`4bca075`).
+- **El firmante pasa a ser una lista cerrada** de terapeutas y se limpia un carácter suelto en la
+  evaluación inicial (`0d9639b`). Higiene menor del repositorio (`5afa4f1`).
+
+**2026-08-31 — Jornada mayor: cuatro pedidos de la operación** (10 entregas, 34 archivos:
+`c6b714d`, `76e8292`, `40880fa`, `8ed0055`, `f60028d`, `47a7e44`, `19a7510`, `c1d0177`, `95eaea5`,
+`734deff`)
+- **Tipo de sesión (Fisioterapia / Terapia respiratoria)** heredado de la cita a la sesión, y
+  especialidad por terapeuta (`40880fa`).
+- **Recuperación y cambio de contraseña**: el enlace de recuperación estaba perdido y se restauró;
+  el usuario puede cambiar su contraseña con la sesión activa (`f60028d`).
+- **Agenda más legible** en la vista diaria, pedido explícito de recepción (`19a7510`).
+- **Exportación a Excel por rango de fechas** que replica la plantilla histórica que la clínica ya
+  usaba a mano (`95eaea5`).
+- Limpieza compartida de la evaluación inicial en pantalla y PDF (`c6b714d`) y cinco entregas de
+  documentación de estado (`76e8292`, `8ed0055`, `47a7e44`, `c1d0177`, `734deff`).
+
+**2026-09-01 — Jornada mayor: foto de agenda, historial de citas e informes** (7 entregas,
+46 archivos: `24a3b6e`, `55cf48f`, `a4a861a`, `8f5405f`, `bcf2acc`, `95d1d5f`, `4000edd`)
+- **Foto de la agenda en PNG para compartir por WhatsApp** (`24a3b6e`): recepción envía el día a
+  los terapeutas sin capturas de pantalla manuales.
+- **Los análisis con IA usan el rango de fechas correcto** y se rescatan los informes mensual y
+  anual, que estaban ocultos desde el rediseño (`a4a861a`).
+- **Pantalla nueva «Historial de citas»** por paciente: asistencias, cortes por episodio, impresión
+  y CSV (`bcf2acc`).
+- **Informes depurados**: se quitaron tarjetas que confundían y se unificó la fórmula de continuidad
+  en un solo cálculo (`4000edd`). La prueba manual encontró y corrigió un error de conteo de citas
+  futuras en rangos en curso.
+- Documentación de cada lote (`55cf48f`, `8f5405f`, `95d1d5f`).
+
+**2026-09-02** (`750bd63`) · Documentación del lote de informes: decisiones y fórmula única.
+
+**2026-09-03 — Conciliación QuickBooks, bloqueos y capacidad real** (`d06ce43`, `e4f3886`,
+`ed673d4`, `becd6b1`, `956d8a6`)
+- **Conciliación con QuickBooks por día y por cita** (`d06ce43`): marca administrativa separada del
+  estado clínico, para cuadrar la contabilidad sin tocar la historia.
+- **Bloqueos de terapeuta y almuerzo** que descuentan capacidad real en agenda e informes
+  (`e4f3886`).
+- **Las tres pestañas de informes comparten un mismo esqueleto**, con selector de período, IA
+  integrada y ocupación por franjas (`becd6b1`). Documentación (`ed673d4`, `956d8a6`).
+
+**2026-09-06 — Auditoría técnica completa y primeros cinco lotes de corrección** (11 entregas:
+`200b91c`, `8ec2e1f`, `980e7b4`, `8ac61c3`, `3231aa5`, `4355678`, `5c8a620`, `6f5473c`, `1d52f6c`,
+`0dbb6f4`, `db6a59c`)
+- **Auditoría de todo el sistema con 147 hallazgos** clasificados por severidad y organizados en 22
+  lotes ejecutables (`980e7b4`, documento `AUDITORIA.md`).
+- **Cinco lotes cerrados el mismo día**, cada uno en su rama y con documentación propia:
+  - sesión duplicada por una consulta que no abortaba y número de WhatsApp con prefijo de Ecuador
+    (`200b91c`);
+  - detección de respuestas truncadas por el tope de filas de la base (`8ac61c3`);
+  - **escrituras que mentían**: una actualización de cita rechazada por la base se daba por buena;
+    ahora se verifica y se revierte en pantalla (`4355678`);
+  - citas recurrentes con identificador real, inserción en lote y fallos visibles (`6f5473c`);
+  - tiempo real emparejado por identificador y sin repintados en cascada (`0dbb6f4`).
+- Documentación de cada cierre (`8ec2e1f`, `3231aa5`, `5c8a620`, `1d52f6c`, `db6a59c`).
+
+**2026-09-07 — Permisos, arreglos baratos e higiene del repositorio** (`8059843`, `1204401`,
+`7a12f77`, `8f28f67`, `bdbe8d9`, `2fc23cf`, `446479a`)
+- **Permisos que faltaban**: editar una cita y abrir un episodio nuevo ahora exigen el rol correcto;
+  antes solo se ocultaba el botón (`7a12f77`).
+- **Seis cosas rotas y baratas**: buscadores de terapeutas y doctores que no filtraban, documento
+  de identidad que solo aceptaba cédula ecuatoriana (ahora RUC y pasaporte), teléfono con espacios,
+  contraseña que quedaba en la página tras el login (`bdbe8d9`).
+- **SEC-1 — Higiene del repositorio** (`446479a`): escaneo de secretos en todo el historial,
+  bloqueo de publicación directa a producción, actualizaciones de dependencias automáticas e
+  integración continua que ejecuta pruebas, compilación y escaneo en cada cambio.
+- Documentación (`8059843`, `1204401`, `8f28f67`, `2fc23cf`).
+
+**2026-09-08 — SEC-2 — Datos personales anonimizados antes de la IA** (`9789d0f`)
+- Cédulas, correos y celulares se **tachan del texto antes de enviarlo al servicio de IA**, como
+  red de seguridad adicional a la que ya existía en el prompt. Diez pruebas nuevas.
+
+**2026-09-09 — SEC-3 y SEC-4 — Política de contenido e integridad de librerías** (`f9830bd`,
+`ff4fff7`)
+- **Content-Security-Policy** en producción: el navegador solo ejecuta código de los orígenes
+  declarados (`f9830bd`).
+- **Integridad verificada de la librería de gráficos** cargada desde un CDN externo (si el archivo
+  cambiara, el navegador lo rechaza) e identificadores escapados en los manejadores de la interfaz
+  (`ff4fff7`).
+
+**2026-09-10 — SEC-5 — Páginas legales** (`6cd862a`)
+- **Páginas públicas de Privacidad y Términos** en `rehactivaec.com/privacidad` y `/terminos`,
+  enlazadas desde el login y el pie de la aplicación, con aviso de acceso restringido. Son las
+  únicas páginas indexables por buscadores.
+- **383 pruebas en verde** al cierre de la fase.
+
+---
+
 ## Anexo — Prácticas de trabajo aplicadas
 
 Constan en el repositorio y explican parte del esfuerzo que no se ve en la interfaz:
@@ -300,9 +423,11 @@ Constan en el repositorio y explican parte del esfuerzo que no se ve en la inter
   lo servido en `rehactivaec.com` es exactamente el código compilado, comparando las huellas de los
   archivos publicados.
 - **Pruebas automatizadas crecientes:** 19 pruebas (2026-06-26) → 104 (2026-08-12) → 131 (2026-08-13)
-  → **154** al cierre. Se ejecutan en cada cambio.
+  → 154 (2026-08-14) → 326 (2026-09-03) → **383** al cierre. Desde 2026-09-07 (SEC-1) se ejecutan
+  automáticamente en cada cambio publicado, junto con la compilación y el escaneo de secretos.
 - **Documentación de estado continua.** `PROYECTO_ESTADO.md` registra cada sesión con sus
   decisiones y su deuda técnica pendiente; `AUDITORIA_PRELANZAMIENTO.md` y `rls_policies.md`
-  documentan seguridad y permisos de base de datos.
+  documentan seguridad y permisos de base de datos; `AUDITORIA.md` (2026-09-04) recoge los 147
+  hallazgos de la auditoría y el estado de sus lotes.
 - **Deuda técnica declarada, no ocultada.** Los puntos abiertos (I-7, P-2, CSP estricta, entre
   otros) están listados por escrito con su motivo y su plan.
