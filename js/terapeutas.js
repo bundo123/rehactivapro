@@ -1,7 +1,7 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { esc, getTherapist, getColor, therapistHours, COLOR_OPTIONS, orderedTherapists,
-         parseHourVal, hourValToTime, therapistDeleteBlock, textoBloqueoBorrado,
+         therapistDeleteBlock, textoBloqueoBorrado,
          especialidad, especialidadLabel, ESPECIALIDAD_DEFAULT } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { dbDeleteTherapist, markLocalChange } from './auth.js';
@@ -54,8 +54,6 @@ export function openTherapistModal(ed=null) {
     document.getElementById('th-specialty').value=especialidad(th.specialty);
     document.getElementById('th-start').value=th.startH;
     document.getElementById('th-end').value=th.endH;
-    document.getElementById('th-work-start').value=hourValToTime(th.workStart);
-    document.getElementById('th-work-end').value=hourValToTime(th.workEnd);
     document.getElementById('th-order').value=th.displayOrder??'';
     document.getElementById('th-lunch').value=String(th.lunchMinutes??60);
     state.selectedColor=th.colorId;
@@ -65,8 +63,6 @@ export function openTherapistModal(ed=null) {
     document.getElementById('th-specialty').value=ESPECIALIDAD_DEFAULT;
     document.getElementById('th-start').value=7;
     document.getElementById('th-end').value=13;
-    document.getElementById('th-work-start').value='';
-    document.getElementById('th-work-end').value='';
     document.getElementById('th-order').value='';
     document.getElementById('th-lunch').value='60';
     state.selectedColor='ca';
@@ -84,11 +80,6 @@ export async function saveTherapist() {
   const name=document.getElementById('th-name').value.trim();if(!name){toastErr('Ingresa el nombre.');return;}
   const s=parseInt(document.getElementById('th-start').value),e=parseInt(document.getElementById('th-end').value);
   if(e<=s){toastErr('La hora de fin debe ser mayor.');return;}
-  // Horario laboral: opcional y completo o vacío (un solo extremo no define un rango).
-  const ws=document.getElementById('th-work-start').value.trim();
-  const we=document.getElementById('th-work-end').value.trim();
-  if(!!ws!==!!we){toastErr('Completá las dos horas del horario, o dejá ambas vacías.');return;}
-  if(ws&&we&&we<=ws){toastErr('La hora de fin del horario debe ser mayor.');return;}
   const ordRaw=String(document.getElementById('th-order').value).trim();
   if(ordRaw!==''&&!/^\d+$/.test(ordRaw)){toastErr('El orden en agenda debe ser un número entero.');return;}
   const ord=ordRaw===''?null:parseInt(ordRaw,10);
@@ -106,19 +97,23 @@ export async function saveTherapist() {
     const t=getTherapist(editing);
     if(!t){toastErr('No se encontró el terapeuta.');return;}
     prev={name:t.name,spec:t.spec,specialty:t.specialty,startH:t.startH,endH:t.endH,colorId:t.colorId,initials:t.initials,
-          displayOrder:t.displayOrder,workStart:t.workStart,workEnd:t.workEnd,lunchMinutes:t.lunchMinutes};
+          displayOrder:t.displayOrder,lunchMinutes:t.lunchMinutes};
     t.name=name;t.spec=spec;t.specialty=specialty;t.startH=s;t.endH=e;t.colorId=state.selectedColor;t.initials=init;
-    t.displayOrder=ord;t.workStart=parseHourVal(ws);t.workEnd=parseHourVal(we);t.lunchMinutes=lunch;
+    // workStart/workEnd NO se tocan: este modal ya no los edita. Si la fila vino de la base con
+    // valor, sigue tal cual en memoria; si no, queda undefined y todo cae a startH/endH.
+    t.displayOrder=ord;t.lunchMinutes=lunch;
   } else {
     state.therapists.push({id:++state.thCounter,name,initials:init,spec,specialty,startH:s,endH:e,colorId:state.selectedColor,
-      displayOrder:ord,workStart:parseHourVal(ws),workEnd:parseHourVal(we),lunchMinutes:lunch});
+      displayOrder:ord,lunchMinutes:lunch});
   }
   const _th=editing?getTherapist(editing):state.therapists[state.therapists.length-1];
   window._app.closeModal('therapist-modal'); renderTherapistList(); window._app.renderGrid();
   const tempId=_th.id;
   try {
+    // work_start/work_end NO van en el payload, y tampoco como null: un null en el upsert BORRARÍA
+    // el valor que hay en la base. Omitir las claves deja el dato dormido por si hay que consultarlo.
     const payload={name:_th.name,initials:_th.initials,spec:_th.spec,specialty:_th.specialty,start_h:_th.startH,end_h:_th.endH,color_id:_th.colorId,
-      display_order:_th.displayOrder,work_start:ws||null,work_end:we||null,lunch_minutes:_th.lunchMinutes};
+      display_order:_th.displayOrder,lunch_minutes:_th.lunchMinutes};
     if(typeof _th.id==='string') payload.id=_th.id;
     markLocalChange('therapists');
     const {data,error}=await supa.from('therapists').upsert(payload).select().single();

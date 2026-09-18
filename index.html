@@ -696,10 +696,12 @@
 </select>
     </div>
   </div>
-  <div class="field-row two">
-    <div class="field"><label>Horario laboral · inicio (opcional)</label><input type="time" id="th-work-start" step="1800"></div>
-    <div class="field"><label>Horario laboral · fin (opcional)</label><input type="time" id="th-work-end" step="1800"></div>
-  </div>
+  <!-- Acá vivían "Horario laboral · inicio/fin (opcional)" (work_start/work_end). Se quitaron el
+       2026-09-18: eran un SEGUNDO par de horas para un solo concepto, invisible en toda la app —
+       se editaban y no pasaba nada a la vista. La jornada del terapeuta es start_h/end_h, la que
+       se ve arriba en este mismo modal y en la cabecera de su columna de la agenda, y es la única.
+       Las columnas work_start/work_end siguen en la base con lo que tuvieran: este modal ya no las
+       lee ni las escribe, así que el dato queda dormido en vez de borrarse. -->
   <!-- Almuerzo: REGLA, no evento. No se marca cada día (se olvidaría); solo se descuenta de la
        capacidad del terapeuta en el informe semanal y del contador de slots libres. -->
   <div class="field"><label>Almuerzo (min)</label>
