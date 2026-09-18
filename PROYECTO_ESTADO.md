@@ -36,6 +36,58 @@
 
 ---
 
+## 🗓️ Sesión 2026-09-18 (e) — LOTE TURNO-1b: fuente única del turno, el estado manda, y la etiqueta deja de mentir (`8adf4bf`, en `main`)
+
+**A) La jornada del terapeuta es `start_h`/`end_h`. Punto.** `turnoDe` (`utils.js`) y el rango de la
+vista Semana (`agenda.js`) dejan de caer a `work_start`/`work_end`: fuera el `??` en los dos. Es la
+jornada que se ve en la **cabecera de su columna** de la agenda, en la lista de Terapeutas y en su
+modal, y la misma que usa `capacidadSlots`. Que el color y las filas obedecieran a un campo que no
+se muestra en la agenda —y que desde `f6cb02c` ni se puede editar— era el defecto de fondo.
+
+> **`work_start`/`work_end` queda DORMIDO a propósito.** No se borró de la base, no se edita desde
+> la app y no lo lee nadie salvo el mapeo de `utils.js:505-506`. **TURNO-2 lo va a recuperar** cuando
+> la jornada necesite medias horas: `start_h`/`end_h` es `integer` y no las aguanta.
+
+**B) El estado manda sobre el azul.** `appt-extra` se pone **solo** cuando `status==='conf'`, en Día
+y en Semana. Una **no asistió es ROJA** y una **pendiente es NARANJA** aunque estén fuera de turno:
+eso es lo primero que hay que resolver, y **no se combinan**. Los `!important` de `.appt-extra` se
+quedan —ya no compiten con `.status-*`, pero sí con `.loc-centro`/`.loc-domicilio`, que también los
+llevan y tienen la misma especificidad (dos clases); sin ellos el azul no se vería nunca.
+
+**C) `therapistHours` devuelve SLOTS de 30 minutos, no horas.** Es a propósito: `capacidadSlots` lo
+necesita así. **Quien lo imprima en pantalla divide entre 2.** La lista de Terapeutas imprimía el
+largo del array crudo, así que un 9:00–18:00 salía como **"18 h/día"**. Ahora pasa por
+`textoJornada(th)` (`utils.js`, pura): horas = slots/2, con coma decimal y sin decimal de relleno
+(`9 h`, `4,5 h`), y las puntas por `fmtTime` en vez de `` `${th.startH}:00` ``, que escribiría
+"8.5:00" en cuanto TURNO-2 meta medias horas. `therapistHours` y `capacidadSlots` NO se tocaron.
+
+**D)** `turno.test.js`: el caso del fallback pasa a ser **"se IGNORA aunque esté cargado"**.
+`horasTexto` y `textoJornada` con sus tests en `terapeutas.test.js`. **419 pass / 0 fail.**
+
+---
+
+## 🗓️ Sesión 2026-09-18 (d) — fuera el campo fantasma "Horario laboral" del modal de terapeuta (`f6cb02c`, en `main`)
+
+Había **dos pares de horas para un solo concepto**: `start_h`/`end_h`, que se ve en la cabecera de
+la columna, y `work_start`/`work_end`, que no se veía en ninguna parte pero gobernaba el color de
+TURNO-1. Con el segundo editable, alguien le cambiaba el horario a un terapeuta y no pasaba nada a
+la vista — peor que el bug.
+
+- `index.html`: se eliminan `#th-work-start` y `#th-work-end` con su `field-row`. Queda un
+  comentario en su lugar diciendo cuál es la jornada y por qué las columnas siguen en la base.
+- `terapeutas.js`: sin prefill, sin la validación del par ("Completá las dos horas del horario") y
+  sin lectura de `ws`/`we`. `hourValToTime` y `parseHourVal` salen del import (ya no se usan ahí).
+- **El payload OMITE las dos claves.** No van como `null` a propósito: un `null` en el `upsert`
+  BORRARÍA el valor de la base. Omitirlas deja el dato dormido (PostgREST hace
+  `ON CONFLICT DO UPDATE SET` solo de las columnas presentes).
+- **Bug que apareció al sacarlo:** el payload mandaba `work_start: ws||null`. Como los campos
+  estaban casi siempre vacíos, **cada guardado de terapeuta le borraba el horario laboral en
+  silencio.** Ya no.
+
+El mapeo de `utils.js:505-506` se deja como estaba (lectura inofensiva, y TURNO-2 lo va a necesitar).
+
+---
+
 ## 🗓️ Sesión 2026-09-18 (c) — LOTE TURNO-1: lo que cae fuera del turno se ve distinto (`661844f`, en `main`)
 
 **Revierte la decisión 2026-08** de `js/agenda.js:234`: lo que cae fuera del turno del terapeuta
@@ -2237,8 +2289,9 @@ extrayendo a `utils.js` (puro y testeado) — `doneEnLog`, `findConflict`, `comp
   `ocupacionTerapeuta` (`utils.js:665`) suma al numerador los `apptSlots` de TODA cita `conf`
   hasta hoy, sin mirar hora ni día; `capacidadSlots` (`:643`) solo cuenta `therapistHours(th)` en
   días hábiles (`esDiaHabil`), menos almuerzo y bloqueos. Una cita de sábado o de las 21:00 suma
-  arriba y no abajo. Va en EXTRAS-2, **no antes** de tener el flag manual de extra: hasta entonces
-  no hay forma de saber si la cita fuera de turno era capacidad real del terapeuta o un favor.
+  arriba y no abajo. **No se arregla suelto:** va junto con el flag manual de extra en EXTRAS-2,
+  porque cambiar el denominador sin el flag deja el número a medias — hasta entonces no hay forma
+  de saber si la cita fuera de turno era capacidad real del terapeuta o un favor puntual.
 - **Lo formal:** I-7 (`cobro_ref` server-side, necesita SQL), P-2 (frontera `>` vs `>=`), CSP
   estricta (P-11), agenda táctil en iOS (R-20) y la deuda de realtime RT-1…RT-4.
 

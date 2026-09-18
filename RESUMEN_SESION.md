@@ -1,7 +1,7 @@
 # RehactivaPro — Historial de sesiones de desarrollo
 
-> **Período:** 2026-03-31 → 2026-09-10 · **228 entregas** en **48 jornadas de trabajo**
-> **Última actualización:** 2026-09-15
+> **Período:** 2026-03-31 → 2026-09-18 · **234 entregas** en **49 jornadas de trabajo**
+> **Última actualización:** 2026-09-18
 
 ---
 
@@ -40,9 +40,10 @@ git log --oneline --reverse   # ver la lista completa en orden cronológico
 | **3 · Endurecimiento** | 06-17 → 07-09 | 5 | 21 | Auditoría pre-lanzamiento: corrección de fallos y pruebas |
 | **4 · Producción** | 07-31 → 08-14 | 9 | 29 | App en uso real: agenda avanzada, móvil, CIE-10, seguimiento |
 | **5 · Consolidación y seguridad** | 08-24 → 09-10 | 11 | 57 | Informe Word, Excel, historial, QuickBooks, auditoría de 147 hallazgos, endurecimiento SEC-1…5 |
+| **6 · Diagnóstico y lectura de la agenda** | 09-18 | 1 | 6 | Diagnóstico como catálogo cerrado y agenda que muestra qué se atiende fuera del turno |
 
 **Estado al cierre:** aplicación en producción en `rehactivaec.com`, con despliegue automático
-verificado, **383 pruebas automatizadas** en verde, integración continua en cada cambio y bitácora
+verificado, **419 pruebas automatizadas** en verde, integración continua en cada cambio y bitácora
 de auditoría inmutable conforme a LOPDP.
 
 ---
@@ -99,8 +100,9 @@ de auditoría inmutable conforme a LOPDP.
 | 46 | 2026-09-08 | 1 | 4 | 125 | 1 | Anonimización de datos personales antes de la IA (SEC-2) |
 | 47 | 2026-09-09 | 2 | 6 | 11 | 10 | Content-Security-Policy + integridad de librerías externas (SEC-3, SEC-4) |
 | 48 | 2026-09-10 | 1 | 8 | 231 | 0 | Páginas legales de privacidad y términos (SEC-5) |
+| 49 | 2026-09-18 | 6 | 30 | 861 | 167 | **Diagnóstico como catálogo cerrado** + la agenda muestra lo que cae fuera del turno |
 
-**Totales:** 228 entregas · 739 archivos modificados · **46.329 líneas añadidas** · **14.789 retiradas**.
+**Totales:** 234 entregas · 769 archivos modificados · **47.190 líneas añadidas** · **14.956 retiradas**.
 
 *Nota de lectura:* en 2026-04-17 y 2026-04-19 hay una entrega cada día que no registró cambio de
 contenido, por eso «Entregas» supera a «Archivos» esos dos días. Las imágenes y demás binarios
@@ -413,6 +415,52 @@ funcionalidades pasaron por rama de revisión y prueba manual antes de llegar a 
 
 ---
 
+## Fase 6 — Diagnóstico y lectura de la agenda (2026-09-18) · 1 jornada · 6 entregas
+
+Dos frentes en el mismo día: **que el diagnóstico sea un dato utilizable** (era texto libre y por
+eso el contexto clínico nunca llegaba al informe con IA) y **que la agenda diga en pantalla lo que
+antes había que cruzar a mano con la ficha de cada terapeuta**.
+
+**2026-09-18 — El diagnóstico deja de ser texto libre** (`e7184eb`, `b314075`)
+- Medido antes de tocar nada: **251 de 308 pacientes activos sin diagnóstico utilizable** y **uno
+  solo** enlazado al catálogo. Cuarenta textos distintos para unos quince diagnósticos reales
+  («TENDINITIS» / «TENDENITIS PATELAR», «HOMBRO» / «HOMBRO DERECHO», «BURSISTIS»).
+- El diagnóstico pasa a **elegirse de un catálogo cerrado, nunca a escribirse**, en los tres puntos
+  donde se captura (ficha del paciente, nuevo episodio y evaluación inicial). **Nada se borra:** al
+  paciente con texto viejo el sistema le muestra «Antes decía: …» y pide elegir del catálogo.
+- El **código CIE-10 del paciente ahora viaja al informe con IA**. Estaba capturado y no se usaba.
+- El aviso «Sin diagnóstico» del resumen del día abre la ficha del paciente, que es donde está el
+  selector (antes llevaba a una pantalla donde ese campo no existe).
+
+**2026-09-18 — La agenda muestra qué se atiende fuera del turno** (`661844f`, `f6cb02c`, `8adf4bf`)
+- Las **citas confirmadas fuera del turno del terapeuta se ven en azul** y las franjas vacías fuera
+  de turno en gris suave, en la vista de día y en la de semana, con su contador en la leyenda. Antes
+  no se distinguían: había que cruzar cada hora con el horario de cada terapeuta.
+- **Es solo color: no cambia ninguna regla.** Cualquier franja sigue aceptando citas, y una cita
+  fuera de turno se crea, se mueve y se edita igual que el resto. Nada quedó bloqueado.
+- **Decisión cerrada — el estado del paciente manda sobre el azul.** Si el paciente **no vino** la
+  cita es **roja**, y si está **por confirmar** es **naranja**, aunque caiga fuera del turno. No se
+  combinan: lo primero que hay que resolver es el estado.
+- **Decisión cerrada — un solo horario por terapeuta.** Había dos campos de horario para el mismo
+  concepto: el que se ve en la cabecera de su columna y otro, invisible en toda la aplicación, que
+  era el que en realidad mandaba. Se **eliminó el campo invisible del formulario** y ahora todo
+  —el color, las filas de la semana y el cálculo de ocupación— usa el mismo horario, el que está a
+  la vista. Los datos del campo retirado **quedan guardados en la base**, sin borrar, para cuando
+  haga falta un horario con medias horas.
+- Al retirarlo apareció un fallo silencioso: **cada vez que alguien guardaba un terapeuta, ese
+  campo invisible se borraba solo**. Ya no ocurre.
+- La lista de terapeutas decía **«18 h/día» para una jornada de 9:00 a 18:00**: estaba contando
+  bloques de media hora como si fueran horas. Ahora dice «9 h/día», y admite medias horas («4,5 h»).
+- **383 → 419 pruebas automatizadas** en verde al cierre de la jornada (398 tras el catálogo de
+  diagnósticos, 415 y 419 con la agenda).
+
+**Deuda declarada en esta jornada (abierta, con plan):** el porcentaje de ocupación del terapeuta
+puede **pasar del 100%**, porque cuenta las citas fuera de turno y de fin de semana arriba pero no
+las suma a la capacidad disponible abajo. **No se corrige suelto:** se hará junto con la marca
+manual de «cita extra», porque cambiar solo el cálculo de capacidad dejaría el número a medias.
+
+---
+
 ## Anexo — Prácticas de trabajo aplicadas
 
 Constan en el repositorio y explican parte del esfuerzo que no se ve en la interfaz:
@@ -423,7 +471,7 @@ Constan en el repositorio y explican parte del esfuerzo que no se ve en la inter
   lo servido en `rehactivaec.com` es exactamente el código compilado, comparando las huellas de los
   archivos publicados.
 - **Pruebas automatizadas crecientes:** 19 pruebas (2026-06-26) → 104 (2026-08-12) → 131 (2026-08-13)
-  → 154 (2026-08-14) → 326 (2026-09-03) → **383** al cierre. Desde 2026-09-07 (SEC-1) se ejecutan
+  → 154 (2026-08-14) → 326 (2026-09-03) → 383 (2026-09-10) → **419** al cierre. Desde 2026-09-07 (SEC-1) se ejecutan
   automáticamente en cada cambio publicado, junto con la compilación y el escaneo de secretos.
 - **Documentación de estado continua.** `PROYECTO_ESTADO.md` registra cada sesión con sus
   decisiones y su deuda técnica pendiente; `AUDITORIA_PRELANZAMIENTO.md` y `rls_policies.md`
