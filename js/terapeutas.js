@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { esc, getTherapist, getColor, therapistHours, COLOR_OPTIONS, orderedTherapists,
+import { esc, getTherapist, getColor, textoJornada, COLOR_OPTIONS, orderedTherapists,
          therapistDeleteBlock, textoBloqueoBorrado,
          especialidad, especialidadLabel, ESPECIALIDAD_DEFAULT } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
@@ -28,7 +28,7 @@ export function renderTherapistList() {
       <div style="flex:1">
         <div style="font-size:13px;font-weight:500;color:#1a1917">${esc(th.name)}</div>
         <div style="font-size:11px;color:#6b6a64">${esc(especialidadLabel(th.specialty))}${th.spec?' · '+esc(th.spec):''}</div>
-        <div style="font-size:11px;color:#5a5a56;margin-top:2px">Turno: ${th.startH}:00–${th.endH}:00 · ${therapistHours(th).length} h/día</div>
+        <div style="font-size:11px;color:#5a5a56;margin-top:2px">Turno: ${esc(textoJornada(th))}</div>
       </div>
       ${acciones?`<div class="th-actions">${acciones}</div>`:''}
     </div>`;

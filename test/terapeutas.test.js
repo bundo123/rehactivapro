@@ -3,7 +3,8 @@
 // bloquea y hay que reasignarlas antes. Solo se elimina un terapeuta con cero citas.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { therapistDeleteBlock, textoBloqueoBorrado, hourValToTime, parseHourVal } from '../js/utils.js';
+import { therapistDeleteBlock, textoBloqueoBorrado, hourValToTime, parseHourVal,
+         horasTexto, textoJornada } from '../js/utils.js';
 
 const cita = (id, date, therapistId = 't1') => ({ id, date, hour: 9, therapistId, patientId: 'p1' });
 const HOY = '2026-08-13';
@@ -89,4 +90,42 @@ test('hourValToTime + parseHourVal — ida y vuelta estable (media hora es la re
   ['07:00', '07:30', '13:00'].forEach(t => {
     assert.equal(hourValToTime(parseHourVal(t)), t);
   });
+});
+
+// ── Etiqueta de la jornada en la lista de Terapeutas ─────────────────────────
+// therapistHours devuelve SLOTS de media hora; la etiqueta imprimía su largo como "h/día", así que
+// decía el doble (9:00–18:00 → "18 h/día"). Horas = slots/2.
+test('horasTexto — entero sin decimal, media hora con coma (no "9.0" ni "9.5")', () => {
+  assert.equal(horasTexto(9), '9');
+  assert.equal(horasTexto(6), '6');
+  assert.equal(horasTexto(8.5), '8,5');
+  assert.equal(horasTexto(4.5), '4,5');
+  assert.equal(horasTexto(0), '0');
+});
+
+test('horasTexto — sin número devuelve cadena vacía', () => {
+  assert.equal(horasTexto(null), '');
+  assert.equal(horasTexto(undefined), '');
+  assert.equal(horasTexto('9'), '');
+  assert.equal(horasTexto(NaN), '');
+});
+
+test('textoJornada — las horas son slots/2: 9:00–18:00 son 9 h/día, no 18', () => {
+  assert.equal(textoJornada({ startH: 9, endH: 18 }), '9:00–18:00 · 9 h/día');
+  assert.equal(textoJornada({ startH: 7, endH: 13 }), '7:00–13:00 · 6 h/día');
+  assert.equal(textoJornada({ startH: 7, endH: 20 }), '7:00–20:00 · 13 h/día');
+});
+
+// Hoy start_h/end_h son enteros, pero TURNO-2 mete medias horas: `${th.startH}:00` habría escrito
+// "8.5:00". Por eso las puntas van por fmtTime.
+test('textoJornada — media hora en las puntas: fmtTime, no interpolación cruda', () => {
+  assert.equal(textoJornada({ startH: 8.5, endH: 13 }), '8:30–13:00 · 4,5 h/día');
+  assert.equal(textoJornada({ startH: 7, endH: 12.5 }), '7:00–12:30 · 5,5 h/día');
+});
+
+test('textoJornada — sin terapeuta o sin horas numéricas: cadena vacía', () => {
+  assert.equal(textoJornada(null), '');
+  assert.equal(textoJornada({}), '');
+  assert.equal(textoJornada({ startH: 7 }), '');
+  assert.equal(textoJornada({ startH: null, endH: 13 }), '');
 });

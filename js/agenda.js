@@ -331,8 +331,11 @@ export function renderGrid() {
         // Tinte de fondo por MODALIDAD (centro verde / domicilio naranja); el ESTADO pisa el
         // tinte cuando aplica (reglas .status-* posteriores en CSS).
         const locCls=appt.location==='domicilio'?'loc-domicilio':'loc-centro';
-        // Fuera del turno del terapeuta: solo tinte, cero cambios de comportamiento.
-        const extraCls=esExtra(appt,th)?' appt-extra':'';
+        // Fuera del turno del terapeuta: solo tinte, cero cambios de comportamiento. SOLO en las
+        // CONFIRMADAS: el estado manda sobre el azul — si el paciente no vino la tarjeta es roja y
+        // si está por confirmar es naranja, porque eso es lo primero que hay que resolver. Un
+        // extra que todavía no se sabe si ocurrió no es un extra.
+        const extraCls=(appt.status==='conf'&&esExtra(appt,th))?' appt-extra':'';
         card.className=`appt ${locCls}${sc}${extraCls}`;
         card.draggable=true;
         const doc=pt&&pt.doctorId?getDoctor(pt.doctorId):null;
@@ -950,9 +953,10 @@ export function renderWeekView() {
   // Lun–Sáb siempre; Dom solo si tiene citas esa semana.
   const visDays = wkAppts.some(a => a.date === dayStrs[6]) ? days : days.slice(0, 6);
 
-  // Rango horario: [work_start, work_end] del terapeuta (fallback: su horario de agenda)
-  // ∪ horas de todas sus citas de la semana — todo visible siempre, mismo criterio que Día.
-  const ws = th.workStart ?? th.startH, we = th.workEnd ?? th.endH;
+  // Rango horario: la jornada del terapeuta [start_h, end_h] ∪ horas de todas sus citas de la
+  // semana — todo visible siempre, mismo criterio que Día. Sin caída a work_start/work_end: la
+  // jornada es start_h/end_h y es la única (ver turnoDe en utils.js).
+  const ws = th.startH, we = th.endH;
   const hourSet = new Set();
   for(let h = ws; h < we; h += 0.5) hourSet.add(+h.toFixed(1));
   wkAppts.forEach(a => apptSlots(a).forEach(s => { if(s >= 0 && s < 24) hourSet.add(s); }));
@@ -1039,7 +1043,7 @@ export function renderWeekView() {
         let sc = ''; if(appt.status === 'pend') sc = ' status-pend'; else if(appt.status === 'noas') sc = ' status-noas';
         if(appt.qbAt) sc += ' appt-qb';   // mismo apagado que en la vista Día
         const locCls = appt.location === 'domicilio' ? 'loc-domicilio' : 'loc-centro';
-        const extraClsWk = esExtra(appt, th) ? ' appt-extra' : '';   // mismo criterio que en Día
+        const extraClsWk = (appt.status === 'conf' && esExtra(appt, th)) ? ' appt-extra' : '';   // mismo criterio que en Día
         card.className = `appt ${locCls}${sc}${extraClsWk}`;
         card.style.borderLeftColor = doc ? doc.color : 'rgba(0,0,0,.1)';
         const exactTagWk = isAlignedHour(appt.hour) ? '' : `<span class="appt-exact">${esc(fmtTime(appt.hour))}</span>`;

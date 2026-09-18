@@ -554,19 +554,38 @@ export function getDoctor(id){return state.doctors.find(d=>d.id===id)}
 export function therapistHours(th){const h=[];for(let i=th.startH;i<th.endH;i+=0.5)h.push(i);return h;}
 export function getAvailHours(ths){const s=new Set();(ths||state.therapists).forEach(t=>therapistHours(t).forEach(h=>s.add(h)));return[...s].sort((a,b)=>a-b);}
 
+// Horas con coma decimal y sin decimal de relleno: 9 → '9', 8.5 → '8,5'. Se escribe en español,
+// donde el separador decimal es la coma, y '9,0 h' se lee como una precisión que no existe.
+export function horasTexto(h){
+  if(typeof h !== 'number' || !isFinite(h)) return '';
+  return Number.isInteger(h) ? String(h) : String(h).replace('.', ',');
+}
+
+// Jornada del terapeuta en texto, para la lista de Terapeutas: '7:00–13:00 · 6 h/día'.
+// therapistHours devuelve SLOTS de media hora (así lo necesita capacidadSlots), así que las horas
+// son slots/2: imprimir el largo del array daba el doble —un 9:00–18:00 salía como '18 h/día'—.
+// Las puntas van por fmtTime y no por `${th.startH}:00`, que escribiría '8.5:00' en cuanto una
+// jornada empiece a la media hora.
+export function textoJornada(th){
+  if(!th || typeof th.startH !== 'number' || typeof th.endH !== 'number') return '';
+  return `${fmtTime(th.startH)}–${fmtTime(th.endH)} · ${horasTexto(therapistHours(th).length / 2)} h/día`;
+}
+
 // ── Turno del terapeuta: qué está DENTRO y qué está FUERA ──────────────────────────────────────
 // Tres funciones puras: deciden solo con la cita y el terapeuta, sin DOM ni estado global. Son el
 // criterio de COLOR de la agenda — nada de esto bloquea, valida ni impide agendar.
 
-// Turno efectivo del terapeuta, {ws, we} en decimales. Mismo criterio que ya usa la vista semana:
-// work_start/work_end es el horario laboral fino y OPCIONAL; start_h/end_h es el que hoy está
-// cargado en todos y el que se lee en la cabecera de su columna. Por eso el turno cae a start_h/
-// end_h cuando el fino no está: si no, casi ninguna ficha tendría turno y no se pintaría nada.
+// Turno efectivo del terapeuta, {ws, we} en decimales. FUENTE ÚNICA: start_h/end_h, la jornada que
+// se ve en la cabecera de su columna de la agenda, en la lista de terapeutas y en su propio modal,
+// y la misma que usa capacidadSlots. work_start/work_end NO participa —ni siquiera cuando está
+// cargado—: era un segundo par de horas para un solo concepto, invisible en la agenda y, desde
+// f6cb02c, tampoco editable. Que el color obedeciera a un campo que nadie puede ver ni corregir
+// era el defecto de fondo; las columnas siguen en la base, dormidas, por si TURNO-2 las recupera.
 // Devuelve null cuando no hay un turno afirmable (sin terapeuta, sin horas numéricas, o we<=ws):
 // mejor no pintar que pintar media agenda por una ficha incompleta o al revés.
 export function turnoDe(th){
   if(!th) return null;
-  const ws = th.workStart ?? th.startH, we = th.workEnd ?? th.endH;
+  const ws = th.startH, we = th.endH;
   if(typeof ws !== 'number' || typeof we !== 'number' || !isFinite(ws) || !isFinite(we)) return null;
   if(we <= ws) return null;
   return {ws, we};

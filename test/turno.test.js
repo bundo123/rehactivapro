@@ -1,8 +1,9 @@
 // Tests de TURNO Y FUERA DE TURNO — node --test.
-// El turno del terapeuta sale de work_start/work_end (fino, opcional) con caída a start_h/end_h
-// (el que hoy está cargado en todos). Con eso se decide qué se pinta distinto en la agenda: la
-// CITA que asoma fuera del turno y la FRANJA vacía fuera del turno. Es criterio de color: nada
-// acá bloquea, valida ni impide agendar. Piezas puras, sin DOM.
+// El turno del terapeuta es start_h/end_h y NADA MÁS: la jornada que se ve en la cabecera de su
+// columna, en la lista de Terapeutas y en su modal. work_start/work_end quedó dormido en la base y
+// no participa. Con el turno se decide qué se pinta distinto en la agenda: la CITA CONFIRMADA que
+// asoma fuera del turno y la FRANJA vacía fuera del turno. Es criterio de color: nada acá bloquea,
+// valida ni impide agendar. Piezas puras, sin DOM.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { turnoDe, esExtra, slotFueraDeTurno } from '../js/utils.js';
@@ -10,18 +11,20 @@ import { turnoDe, esExtra, slotFueraDeTurno } from '../js/utils.js';
 const cita = (hour, duration = 60) => ({ hour, duration });
 
 // ── turnoDe ───────────────────────────────────────────────────────────────────
-test('turnoDe — usa work_start/work_end cuando están cargados', () => {
-  assert.deepEqual(turnoDe({ workStart: 9, workEnd: 18, startH: 7, endH: 20 }), { ws: 9, we: 18 });
-});
-
-test('turnoDe — cae a start_h/end_h cuando el horario fino es null', () => {
-  assert.deepEqual(turnoDe({ workStart: null, workEnd: null, startH: 7, endH: 20 }), { ws: 7, we: 20 });
+test('turnoDe — el turno es start_h/end_h', () => {
+  assert.deepEqual(turnoDe({ startH: 7, endH: 20 }), { ws: 7, we: 20 });
   assert.deepEqual(turnoDe({ startH: 8, endH: 17 }), { ws: 8, we: 17 });
+  assert.deepEqual(turnoDe({ workStart: null, workEnd: null, startH: 7, endH: 20 }), { ws: 7, we: 20 });
 });
 
-test('turnoDe — la caída es campo por campo: puede venir solo una de las dos', () => {
-  assert.deepEqual(turnoDe({ workStart: 9, workEnd: null, startH: 7, endH: 20 }), { ws: 9, we: 20 });
-  assert.deepEqual(turnoDe({ workStart: null, workEnd: 16, startH: 7, endH: 20 }), { ws: 7, we: 16 });
+// El punto del lote TURNO-1b: la fila que TIENE work_start/work_end cargado se comporta igual que
+// la que no. Ese par ya no se puede editar desde la app, así que si mandara, el color obedecería a
+// un dato invisible e incorregible.
+test('turnoDe — IGNORA work_start/work_end aunque estén cargados', () => {
+  assert.deepEqual(turnoDe({ workStart: 9, workEnd: 18, startH: 7, endH: 20 }), { ws: 7, we: 20 });
+  assert.deepEqual(turnoDe({ workStart: 9, workEnd: null, startH: 7, endH: 20 }), { ws: 7, we: 20 });
+  assert.deepEqual(turnoDe({ workStart: null, workEnd: 16, startH: 7, endH: 20 }), { ws: 7, we: 20 });
+  assert.equal(turnoDe({ workStart: 9, workEnd: 18 }), null);   // sin start_h/end_h no hay turno
 });
 
 test('turnoDe — sin turno afirmable devuelve null', () => {
@@ -68,6 +71,7 @@ test('esExtra — sin duration se asume media hora, como en el resto de la agend
 
 test('esExtra — terapeuta sin horas o cita nula: false, no se afirma nada', () => {
   assert.equal(esExtra(cita(22), {}), false);
+  assert.equal(esExtra(cita(22), { workStart: 8, workEnd: 17 }), false);   // solo el par dormido
   assert.equal(esExtra(cita(22), { workStart: null, workEnd: null }), false);
   assert.equal(esExtra(cita(22), null), false);
   assert.equal(esExtra(null, th), false);

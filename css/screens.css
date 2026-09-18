@@ -47,10 +47,13 @@
 .appt.status-pend{background:rgba(224,168,80,.14)!important;color:#7a4a00!important;border-top:1px dashed rgba(186,117,23,.5);border-right:1px dashed rgba(186,117,23,.5);border-bottom:1px dashed rgba(186,117,23,.5);opacity:.88}
 .appt.status-noas{background:rgba(226,75,74,.08)!important;color:#c33a3a!important}
 .appt.status-noas .appt-name{text-decoration:line-through}
-/* Cita FUERA DEL TURNO (esExtra en utils.js): azul medio, que contrasta con el verde del centro
-   y el naranja de domicilio sin competirles. Va DESPUÉS de .status-* para que el tinte gane —la
-   cita fuera de turno se reconoce de un vistazo— y ANTES de .appt-qb, que sigue apagando lo ya
-   cerrado. El estado NO se pierde: lo dice el .appt-dot, y la no-asistió conserva su tachado.
+/* Cita CONFIRMADA fuera del turno (esExtra en utils.js): azul medio, que contrasta con el verde
+   del centro y el naranja de domicilio. Ya NO convive con .status-*: agenda.js pone la clase solo
+   cuando status==='conf', porque el estado manda sobre el azul (la no-asistió es roja y la
+   pendiente naranja). Sigue yendo antes de .appt-qb, que apaga lo ya conciliado.
+   Los !important NO sobran: pisan el tinte por modalidad de .appt.loc-centro/.loc-domicilio, que
+   también lo llevan y tienen la misma especificidad (dos clases). Sin ellos el azul no se vería
+   nunca, porque toda cita tiene una de esas dos.
    El acento es un aro inset y no border-left: ese borde ya es el color del médico referente y va
    por style inline, así que una regla de borde acá no se vería. */
 .appt.appt-extra{background:rgba(42,111,151,.13)!important;color:#1d4e6b!important;box-shadow:inset 0 0 0 1.5px #2A6F97}
