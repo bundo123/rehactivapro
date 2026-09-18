@@ -11,6 +11,13 @@
 .slot{border-left:1px solid rgba(0,0,0,.12);border-bottom:1px solid rgba(0,0,0,.12);padding:3px;position:relative;min-width:0;background:#fff;overflow:visible;transition:background .12s;box-sizing:border-box}
 .slot.avail:hover{background:rgba(41,171,226,.1)!important;cursor:pointer}
 .slot.drag-over{background:rgba(41,171,226,.15)!important}
+/* Franja vacía FUERA DEL TURNO del terapeuta (slotFueraDeTurno en utils.js): gris plano y muy
+   tenue, a propósito MÁS SUAVE que el rayado de .slot-block — el bloqueo es una excepción
+   registrada (vacaciones, permiso) y tiene que seguir pesando más que "a esta hora no trabaja".
+   Es solo un fondo: la franja sigue aceptando click, drop y creación de cita, y el hover de
+   .slot.avail la pisa igual que en cualquier otra. Nunca lleva tarjeta encima: la clase se pone
+   solo cuando el slot está vacío. */
+.slot.slot-fuera{background:#f6f5f2}
 .slot-tail{pointer-events:none;z-index:1;background:transparent!important}
 /* Slot pisado por la tarjeta de una cita vecina (multi-franja) pero que igual tiene una tira de
    "no asistió" que mostrar. Como .slot-tail no puede pintar fondo ni robarle el click a esa
@@ -40,6 +47,13 @@
 .appt.status-pend{background:rgba(224,168,80,.14)!important;color:#7a4a00!important;border-top:1px dashed rgba(186,117,23,.5);border-right:1px dashed rgba(186,117,23,.5);border-bottom:1px dashed rgba(186,117,23,.5);opacity:.88}
 .appt.status-noas{background:rgba(226,75,74,.08)!important;color:#c33a3a!important}
 .appt.status-noas .appt-name{text-decoration:line-through}
+/* Cita FUERA DEL TURNO (esExtra en utils.js): azul medio, que contrasta con el verde del centro
+   y el naranja de domicilio sin competirles. Va DESPUÉS de .status-* para que el tinte gane —la
+   cita fuera de turno se reconoce de un vistazo— y ANTES de .appt-qb, que sigue apagando lo ya
+   cerrado. El estado NO se pierde: lo dice el .appt-dot, y la no-asistió conserva su tachado.
+   El acento es un aro inset y no border-left: ese borde ya es el color del médico referente y va
+   por style inline, así que una regla de borde acá no se vería. */
+.appt.appt-extra{background:rgba(42,111,151,.13)!important;color:#1d4e6b!important;box-shadow:inset 0 0 0 1.5px #2A6F97}
 /* Ya pasada a QuickBooks: la tarjeta se apaga a gris papel porque su trabajo administrativo está
    cerrado. Pisa el tinte de modalidad y el de estado (van con !important), pero NO se usa
    filter:saturate: eso apagaría también el .appt-dot, que tiene que seguir mostrando el estado

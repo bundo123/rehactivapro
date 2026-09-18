@@ -554,6 +554,45 @@ export function getDoctor(id){return state.doctors.find(d=>d.id===id)}
 export function therapistHours(th){const h=[];for(let i=th.startH;i<th.endH;i+=0.5)h.push(i);return h;}
 export function getAvailHours(ths){const s=new Set();(ths||state.therapists).forEach(t=>therapistHours(t).forEach(h=>s.add(h)));return[...s].sort((a,b)=>a-b);}
 
+// ── Turno del terapeuta: qué está DENTRO y qué está FUERA ──────────────────────────────────────
+// Tres funciones puras: deciden solo con la cita y el terapeuta, sin DOM ni estado global. Son el
+// criterio de COLOR de la agenda — nada de esto bloquea, valida ni impide agendar.
+
+// Turno efectivo del terapeuta, {ws, we} en decimales. Mismo criterio que ya usa la vista semana:
+// work_start/work_end es el horario laboral fino y OPCIONAL; start_h/end_h es el que hoy está
+// cargado en todos y el que se lee en la cabecera de su columna. Por eso el turno cae a start_h/
+// end_h cuando el fino no está: si no, casi ninguna ficha tendría turno y no se pintaría nada.
+// Devuelve null cuando no hay un turno afirmable (sin terapeuta, sin horas numéricas, o we<=ws):
+// mejor no pintar que pintar media agenda por una ficha incompleta o al revés.
+export function turnoDe(th){
+  if(!th) return null;
+  const ws = th.workStart ?? th.startH, we = th.workEnd ?? th.endH;
+  if(typeof ws !== 'number' || typeof we !== 'number' || !isFinite(ws) || !isFinite(we)) return null;
+  if(we <= ws) return null;
+  return {ws, we};
+}
+
+// ¿La cita asoma, aunque sea un minuto, fuera del turno? Basta con que se salga por una punta: una
+// de 16:45 que termina 17:45 con turno hasta 17:00 es extra, aunque empiece dentro.
+// El borde exacto NO es extra: empezar en ws o terminar en we es estar dentro.
+// El ALMUERZO no participa: lunch_minutes es una DURACIÓN (cuánto almuerza), no una POSICIÓN (a
+// qué hora) —ver el bloque de capacidad más abajo—, así que no hay franja contra la cual comparar.
+export function esExtra(appt, th){
+  if(!appt) return false;
+  const t = turnoDe(th);
+  if(!t) return false;
+  const inicio = appt.hour, fin = appt.hour + (appt.duration || 30) / 60;
+  return inicio < t.ws || fin > t.we;
+}
+
+// ¿La franja de media hora `hr` cae fuera del turno? Intervalo [ws, we): la franja que empieza
+// justo en we ya es de después del turno.
+export function slotFueraDeTurno(hr, th){
+  const t = turnoDe(th);
+  if(!t || typeof hr !== 'number' || !isFinite(hr)) return false;
+  return hr < t.ws || hr >= t.we;
+}
+
 // ── Bloqueos de terapeuta y capacidad real ─────────────────────────────────────────────────────
 // Dos cosas distintas, a propósito:
 //   · El ALMUERZO es una REGLA (lunch_minutes por terapeuta). No se marca día a día — un botón

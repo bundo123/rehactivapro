@@ -4,7 +4,7 @@ import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, t
          apptSlots, slotOf, isAlignedHour, findConflict, compactNoas, occupiedSlots, toTimeInput, parseTimeInput,
          ordinalesDeCitas, ordinalTexto, tipoSesion, TIPO_SESION_DEFAULT,
          citasConciliables, payloadCambioStatus, dmy,
-         findBlock, lunchSlots, blockedSlots, getRecDates } from './utils.js';
+         findBlock, lunchSlots, blockedSlots, getRecDates, esExtra, slotFueraDeTurno } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dbUpdateApptStatus } from './auth.js';
 import { hasPermission, canAccessTab } from './permissions.js';
@@ -160,6 +160,9 @@ export function renderGrid() {
   const conf=ta.filter(a=>a.status==='conf').length;
   const pend=ta.filter(a=>a.status==='pend').length;
   const noas=ta.filter(a=>a.status==='noas').length;
+  // Mismo criterio que el tinte de la tarjeta, sobre TODAS las citas del día (igual que
+  // conf/pend/noas): el filtro por terapeuta es una lente de la grilla, no un recorte del contador.
+  const fuera=ta.filter(a=>esExtra(a,getTherapist(a.therapistId))).length;
   // Capacidad REAL del día: el turno menos el almuerzo (regla) menos lo bloqueado (excepción).
   // Sin esto la barra ofrecía slots libres que el terapeuta no puede atender.
   const totalSlots=visTherapists.reduce((s,t)=>s+Math.max(0,therapistHours(t).length-lunchSlots(t)-blockedSlots(t,ds,state.blocks)),0);
@@ -182,7 +185,8 @@ export function renderGrid() {
     <span class="count-pill"><b>${ta.length}</b>&nbsp;cita${ta.length!==1?'s':''} hoy · ${libres} slots libres</span>
     <span class="count-item" style="color:#17865f"><span class="count-dot" style="background:#1D9E75"></span>${conf} confirmada${conf!==1?'s':''}</span>
     <span class="count-item" style="color:#BA7517"><span class="count-dot" style="background:#E0A850"></span>${pend} pendiente${pend!==1?'s':''}</span>
-    <span class="count-item" style="color:#c33a3a"><span class="count-dot" style="background:#E24B4A"></span>${noas} no asistió</span>${qbBtn}`;
+    <span class="count-item" style="color:#c33a3a"><span class="count-dot" style="background:#E24B4A"></span>${noas} no asistió</span>
+    <span class="count-item" style="color:#2A6F97"><span class="count-dot" style="background:#2A6F97"></span>${fuera} fuera de turno</span>${qbBtn}`;
   // addEventListener y no onclick inline: hay CSP y el atributo no ejecutaría.
   if(mostrarQB&&porConciliar>0) document.getElementById('btn-conciliar')?.addEventListener('click',()=>conciliarDia(ds));
 
@@ -231,8 +235,13 @@ export function renderGrid() {
     visTherapists.forEach(th=>{
       const key=`${th.id}:${+hr.toFixed(1)}`;
 
-      // Fuera de horario NO se distingue visualmente (decisión 2026-08): todos los slots se ven
-      // y comportan igual — cualquier franja acepta citas (click, drop y render).
+      // Desde hoy lo que cae fuera del turno del terapeuta SÍ se distingue VISUALMENTE (revierte
+      // la decisión 2026-08 de no pintarlo): la cita lleva tinte azul y la franja vacía un gris
+      // tenue, para que de un vistazo se vea qué se está atendiendo fuera del horario en vez de
+      // tener que cruzar cada hora con la ficha del terapeuta.
+      // El COMPORTAMIENTO no cambia en nada: todos los slots se siguen viendo y comportando igual
+      // —cualquier franja acepta citas (click, drop y render)— y la cita fuera de turno se crea,
+      // mueve y edita como cualquier otra. Es color, no una regla.
       // Horas exactas: la cita se dibuja en el slot de su media hora CONTENEDORA (10:45 → fila 10:30).
       const enFranja=visTa.filter(a=>a.therapistId===th.id&&slotOf(a.hour)===hr);
       const strips=enFranja.filter(a=>compactSet.has(a));
@@ -273,7 +282,10 @@ export function renderGrid() {
       // la tarjeta de abajo. Solo flota la tira. Si no lo pisa nadie, con tiras sigue 'avail':
       // se puede agendar encima de una no-asistió.
       const stripOver=covered&&!appt;
-      slot.className='slot'+(stripOver?' slot-strip-over':(!appt?' avail':''));
+      // El gris de "fuera de turno" es solo para la franja VACÍA: con tarjeta encima manda la
+      // tarjeta, y sobre un slot pisado por una vecina el fondo no le corresponde a este slot.
+      const fueraSlot=(!appt&&!covered&&slotFueraDeTurno(hr,th))?' slot-fuera':'';
+      slot.className='slot'+(stripOver?' slot-strip-over':(!appt?' avail':''))+fueraSlot;
 
       slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('drag-over')});
       slot.addEventListener('dragleave',()=>slot.classList.remove('drag-over'));
@@ -319,7 +331,9 @@ export function renderGrid() {
         // Tinte de fondo por MODALIDAD (centro verde / domicilio naranja); el ESTADO pisa el
         // tinte cuando aplica (reglas .status-* posteriores en CSS).
         const locCls=appt.location==='domicilio'?'loc-domicilio':'loc-centro';
-        card.className=`appt ${locCls}${sc}`;
+        // Fuera del turno del terapeuta: solo tinte, cero cambios de comportamiento.
+        const extraCls=esExtra(appt,th)?' appt-extra':'';
+        card.className=`appt ${locCls}${sc}${extraCls}`;
         card.draggable=true;
         const doc=pt&&pt.doctorId?getDoctor(pt.doctorId):null;
         card.style.borderLeftColor=doc?doc.color:'rgba(0,0,0,.1)';
@@ -954,12 +968,14 @@ export function renderWeekView() {
   const conf = wkAppts.filter(a => a.status === 'conf').length;
   const pend = wkAppts.filter(a => a.status === 'pend').length;
   const noas = wkAppts.filter(a => a.status === 'noas').length;
+  const fueraWk = wkAppts.filter(a => esExtra(a, th)).length;   // la semana es de UN terapeuta
   const statsEl = document.getElementById('agenda-stats');
   if(statsEl) statsEl.innerHTML = `
     <span class="count-pill"><b>${wkAppts.length}</b>&nbsp;cita${wkAppts.length !== 1 ? 's' : ''} esta semana · ${esc(th.name)}</span>
     <span class="count-item" style="color:#17865f"><span class="count-dot" style="background:#1D9E75"></span>${conf} confirmada${conf !== 1 ? 's' : ''}</span>
     <span class="count-item" style="color:#BA7517"><span class="count-dot" style="background:#E0A850"></span>${pend} pendiente${pend !== 1 ? 's' : ''}</span>
-    <span class="count-item" style="color:#c33a3a"><span class="count-dot" style="background:#E24B4A"></span>${noas} no asistió</span>`;
+    <span class="count-item" style="color:#c33a3a"><span class="count-dot" style="background:#E24B4A"></span>${noas} no asistió</span>
+    <span class="count-item" style="color:#2A6F97"><span class="count-dot" style="background:#2A6F97"></span>${fueraWk} fuera de turno</span>`;
 
   wrap.innerHTML = '<div class="schedule-grid" id="schedule-grid"></div>';
   const g = document.getElementById('schedule-grid');
@@ -1009,7 +1025,8 @@ export function renderWeekView() {
         return;
       }
       const stripOver = covered && !appt;   // pisado por la tarjeta vecina: solo flota la tira
-      slot.className = 'slot' + (stripOver ? ' slot-strip-over' : (!appt ? ' avail' : ''));
+      const fueraSlotWk = (!appt && !covered && slotFueraDeTurno(hr, th)) ? ' slot-fuera' : '';
+      slot.className = 'slot' + (stripOver ? ' slot-strip-over' : (!appt ? ' avail' : '')) + fueraSlotWk;
       strips.forEach((na, i) => slot.appendChild(buildNoasStrip(na, i)));
       if(!appt){
         if(!stripOver) slot.addEventListener('click', () => openApptModalAt(th.id, hr, ds));
@@ -1022,7 +1039,8 @@ export function renderWeekView() {
         let sc = ''; if(appt.status === 'pend') sc = ' status-pend'; else if(appt.status === 'noas') sc = ' status-noas';
         if(appt.qbAt) sc += ' appt-qb';   // mismo apagado que en la vista Día
         const locCls = appt.location === 'domicilio' ? 'loc-domicilio' : 'loc-centro';
-        card.className = `appt ${locCls}${sc}`;
+        const extraClsWk = esExtra(appt, th) ? ' appt-extra' : '';   // mismo criterio que en Día
+        card.className = `appt ${locCls}${sc}${extraClsWk}`;
         card.style.borderLeftColor = doc ? doc.color : 'rgba(0,0,0,.1)';
         const exactTagWk = isAlignedHour(appt.hour) ? '' : `<span class="appt-exact">${esc(fmtTime(appt.hour))}</span>`;
         const canAddWk = appt.status === 'noas' && hasPermission('createAppt');
