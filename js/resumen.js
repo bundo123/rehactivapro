@@ -109,10 +109,11 @@ function row(a, kind) {
       : '';
     // DIAG-1: sin protocol_id no hay contexto clínico para el informe IA. Solo se avisa cuando la
     // evaluación YA está hecha: si falta, el diagnóstico se captura ahí mismo y apilar dos avisos
-    // sobre la misma cita no ayuda a nadie.
+    // sobre la misma cita no ayuda a nadie. Abre la ficha del paciente (openEditPatient), que es
+    // donde vive el selector de diagnóstico #pm-diag-sel.
     const sinDiag    = pt && !pt.protocolId;
     const diagBtn    = sinDiag && tieneEval
-      ? `<button class="resd-btn-eval" onclick="verPaciente(${esc(JSON.stringify(a.patientId))})">Sin diagnóstico</button>`
+      ? `<button class="resd-btn-eval" onclick="openEditPatient(${esc(JSON.stringify(a.patientId))})">Sin diagnóstico</button>`
       : '';
     actions = hasSession
       ? `<span class="resd-btn-sess done">✓ Sesión registrada</span>${evalBtn}${diagBtn}`
