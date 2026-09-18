@@ -36,11 +36,40 @@
 
 ---
 
-## 🗓️ Sesión 2026-09-18 — LOTE DIAG-1: el diagnóstico deja de ser texto libre (rama `feat/diag-1-catalogo`)
+## 🗓️ Sesión 2026-09-18 (c) — LOTE TURNO-1: lo que cae fuera del turno se ve distinto (`661844f`, en `main`)
 
-> Commit único de la rama. El hash va en el HANDOFF de la sesión: un commit no puede contener su
-> propio hash, así que acá queda la rama y el hash se escribe en el commit de docs que cierra la
-> sesión (mismo patrón que `6ac0c10` con SEC-1…SEC-5).
+**Revierte la decisión 2026-08** de `js/agenda.js:234`: lo que cae fuera del turno del terapeuta
+ahora SÍ se distingue visualmente. El COMPORTAMIENTO no cambia — cualquier franja sigue aceptando
+click, drop y creación de cita. Es color, no una regla.
+
+- `utils.js`: `turnoDe` / `esExtra` / `slotFueraDeTurno`, puras. El turno es
+  `work_start ?? start_h` → `work_end ?? end_h`; null si no hay turno afirmable (mejor no pintar
+  que pintar mal). El borde exacto es DENTRO. El almuerzo no participa: `lunch_minutes` es
+  duración, no posición.
+- Cita fuera de turno: `.appt.appt-extra` (azul #2A6F97, aro inset porque el `border-left` ya es
+  el color del médico referente). Franja vacía fuera de turno: `.slot.slot-fuera`, gris más tenue
+  que el rayado de los bloqueos. Ambas en `screens.css` — `components.css` no tiene reglas de agenda.
+- Contador "fuera de turno" en la leyenda, en Día y en Semana. 415 pass / 0 fail.
+
+**Deuda que este lote destapó (va en EXTRAS-2):** `ocupacionTerapeuta` suma al numerador las citas
+fuera de turno y de fin de semana, pero `capacidadSlots` solo cuenta el turno en días hábiles.
+La ocupación puede pasar del 100%. No se toca hasta tener el flag manual de extra.
+
+---
+
+## 🗓️ Sesión 2026-09-18 (b) — LOTE DIAG-1b: el aviso "Sin diagnóstico" abre la ficha (`b314075`, en `main`)
+
+El aviso "Sin diagnóstico" del resumen del día llevaba a `paciente_rpt` (la pantalla del informe),
+donde no existe el selector. Ahora abre la ficha con `openEditPatient`, que es donde vive
+`#pm-diag-sel`. Una línea en `js/resumen.js:115`. 398 pass / 0 fail.
+
+---
+
+## 🗓️ Sesión 2026-09-18 — LOTE DIAG-1: el diagnóstico deja de ser texto libre (`e7184eb`, en `main`)
+
+> Commit único de la rama `feat/diag-1-catalogo`, mergeada a `main` como `e7184eb`. El hash se
+> escribió acá en el commit de docs que cierra la sesión: un commit no puede contener su propio
+> hash (mismo patrón que `6ac0c10` con SEC-1…SEC-5).
 
 **El problema medido:** 251 de 308 pacientes activos sin diagnóstico usable y **1 solo** con `protocol_id`. 40 cadenas distintas para ~15 diagnósticos reales ("TENDINITIS" / "TENDENITIS PATELAR Y DEL RECTO FEMORAL", "HOMBRO" / "HOMBRO DERECHO", "BURSISTIS", "asdsdasdasd"). Como nadie enlazaba `protocol_id`, el `protCtx` de `js/ia.js` **nunca** encontraba protocolo: el contexto clínico jamás llegaba al prompt del informe IA — justo lo que el proyecto llama "el corazón del reemplazo de Reliv".
 
@@ -2204,6 +2233,12 @@ extrayendo a `utils.js` (puro y testeado) — `doneEnLog`, `findConflict`, `comp
   targets táctiles) se verifica a ojo en dev.
 - **`cycleStatus` no chequea conflictos** — reactivar a `conf` una no-asistió sobre cuya franja ya
   se agendó deja dos citas activas solapadas.
+- **Ocupación por encima del 100%** *(destapado por el LOTE TURNO-1, 2026-09-18 (c))* —
+  `ocupacionTerapeuta` (`utils.js:665`) suma al numerador los `apptSlots` de TODA cita `conf`
+  hasta hoy, sin mirar hora ni día; `capacidadSlots` (`:643`) solo cuenta `therapistHours(th)` en
+  días hábiles (`esDiaHabil`), menos almuerzo y bloqueos. Una cita de sábado o de las 21:00 suma
+  arriba y no abajo. Va en EXTRAS-2, **no antes** de tener el flag manual de extra: hasta entonces
+  no hay forma de saber si la cita fuera de turno era capacidad real del terapeuta o un favor.
 - **Lo formal:** I-7 (`cobro_ref` server-side, necesita SQL), P-2 (frontera `>` vs `>=`), CSP
   estricta (P-11), agenda táctil en iOS (R-20) y la deuda de realtime RT-1…RT-4.
 
