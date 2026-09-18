@@ -24,16 +24,21 @@ const ROLE_TABS = {
 // tarjeta ('cycleStatus'); el modal de edición se le abre en solo lectura.
 // 'newEpisode' = cerrar el episodio clínico e iniciar otro (marcador 'Fin de episodio' + diag
 // nuevo). Es decisión clínica y resetea el conteo que alimenta facturación: admin y terapeuta.
+// 'createProtocol' = dar de alta un diagnóstico en el banco (tabla `protocols`); 'editProtocol' =
+// editarlo y borrarlo. Van partidos igual que createTherapist/deleteTherapist y espejan la RLS
+// (INSERT = is_admin() OR is_terapeuta(); UPDATE/DELETE = is_admin()): el terapeuta CREA el
+// diagnóstico que le falta en la evaluación, y el admin CURA el contexto clínico que la IA usa en
+// el informe. Sin la partición, el terapeuta vería botones de Editar/Eliminar que la RLS rechaza.
 const ROLE_ACTIONS = {
   admin:     ['createAppt','deleteAppt','cycleStatus','createPatient','editPatient','deletePatient',
               'registerSession','deleteSession','evalInicial','createTherapist','deleteTherapist',
-              'createDoctor','createProtocol','emitirFactura','viewAI','deleteInforme','apptPastDate',
-              'conciliarQB','manageBlocks','editAppt','newEpisode'],
+              'createDoctor','createProtocol','editProtocol','emitirFactura','viewAI','deleteInforme',
+              'apptPastDate','conciliarQB','manageBlocks','editAppt','newEpisode'],
   secretaria:['createAppt','deleteAppt','cycleStatus','createPatient','editPatient',
               'createTherapist','createDoctor','emitirFactura','apptPastDate','conciliarQB','manageBlocks',
               'editAppt'],
   terapeuta: ['cycleStatus','editPatient','registerSession','evalInicial','viewAI','deleteInforme',
-              'newEpisode'],
+              'newEpisode','createProtocol'],
 };
 
 export function hasPermission(action) {

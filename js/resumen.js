@@ -107,9 +107,16 @@ function row(a, kind) {
     const evalBtn    = !tieneEval
       ? `<button class="resd-btn-eval" onclick="openEvalInicial(${esc(JSON.stringify(a.patientId))})">Eval. inicial pendiente</button>`
       : '';
+    // DIAG-1: sin protocol_id no hay contexto clínico para el informe IA. Solo se avisa cuando la
+    // evaluación YA está hecha: si falta, el diagnóstico se captura ahí mismo y apilar dos avisos
+    // sobre la misma cita no ayuda a nadie.
+    const sinDiag    = pt && !pt.protocolId;
+    const diagBtn    = sinDiag && tieneEval
+      ? `<button class="resd-btn-eval" onclick="verPaciente(${esc(JSON.stringify(a.patientId))})">Sin diagnóstico</button>`
+      : '';
     actions = hasSession
-      ? `<span class="resd-btn-sess done">✓ Sesión registrada</span>${evalBtn}`
-      : `<button class="resd-btn-sess" onclick="openSessionModal(window._app.appointments.find(x=>x.id===${esc(JSON.stringify(a.id))}))">Completar sesión</button>${evalBtn}`;
+      ? `<span class="resd-btn-sess done">✓ Sesión registrada</span>${evalBtn}${diagBtn}`
+      : `<button class="resd-btn-sess" onclick="openSessionModal(window._app.appointments.find(x=>x.id===${esc(JSON.stringify(a.id))}))">Completar sesión</button>${evalBtn}${diagBtn}`;
   } else {
     // Sin teléfono no hay chat posible: botón deshabilitado (antes abría un número fijo de la clínica).
     const waBtn = pt?.tel

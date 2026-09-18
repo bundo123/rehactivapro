@@ -1,6 +1,6 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-09-15
+> Generado: 2026-05-18 · Última actualización: 2026-09-18
 
 ---
 
@@ -26,13 +26,38 @@
 - **No-código (LOPDP):** documentar la decisión de "lectura abierta" de PHI (modelo "se cubren entre sí + todo auditado en `audit_log`") con base de licitud, y a Anthropic como sub-encargado.
 - **Mayor valor en producción:** redactar el `clinical_context` de los protocolos reales (alimenta la calidad del informe IA — corazón del "reemplazo de Reliv").
 
-**Pulidos opcionales remanentes (no bloquean):** buscador de diagnóstico del modal de paciente con UX pobre; ~~`": "` suelto al inicio de "Evaluación inicial"~~ ✅ **CERRADO 2026-08-31** (`c6b714d`: `limpiarParte()` en `utils.js`, aplicada en pantalla/PDF/Word); **táctil-42 en Pacientes** — `.patient-table .pl-act-btn{min-height:42px}` le gana por especificidad al bloque `@media (pointer: coarse)`, así que los botones de acción quedan en 42px en táctil real (detectado en la sesión 2026-08-12 (b); en Seguimiento ya está corregido con regla propia); ~~**botón "Exportar PDF" huérfano en la pestaña Informes**~~ ✅ **CERRADO 2026-09-01 (b)** (LOTE INFORMES, rama `revision-informes`): se movió a la tarjeta "Documento" del informe de paciente, junto a "Exportar Word" — que es la pantalla que construye el `_rptCtx` del que depende. **Queda sin gate de permisos a propósito** (decisión de Jefferson): ver la sesión 2026-09-01 (b) más abajo.
+**Pulidos opcionales remanentes (no bloquean):** ~~buscador de diagnóstico del modal de paciente con UX pobre~~ ✅ **CERRADO 2026-09-18** (LOTE DIAG-1: el campo de texto libre + datalist se reemplazó por un selector del catálogo cerrado); ~~`": "` suelto al inicio de "Evaluación inicial"~~ ✅ **CERRADO 2026-08-31** (`c6b714d`: `limpiarParte()` en `utils.js`, aplicada en pantalla/PDF/Word); **táctil-42 en Pacientes** — `.patient-table .pl-act-btn{min-height:42px}` le gana por especificidad al bloque `@media (pointer: coarse)`, así que los botones de acción quedan en 42px en táctil real (detectado en la sesión 2026-08-12 (b); en Seguimiento ya está corregido con regla propia); ~~**botón "Exportar PDF" huérfano en la pestaña Informes**~~ ✅ **CERRADO 2026-09-01 (b)** (LOTE INFORMES, rama `revision-informes`): se movió a la tarjeta "Documento" del informe de paciente, junto a "Exportar Word" — que es la pantalla que construye el `_rptCtx` del que depende. **Queda sin gate de permisos a propósito** (decisión de Jefferson): ver la sesión 2026-09-01 (b) más abajo.
 
 ### 🗓️ Plan a julio — meta: audit final con 0 críticos / 0 importantes (solo pulidos opcionales)
 - **Semana 1** (cerrada hoy, salvo I-7): I-5 · LOTE A · I-4 · I-6 ✅. Queda **I-7** (necesita el SQL de la secuencia).
 - **Semana 2:** auto-logout (15 min) · I-13 (alerts→toasts) · P-11 (CSP parcial).
 - **Semana 3:** I-12 (focus-trap/Escape) · I-15 (tests `node --test`) · `npm audit fix` · decisión P-2/P-6.
 - **Semana 4:** `clinical_context` de protocolos reales · papeleo LOPDP (lectura abierta + sub-encargado Anthropic) · **audit final**.
+
+---
+
+## 🗓️ Sesión 2026-09-18 — LOTE DIAG-1: el diagnóstico deja de ser texto libre (rama `feat/diag-1-catalogo`)
+
+> Commit único de la rama. El hash va en el HANDOFF de la sesión: un commit no puede contener su
+> propio hash, así que acá queda la rama y el hash se escribe en el commit de docs que cierra la
+> sesión (mismo patrón que `6ac0c10` con SEC-1…SEC-5).
+
+**El problema medido:** 251 de 308 pacientes activos sin diagnóstico usable y **1 solo** con `protocol_id`. 40 cadenas distintas para ~15 diagnósticos reales ("TENDINITIS" / "TENDENITIS PATELAR Y DEL RECTO FEMORAL", "HOMBRO" / "HOMBRO DERECHO", "BURSISTIS", "asdsdasdasd"). Como nadie enlazaba `protocol_id`, el `protCtx` de `js/ia.js` **nunca** encontraba protocolo: el contexto clínico jamás llegaba al prompt del informe IA — justo lo que el proyecto llama "el corazón del reemplazo de Reliv".
+
+**La decisión:** el diagnóstico pasa a ser un **catálogo cerrado**. La tabla sigue llamándose `protocols` en la base (no se renombra, no se migra); lo que cambia es la etiqueta en pantalla ("Diagnósticos") y que el diagnóstico **se elige, nunca se escribe**. `patients.diag` se mantiene **sincronizado** con `protocols.name`, así que `informes.js`, `word.js`, `search.js` e `historial-calc.js` siguen leyendo el mismo texto de siempre y no se tocan.
+
+- **Tres puntos de captura, un solo catálogo:** modal de paciente (se **fusionaron** los campos "Diagnóstico" y "Protocolo de tratamiento" en uno: `#pm-diag-sel`), modal de nuevo episodio (`#ne-diag-sel`) y modal de evaluación inicial (`#ev-diag-sel`, nuevo, con botón "+ Nuevo" y su propio bloque CIE-10). Los tres los llena `populateDiagSelects()`.
+- **Sin pérdida de datos legacy:** si un paciente no tiene `protocol_id` pero sí texto libre, el modal muestra "Antes decía: … — elige el diagnóstico del catálogo". El texto viejo **no se borra ni se adivina**: el enlace masivo de los 251 pacientes es DIAG-2.
+- **Permiso partido, espejando la RLS:** `createProtocol` (alta) pasa a admin **y terapeuta**; `editProtocol` (edición y baja) queda en admin. Es la misma partición que `createTherapist`/`deleteTherapist`: el terapeuta crea el diagnóstico que le falta a mitad de la evaluación, el admin cura el `clinical_context` que consume la IA.
+- **El CIE-10 llega al prompt:** `- Diagnóstico: …` ahora incluye `(CIE-10 M54.5 — Lumbago no especificado)` cuando el paciente tiene código. Antes el dato estaba capturado y no viajaba.
+- **Aviso en el resumen del día:** las citas confirmadas de un paciente sin `protocol_id` muestran el botón "Sin diagnóstico" (solo si la evaluación inicial YA está hecha: si falta, ese aviso ya está y el diagnóstico se captura ahí mismo).
+- **Regla probada sin DOM:** `diagOptions` / `diagOptionsHtml` / `diagSync` / `diagParaPrompt` viven en `utils.js` y son puras; `test/diagnostico.test.js` cubre orden, opción vacía, catálogo vacío, escapado, sincronía `diag ↔ protocols.name`, el legacy que no se pisa y los permisos partidos. **398 pass / 0 fail** (baseline 383 + 15).
+
+### 🔧 SQL — ya aplicado, solo versionado
+`rls_protocols_terapeuta.sql` (nuevo en la raíz) registra las 4 policies de `protocols` que **Jefferson aplicó en producción el 2026-09-18**: SELECT `auth_read_protocols` = true · INSERT `admin_terapeuta_insert` = `is_admin() OR is_terapeuta()` · UPDATE `admin_update_protocols` = `is_admin()` · DELETE `admin_delete_protocols` = `is_admin()`. `rls_policies.md` se actualizó con la fila real (antes decía "doctors / protocols — resto ALL/manage = is_admin()").
+
+### Fuera de alcance de este lote (queda para DIAG-2 / DIAG-3)
+Pantalla de enlace masivo de los 251 pacientes con texto libre (DIAG-2) · `cie10_codes[]` y lateralidad izq/der en `protocols` (DIAG-3) · las 66 filas con `'Sin diagnóstico'` y el `'asdsdasdasd'` **no** se migraron · el fallback por keyword de `getProtocolRows`/`countPts` sigue en pie.
 
 ---
 

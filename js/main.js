@@ -25,9 +25,9 @@ import {
 } from './resumen.js';
 import {
   renderPatients, openPatientModal, savePatient, deletePatient,
-  openEditPatient, populateDiagList, nuevoEpisodio, guardarNuevoEpisodio,
+  openEditPatient, populateDiagSelects, nuevoEpisodio, guardarNuevoEpisodio,
   setupPatientSearch, goToPatientPage, toggleEvalFilter, setPatientStatusFilter, verPaciente,
-  openEvalInicial, saveEvalInicial, initPatientValidation, onPatientProtocolChange
+  openEvalInicial, saveEvalInicial, initPatientValidation
 } from './pacientes.js';
 import {
   renderSeguimiento, setSeguimientoFilter, toggleSeguimientoDetalle,
@@ -67,7 +67,7 @@ import {
 } from './doctores.js';
 import { abrirExportModal, onExportPreset, actualizarResumenExport,
          confirmarExportarExcel, confirmarExportar, cambiarFormatoExport } from './excel.js';
-import { cie10Search, cie10Pick, cie10Clear } from './cie10.js';
+import { cie10Search, cie10Pick, cie10Clear, setCie10Ev } from './cie10.js';
 import { planGuardarSesiones, planNuevoEpisodio } from './plan.js';
 import { callAI } from './ia.js';
 import { globalSearch, selectGlobalResult, checkCitasPendientes } from './search.js';
@@ -248,12 +248,12 @@ Object.assign(window, {
   marcarTodosFacturados, exportarPDF, genSemanalAI, genMensualAI, genAnualAI, genResumenDiaAI,
   genPatientAI, guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado, globalSearch, selectGlobalResult,
   abrirFirmanteModal, confirmarExportarWord,
-  updateRecPreview, populateDiagList,
-  goToPatientPage, toggleEvalFilter, setPatientStatusFilter, verPaciente, onPatientProtocolChange,
+  updateRecPreview, populateDiagSelects,
+  goToPatientPage, toggleEvalFilter, setPatientStatusFilter, verPaciente,
   setSeguimientoFilter, toggleSeguimientoDetalle, verPacienteSeguimiento,
   irAHistorial, setHistorialCorte, setHistorialMes, setHistorialEstado,
   exportarHistorialPDF, exportarHistorialCSV,
-  cie10Search, cie10Pick, cie10Clear,
+  cie10Search, cie10Pick, cie10Clear, setCie10Ev,
   planGuardarSesiones, planNuevoEpisodio,
   setAgendaView, setTherapistFilter, goToDateAndSelect,
   renderTherapistList, renderDoctorsList,

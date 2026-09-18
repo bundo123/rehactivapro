@@ -57,9 +57,16 @@ Las 10 tablas tienen **RLS activada (`relrowsecurity = true`)**. Sin esto, las p
 - INSERT/UPDATE/DELETE — `is_admin() OR is_secretaria()`
 - UPDATE `terapeuta_update_own_appointments` — terapeuta solo las citas con su `therapist_id`. ✅ acotado correctamente.
 
-**doctors / protocols**
+**doctors**
 - SELECT — `true`
-- Resto (ALL/manage) — `is_admin()` (protocols) / `is_admin() OR is_secretaria()` (doctors)
+- Resto (ALL/manage) — `is_admin() OR is_secretaria()`
+
+**protocols** (banco de diagnósticos)
+- SELECT `auth_read_protocols` — `true`
+- INSERT `admin_terapeuta_insert` — `is_admin() OR is_terapeuta()` (el terapeuta da de alta el diagnóstico que le falta a mitad de la evaluación)
+- UPDATE `admin_update_protocols` — `is_admin()`
+- DELETE `admin_delete_protocols` — `is_admin()`. Acá vive el `clinical_context` que consume el informe IA: se cura, no se improvisa.
+- ✅ **Aplicado y verificado en producción el 2026-09-18** con `rls_protocols_terapeuta.sql` (versionado en el repo): quedan 4 policies y la `ALL = is_admin()` vieja fue eliminada. Espeja la partición del permiso de front (`createProtocol` vs `editProtocol`).
 
 **therapists**
 - SELECT — `true`

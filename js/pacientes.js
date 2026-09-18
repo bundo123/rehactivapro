@@ -2,12 +2,12 @@
 import { state } from './state.js';
 import { esc, fmtDate, fmtTime, fmtFechaCorta, diaAnterior, getPatient, getDoctor, getTherapist,
          patientMatchesSearch, highlightMatch, getFullAge, doneActual, safeColor, findCedulaDuplicate,
-         citasParaCierre, indiceCitaCierre } from './utils.js';
+         citasParaCierre, indiceCitaCierre, diagOptionsHtml, diagSync } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';
 import { validateRequired, validateMinChars, validatePositiveInt, validateDocumento, validateTelefono, validateEmail, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker, validateBirthDate } from './validators.js';
-import { resetCie10Pm, getCie10Pm } from './cie10.js';
+import { resetCie10Pm, getCie10Pm, setCie10Ev } from './cie10.js';
 
 const _patientDirty = createDirtyTracker();
 const _patNameFn = (v) => { const r = validateRequired(v); return r.valid ? validateMinChars(v, 3) : r; };
@@ -64,12 +64,37 @@ function renderPatientPagination(totalPages,totalRows,start,end) {
     </div>`;
 }
 
-export function populateDiagList() {
-  const diags=[...new Set(state.patients.filter(p=>p.diag&&p.diag!=='Sin diagnóstico').map(p=>p.diag))];
-  state.protocols.forEach(p=>p.name&&diags.push(p.name));
-  const unique=[...new Set(diags)].sort();
-  const dl=document.getElementById('diag-list');
-  if(dl) dl.innerHTML=unique.map(d=>`<option value="${esc(d)}">`).join('');
+// DIAG-1: los TRES puntos de captura del diagnóstico (ficha, nuevo episodio, evaluación inicial)
+// comparten el mismo catálogo cerrado — el banco de diagnósticos, que es state.protocols. Ya no hay
+// datalist: el diagnóstico se ELIGE, nunca se escribe, así que la opción vacía es la única salida
+// para "todavía no lo sé". El HTML (orden, filtrado y opción vacía) sale de diagOptionsHtml en
+// utils.js: puro, y por eso testeado sin DOM.
+export function populateDiagSelects() {
+  const html=diagOptionsHtml(state.protocols);
+  ['pm-diag-sel','ne-diag-sel','ev-diag-sel'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    // Repoblar no puede perder lo ya elegido (p.ej. al crear un diagnóstico desde la evaluación).
+    const prev=el.value;
+    el.innerHTML=html;
+    if(prev){ el.value=prev; if(el.value!==prev) el.value=''; }
+  });
+}
+
+// LEGACY: los pacientes cargados antes del catálogo tienen texto libre en `diag` y ningún
+// protocol_id. Ese texto NO se borra ni se adivina: se muestra bajo el selector para que quien abra
+// la ficha elija el equivalente del catálogo (el enlace masivo es DIAG-2).
+function renderDiagLegacy(p) {
+  const box=document.getElementById('pm-diag-legacy');
+  if(!box) return;
+  const txt=(p&&!p.protocolId&&p.diag&&p.diag!=='Sin diagnóstico')?String(p.diag).trim():'';
+  if(txt){
+    box.textContent=`Antes decía: ${txt} — elige el diagnóstico del catálogo`;
+    box.style.display='block';
+  } else {
+    box.textContent='';
+    box.style.display='none';
+  }
 }
 
 export function openPatientModal() {
@@ -77,29 +102,19 @@ export function openPatientModal() {
   clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email', 'pm-birth', 'pm-sessions']);
   // pm-age (hidden, retrocompat) DEBE limpiarse: si no, queda la edad del último paciente editado
   // y savePatient la escribiría al paciente nuevo (fuga de datos entre pacientes).
-  ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir','pm-age','pm-protocol'].forEach(id=>document.getElementById(id).value='');
+  ['pm-name','pm-cedula','pm-tel','pm-email','pm-dir','pm-age'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm-birth').value='';
   document.getElementById('pm-sessions').value='12';
   document.getElementById('pm-status').value='active';
   document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
   state.editingPatientId=null;
   document.getElementById('pm-doctor').innerHTML='<option value="">Sin doctor referente</option>'+state.doctors.map(d=>`<option value="${esc(d.id)}">${esc(d.name)} (${esc(d.spec)})</option>`).join('');
-  document.getElementById('pm-protocol').innerHTML='<option value="">Sin protocolo</option>'+state.protocols.map(pr=>`<option value="${esc(pr.id)}">${esc(pr.name)}</option>`).join('');
-  populateDiagList();   // I-11: el datalist de diagnósticos también debe poblarse al CREAR (no solo al editar)
+  const _pmDiag=document.getElementById('pm-diag-sel');
+  if(_pmDiag) _pmDiag.value='';   // el diagnóstico del último paciente editado no puede quedar pegado
+  populateDiagSelects();   // I-11: el catálogo de diagnósticos también debe poblarse al CREAR (no solo al editar)
+  renderDiagLegacy(null);
   resetCie10Pm(null);   // sin código: el del último paciente editado no puede quedar pegado
   document.getElementById('patient-modal').classList.add('open');
-}
-
-// Auto-relleno al elegir protocolo (D2): precarga diagnóstico desde el NOMBRE del protocolo y
-// sesiones desde el protocolo, SOLO si están vacíos ('12' = default de sesiones). Queda editable.
-export function onPatientProtocolChange() {
-  const sel=document.getElementById('pm-protocol');
-  const prot=state.protocols.find(x=>String(x.id)===sel.value);
-  if(!prot)return;
-  const diagEl=document.getElementById('pm-diag');
-  if(!diagEl.value.trim()) diagEl.value=prot.name;
-  const sesEl=document.getElementById('pm-sessions');
-  if(!sesEl.value.trim()||sesEl.value==='12') sesEl.value=prot.sessions;
 }
 
 export async function savePatient() {
@@ -137,11 +152,13 @@ export async function savePatient() {
     p.tel=document.getElementById('pm-tel').value||'';
     p.email=document.getElementById('pm-email').value||'';
     p.dir=document.getElementById('pm-dir').value||'';
-    p.diag=document.getElementById('pm-diag').value||'';
+    // Diagnóstico elegido del catálogo: `diag` queda sincronizado con protocols.name. Si se deja en
+    // "Sin diagnóstico", el texto libre que ya tenía la ficha NO se pisa (diagSync).
+    const _diag=diagSync(state.protocols,document.getElementById('pm-diag-sel').value,p.diag);
+    p.diag=_diag.diag; p.protocolId=_diag.protocolId;
     const _cie=getCie10Pm();
     p.cie10=_cie.cie10; p.cie10Desc=_cie.cie10Desc;
     p.doctorId=document.getElementById('pm-doctor').value||null;
-    p.protocolId=document.getElementById('pm-protocol').value||null;
     p.sessions=parseInt(document.getElementById('pm-sessions').value)||10;
     p.status=document.getElementById('pm-status').value;
     window._app.closeModal('patient-modal');
@@ -161,6 +178,9 @@ export async function savePatient() {
     return;
   }
   const name=document.getElementById('pm-name').value.trim();
+  // Alta nueva: sin diagnóstico elegido el campo queda VACÍO (no 'Sin diagnóstico'), para que el
+  // paciente aparezca en el aviso "Sin diagnóstico" del resumen en vez de disfrazarse de dato.
+  const _diagNuevo=diagSync(state.protocols,document.getElementById('pm-diag-sel').value,'');
   state.patients.push({id:++state.patCounter,name,
     age:parseInt(document.getElementById('pm-age').value)||null,
     birth_date:document.getElementById('pm-birth').value||null,
@@ -168,11 +188,11 @@ export async function savePatient() {
     tel:document.getElementById('pm-tel').value||'',
     email:document.getElementById('pm-email').value||'',
     dir:document.getElementById('pm-dir').value||'',
-    diag:document.getElementById('pm-diag').value||'Sin diagnóstico',
+    diag:_diagNuevo.diag,
     cie10:getCie10Pm().cie10,cie10Desc:getCie10Pm().cie10Desc,
     therapistId:null,
     doctorId:document.getElementById('pm-doctor').value||null,
-    protocolId:document.getElementById('pm-protocol').value||null,
+    protocolId:_diagNuevo.protocolId,
     sessions:parseInt(document.getElementById('pm-sessions').value)||12,
     done:0,status:document.getElementById('pm-status').value,log:[],
     billing:{sesPerFactura:parseInt(document.getElementById('global-spf').value)||5,facturas:[]}
@@ -205,7 +225,7 @@ export async function savePatient() {
     toastErr('Error de conexión al guardar paciente.');
   }
   // Incluye pm-age para que el reset post-guardado no deje la edad pegada al siguiente alta.
-  ['pm-name','pm-diag','pm-cedula','pm-tel','pm-email','pm-dir','pm-age','pm-protocol'].forEach(id=>document.getElementById(id).value='');
+  ['pm-name','pm-cedula','pm-tel','pm-email','pm-dir','pm-age','pm-diag-sel'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm-birth').value='';
   state.editingPatientId=null;
   document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
@@ -315,7 +335,6 @@ export function openEditPatient(id) {
   clearAllErrors(['pm-name', 'pm-cedula', 'pm-tel', 'pm-email', 'pm-birth', 'pm-sessions']);
   const p=getPatient(id);if(!p)return;
   document.getElementById('pm-doctor').innerHTML='<option value="">Independiente</option>'+state.doctors.map(d=>`<option value="${esc(d.id)}" ${d.id===p.doctorId?'selected':''}>${esc(d.name)} (${esc(d.spec)})</option>`).join('');
-  document.getElementById('pm-protocol').innerHTML='<option value="">Sin protocolo</option>'+state.protocols.map(pr=>`<option value="${esc(pr.id)}" ${pr.id===p.protocolId?'selected':''}>${esc(pr.name)}</option>`).join('');
   document.getElementById('pm-name').value=p.name;
   document.getElementById('pm-age').value=p.age||'';
   document.getElementById('pm-birth').value=p.birth_date||'';
@@ -323,11 +342,13 @@ export function openEditPatient(id) {
   document.getElementById('pm-tel').value=p.tel||'';
   document.getElementById('pm-email').value=p.email||'';
   document.getElementById('pm-dir').value=p.dir||'';
-  document.getElementById('pm-diag').value=p.diag||'';
   document.getElementById('pm-sessions').value=p.sessions||10;
   document.getElementById('pm-status').value=p.status||'active';
   state.editingPatientId=id;
-  populateDiagList();
+  populateDiagSelects();
+  const _pmDiag=document.getElementById('pm-diag-sel');
+  if(_pmDiag) _pmDiag.value=p.protocolId?String(p.protocolId):'';
+  renderDiagLegacy(p);
   resetCie10Pm(p);
   document.querySelector('#patient-modal h3').textContent='Editar paciente';
   document.getElementById('patient-modal').classList.add('open');
@@ -384,11 +405,14 @@ export function nuevoEpisodio(patientId) {
   _nePatientId=patientId;
   const p=getPatient(patientId);if(!p)return;
   document.getElementById('ne-patient-name').textContent=p.name+' · Episodio anterior: '+(p.diag||'Sin diagnóstico');
-  document.getElementById('ne-diag').value='';
+  const _neDiag=document.getElementById('ne-diag-sel');
+  if(_neDiag) _neDiag.value='';   // el episodio nuevo arranca sin diagnóstico elegido, a propósito
+  const _neNew=document.getElementById('ne-new-diag-btn');
+  if(_neNew) _neNew.style.display=hasPermission('createProtocol')?'':'none';
   document.getElementById('ne-sessions').value=12;
   document.querySelector('input[name="ne-eval"][value="si"]').checked=true;
   renderNeCitas(patientId);
-  populateDiagList();
+  populateDiagSelects();
   document.getElementById('nuevo-episodio-modal').classList.add('open');
 }
 
@@ -396,10 +420,14 @@ export async function guardarNuevoEpisodio() {
   if(!hasPermission('newEpisode')){toastErr('No tienes permisos para iniciar un episodio.');return;}
   if(!_nePatientId)return;
   const p=getPatient(_nePatientId);if(!p)return;
-  const newDiag=document.getElementById('ne-diag').value.trim();
+  // El diagnóstico del episodio nuevo se ELIGE del catálogo: `diag` sale de protocols.name y el
+  // episodio queda enlazado por protocol_id (es lo que le da contexto clínico al informe IA).
+  const newProtId=document.getElementById('ne-diag-sel').value;
+  const _diagNe=diagSync(state.protocols,newProtId,'');
+  const newDiag=_diagNe.diag;
   const newSessions=parseInt(document.getElementById('ne-sessions').value)||12;
   const abrirEval=document.querySelector('input[name="ne-eval"]:checked').value==='si';
-  if(!newDiag){toastErr('Ingresa el nuevo diagnóstico');return;}
+  if(!newDiag){toastErr('Elige el nuevo diagnóstico');return;}
   const oldDiag=p.diag;
   const hoy=fmtDate(new Date());
   // Frontera ELEGIDA: el selector pregunta por la cita que ABRE el episodio nuevo, así que el
@@ -419,7 +447,7 @@ export async function guardarNuevoEpisodio() {
   // Sin el marcador no hay frontera de episodio: abortar acá deja todo consistente (ni diag nuevo,
   // ni push a memoria, ni modal cerrado).
   if(errFin){toastErr('Error al iniciar episodio: '+errFin.message);return;}
-  const {data:updRows,error}=await supa.from('patients').update({diag:newDiag,sessions:newSessions,status:'active'}).eq('id',_nePatientId).select('id');
+  const {data:updRows,error}=await supa.from('patients').update({diag:newDiag,protocol_id:_diagNe.protocolId,sessions:newSessions,status:'active'}).eq('id',_nePatientId).select('id');
   if(error||!updRows?.length){
     // El marcador ya está en DB y sin diag nuevo sería una frontera falsa: se intenta retirarlo.
     // Si el retiro también falla, se avisa con el id para que un admin lo borre desde Sesiones.
@@ -428,7 +456,7 @@ export async function guardarNuevoEpisodio() {
     toastErr(errUndo?base+`. Marcador 'Fin de episodio' quedó huérfano (id ${insFin?.id}); avisar a un admin.`:base+'. Episodio no iniciado.');
     return;
   }
-  p.diag=newDiag; p.sessions=newSessions; p.status='active';
+  p.diag=newDiag; p.protocolId=_diagNe.protocolId; p.sessions=newSessions; p.status='active';
   // El log en memoria aún no tiene la fila recién insertada (el wrapper supa anti-eco no la reenvía).
   // Agregarla para que doneActual/pendientesActual reflejen el corte de inmediato (sin esperar recarga).
   if(!p.log) p.log=[];
@@ -486,6 +514,14 @@ export function openEvalInicial(patientId) {
     const el=document.getElementById(id);if(el)el.checked=false;
   });
   document.getElementById('ev-pedido-no').checked=true;
+  // Diagnóstico y CIE-10: acá es donde el terapeuta tiene el caso delante, así que se PRESELECCIONA
+  // lo que ya tenga la ficha (a diferencia del resto de campos, que se limpian) y se puede corregir.
+  populateDiagSelects();
+  const _evDiag=document.getElementById('ev-diag-sel');
+  if(_evDiag) _evDiag.value=p?.protocolId?String(p.protocolId):'';
+  const _evNew=document.getElementById('ev-new-diag-btn');
+  if(_evNew) _evNew.style.display=hasPermission('createProtocol')?'':'none';
+  setCie10Ev(patientId);
   _evEvaVal=5; renderEvEva();
   document.getElementById('eval-modal').classList.add('open');
 }
@@ -538,6 +574,27 @@ export async function saveEvalInicial() {
   if(p){
     if(!p.log) p.log=[];
     p.log.unshift({id:ins?.id??null,date:fmtDate(new Date()),type:'Evaluación inicial',hour:'00:00',status:'asistió',pb:eva,pa:eva,note:anamnesis+(nota?' | '+nota:'')});
+  }
+  // Diagnóstico elegido en la evaluación → se enlaza a la ficha (escritura optimista con rollback,
+  // mismo patrón que persistCie en cie10.js). La evaluación YA está guardada en session_log: si el
+  // enlace falla no se deshace nada, solo se avisa.
+  const _selDiag=document.getElementById('ev-diag-sel')?.value||'';
+  const _prevProt=p?.protocolId?String(p.protocolId):'';
+  if(p&&_selDiag&&_selDiag!==_prevProt){
+    const _d=diagSync(state.protocols,_selDiag,p.diag);
+    if(_d.protocolId!=null){
+      const _prev={protocolId:p.protocolId,diag:p.diag};
+      p.protocolId=_d.protocolId; p.diag=_d.diag;
+      if(typeof p.id==='string'){
+        window._app?.markLocalChange?.('patients');
+        const {error:errDiag}=await supa.from('patients')
+          .update({protocol_id:_d.protocolId,diag:_d.diag}).eq('id',_evalPatientId);
+        if(errDiag){
+          p.protocolId=_prev.protocolId; p.diag=_prev.diag;
+          toastErr('La evaluación se guardó, pero no se pudo enlazar el diagnóstico: '+errDiag.message);
+        } else toastOk('Diagnóstico enlazado a la ficha: '+_d.diag);
+      } else toastOk('Diagnóstico enlazado a la ficha: '+_d.diag);
+    }
   }
   window._app.closeModal('eval-modal');
   renderPatients();

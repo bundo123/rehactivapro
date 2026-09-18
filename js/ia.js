@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { getDisplayAge, esc, doneActual, dmy, fmtDate, semanaRango, citasEnFechas, citasEnPrefijo,
-         nuevosEnPrefijo, resumenCitas, hastaHoy, MES_LARGO } from './utils.js';
+         nuevosEnPrefijo, resumenCitas, hastaHoy, MES_LARGO, diagParaPrompt } from './utils.js';
 import { toastErr } from './toast.js';
 // Import circular a propósito: informes.js importa las tres gen*AI de acá y acá se importan sus
 // tres renders. Se usan SOLO dentro del cuerpo de las gen*AI (al hacer clic) y son declaraciones
@@ -277,7 +277,7 @@ export function genPatientAI() {
 
 DATOS CLÍNICOS (anonimizado):
 - Edad: ${getDisplayAge(p)}
-- Diagnóstico: ${p.diag||'No especificado'}
+- Diagnóstico: ${diagParaPrompt(p)}
 - Estado actual: ${estado}
 - Sesiones realizadas/prescritas: ${doneActual(p)}/${p.sessions||0}
 - EVALUACIÓN INICIAL (anamnesis, inspección, palpación, movilidad, fuerza): ${evalText}

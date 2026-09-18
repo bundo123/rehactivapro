@@ -3,6 +3,7 @@ import { esc, doneActual } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { dbSaveProtocol, dbDeleteProtocol } from './auth.js';
+import { populateDiagSelects } from './pacientes.js';
 import { validateRequired, validateMinChars, validatePositiveInt, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker } from './validators.js';
 
 const _protocolDirty = createDirtyTracker();
@@ -12,7 +13,18 @@ const _protSessionsFn = (v) => validatePositiveInt(v, { min: 1, max: 100, fieldN
 
 const PROT_PAGE_SIZE = 3;
 
-export function openProtocolModal(eid=null) {
+// A dónde volver después de guardar. El alta puede salir del botón "+ Nuevo" de un modal que el
+// terapeuta tiene a medio llenar ('ev' = evaluación inicial, 'ne' = nuevo episodio): el diagnóstico
+// recién creado tiene que quedar ELEGIDO ahí al volver, no perdido. Los dos modales coexisten
+// abiertos a propósito (de ahí el z-index de #protocol-modal.open en components.css).
+const RETURN_TO = {
+  ev: ['ev-diag-sel', 'eval-modal'],
+  ne: ['ne-diag-sel', 'nuevo-episodio-modal'],
+};
+let _returnTo = null;
+
+export function openProtocolModal(eid=null, returnTo=null) {
+  _returnTo = returnTo;
   _protocolDirty.reset();
   clearAllErrors(['prot-name', 'prot-diag', 'prot-alta', 'prot-sessions']);
   ['prot-name','prot-diag','prot-alta'].forEach(id=>document.getElementById(id).value='');
@@ -22,7 +34,7 @@ export function openProtocolModal(eid=null) {
   document.getElementById('prot-def').value='';
   document.getElementById('prot-ctx').value='';
   state.editingProtocolId=null;
-  document.querySelector('#protocol-modal h3').textContent='Nuevo protocolo';
+  document.querySelector('#protocol-modal h3').textContent='Nuevo diagnóstico';
   if(eid){
     const p=state.protocols.find(x=>x.id===eid);
     document.getElementById('prot-name').value=p.name;
@@ -34,7 +46,7 @@ export function openProtocolModal(eid=null) {
     document.getElementById('prot-def').value=p.def||'';
     document.getElementById('prot-ctx').value=p.clinicalContext||'';
     state.editingProtocolId=eid;
-    document.querySelector('#protocol-modal h3').textContent='Editar protocolo';
+    document.querySelector('#protocol-modal h3').textContent='Editar diagnóstico';
   }
   document.getElementById('protocol-modal').classList.add('open');
 }
@@ -55,7 +67,13 @@ export async function saveProtocol() {
     }
   });
   if (_hasErrors) return;
-  if(!hasPermission('createProtocol')){toastErr('No tienes permisos para guardar protocolos.');return;}
+  // El permiso está partido como en la RLS: el terapeuta da de ALTA el diagnóstico que le falta,
+  // pero editar uno existente (y con él el contexto clínico que usa la IA) es del admin.
+  if(state.editingProtocolId){
+    if(!hasPermission('editProtocol')){toastErr('No tienes permisos para editar diagnósticos.');return;}
+  } else {
+    if(!hasPermission('createProtocol')){toastErr('No tienes permisos para crear diagnósticos.');return;}
+  }
   const diag=document.getElementById('prot-diag').value.trim();
   const name=document.getElementById('prot-name').value.trim();
   const d={diag,name,sessions:parseInt(document.getElementById('prot-sessions').value),freq:parseInt(document.getElementById('prot-freq').value),alta:document.getElementById('prot-alta').value,
@@ -66,15 +84,36 @@ export async function saveProtocol() {
   const _pr=state.editingProtocolId?state.protocols.find(p=>p.id===state.editingProtocolId):state.protocols[state.protocols.length-1];
   state.editingProtocolId=null;
   window._app.closeModal('protocol-modal'); renderProtocols();
+  // Si la DB rechaza un ALTA, el diagnóstico optimista se retira del catálogo: los ids reales son
+  // UUID (auth.js:337) y los optimistas números, así que el fantasma nunca chocaría con uno real —
+  // pero seguir ofreciéndolo en los selectores hace que el paciente falle al guardar (protocol_id
+  // inexistente) y deja al terapeuta eligiendo algo que no está en ninguna parte.
+  let _ok=true;
   try {
     const {data,error}=await dbSaveProtocol(_pr);
-    if(error) toastErr('Error al guardar protocolo: '+error.message);
+    if(error){ _ok=false; toastErr('Error al guardar diagnóstico: '+error.message); }
     else {
       if(_isNew && data) _pr.id=data.id;
       renderProtocols();
-      toastOk('Protocolo guardado correctamente');
+      toastOk('Diagnóstico guardado correctamente');
     }
-  } catch(e){toastErr('Error de conexión al guardar protocolo.');}
+  } catch(e){ _ok=false; toastErr('Error de conexión al guardar diagnóstico.'); }
+  if(!_ok && _isNew){
+    state.protocols=state.protocols.filter(p=>p!==_pr);
+    renderProtocols();
+  }
+  // El catálogo cambió: los tres selectores se repueblan — DESPUÉS del rollback, para que el
+  // fantasma no alcance a aparecer en ninguno. Si el alta salió del "+ Nuevo" de otro modal y se
+  // guardó bien, el diagnóstico queda ELEGIDO ahí y ese modal vuelve al frente para terminarlo.
+  populateDiagSelects();
+  const _vuelta=_ok?RETURN_TO[_returnTo]:null;
+  if(_vuelta){
+    const [selId,modalId]=_vuelta;
+    const sel=document.getElementById(selId);
+    if(sel) sel.value=String(_pr.id);
+    document.getElementById(modalId)?.classList.add('open');
+  }
+  _returnTo=null;
 }
 
 export function initProtocolValidation() {
@@ -116,7 +155,7 @@ export function renderProtocols() {
     return kw.some(k=>k&&(pt.diag||'').toLowerCase().includes(k));
   }).length;
   if(!filtProts.length){
-    document.getElementById('protocols-list').innerHTML=`<div style="color:#5a5a56;font-size:13px;padding:20px 0;text-align:center">No hay protocolos. Carga los predefinidos o crea uno nuevo.</div>`;
+    document.getElementById('protocols-list').innerHTML=`<div style="color:#5a5a56;font-size:13px;padding:20px 0;text-align:center">No hay diagnósticos. Carga los predefinidos o crea uno nuevo.</div>`;
   } else {
     document.getElementById('protocols-list').innerHTML=`<div class="prot-grid">`+filtProts.map(p=>{
       const n=countPts(p);
@@ -128,7 +167,7 @@ export function renderProtocols() {
           ${p.def?`<div class="prot-def">${esc(p.def)}</div>`:''}
           <div class="prot-meta"><span><b style="color:#1a1917">${p.sessions}</b> sesiones</span><span><b style="color:#1a1917">${fl[p.freq]||p.freq+'×'}</b>/semana</span></div>
           ${p.alta?`<div class="prot-alta">Alta: ${esc(p.alta)}</div>`:''}
-          ${hasPermission('createProtocol')?`<div class="prot-btns"><button class="prot-btn edit" onclick="openProtocolModal(${esc(JSON.stringify(p.id))})">Editar</button><button class="prot-btn del" onclick="deleteProtocol(${esc(JSON.stringify(p.id))})">Eliminar</button></div>`:''}
+          ${hasPermission('editProtocol')?`<div class="prot-btns"><button class="prot-btn edit" onclick="openProtocolModal(${esc(JSON.stringify(p.id))})">Editar</button><button class="prot-btn del" onclick="deleteProtocol(${esc(JSON.stringify(p.id))})">Eliminar</button></div>`:''}
         </div>
       </div>`;
     }).join('')+`</div>`;
@@ -137,10 +176,10 @@ export function renderProtocols() {
 }
 
 export function deleteProtocol(id) {
-  if(!hasPermission('createProtocol')){toastErr('No tienes permisos para eliminar protocolos.');return;}
-  if(!confirm('¿Eliminar este protocolo?'))return;
+  if(!hasPermission('editProtocol')){toastErr('No tienes permisos para eliminar diagnósticos.');return;}
+  if(!confirm('¿Eliminar este diagnóstico?'))return;
   state.protocols=state.protocols.filter(p=>p.id!==id);
-  renderProtocols(); dbDeleteProtocol(id);
+  renderProtocols(); populateDiagSelects(); dbDeleteProtocol(id);
 }
 
 export function getProtocolRows() {
@@ -177,7 +216,7 @@ export function protPage(dir) {
 
 export function renderProtocolAdherence() {
   const rows=getProtocolRows();
-  if(!rows.length){document.getElementById('protocol-adherence-list').innerHTML='<div style="color:#6b6a64;font-size:13px;padding:8px 0">No hay pacientes con protocolos activos.</div>';document.getElementById('prot-page-lbl').textContent='';return;}
+  if(!rows.length){document.getElementById('protocol-adherence-list').innerHTML='<div style="color:#6b6a64;font-size:13px;padding:8px 0">No hay pacientes con diagnóstico activo.</div>';document.getElementById('prot-page-lbl').textContent='';return;}
   const pages=Math.max(1,Math.ceil(rows.length/PROT_PAGE_SIZE));
   state.protCurrentPage=Math.min(state.protCurrentPage,pages-1);
   const page=rows.slice(state.protCurrentPage*PROT_PAGE_SIZE,(state.protCurrentPage+1)*PROT_PAGE_SIZE);

@@ -26,6 +26,11 @@ App web de gestión clínica para fisioterapia (Quito, Ecuador). Dominio: rehact
 - done es PER-EPISODIO: se resetea a 0 al iniciar nuevo episodio.
 - Fin de episodio = fila en session_log con type='Fin de episodio'.
 
+## Decisiones cerradas
+- La tabla `protocols` es el banco de diagnósticos; en la UI se llama Diagnósticos y no se renombra
+  en la base. `patients.diag` se mantiene sincronizado con `protocols.name` (el diagnóstico se
+  elige del catálogo, nunca se escribe).
+
 ## Roadmap
 - 2FA admins · reemplazo de Reliv (gap = historia clínica/informe; NO requiere SRI, facturan
   con 593 aparte) · rediseño Pacientes · notificaciones a médicos · recálculo de `done` pendiente.

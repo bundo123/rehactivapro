@@ -22,24 +22,29 @@ export function loadCie10() {
   return _loading;
 }
 
-// Dos usos del mismo componente:
+// Tres usos del mismo componente:
 //  - 'appt': modal de editar cita. Persiste al instante en la ficha del paciente.
+//  - 'ev'  : modal de evaluación inicial. Igual que 'appt' — el paciente ya existe y es el momento
+//            en que el terapeuta tiene el caso delante, así que el código se guarda al instante.
 //  - 'pm'  : modal de paciente. Queda pendiente y lo escribe savePatient (el paciente nuevo
 //            todavía no tiene fila).
 const SCOPES = {
   appt: { search: 'cie-appt-search', results: 'cie-appt-results', current: 'cie-appt-current', persist: true },
+  ev:   { search: 'ev-cie10-search', results: 'ev-cie10-results', current: 'ev-cie10-current', persist: true },
   pm:   { search: 'pm-cie10-search', results: 'pm-cie10-results', current: 'pm-cie10-current', persist: false },
 };
 
-let _apptPatientId = null;          // paciente de la cita abierta
+// Paciente abierto en cada scope que persiste (la cita y la evaluación pueden apuntar a pacientes
+// distintos, así que no puede ser una sola variable).
+let _scopePatientId = { appt: null, ev: null };
 let _pmSel = { c: null, d: null };  // selección pendiente del modal de paciente
 
 const $ = id => document.getElementById(id);
 
-// Valor mostrado en cada scope: el de la ficha (appt) o el pendiente del formulario (pm).
+// Valor mostrado en cada scope: el de la ficha (appt/ev) o el pendiente del formulario (pm).
 function currentValue(scope) {
   if (scope === 'pm') return _pmSel;
-  const p = state.patients.find(x => String(x.id) === String(_apptPatientId));
+  const p = state.patients.find(x => String(x.id) === String(_scopePatientId[scope]));
   return { c: p?.cie10 || null, d: p?.cie10Desc || null };
 }
 
@@ -84,30 +89,30 @@ export async function cie10Pick(scope, code) {
   if (!it) return;
   const inp = $(cfg.search); if (inp) inp.value = '';
   hideResults(scope);
-  if (cfg.persist) await persistCie(it.c, it.d);
+  if (cfg.persist) await persistCie(it.c, it.d, scope);
   else { _pmSel = { c: it.c, d: it.d }; renderCurrent('pm'); }
 }
 
 export async function cie10Clear(scope) {
   if (!SCOPES[scope]) return;
-  if (SCOPES[scope].persist) await persistCie(null, null);
+  if (SCOPES[scope].persist) await persistCie(null, null, scope);
   else { _pmSel = { c: null, d: null }; renderCurrent('pm'); }
 }
 
 // Escritura optimista + rollback si la DB rechaza (mismo patrón que commitApptChange).
-async function persistCie(code, desc) {
-  const p = state.patients.find(x => String(x.id) === String(_apptPatientId));
+async function persistCie(code, desc, scope) {
+  const p = state.patients.find(x => String(x.id) === String(_scopePatientId[scope]));
   if (!p) return;
   if (!hasPermission('editPatient')) { toastErr('No tienes permisos para editar la ficha del paciente.'); return; }
   const prev = { c: p.cie10 || null, d: p.cie10Desc || null };
   p.cie10 = code; p.cie10Desc = desc;
-  renderCurrent('appt');
+  renderCurrent(scope);
   if (typeof p.id !== 'string') return;   // paciente optimista todavía sin fila: solo memoria
   window._app?.markLocalChange?.('patients');
   const { error } = await supa.from('patients').update({ cie10: code, cie10_desc: desc }).eq('id', p.id);
   if (error) {
     p.cie10 = prev.c; p.cie10Desc = prev.d;
-    renderCurrent('appt');
+    renderCurrent(scope);
     toastErr('No se pudo guardar el CIE-10: ' + error.message);
     return;
   }
@@ -120,13 +125,23 @@ async function persistCie(code, desc) {
 
 // Modal de editar cita: sin paciente asignado la sección no se muestra (el dato es del paciente).
 export function setCie10Appt(patientId) {
-  _apptPatientId = patientId || null;
+  _scopePatientId.appt = patientId || null;
   const sec = $('cie-appt-section');
   const inp = $('cie-appt-search');
   if (inp) inp.value = '';
   hideResults('appt');
-  if (sec) sec.hidden = !_apptPatientId;
-  if (_apptPatientId) renderCurrent('appt');
+  if (sec) sec.hidden = !_scopePatientId.appt;
+  if (_scopePatientId.appt) renderCurrent('appt');
+}
+
+// Modal de evaluación inicial: espejo del de la cita, sin la parte de ocultar la sección — acá el
+// paciente siempre existe (la evaluación se abre desde su ficha), así que el campo siempre aplica.
+export function setCie10Ev(patientId) {
+  _scopePatientId.ev = patientId || null;
+  const inp = $('ev-cie10-search');
+  if (inp) inp.value = '';
+  hideResults('ev');
+  renderCurrent('ev');
 }
 
 // Modal de paciente: prefill al editar, limpio al crear.
@@ -146,5 +161,6 @@ export function getCie10Pm() {
 // Cerrar el desplegable al hacer click fuera del combo (espejo de informes.js/search.js).
 document.addEventListener('click', e => {
   if (!e.target.closest('#cie-appt-combo')) hideResults('appt');
+  if (!e.target.closest('#ev-cie10-combo')) hideResults('ev');
   if (!e.target.closest('#pm-cie10-combo')) hideResults('pm');
 });

@@ -120,7 +120,7 @@
         <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></span>Informe paciente
       </button>
       <button class="nav-item" onclick="showTab('protocolos')">
-        <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>Protocolos
+        <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>Diagnósticos
       </button>
     </div>
     <div class="nav-section">
@@ -357,14 +357,14 @@
 <div id="tab-protocolos" style="display:none">
   <div class="main-header">
     <div class="mh-title">
-      <div class="page-title">Protocolos de tratamiento</div>
-      <div class="page-sub">Planes estándar por diagnóstico</div>
+      <div class="page-title">Diagnósticos</div>
+      <div class="page-sub">Banco de diagnósticos con su plan y contexto clínico</div>
     </div>
     <div class="hdr-search" style="margin-left:auto">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" id="protocol-search" placeholder="Buscar protocolo o diagnóstico…" oninput="renderProtocols()">
+      <input type="text" id="protocol-search" placeholder="Buscar diagnóstico…" oninput="renderProtocols()">
     </div>
-    <button class="add-btn" style="height:36px;padding:0 16px;font-size:12.5px" onclick="openProtocolModal()" data-permission="admin">+ Nuevo protocolo</button>
+    <button class="add-btn" style="height:36px;padding:0 16px;font-size:12.5px" onclick="openProtocolModal()" data-permission="admin-terapeuta">+ Nuevo diagnóstico</button>
   </div>
   <div class="main-body">
     <div id="protocols-list"></div>
@@ -372,7 +372,7 @@
          para no romper renderProtocolAdherence/protPage. -->
     <div class="full-card" style="display:none">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div class="card-title" style="margin-bottom:0">Pacientes con protocolo — continuidad real vs esperada</div>
+        <div class="card-title" style="margin-bottom:0">Pacientes con diagnóstico — continuidad real vs esperada</div>
         <div class="prot-pager">
           <button id="prot-prev" onclick="protPage(-1)">&#8592;</button>
           <span id="prot-page-lbl" style="font-size:11px;color:#5a5a56"></span>
@@ -639,12 +639,8 @@
   </div>
   <div class="field"><label>Dirección</label><input type="text" id="pm-dir" placeholder="Calle y número, ciudad"></div>
   <div class="field"><label>Diagnóstico</label>
-    <div style="display:flex;gap:6px;align-items:center">
-      <input type="text" id="pm-diag" list="diag-list" placeholder="Buscar o escribir diagnóstico..." 
-        style="flex:1;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;font-size:13px;color:#1a1a1a;outline:none;font-family:inherit">
-      <datalist id="diag-list"></datalist>
-    </div>
-    <div style="font-size:10px;color:#7a7a76;margin-top:4px">Escribe para buscar entre diagnósticos existentes o ingresa uno nuevo</div>
+    <select id="pm-diag-sel"><option value="">— Sin diagnóstico —</option></select>
+    <div id="pm-diag-legacy" style="font-size:10px;color:#9c9a92;margin-top:4px;display:none"></div>
   </div>
   <div class="field"><label>Diagnóstico CIE-10 <span style="text-transform:none;font-weight:400;color:#9c9a92">(opcional)</span></label>
     <div class="cie-current" id="pm-cie10-current"></div>
@@ -653,9 +649,6 @@
         oninput="cie10Search('pm')" onfocus="cie10Search('pm')">
       <div class="cie-results" id="pm-cie10-results" style="display:none"></div>
     </div>
-  </div>
-  <div class="field"><label>Protocolo de tratamiento</label>
-    <select id="pm-protocol" onchange="onPatientProtocolChange()"><option value="">Sin protocolo</option></select>
   </div>
   <div class="field">
     <div class="field"><label>Doctor referente</label><select id="pm-doctor"><option value="">Independiente</option></select></div>
@@ -792,8 +785,8 @@
 
 <div class="modal-bg" id="protocol-modal">
 <div class="modal">
-  <h3>Protocolo de tratamiento</h3>
-  <div class="field"><label>Nombre del protocolo</label><input type="text" id="prot-name" placeholder="Fractura brazo - Rehabilitación estándar"></div>
+  <h3>Diagnóstico</h3>
+  <div class="field"><label>Nombre del diagnóstico</label><input type="text" id="prot-name" placeholder="Ej: Lumbalgia mecánica crónica"></div>
   <div class="field"><label>Palabras clave del diagnóstico (separadas por coma)</label><input type="text" id="prot-diag" placeholder="brazo, fractura, hombro"></div>
   <div class="field-row two">
     <div class="field"><label>Sesiones totales</label><input type="number" id="prot-sessions" value="20" min="1"></div>
@@ -956,6 +949,25 @@
     </div>
   </div>
 
+  <div class="field"><label>Diagnóstico</label>
+    <div style="display:flex;gap:6px;align-items:center">
+      <select id="ev-diag-sel" style="flex:1"><option value="">— Sin diagnóstico —</option></select>
+      <button type="button" class="add-btn" id="ev-new-diag-btn"
+        style="height:34px;padding:0 12px;font-size:12px;white-space:nowrap"
+        onclick="openProtocolModal(null,'ev')">+ Nuevo</button>
+    </div>
+    <div style="font-size:10px;color:#7a7a76;margin-top:4px">Al elegirlo, la IA usa su contexto clínico en el informe</div>
+  </div>
+  <div class="field"><label>Diagnóstico CIE-10 <span style="text-transform:none;font-weight:400;color:#9c9a92">(opcional)</span></label>
+    <div class="cie-current" id="ev-cie10-current"></div>
+    <div class="cie-combo" id="ev-cie10-combo">
+      <input type="text" id="ev-cie10-search" autocomplete="off"
+        placeholder="Buscar por código o diagnóstico (ej. M54.5 o lumbago)"
+        oninput="cie10Search('ev')" onfocus="cie10Search('ev')">
+      <div class="cie-results" id="ev-cie10-results" style="display:none"></div>
+    </div>
+  </div>
+
   <div class="field">
     <label>EVA inicial (dolor 0-10)</label>
     <div style="display:flex;gap:4px;margin-top:6px" id="ev-eva-btns"></div>
@@ -985,7 +997,12 @@
   </div>
   <div class="field">
     <label>Nuevo diagnóstico</label>
-    <input type="text" id="ne-diag" list="diag-list" placeholder="Ej: Lumbalgia crónica, Fractura radio...">
+    <div style="display:flex;gap:6px;align-items:center">
+      <select id="ne-diag-sel" style="flex:1"><option value="">— Sin diagnóstico —</option></select>
+      <button type="button" class="add-btn" id="ne-new-diag-btn"
+        style="height:34px;padding:0 12px;font-size:12px;white-space:nowrap"
+        onclick="openProtocolModal(null,'ne')">+ Nuevo</button>
+    </div>
   </div>
   <div class="field">
     <label>Sesiones prescritas</label>

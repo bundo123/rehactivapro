@@ -415,6 +415,49 @@ export function diagConCie(diag, cie){
   return c&&base?`${base} (CIE-10: ${c})`:base;
 }
 
+// ── DIAG-1: el diagnóstico es un CATÁLOGO CERRADO ──
+// El banco de diagnósticos es la tabla `protocols` (no se renombra en la base). El diagnóstico se
+// ELIGE de ahí, nunca se escribe, y `patients.diag` queda sincronizado con `protocols.name` para
+// que informes.js, word.js, search.js e historial-calc.js sigan leyendo el mismo texto de siempre.
+// Las dos funciones son puras a propósito: la que toca el DOM (populateDiagSelects en pacientes.js)
+// solo pinta lo que sale de acá, y así la regla de sincronía se puede probar sin DOM.
+
+// Opciones del selector, ordenadas por nombre. Descarta las filas sin nombre (no se pueden mostrar).
+export function diagOptions(protocols){
+  return (protocols||[])
+    .filter(p=>p&&String(p.name||'').trim())
+    .slice()
+    .sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+}
+
+// HTML del selector, con la opción vacía SIEMPRE primera: es la única salida para "todavía no lo
+// sé", y tiene que estar aunque el catálogo venga vacío (clínica recién instalada).
+export function diagOptionsHtml(protocols){
+  return '<option value="">— Sin diagnóstico —</option>'
+    +diagOptions(protocols).map(pr=>`<option value="${esc(pr.id)}">${esc(pr.name)}</option>`).join('');
+}
+
+// Qué se escribe en el paciente al elegir (o vaciar) el selector.
+//  - Con diagnóstico elegido: diag = nombre del catálogo, protocolId = su id (el id REAL de la fila,
+//    no el string del <option>, para que los === contra protocols.id sigan funcionando).
+//  - Sin elegir: protocolId null y el diag previo NO se pisa — los 251 pacientes con texto libre
+//    conservan lo que decía su ficha hasta que alguien elija del catálogo (DIAG-2 los enlaza).
+export function diagSync(protocols, selectedId, prevDiag=''){
+  const sel=selectedId==null?'':String(selectedId);
+  const prot=sel?(protocols||[]).find(p=>p&&String(p.id)===sel):null;
+  return prot
+    ? { protocolId: prot.id, diag: String(prot.name||'') }
+    : { protocolId: null,    diag: String(prevDiag||'') };
+}
+
+// Línea "Diagnóstico:" del prompt de la IA. El CIE-10 va acá porque es el dato que ancla el
+// diagnóstico a una nomenclatura estándar; la descripción entra solo si existe.
+export function diagParaPrompt(p){
+  const base=p?.diag||'No especificado';
+  if(!p?.cie10) return base;
+  return `${base} (CIE-10 ${p.cie10}${p.cie10Desc?' — '+p.cie10Desc:''})`;
+}
+
 // Defecto viejo: algunas evaluaciones iniciales tienen una parte de evalInicial.partes guardada
 // con un ":" huérfano al inicio (p.ej. ": Inversión forzada del tobillo…"), de un formato de nota
 // anterior a como saveEvalInicial() (pacientes.js) arma `note` hoy. El dato histórico sigue en
