@@ -1,6 +1,33 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-09-18
+> Generado: 2026-05-18 · Última actualización: 2026-09-20
+
+---
+
+## 📍 Estado al 2026-09-20 — dónde quedó todo
+
+**En producción y VERIFICADO.** `origin/main` = `c44ee96`, árbol limpio, sin ramas de trabajo
+abiertas. Deploy de Vercel en **verde** para ese commit y lo servido en `rehactivaec.com` es lo
+compilado: los hashes de `dist/assets` coinciden (`index-BFz0qr3u.js`, `index-iA_SanCS.css`).
+**419 pruebas / 0 fail** con `node --test`; `npx vite build` sin errores.
+
+La jornada del 2026-09-18 entró completa: `e7184eb` DIAG-1 · `b314075` DIAG-1b · `661844f` TURNO-1
+· `d6fc328` docs · `f6cb02c` campo fantasma · `8adf4bf` TURNO-1b · `c44ee96` docs. El detalle de
+cada uno está en las secciones «🗓️ Sesión 2026-09-18» de abajo, con sus decisiones cerradas.
+
+**Los dos lotes que quedaron nombrados y NO empezados:**
+- **TURNO-2 — medias horas en la jornada.** `start_h`/`end_h` es `integer` y no aguanta un 8:30.
+  Acá se recupera `work_start`/`work_end`, que quedó dormido en la base a propósito (no borrado, no
+  editable, solo leído por el mapeo de `utils.js:505-506`). `textoJornada` y `fmtTime` ya imprimen
+  medias horas, así que la etiqueta y los tests están listos para el cambio.
+- **EXTRAS-2 — flag manual de «cita extra» + la ocupación que pasa del 100%.** Van juntos: ver la
+  deuda en «Sigue abierto». Cambiar el denominador sin el flag deja el número a medias.
+
+**Pendiente que no es código:**
+- **Dos PR de Dependabot abiertos** en el remoto, sin revisar: `supabase-js` 2.116.0 (hoy
+  `^2.104.1`) y `vite` 8.3.0 (hoy `^8.0.10`). Nadie los probó todavía contra `node --test` + build.
+- Ramas locales ya mergeadas que se pueden borrar: `fix/diag-1b-aviso-resumen`,
+  `sec-2-informe-scrub`, `sec-3-csp`, `sec-5-legal-pages`.
 
 ---
 
@@ -2012,7 +2039,7 @@ Cuatro commits llevados a producción (push `3b5f7ca..efd7471`):
 | ~~`app.js`~~ *(legacy monolítico — **BORRADO** en `efd7471`, 2026-05-30)* | — |
 | ~~`/src/`~~ *(scaffolding de Vite — **BORRADO**, ya no existe en el repo)* | — |
 
-### `/js/` — 25 módulos activos *(recontado el 2026-08-14)*
+### `/js/` — 34 módulos activos *(recontado el 2026-09-20; la lista de abajo es del 2026-08-14)*
 | Archivo | Líneas | |
 |---------|--------|---|
 | `pdf-logo.js` | 3 | logo del membrete como data URI (assets de JS nunca por ruta en string) |
@@ -2045,7 +2072,7 @@ Cuatro commits llevados a producción (push `3b5f7ca..efd7471`):
 **`/js/data/cie10-fisio.json`** — 182 KB, 2470 códigos. **No** entra en el bundle inicial: `cie10.js`
 lo carga con `import()` al primer uso (chunk aparte).
 
-### `/css/` — 2.078 líneas *(recontado el 2026-08-14)*
+### `/css/` — 2.266 líneas *(recontado el 2026-09-20)*
 | Archivo | Líneas |
 |---------|--------|
 | `base.css` | 23 |
@@ -2057,7 +2084,7 @@ lo carga con `import()` al primer uso (chunk aparte).
 | `facturacion.css` | 450 |
 | `responsive.css` | 940 |
 
-### `/test/` — `node --test`, **154 verdes**
+### `/test/` — `node --test`, **419 verdes** en 28 archivos *(recontado el 2026-09-20)*
 | Archivo | Tests sobre |
 |---------|-------------|
 | `cedula.test.js` · `validators.test.js` | cédula ecuatoriana, email, teléfono |
