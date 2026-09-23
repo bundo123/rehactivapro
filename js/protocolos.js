@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { esc, doneActual } from './utils.js';
+import { esc, doneActual, CTX_MAX, CTX_PLANTILLA, ctxEstado } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { dbSaveProtocol, dbDeleteProtocol } from './auth.js';
@@ -23,16 +23,44 @@ const RETURN_TO = {
 };
 let _returnTo = null;
 
+// CTX-1: cómo estaba el contexto al abrir el modal. Todo cambio del texto exige re-validar a
+// conciencia; re-guardar sin tocar nada conserva la fecha de validación original.
+let _ctxOriginal = '';
+let _valOriginal = { por: null, at: null };
+
+function _fmtValidadoEl(at){
+  const d=new Date(at);
+  return isNaN(d)?'':d.toLocaleDateString('es-EC',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+
+// Contador, botón de plantilla y línea de estado del bloque de contexto (solo admin lo ve).
+function _ctxRefresh(){
+  const ctx=document.getElementById('prot-ctx');
+  const n=ctx.value.trim().length;
+  const cnt=document.getElementById('prot-ctx-count');
+  cnt.textContent=`${n} / ${CTX_MAX}`;
+  cnt.classList.toggle('over', n>CTX_MAX);
+  document.getElementById('prot-ctx-tpl').disabled=ctx.value.trim()!=='';
+  const sinCambios=ctx.value.trim()===_ctxOriginal;
+  const est=sinCambios?ctxEstado({clinicalContext:_ctxOriginal,ctxValidadoAt:_valOriginal.at}):(n?'sin_validar':'vacio');
+  document.getElementById('prot-ctx-estado').textContent=
+    est==='validado'?`Validado por ${_valOriginal.por||'—'} el ${_fmtValidadoEl(_valOriginal.at)}`
+    :est==='sin_validar'?'Sin validar':'Vacío';
+}
+
 export function openProtocolModal(eid=null, returnTo=null) {
   _returnTo = returnTo;
   _protocolDirty.reset();
-  clearAllErrors(['prot-name', 'prot-diag', 'prot-alta', 'prot-sessions']);
+  clearAllErrors(['prot-name', 'prot-diag', 'prot-alta', 'prot-sessions', 'prot-ctx', 'prot-ctx-por']);
   ['prot-name','prot-diag','prot-alta'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('prot-sessions').value=20;
   document.getElementById('prot-freq').value=3;
   document.getElementById('prot-img').value='knee';
   document.getElementById('prot-def').value='';
   document.getElementById('prot-ctx').value='';
+  document.getElementById('prot-ctx-ok').checked=false;
+  document.getElementById('prot-ctx-por').value='';
+  _ctxOriginal=''; _valOriginal={por:null,at:null};
   state.editingProtocolId=null;
   document.querySelector('#protocol-modal h3').textContent='Nuevo diagnóstico';
   if(eid){
@@ -45,9 +73,14 @@ export function openProtocolModal(eid=null, returnTo=null) {
     document.getElementById('prot-img').value=p.img||'knee';
     document.getElementById('prot-def').value=p.def||'';
     document.getElementById('prot-ctx').value=p.clinicalContext||'';
+    _ctxOriginal=(p.clinicalContext||'').trim();
+    _valOriginal={por:p.ctxValidadoPor||null,at:p.ctxValidadoAt||null};
+    document.getElementById('prot-ctx-ok').checked=ctxEstado(p)==='validado';
+    document.getElementById('prot-ctx-por').value=p.ctxValidadoPor||'';
     state.editingProtocolId=eid;
     document.querySelector('#protocol-modal h3').textContent='Editar diagnóstico';
   }
+  _ctxRefresh();
   document.getElementById('protocol-modal').classList.add('open');
 }
 
@@ -74,10 +107,30 @@ export async function saveProtocol() {
   } else {
     if(!hasPermission('createProtocol')){toastErr('No tienes permisos para crear diagnósticos.');return;}
   }
+  // CTX-1: el contexto clínico lo cura el admin. Sin editProtocol (el alta del terapeuta) sale
+  // vacío y sin validar, como exige la RLS de INSERT (ctx_protocols.sql).
+  let ctx={clinicalContext:'',ctxValidadoPor:null,ctxValidadoAt:null};
+  if(hasPermission('editProtocol')){
+    const txt=document.getElementById('prot-ctx').value.trim();
+    const ok=document.getElementById('prot-ctx-ok').checked;
+    const por=document.getElementById('prot-ctx-por').value.trim();
+    if(txt.length>CTX_MAX){ showFieldError('prot-ctx', `Máximo ${CTX_MAX} caracteres (tiene ${txt.length})`); return; }
+    clearFieldError('prot-ctx');
+    if(ok && !txt){ showFieldError('prot-ctx', 'No se puede validar un contexto vacío'); return; }
+    if(ok && por.length<3){ showFieldError('prot-ctx-por', 'Indica quién valida (mínimo 3 caracteres)'); return; }
+    clearFieldError('prot-ctx-por');
+    if(ok){
+      // Re-guardar sin cambios (mismo texto, mismo "por", ya validado) conserva la fecha original.
+      const sinCambios=txt===_ctxOriginal && por===(_valOriginal.por||'') && !!_valOriginal.at;
+      ctx={clinicalContext:txt,ctxValidadoPor:por,ctxValidadoAt:sinCambios?_valOriginal.at:new Date().toISOString()};
+    } else {
+      ctx={clinicalContext:txt,ctxValidadoPor:null,ctxValidadoAt:null};
+    }
+  }
   const diag=document.getElementById('prot-diag').value.trim();
   const name=document.getElementById('prot-name').value.trim();
   const d={diag,name,sessions:parseInt(document.getElementById('prot-sessions').value),freq:parseInt(document.getElementById('prot-freq').value),alta:document.getElementById('prot-alta').value,
-    img:document.getElementById('prot-img').value,def:document.getElementById('prot-def').value.trim(),clinicalContext:document.getElementById('prot-ctx').value.trim()};
+    img:document.getElementById('prot-img').value,def:document.getElementById('prot-def').value.trim(),...ctx};
   const _isNew=!state.editingProtocolId;
   if(state.editingProtocolId) Object.assign(state.protocols.find(p=>p.id===state.editingProtocolId),d);
   else state.protocols.push({id:++state.protCounter,...d});
@@ -138,12 +191,30 @@ export function initProtocolValidation() {
       if (el.classList.contains('input-error') && fn(el.value).valid) clearFieldError(id);
     });
   });
+  // CTX-1: listeners del bloque de contexto clínico (sin onclick inline, camino de la CSP estricta).
+  const ctx = document.getElementById('prot-ctx');
+  if (ctx) {
+    ctx.addEventListener('input', () => {
+      // Todo cambio del texto desmarca la validación: hay que re-validar a conciencia.
+      if (ctx.value.trim() !== _ctxOriginal) document.getElementById('prot-ctx-ok').checked = false;
+      if (ctx.classList.contains('input-error') && ctx.value.trim().length <= CTX_MAX) clearFieldError('prot-ctx');
+      _ctxRefresh();
+    });
+    document.getElementById('prot-ctx-tpl')?.addEventListener('click', () => {
+      if (ctx.value.trim() !== '') return;
+      ctx.value = CTX_PLANTILLA;
+      ctx.dispatchEvent(new Event('input'));
+      ctx.focus();
+    });
+  }
+  document.getElementById('prot-ctx-por')?.addEventListener('input', () => clearFieldError('prot-ctx-por'));
+  document.getElementById('prot-solo-pend')?.addEventListener('change', () => renderProtocols());
 }
 
 export function renderProtocols() {
   const fl={7:'Diaria',5:'5×',3:'3×',2:'2×',1:'1×'};
   const qp=(document.getElementById('protocol-search')?.value||'').toLowerCase();
-  const filtProts=qp?state.protocols.filter(p=>p.name.toLowerCase().includes(qp)||p.diag.toLowerCase().includes(qp)):state.protocols;
+  let filtProts=qp?state.protocols.filter(p=>p.name.toLowerCase().includes(qp)||p.diag.toLowerCase().includes(qp)):state.protocols;
   // ¿p.img es una foto real? (URL/data/ruta). Los valores legacy son claves de zona ('knee', 'hip'…)
   // → cabecera plana de color suave, sin call-to-action (las fotos reales las proveerá la clínica).
   const isUrl=v=>/^(https?:\/\/|data:|\.?\/)/.test(String(v||''));
@@ -154,16 +225,34 @@ export function renderProtocols() {
     const kw=(prot.diag||'').toLowerCase().split(',').map(k=>k.trim());
     return kw.some(k=>k&&(pt.diag||'').toLowerCase().includes(k));
   }).length;
+  // CTX-1: pendiente = en uso (algún paciente activo) y sin contexto validado. El resumen cuenta
+  // sobre todo el catálogo, no sobre lo filtrado por la búsqueda.
+  const esPendiente=p=>ctxEstado(p)!=='validado'&&countPts(p)>0;
+  const nPend=state.protocols.filter(esPendiente).length;
+  const resumen=document.getElementById('prot-ctx-resumen');
+  if(resumen){
+    resumen.textContent=nPend
+      ?`${nPend} diagnóstico${nPend!==1?'s':''} en uso sin contexto validado`
+      :'Todos los diagnósticos en uso tienen contexto validado';
+    resumen.classList.toggle('ok', !nPend);
+  }
+  const soloPend=hasPermission('editProtocol')&&document.getElementById('prot-solo-pend')?.checked;
+  if(soloPend) filtProts=filtProts.filter(esPendiente);
+  const CTX_BADGE={vacio:['vacio','Vacío'],sin_validar:['sin-validar','Sin validar'],validado:['validado','Validado']};
   if(!filtProts.length){
-    document.getElementById('protocols-list').innerHTML=`<div style="color:#5a5a56;font-size:13px;padding:20px 0;text-align:center">No hay diagnósticos. Carga los predefinidos o crea uno nuevo.</div>`;
+    document.getElementById('protocols-list').innerHTML=soloPend
+      ?`<div style="color:#5a5a56;font-size:13px;padding:20px 0;text-align:center">No hay diagnósticos en uso pendientes de validar.</div>`
+      :`<div style="color:#5a5a56;font-size:13px;padding:20px 0;text-align:center">No hay diagnósticos. Carga los predefinidos o crea uno nuevo.</div>`;
   } else {
     document.getElementById('protocols-list').innerHTML=`<div class="prot-grid">`+filtProts.map(p=>{
       const n=countPts(p);
       const photo=isUrl(p.img)?`<img src="${esc(p.img)}" alt="" loading="lazy">`:'';
+      const [bCls,bTxt]=CTX_BADGE[ctxEstado(p)];
       return`<div class="prot-card">
         <div class="prot-photo">${photo}<span class="prot-pts">${n} paciente${n!==1?'s':''}</span></div>
         <div class="prot-body">
           <div class="prot-name">${esc(p.name)}</div>
+          <span class="prot-ctx-badge ${bCls}" title="Contexto clínico para la IA">${esc(bTxt)}</span>
           ${p.def?`<div class="prot-def">${esc(p.def)}</div>`:''}
           <div class="prot-meta"><span><b style="color:#1a1917">${p.sessions}</b> sesiones</span><span><b style="color:#1a1917">${fl[p.freq]||p.freq+'×'}</b>/semana</span></div>
           ${p.alta?`<div class="prot-alta">Alta: ${esc(p.alta)}</div>`:''}

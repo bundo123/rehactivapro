@@ -277,6 +277,28 @@
 .prot-btn:hover{filter:brightness(.95)}
 .prot-btn.edit{color:#1d8fbf;background:rgba(41,171,226,.1);border-color:rgba(41,171,226,.3)}
 .prot-btn.del{color:#c33a3a;background:rgba(226,75,74,.07);border-color:rgba(226,75,74,.25)}
+/* CTX-1: estado del contexto clínico por tarjeta (lo ven todos los roles). */
+.prot-ctx-badge{display:inline-block;font-size:10px;font-weight:700;border-radius:99px;padding:2px 9px;margin-top:6px;border:1px solid;white-space:nowrap}
+.prot-ctx-badge.vacio{color:#E24B4A;background:rgba(226,75,74,.07);border-color:rgba(226,75,74,.3)}
+.prot-ctx-badge.sin-validar{color:#BA7517;background:rgba(186,117,23,.08);border-color:rgba(186,117,23,.3)}
+.prot-ctx-badge.validado{color:#1D9E75;background:rgba(29,158,117,.08);border-color:rgba(29,158,117,.3)}
+.prot-hdr-tools{margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.prot-ctx-resumen{font-size:11.5px;font-weight:600;color:#BA7517}
+.prot-ctx-resumen.ok{color:#1D9E75}
+.prot-solo-pend{display:flex;align-items:center;gap:6px;font-size:12px;color:#5a5a56;cursor:pointer;min-height:44px}
+@media (max-width:768px){.prot-hdr-tools{width:100%;margin-left:0}}
+/* Bloque del modal (solo admin). */
+.prot-ctx-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.field .prot-ctx-head label{margin-bottom:0}
+.prot-ctx-tpl{font-size:11px;font-weight:600;color:#1d8fbf;background:rgba(41,171,226,.1);border:1px solid rgba(41,171,226,.3);border-radius:7px;padding:4px 10px;cursor:pointer;font-family:inherit}
+.prot-ctx-tpl:disabled{opacity:.4;cursor:default}
+.prot-ctx-count{font-size:10.5px;color:#9c9a92;text-align:right;margin-top:3px}
+.prot-ctx-count.over{color:#E24B4A;font-weight:700}
+.prot-ctx-val{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.field .prot-ctx-ok{display:flex;align-items:center;gap:6px;margin-bottom:0;font-size:12px;color:#1a1917;cursor:pointer;white-space:nowrap;text-transform:none;letter-spacing:0}
+.field .prot-ctx-ok input{width:auto;margin:0}
+.field .prot-ctx-val input[type=text]{flex:1;width:auto;min-width:140px}
+.prot-ctx-estado{font-size:11px;color:#6b6a64;margin-top:6px}
 .prot-pager{display:flex;align-items:center;gap:8px}
 .prot-pager button{padding:3px 10px;font-size:11px;border:1px solid rgba(41,171,226,.25);background:#fff;border-radius:5px;cursor:pointer;color:#6b6a64;font-family:inherit}
 .prot-pager button:disabled{opacity:.3;cursor:default}

@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber, ctxEstado } from './utils.js';
 import { apptSlots } from './agenda.js';
 import { genSemanalAI, genMensualAI, genAnualAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasPermission } from './permissions.js';
@@ -737,7 +737,10 @@ export function renderPatientReport() {
       <div class="side-card">
         <div class="side-title">Documento</div>
         <div class="side-col">
-          ${hasPermission('viewAI')?`<button class="side-btn primary" onclick="genPatientAI()">Informe clínico con IA</button>`:''}
+          ${hasPermission('viewAI')?`<button class="side-btn primary" onclick="genPatientAI()">Informe clínico con IA</button>
+          <div style="font-size:11px;color:#6b6a64;line-height:1.4;margin-top:-2px">${!prot?'Paciente sin diagnóstico del catálogo.'
+            :ctxEstado(prot)==='validado'?`La IA usará el contexto clínico validado de «${esc(prot.name)}».`
+            :'Sin contexto clínico validado: la IA redactará solo con los datos del paciente.'}</div>`:''}
           <button class="side-btn outline" onclick="abrirFirmanteModal()">Exportar Word</button>
           <!-- SIN gate de permisos A PROPÓSITO (decisión de Jefferson, lote informes 2026-09-01).
                Este botón vivía en el header de Informes, pestaña admin-only y con

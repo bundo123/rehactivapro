@@ -360,9 +360,13 @@
       <div class="page-title">Diagnósticos</div>
       <div class="page-sub">Banco de diagnósticos con su plan y contexto clínico</div>
     </div>
-    <div class="hdr-search" style="margin-left:auto">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" id="protocol-search" placeholder="Buscar diagnóstico…" oninput="renderProtocols()">
+    <div class="prot-hdr-tools">
+      <div class="prot-ctx-resumen" id="prot-ctx-resumen" data-permission="admin"></div>
+      <label class="prot-solo-pend" data-permission="admin"><input type="checkbox" id="prot-solo-pend"> Solo pendientes</label>
+      <div class="hdr-search">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9c9a92" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="protocol-search" placeholder="Buscar diagnóstico…" oninput="renderProtocols()">
+      </div>
     </div>
     <button class="add-btn" style="height:36px;padding:0 16px;font-size:12.5px" onclick="openProtocolModal()" data-permission="admin-terapeuta">+ Nuevo diagnóstico</button>
   </div>
@@ -809,7 +813,22 @@
     </div>
     <div class="field"><label>Definición breve</label><input type="text" id="prot-def" placeholder="Ej: Postoperatorio de reparación meniscal"></div>
   </div>
-  <div class="field"><label>Contexto clínico (para la IA)</label><textarea id="prot-ctx" rows="3" placeholder="Objetivos por fase, técnicas típicas, hitos, criterios de alta… (plantilla de referencia)"></textarea></div>
+  <!-- CTX-1: el contexto clínico lo cura el admin. El terapeuta no ve este bloque y su alta sale
+       sin contexto (la RLS de INSERT lo exige). Sin maxlength a propósito: un pegado largo se ve
+       y se corrige, no se corta en silencio. Listeners en initProtocolValidation (protocolos.js). -->
+  <div class="field" id="prot-ctx-block" data-permission="admin">
+    <div class="prot-ctx-head">
+      <label for="prot-ctx">Contexto clínico (para la IA)</label>
+      <button type="button" class="prot-ctx-tpl" id="prot-ctx-tpl">Insertar plantilla</button>
+    </div>
+    <textarea id="prot-ctx" rows="10" placeholder="Objetivos por fase, técnicas típicas, hitos, criterios de alta… (plantilla de referencia)"></textarea>
+    <div class="prot-ctx-count" id="prot-ctx-count">0 / 1200</div>
+    <div class="prot-ctx-val">
+      <label class="prot-ctx-ok"><input type="checkbox" id="prot-ctx-ok"> Contexto validado por</label>
+      <input type="text" id="prot-ctx-por" placeholder="Nombre de quien valida">
+    </div>
+    <div class="prot-ctx-estado" id="prot-ctx-estado">Vacío</div>
+  </div>
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal('protocol-modal')">Cancelar</button>
     <button class="btn-save" onclick="saveProtocol()">Guardar</button>

@@ -81,7 +81,8 @@ export async function loadAll(force=false) {
         facturas:cobData.filter(c=>c.patient_id===r.id).map(c=>({id:c.cobro_ref,n:c.n_sessions,fecha:c.date,estado:'cobrada'}))}
     }));
     state.protocols = (prot.data||[]).map(r=>({id:r.id,name:r.name,diag:r.diag_keywords||'',sessions:r.sessions||20,freq:r.freq||3,alta:r.discharge_criteria||'',
-      img:r.img||'',def:r.definition||'',clinicalContext:r.clinical_context||''}));
+      img:r.img||'',def:r.definition||'',clinicalContext:r.clinical_context||'',
+      ctxValidadoPor:r.ctx_validado_por||null,ctxValidadoAt:r.ctx_validado_at||null}));
     // qbAt: conciliación con QuickBooks. Estado ADMINISTRATIVO, ortogonal al clínico (status).
     state.appointments = (appt.data||[]).map(r=>({id:r.id,date:r.date,therapistId:r.therapist_id,patientId:r.patient_id,patientName:(r.patients&&r.patients.name)||null,hour:r.hour,duration:r.duration||60,type:tipoSesion(r.type),status:r.status||'pend',note:r.note||'',location:r.location||'centro',qbAt:r.qb_at||null}));
     state.informes = (inf.data||[]).map(r=>({id:r.id,patientId:r.patient_id,createdAt:r.created_at,createdBy:r.created_by,numero:r.numero,episodio:r.episodio,fechaEmision:r.fecha_emision,narrativa:r.narrativa||[],snapshot:r.snapshot||{}}));
@@ -333,7 +334,8 @@ export async function dbDeleteDoctor(id){
 export async function dbSaveProtocol(p){
   markLocalChange('protocols');
   const d={name:p.name,diag_keywords:p.diag,sessions:p.sessions,freq:p.freq,discharge_criteria:p.alta,
-    img:p.img||null,definition:p.def||null,clinical_context:p.clinicalContext||null};
+    img:p.img||null,definition:p.def||null,clinical_context:p.clinicalContext||null,
+    ctx_validado_por:p.ctxValidadoPor||null,ctx_validado_at:p.ctxValidadoAt||null};
   if(typeof p.id==='string') d.id=p.id;
   return supa.from('protocols').upsert(d).select().single();
 }

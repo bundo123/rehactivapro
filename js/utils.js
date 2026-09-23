@@ -458,6 +458,22 @@ export function diagParaPrompt(p){
   return `${base} (CIE-10 ${p.cie10}${p.cie10Desc?' — '+p.cie10Desc:''})`;
 }
 
+// CTX-1: el contexto clínico de un diagnóstico es una plantilla de referencia que CURA el admin.
+// Solo llega al prompt de la IA si está VALIDADO (quién y cuándo); el tope se aplica acá, en un
+// solo lugar (subirlo a 1.500 es decisión de la reunión, no "por si acaso").
+export const CTX_MAX = 1200;
+export const CTX_PLANTILLA = 'FASE INICIAL: \nFASE INTERMEDIA: \nFASE AVANZADA / RETORNO: \nHITOS ESPERADOS: \nCRITERIOS DE ALTA: \nPRECAUCIONES Y SIGNOS DE ALERTA: \nMEDIDAS DE SEGUIMIENTO: EVA + ';
+// 'vacio' | 'sin_validar' | 'validado'
+export function ctxEstado(prot){
+  const txt=String(prot?.clinicalContext||'').trim();
+  if(!txt) return 'vacio';
+  return prot.ctxValidadoAt ? 'validado' : 'sin_validar';
+}
+export function ctxParaPrompt(prot){
+  if(ctxEstado(prot)!=='validado') return '';
+  return String(prot.clinicalContext).trim().slice(0,CTX_MAX);
+}
+
 // Defecto viejo: algunas evaluaciones iniciales tienen una parte de evalInicial.partes guardada
 // con un ":" huérfano al inicio (p.ej. ": Inversión forzada del tobillo…"), de un formato de nota
 // anterior a como saveEvalInicial() (pacientes.js) arma `note` hoy. El dato histórico sigue en

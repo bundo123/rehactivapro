@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { getDisplayAge, esc, doneActual, dmy, fmtDate, semanaRango, citasEnFechas, citasEnPrefijo,
-         nuevosEnPrefijo, resumenCitas, hastaHoy, MES_LARGO, diagParaPrompt } from './utils.js';
+         nuevosEnPrefijo, resumenCitas, hastaHoy, MES_LARGO, diagParaPrompt, ctxParaPrompt } from './utils.js';
 import { toastErr } from './toast.js';
 // Import circular a propósito: informes.js importa las tres gen*AI de acá y acá se importan sus
 // tres renders. Se usan SOLO dentro del cuerpo de las gen*AI (al hacer clic) y son declaraciones
@@ -265,7 +265,7 @@ export function genPatientAI() {
   // PR-B: contexto del protocolo SOLO por link explícito (protocol_id), sin fallback por keyword (D3).
   // Plantilla de referencia (no PII, no historia clínica) → tope duro de 1.200 caracteres (D4).
   const prot=p.protocolId?state.protocols.find(x=>x.id===p.protocolId):null;
-  const protCtx=(prot&&prot.clinicalContext)?prot.clinicalContext.trim().slice(0,1200):'';
+  const protCtx=prot?ctxParaPrompt(prot):'';
   const prompt=`Eres un fisioterapeuta colegiado redactando un informe de evolución clínica en Ecuador, dirigido al médico que refirió al paciente y que también puede leer el propio paciente. Escribe con tono formal y profesional, pero claro. RESPETA estas reglas de redacción de forma estricta:
 - TEXTO PLANO: prohibido markdown, asteriscos, numerales (#), guiones de viñeta o cualquier símbolo de formato. Solo prosa en párrafos.
 - NO repitas cifras crudas que ya están en las tablas y el gráfico del informe (no listes los valores EVA de cada sesión ni el número de sesiones). En su lugar, INTERPRÉTALOS clínicamente.
