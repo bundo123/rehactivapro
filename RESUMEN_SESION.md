@@ -1,7 +1,7 @@
 # RehactivaPro — Historial de sesiones de desarrollo
 
-> **Período:** 2026-03-31 → 2026-09-18 · **234 entregas** en **49 jornadas de trabajo**
-> **Última actualización:** 2026-09-18
+> **Período:** 2026-03-31 → 2026-09-23 · **236 entregas** en **51 jornadas de trabajo**
+> **Última actualización:** 2026-09-23
 
 ---
 
@@ -40,10 +40,10 @@ git log --oneline --reverse   # ver la lista completa en orden cronológico
 | **3 · Endurecimiento** | 06-17 → 07-09 | 5 | 21 | Auditoría pre-lanzamiento: corrección de fallos y pruebas |
 | **4 · Producción** | 07-31 → 08-14 | 9 | 29 | App en uso real: agenda avanzada, móvil, CIE-10, seguimiento |
 | **5 · Consolidación y seguridad** | 08-24 → 09-10 | 11 | 57 | Informe Word, Excel, historial, QuickBooks, auditoría de 147 hallazgos, endurecimiento SEC-1…5 |
-| **6 · Diagnóstico y lectura de la agenda** | 09-18 | 1 | 6 | Diagnóstico como catálogo cerrado y agenda que muestra qué se atiende fuera del turno |
+| **6 · Diagnóstico, contexto clínico y agenda** | 09-18 → 09-23 | 3 | 8 | Diagnóstico como catálogo cerrado, contexto clínico validado para la IA y agenda que muestra qué se atiende fuera del turno |
 
 **Estado al cierre:** aplicación en producción en `rehactivaec.com`, con despliegue automático
-verificado, **419 pruebas automatizadas** en verde, integración continua en cada cambio y bitácora
+verificado, **428 pruebas automatizadas** en verde, integración continua en cada cambio y bitácora
 de auditoría inmutable conforme a LOPDP.
 
 ---
@@ -101,8 +101,10 @@ de auditoría inmutable conforme a LOPDP.
 | 47 | 2026-09-09 | 2 | 6 | 11 | 10 | Content-Security-Policy + integridad de librerías externas (SEC-3, SEC-4) |
 | 48 | 2026-09-10 | 1 | 8 | 231 | 0 | Páginas legales de privacidad y términos (SEC-5) |
 | 49 | 2026-09-18 | 6 | 30 | 861 | 167 | **Diagnóstico como catálogo cerrado** + la agenda muestra lo que cae fuera del turno |
+| 50 | 2026-09-20 | 1 | 1 | 31 | 4 | Documentación del estado del proyecto |
+| 51 | 2026-09-23 | 1 | 12 | 680 | 22 | **Contexto clínico validado para el informe con IA** + permisos de base de datos corregidos |
 
-**Totales:** 234 entregas · 769 archivos modificados · **47.190 líneas añadidas** · **14.956 retiradas**.
+**Totales:** 236 entregas · 782 archivos modificados · **47.901 líneas añadidas** · **14.982 retiradas**.
 
 *Nota de lectura:* en 2026-04-17 y 2026-04-19 hay una entrega cada día que no registró cambio de
 contenido, por eso «Entregas» supera a «Archivos» esos dos días. Las imágenes y demás binarios
@@ -415,9 +417,9 @@ funcionalidades pasaron por rama de revisión y prueba manual antes de llegar a 
 
 ---
 
-## Fase 6 — Diagnóstico y lectura de la agenda (2026-09-18) · 1 jornada · 6 entregas
+## Fase 6 — Diagnóstico, contexto clínico y agenda (2026-09-18 → 2026-09-23) · 3 jornadas · 8 entregas
 
-Dos frentes en el mismo día: **que el diagnóstico sea un dato utilizable** (era texto libre y por
+El 2026-09-18, dos frentes en el mismo día: **que el diagnóstico sea un dato utilizable** (era texto libre y por
 eso el contexto clínico nunca llegaba al informe con IA) y **que la agenda diga en pantalla lo que
 antes había que cruzar a mano con la ficha de cada terapeuta**.
 
@@ -459,6 +461,33 @@ puede **pasar del 100%**, porque cuenta las citas fuera de turno y de fin de sem
 las suma a la capacidad disponible abajo. **No se corrige suelto:** se hará junto con la marca
 manual de «cita extra», porque cambiar solo el cálculo de capacidad dejaría el número a medias.
 
+**2026-09-20** (`a19dfc2`) · Documentación del estado del proyecto: cierre verificado de la jornada
+anterior, cifras de estructura recontadas y pendientes nombrados.
+
+**2026-09-23 — El contexto clínico se cura, se valida y se audita** (`af45a61`)
+- **El informe con IA solo usa contexto clínico validado.** Cada diagnóstico del catálogo tiene una
+  plantilla de referencia (objetivos por fase, hitos, criterios de alta) que orienta la redacción
+  del informe. Hasta ahora cualquier texto llegaba a la IA, aunque nadie lo hubiera revisado, y si
+  era largo se cortaba sin avisar. Ahora **solo llega el texto que un responsable clínico marcó
+  como validado**, con su nombre y la fecha.
+- **Cualquier cambio en el texto exige volver a validarlo:** la marca se retira sola, en pantalla y
+  también en la base de datos, para que ningún texto editado llegue a la IA con una validación vieja.
+- **Solo el administrador escribe el contexto.** El terapeuta sigue pudiendo dar de alta el
+  diagnóstico que le falta a mitad de una evaluación, pero sin contexto: ese lo cura el
+  administrador. Formato fijo con plantilla, contador y un tope de 1.200 caracteres que se ve.
+- **La pantalla dice qué falta:** cada diagnóstico muestra si su contexto está vacío, sin validar o
+  validado, con un resumen de cuántos diagnósticos **en uso** no tienen contexto validado y un
+  filtro de pendientes. El informe del paciente indica si la IA va a usar un contexto validado.
+- **El catálogo de diagnósticos entra en la bitácora legal:** desde ahora queda registrado quién
+  crea un diagnóstico y quién cambia su contexto clínico.
+- **Permisos de base de datos corregidos.** Al aplicar el cambio se encontraron en producción dos
+  reglas de acceso creadas fuera del repositorio, que dejaban al terapeuta editar diagnósticos y
+  marcar como validado un contexto clínico desde fuera de la aplicación. Se retiraron el mismo día y
+  el cambio quedó registrado en el repositorio.
+- Medido al cierre: **32 diagnósticos en el catálogo, ninguno con contexto todavía**. La carga de
+  los contextos validados sale de una reunión clínica, preparada con 22 borradores.
+- **419 → 428 pruebas automatizadas** en verde.
+
 ---
 
 ## Anexo — Prácticas de trabajo aplicadas
@@ -471,7 +500,7 @@ Constan en el repositorio y explican parte del esfuerzo que no se ve en la inter
   lo servido en `rehactivaec.com` es exactamente el código compilado, comparando las huellas de los
   archivos publicados.
 - **Pruebas automatizadas crecientes:** 19 pruebas (2026-06-26) → 104 (2026-08-12) → 131 (2026-08-13)
-  → 154 (2026-08-14) → 326 (2026-09-03) → 383 (2026-09-10) → **419** al cierre. Desde 2026-09-07 (SEC-1) se ejecutan
+  → 154 (2026-08-14) → 326 (2026-09-03) → 383 (2026-09-10) → 419 (2026-09-18) → **428** al cierre. Desde 2026-09-07 (SEC-1) se ejecutan
   automáticamente en cada cambio publicado, junto con la compilación y el escaneo de secretos.
 - **Documentación de estado continua.** `PROYECTO_ESTADO.md` registra cada sesión con sus
   decisiones y su deuda técnica pendiente; `AUDITORIA_PRELANZAMIENTO.md` y `rls_policies.md`

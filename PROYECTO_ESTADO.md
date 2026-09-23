@@ -1,19 +1,26 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-09-20
+> Generado: 2026-05-18 · Última actualización: 2026-09-23
 
 ---
 
-## 📍 Estado al 2026-09-20 — dónde quedó todo
+## 📍 Estado al 2026-09-23 — dónde quedó todo
 
-**En producción y VERIFICADO.** `origin/main` = `c44ee96`, árbol limpio, sin ramas de trabajo
-abiertas. Deploy de Vercel en **verde** para ese commit y lo servido en `rehactivaec.com` es lo
-compilado: los hashes de `dist/assets` coinciden (`index-BFz0qr3u.js`, `index-iA_SanCS.css`).
-**419 pruebas / 0 fail** con `node --test`; `npx vite build` sin errores.
+**En producción y VERIFICADO.** El código en `main` es `af45a61` (LOTE CTX-1); encima va solo el
+commit de docs de este cierre. Deploy de Vercel en **verde** para `af45a61` y lo servido en
+`rehactivaec.com` es lo compilado: los hashes de `dist/assets` coinciden (`index-Bv-4USlt.js`,
+`index-DvrMC0Nm.css`). **428 pruebas / 0 fail** con `node --test`; `npx vite build` sin errores.
+Sin ramas de trabajo abiertas: `feat/ctx-1-contexto-curado` se borró local y remota tras el merge.
 
-La jornada del 2026-09-18 entró completa: `e7184eb` DIAG-1 · `b314075` DIAG-1b · `661844f` TURNO-1
-· `d6fc328` docs · `f6cb02c` campo fantasma · `8adf4bf` TURNO-1b · `c44ee96` docs. El detalle de
-cada uno está en las secciones «🗓️ Sesión 2026-09-18» de abajo, con sus decisiones cerradas.
+La jornada del 2026-09-18 entró completa (`e7184eb` DIAG-1 · `b314075` DIAG-1b · `661844f` TURNO-1
+· `d6fc328` docs · `f6cb02c` campo fantasma · `8adf4bf` TURNO-1b · `c44ee96` docs); `a19dfc2`
+(2026-09-20) fue solo este documento. El 2026-09-23 entró **CTX-1** y se corrigió una **deriva de
+RLS en `protocols`**: ver «🗓️ Sesión 2026-09-23» abajo.
+
+**Ruta del contexto clínico (`PLAN_CONTEXTO_CLINICO.md`), lo que falta:** reunión clínica (paquete y
+22 borradores listos) → carga de contextos validados (`contexto_clinico_carga.sql`) → **DIAG-2** por
+SQL (enlazar el texto viejo) → **LOTE CTX-2** (fuera el fallback por palabra clave) → **CTX-3** (el
+prompt se arma en el servidor).
 
 **Los dos lotes que quedaron nombrados y NO empezados:**
 - **TURNO-2 — medias horas en la jornada.** `start_h`/`end_h` es `integer` y no aguanta un 8:30.
@@ -28,6 +35,8 @@ cada uno está en las secciones «🗓️ Sesión 2026-09-18» de abajo, con sus
   `^2.104.1`) y `vite` 8.3.0 (hoy `^8.0.10`). Nadie los probó todavía contra `node --test` + build.
 - Ramas locales ya mergeadas que se pueden borrar: `fix/diag-1b-aviso-resumen`,
   `sec-2-informe-scrub`, `sec-3-csp`, `sec-5-legal-pages`.
+- Confirmar con un terapeuta real que **no ve** el bloque de contexto clínico del modal de
+  diagnóstico (la RLS y `saveProtocol` ya lo cubren; es la última casilla del smoke de CTX-1).
 
 ---
 
@@ -60,6 +69,67 @@ cada uno está en las secciones «🗓️ Sesión 2026-09-18» de abajo, con sus
 - **Semana 2:** auto-logout (15 min) · I-13 (alerts→toasts) · P-11 (CSP parcial).
 - **Semana 3:** I-12 (focus-trap/Escape) · I-15 (tests `node --test`) · `npm audit fix` · decisión P-2/P-6.
 - **Semana 4:** `clinical_context` de protocolos reales · papeleo LOPDP (lectura abierta + sub-encargado Anthropic) · **audit final**.
+
+---
+
+## 🗓️ Sesión 2026-09-23 — LOTE CTX-1: el contexto clínico se cura, se valida y se audita (`af45a61`, en `main`)
+
+Spec: `PLAN_CONTEXTO_CLINICO.md` §5 (versionado en el mismo commit). Rama
+`feat/ctx-1-contexto-curado`, rebase sobre `a19dfc2`, merge **fast-forward** a `main` y deploy
+verificado (status `success` + hashes de `dist/assets` iguales a los servidos). **419 → 428 pruebas**
+(`test/contexto.test.js`, +9).
+
+**Qué hizo el lote (según el commit):**
+- **El informe IA usa solo contexto VALIDADO.** `ctxParaPrompt` (`utils.js`) devuelve `''` si el
+  contexto no está validado; si lo está, `trim().slice(0, CTX_MAX)`. En `ia.js` solo cambió la línea
+  de `protCtx` (y su import): barrera, secciones y extensión del prompt quedan igual.
+- **`CTX_MAX = 1200` en un solo lugar** y `CTX_PLANTILLA` con los 7 encabezados del formato fijo;
+  `ctxEstado` → `'vacio' | 'sin_validar' | 'validado'`.
+- **Modal de diagnóstico:** el bloque de contexto es `data-permission="admin"`; el alta del terapeuta
+  sale sin contexto ni validación. Textarea de 10 filas **sin** `maxlength` (un pegado largo se ve y
+  no deja guardar, no se corta en silencio), contador «N / 1200» en rojo al pasarse, botón
+  «Insertar plantilla» (solo con el textarea vacío), check «Contexto validado por» + nombre (3+
+  caracteres) y línea de estado. **Todo cambio del texto desmarca el check**; re-guardar sin cambios
+  conserva la fecha de validación original. Listeners con `addEventListener` en
+  `initProtocolValidation()`: cero `onclick` inline nuevos.
+- **Lista:** badge por tarjeta (Vacío / Sin validar / Validado, lo ven todos), resumen «N
+  diagnósticos en uso sin contexto validado» y filtro «Solo pendientes» (solo admin).
+- **Informe del paciente:** línea bajo «Informe clínico con IA» que dice si la IA usará el contexto
+  validado, si no hay contexto validado o si el paciente no tiene diagnóstico del catálogo.
+- `auth.js`: mapper y `dbSaveProtocol` con `ctx_validado_por` / `ctx_validado_at`.
+- `audit_log.sql` y `rls_policies.md` al día (`protocols` pasa a estar auditada).
+
+**SQL — `ctx_protocols.sql`, aplicado por Jefferson ANTES del merge.** Verificado: columnas
+`ctx_validado_por` / `ctx_validado_at` (además la API responde 200 al pedirlas y 400 con una columna
+inventada), triggers `trg_audit` y `trg_protocols_ctx_invalida` presentes.
+
+**⚠️ DERIVA DE RLS encontrada y corregida el mismo día.** En producción `protocols` tenía **dos
+policies creadas fuera del repo**, que no aparecen en ningún commit:
+- `admin_terapeuta_insert_protocols` (INSERT, `with_check is_admin() OR is_terapeuta()`): como las
+  policies permisivas se suman con OR, **anulaba** la restricción nueva de alta (terapeuta sin
+  contexto).
+- `admin_terapeuta_update_protocols` (UPDATE, `using/check is_admin() OR is_terapeuta()`): dejaba al
+  terapeuta **editar diagnósticos y AUTO-VALIDAR contexto vía API**, saltándose la UI.
+- Y **no existía `admin_update_protocols`**, aunque `rls_protocols_terapeuta.sql` dice que se aplicó
+  el 2026-09-18.
+
+Jefferson borró las dos y creó `admin_update_protocols` (`is_admin()`); queda registrado en
+`rls_protocols_drift_2026-09-23.sql` (ya aplicado, solo registro). **Estado final verificado: 4
+policies** — DELETE `is_admin()` · INSERT `admin_terapeuta_insert` con la condición de contexto ·
+SELECT `true` · UPDATE `is_admin()`.
+
+> **Lección:** el repo y producción **pueden divergir** sin que nada avise. Refuerza la deuda de
+> **migraciones versionadas + tests de RLS**: comparar `pg_policies` contra `rls_policies.md` debería
+> ser un chequeo, no un hallazgo casual.
+
+**Smoke §5.10: OK.** DIAG-1 («+ Nuevo» vuelve al modal de origen con el diagnóstico elegido), badges,
+resumen, filtro, contador, plantilla, validación y auto-desvalidación, y la línea del informe.
+Pendiente: confirmar con un **terapeuta real** que no ve el bloque de contexto.
+
+**Estado del contenido (inventario del 2026-09-23, Anexo A del plan):** **32 diagnósticos** en el
+catálogo, **0 con contexto**, **5 pacientes enlazados**; **81 activos sin diagnóstico** y **51
+activos con texto viejo**. Pendiente, en orden: **reunión clínica** (paquete y 22 borradores
+listos) → carga de contextos validados → **DIAG-2** por SQL → **LOTE CTX-2**.
 
 ---
 
