@@ -309,6 +309,25 @@
     flex: 1 1 calc(50% - 3px);
   }
 
+  /* Resumen por terapeuta: 4 columnas que entran en 390px apretando el padding; los encabezados
+     largos ("Días atendidos") envuelven en vez de empujar la tabla a scroll horizontal. */
+  .seg-res-table th,
+  .seg-res-table td {
+    padding: 8px 6px;
+  }
+
+  .seg-res-table th {
+    white-space: normal;
+  }
+
+  .seg-res-table th:first-child {
+    width: 34%;
+  }
+
+  .seg-res-row.elegible td {
+    height: 44px;
+  }
+
   #seg-table-card {
     border: none !important;
     border-radius: 0 !important;

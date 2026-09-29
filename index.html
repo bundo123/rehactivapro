@@ -266,17 +266,20 @@
 <div id="tab-seguimiento" style="display:none">
   <div class="main-header">
     <div class="page-title">Seguimiento</div>
-    <div class="page-sub">Pacientes activos: qué días se atendió y no quedó registro clínico</div>
+    <div class="page-sub">Qué días se atendió y no quedó registro clínico</div>
   </div>
   <div class="main-body">
     <div class="search-row">
       <input class="search-input" type="text" id="seg-search" placeholder="Buscar por nombre...">
+      <select class="hdr-select seg-select" id="seg-mes" aria-label="Mes"></select>
+      <select class="hdr-select seg-select" id="seg-terapeuta" aria-label="Terapeuta"></select>
       <div class="filter-pill-group">
         <button class="filter-pill seg-filter active" data-filter="con" onclick="setSeguimientoFilter('con')" title="Con al menos una entrada clínica registrada">Con seguimiento <span class="seg-count">0</span></button>
         <button class="filter-pill seg-filter" data-filter="faltantes" onclick="setSeguimientoFilter('faltantes')" title="Tienen días atendidos sin ninguna entrada clínica">Con días faltantes <span class="seg-count">0</span></button>
         <button class="filter-pill seg-filter" data-filter="all" onclick="setSeguimientoFilter('all')">Todos <span class="seg-count">0</span></button>
       </div>
     </div>
+    <div id="seg-resumen" hidden></div>
     <div id="seg-table-card" style="border:1px solid rgba(41,171,226,.18);border-radius:11px;overflow:hidden;background:#ffffff">
       <table class="patient-table seg-table" style="width:100%;table-layout:fixed">
         <thead><tr>

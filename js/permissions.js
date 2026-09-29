@@ -29,11 +29,13 @@ const ROLE_TABS = {
 // (INSERT = is_admin() OR is_terapeuta(); UPDATE/DELETE = is_admin()): el terapeuta CREA el
 // diagnóstico que le falta en la evaluación, y el admin CURA el contexto clínico que la IA usa en
 // el informe. Sin la partición, el terapeuta vería botones de Editar/Eliminar que la RLS rechaza.
+// 'verResumenEquipo' = el % de días sin registro por terapeuta en Seguimiento. Solo admin: es
+// información de desempeño del personal — la ve la dirección, no los compañeros.
 const ROLE_ACTIONS = {
   admin:     ['createAppt','deleteAppt','cycleStatus','createPatient','editPatient','deletePatient',
               'registerSession','deleteSession','evalInicial','createTherapist','deleteTherapist',
               'createDoctor','createProtocol','editProtocol','emitirFactura','viewAI','deleteInforme',
-              'apptPastDate','conciliarQB','manageBlocks','editAppt','newEpisode'],
+              'apptPastDate','conciliarQB','manageBlocks','editAppt','newEpisode','verResumenEquipo'],
   secretaria:['createAppt','deleteAppt','cycleStatus','createPatient','editPatient',
               'createTherapist','createDoctor','emitirFactura','apptPastDate','conciliarQB','manageBlocks',
               'editAppt'],

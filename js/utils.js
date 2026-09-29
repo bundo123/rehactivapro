@@ -949,7 +949,9 @@ function _diasConRegistro(patient) {
 // `therapistId` es el responsable del día = el de la cita más temprana (el orden del array de
 // entrada no debe cambiar el resultado). `citas` es cuántas citas pasadas hubo ese día.
 // Pura: `hoy` se puede inyectar para testear; por defecto es la fecha de sistema.
-export function detalleSeguimiento(patient, appointments, hoy = fmtDate(new Date())) {
+// `filtro` = { mes: 'YYYY-MM' | null, therapistId }: se aplica DESPUÉS de elegir el responsable, así
+// que filtrar por terapeuta nunca cambia quién es el responsable del día — solo qué días quedan.
+export function detalleSeguimiento(patient, appointments, hoy = fmtDate(new Date()), filtro = {}) {
   const pid = String(patient?.id ?? '');
   const porDia = new Map();
   (appointments || []).forEach(a => {
@@ -968,7 +970,20 @@ export function detalleSeguimiento(patient, appointments, hoy = fmtDate(new Date
   const conRegistro = _diasConRegistro(patient);
   return [...porDia.entries()]
     .map(([date, v]) => ({ date, therapistId: v.therapistId, registrado: conRegistro.has(date), citas: v.citas }))
+    .filter(d => _pasaFiltroDia(d, filtro))
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// Filtro de período/terapeuta (SEG-2). Sin filtro (o con ambos en null) pasa todo: es la vista de
+// siempre. therapistId se compara con String() porque el <select> siempre entrega texto.
+function _filtroActivo(filtro) {
+  return !!(filtro && (filtro.mes || filtro.therapistId != null));
+}
+function _pasaFiltroDia(d, filtro) {
+  if (!filtro) return true;
+  if (filtro.mes && !String(d.date).startsWith(filtro.mes)) return false;
+  if (filtro.therapistId != null && String(d.therapistId) !== String(filtro.therapistId)) return false;
+  return true;
 }
 
 // Los días que quedaron descubiertos: [{date, therapistId}] ordenado por fecha.
@@ -981,19 +996,19 @@ export function diasSinRegistro(patient, appointments, hoy = fmtDate(new Date())
 // Filas de la tabla. Agrupa las citas por paciente en UNA pasada y recién después arma las filas
 // (mismo patrón que ordinalesDeCitas): sin esto sería recorrer todas las citas una vez por
 // paciente. Orden: días faltantes desc (lo que hay que atender primero), luego citas desc.
-export function filasSeguimiento(patients, appointments, hoy = fmtDate(new Date())) {
-  const citasPorPaciente = new Map();
-  (appointments || []).forEach(a => {
-    if (!a || a.patientId == null) return;
-    const k = String(a.patientId);
-    if (!citasPorPaciente.has(k)) citasPorPaciente.set(k, []);
-    citasPorPaciente.get(k).push(a);
-  });
+// Con `filtro` (mes y/o terapeuta) las columnas del log respetan el mismo corte y se omiten las
+// filas sin citas en el corte: si no, la tabla se llena de pacientes en cero.
+export function filasSeguimiento(patients, appointments, hoy = fmtDate(new Date()), filtro = {}) {
+  const citasPorPaciente = _citasPorPaciente(appointments);
+  const activo = _filtroActivo(filtro);
+  const logPasa = s =>
+    (!filtro?.mes || String(s.date || '').startsWith(filtro.mes)) &&
+    (filtro?.therapistId == null || String(s.therapistId) === String(filtro.therapistId));
   return (patients || [])
     .filter(p => p && p.status === 'active')
     .map(p => {
-      const log = (p.log || []).filter(Boolean);
-      const detalle = detalleSeguimiento(p, citasPorPaciente.get(String(p.id)) || [], hoy);
+      const log = (p.log || []).filter(Boolean).filter(s => !activo || logPasa(s));
+      const detalle = detalleSeguimiento(p, citasPorPaciente.get(String(p.id)) || [], hoy, filtro);
       const faltantes = detalle.filter(d => !d.registrado);
       return {
         id: p.id,
@@ -1005,10 +1020,54 @@ export function filasSeguimiento(patients, appointments, hoy = fmtDate(new Date(
         detalle,
       };
     })
+    .filter(f => !activo || f.citasPasadas > 0)
     .sort((a, b) =>
       b.diasSinRegistro - a.diasSinRegistro ||
       b.citasPasadas - a.citasPasadas ||
       a.name.localeCompare(b.name));
+}
+
+function _citasPorPaciente(appointments) {
+  const out = new Map();
+  (appointments || []).forEach(a => {
+    if (!a || a.patientId == null) return;
+    const k = String(a.patientId);
+    if (!out.has(k)) out.set(k, []);
+    out.get(k).push(a);
+  });
+  return out;
+}
+
+// Meses ('YYYY-MM', desc, sin repetidos) con al menos una cita pasada (misma definición: 'conf' y
+// fecha ≤ hoy). Alimenta el selector de período.
+export function mesesSeguimiento(appointments, hoy = fmtDate(new Date())) {
+  const set = new Set();
+  (appointments || []).forEach(a => {
+    if (!a || a.status !== 'conf' || !a.date || String(a.date) > String(hoy)) return;
+    set.add(String(a.date).slice(0, 7));
+  });
+  return [...set].sort((a, b) => b.localeCompare(a));
+}
+
+// Resumen por terapeuta: días atendidos (con el mismo responsable que detalleSeguimiento) y cuántos
+// quedaron sin registro. Sobre TODOS los pacientes, no solo activos, para cuadrar con el SQL de
+// diagnóstico. therapistId null = "Sin terapeuta". Orden: pct desc, luego días desc.
+export function resumenDocumentacion(patients, appointments, hoy = fmtDate(new Date()), mes = null) {
+  const citasPorPaciente = _citasPorPaciente(appointments);
+  const porTh = new Map();
+  (patients || []).forEach(p => {
+    if (!p) return;
+    detalleSeguimiento(p, citasPorPaciente.get(String(p.id)) || [], hoy, { mes }).forEach(d => {
+      const k = d.therapistId == null ? null : String(d.therapistId);
+      if (!porTh.has(k)) porTh.set(k, { therapistId: k, dias: 0, sinRegistro: 0 });
+      const r = porTh.get(k);
+      r.dias++;
+      if (!d.registrado) r.sinRegistro++;
+    });
+  });
+  return [...porTh.values()]
+    .map(r => ({ ...r, pct: Math.round(100 * r.sinRegistro / r.dias) }))
+    .sort((a, b) => b.pct - a.pct || b.dias - a.dias);
 }
 
 // Los tres filtros de la barra. NO son categorías excluyentes y el contador de cada uno cuenta las

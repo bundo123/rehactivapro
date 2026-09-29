@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   diasSinRegistro, detalleSeguimiento, filasSeguimiento,
-  contarSeguimiento, pasaFiltroSeguimiento,
+  contarSeguimiento, pasaFiltroSeguimiento, mesesSeguimiento, resumenDocumentacion,
 } from '../js/utils.js';
 
 const HOY = '2026-08-12';
@@ -238,4 +238,128 @@ test('contarSeguimiento — cuenta cada filtro por separado', () => {
 test('contarSeguimiento — sin pacientes, todo en cero', () => {
   assert.deepEqual(contarSeguimiento([]), { con: 0, faltantes: 0, all: 0 });
   assert.deepEqual(contarSeguimiento(null), { con: 0, faltantes: 0, all: 0 });
+});
+
+// ── SEG-2: filtro por mes y por terapeuta ─────────────────────────────────────
+const HOY2 = '2026-09-20';
+
+test('SEG-2 filtro mes — los días de otro mes no cuentan', () => {
+  const p = pac('p1');
+  const citas = [cita('a1', 'p1', '2026-08-10'), cita('a2', 'p1', '2026-09-03'), cita('a3', 'p1', '2026-09-10')];
+  assert.deepEqual(fechas(detalleSeguimiento(p, citas, HOY2, { mes: '2026-09' })), ['2026-09-03', '2026-09-10']);
+  assert.deepEqual(fechas(detalleSeguimiento(p, citas, HOY2, { mes: '2026-08' })), ['2026-08-10']);
+});
+
+test('SEG-2 filtro mes — sesiones y entradas solo del mes', () => {
+  const p = pac('p1', { log: [evalIni('2026-08-10'), sesion('2026-08-12'), sesion('2026-09-03'), finEp('2026-09-04')] });
+  const citas = [cita('a1', 'p1', '2026-08-10'), cita('a2', 'p1', '2026-08-12'), cita('a3', 'p1', '2026-09-03')];
+  const sep = fila(filasSeguimiento([p], citas, HOY2, { mes: '2026-09', therapistId: null }), 'p1');
+  assert.equal(sep.sesiones, 1);
+  assert.equal(sep.entradas, 1);
+  assert.equal(sep.citasPasadas, 1);
+  const ago = fila(filasSeguimiento([p], citas, HOY2, { mes: '2026-08' }), 'p1');
+  assert.equal(ago.sesiones, 1);
+  assert.equal(ago.entradas, 2);
+  assert.equal(ago.citasPasadas, 2);
+});
+
+test('SEG-2 filtro therapistId — usa el RESPONSABLE (cita más temprana), no cualquier cita del día', () => {
+  const p = pac('p1');
+  const citas = [
+    cita('a1', 'p1', '2026-09-03', { hour: 11, therapistId: 'th-b' }),
+    cita('a2', 'p1', '2026-09-03', { hour: 8, therapistId: 'th-a' }),
+    cita('a3', 'p1', '2026-09-04', { hour: 9, therapistId: 'th-b' }),
+  ];
+  assert.deepEqual(fechas(detalleSeguimiento(p, citas, HOY2, { therapistId: 'th-a' })), ['2026-09-03']);
+  assert.deepEqual(fechas(detalleSeguimiento(p, citas, HOY2, { therapistId: 'th-b' })), ['2026-09-04']);
+});
+
+test('SEG-2 filtro therapistId — compara con String() y filtra las sesiones por s.therapistId', () => {
+  const p = pac('p1', { log: [sesion('2026-09-03', { therapistId: 7 }), sesion('2026-09-04', { therapistId: 8 })] });
+  const citas = [cita('a1', 'p1', '2026-09-03', { therapistId: 7 }), cita('a2', 'p1', '2026-09-04', { therapistId: 8 })];
+  const f = fila(filasSeguimiento([p], citas, HOY2, { mes: null, therapistId: '7' }), 'p1');
+  assert.equal(f.citasPasadas, 1);
+  assert.equal(f.sesiones, 1);
+  assert.equal(f.entradas, 1);
+  assert.equal(f.diasSinRegistro, 0);
+});
+
+test('SEG-2 — las filas en cero se omiten SOLO con un filtro activo', () => {
+  const p1 = pac('p1');
+  const p2 = pac('p2', { log: [sesion('2026-08-10')] });
+  const citas = [cita('a1', 'p1', '2026-09-03')];
+  assert.deepEqual(filasSeguimiento([p1, p2], citas, HOY2).map(f => f.id).sort(), ['p1', 'p2']);
+  assert.deepEqual(filasSeguimiento([p1, p2], citas, HOY2, { mes: null, therapistId: null }).map(f => f.id).sort(), ['p1', 'p2']);
+  assert.deepEqual(filasSeguimiento([p1, p2], citas, HOY2, { mes: '2026-09' }).map(f => f.id), ['p1']);
+  assert.deepEqual(filasSeguimiento([p1, p2], citas, HOY2, { therapistId: 'otro' }), []);
+});
+
+test('SEG-2 — sin filtro el resultado es idéntico al de antes', () => {
+  const ps = [
+    pac('p1', { log: [evalIni('2026-08-10'), sesion('2026-09-03', { therapistId: 't1' }), finEp('2026-09-05')] }),
+    pac('p2', { log: [sesion('2026-08-11')] }),
+    pac('p3', { status: 'inactive' }),
+  ];
+  const citas = [
+    cita('a1', 'p1', '2026-08-10'), cita('a2', 'p1', '2026-09-03'), cita('a3', 'p1', '2026-09-08', { therapistId: 't2' }),
+    cita('a4', 'p2', '2026-08-11'), cita('a5', 'p2', '2026-09-30'), cita('a6', 'p3', '2026-09-01'),
+  ];
+  const base = filasSeguimiento(ps, citas, HOY2);
+  assert.deepEqual(filasSeguimiento(ps, citas, HOY2, {}), base);
+  assert.deepEqual(filasSeguimiento(ps, citas, HOY2, { mes: null, therapistId: null }), base);
+  assert.deepEqual(detalleSeguimiento(ps[0], citas, HOY2, {}), detalleSeguimiento(ps[0], citas, HOY2));
+});
+
+test('mesesSeguimiento — desc, sin repetidos, ignora pend/noas y futuras', () => {
+  const citas = [
+    cita('a1', 'p1', '2026-08-10'), cita('a2', 'p1', '2026-08-20'),
+    cita('a3', 'p2', '2026-09-01'), cita('a4', 'p2', '2026-07-01', { status: 'pend' }),
+    cita('a5', 'p2', '2026-06-01', { status: 'noas' }), cita('a6', 'p2', '2026-10-01'),
+    cita('a7', 'p2', '2026-09-25'), cita('a8', 'p3', '2025-12-31'),
+  ];
+  assert.deepEqual(mesesSeguimiento(citas, HOY2), ['2026-09', '2026-08', '2025-12']);
+  assert.deepEqual(mesesSeguimiento([], HOY2), []);
+});
+
+test('resumenDocumentacion — pct, orden, "Sin terapeuta" e incluye pacientes no activos', () => {
+  const p1 = pac('p1', { log: [sesion('2026-09-01'), sesion('2026-09-06'), sesion('2026-09-07')] });
+  const p2 = pac('p2', { status: 'inactive' });
+  const citas = [
+    // th-a: 4 días, 1 sin registro (el del paciente inactivo) → 25%
+    cita('a1', 'p1', '2026-09-01', { therapistId: 'th-a' }),
+    cita('a2', 'p1', '2026-09-06', { therapistId: 'th-a' }),
+    cita('a3', 'p1', '2026-09-07', { therapistId: 'th-a' }),
+    cita('a4', 'p2', '2026-09-02', { therapistId: 'th-a' }),
+    // th-b: 1 día sin registro → 100%
+    cita('a5', 'p2', '2026-09-03', { therapistId: 'th-b' }),
+    // sin terapeuta: 2 días sin registro → 100%, desempata por días y va primero
+    cita('a6', 'p2', '2026-09-04', { therapistId: null }),
+    cita('a7', 'p2', '2026-09-05', { therapistId: null }),
+  ];
+  assert.deepEqual(resumenDocumentacion([p1, p2], citas, HOY2, null), [
+    { therapistId: null, dias: 2, sinRegistro: 2, pct: 100 },
+    { therapistId: 'th-b', dias: 1, sinRegistro: 1, pct: 100 },
+    { therapistId: 'th-a', dias: 4, sinRegistro: 1, pct: 25 },
+  ]);
+});
+
+test('resumenDocumentacion — responsable del día = cita más temprana; filtro de mes', () => {
+  const p = pac('p1', { log: [sesion('2026-08-10')] });
+  const citas = [
+    cita('a1', 'p1', '2026-08-10', { hour: 10, therapistId: 'th-b' }),
+    cita('a2', 'p1', '2026-08-10', { hour: 8, therapistId: 'th-a' }),
+    cita('a3', 'p1', '2026-09-02', { therapistId: 'th-b' }),
+    cita('a4', 'p1', '2026-09-03', { therapistId: 'th-b', status: 'pend' }),
+  ];
+  assert.deepEqual(resumenDocumentacion([p], citas, HOY2, '2026-08'),
+    [{ therapistId: 'th-a', dias: 1, sinRegistro: 0, pct: 0 }]);
+  assert.deepEqual(resumenDocumentacion([p], citas, HOY2, '2026-09'),
+    [{ therapistId: 'th-b', dias: 1, sinRegistro: 1, pct: 100 }]);
+  assert.deepEqual(resumenDocumentacion([p], citas, HOY2, '2026-07'), []);
+});
+
+test('resumenDocumentacion — pct redondeado (1 de 3 = 33)', () => {
+  const p = pac('p1', { log: [sesion('2026-09-01'), sesion('2026-09-02')] });
+  const citas = ['2026-09-01', '2026-09-02', '2026-09-03'].map((d, i) => cita('a' + i, 'p1', d));
+  assert.equal(resumenDocumentacion([p], citas, HOY2)[0].pct, 33);
 });
