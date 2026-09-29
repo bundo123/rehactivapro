@@ -8,6 +8,7 @@ import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';
 import { validateRequired, validateMinChars, validatePositiveInt, validateDocumento, validateTelefono, validateEmail, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker, validateBirthDate } from './validators.js';
 import { resetCie10Pm, getCie10Pm, setCie10Ev } from './cie10.js';
+import { renderRomEditor, leerRomDetalle } from './rom.js';
 
 const _patientDirty = createDirtyTracker();
 const _patNameFn = (v) => { const r = validateRequired(v); return r.valid ? validateMinChars(v, 3) : r; };
@@ -523,6 +524,7 @@ export function openEvalInicial(patientId) {
   if(_evNew) _evNew.style.display=hasPermission('createProtocol')?'':'none';
   setCie10Ev(patientId);
   _evEvaVal=5; renderEvEva();
+  renderRomEditor('ev-rom',{});   // goniometría limpia: la evaluación es el punto de partida
   document.getElementById('eval-modal').classList.add('open');
 }
 
@@ -546,6 +548,9 @@ export function renderEvEva() {
 export async function saveEvalInicial() {
   if(!_evalPatientId)return;
   const anamnesis=document.getElementById('ev-anamnesis').value.trim();
+  // Goniometría: un valor imposible bloquea el guardado (nunca se descarta en silencio).
+  const {rom,descartados}=leerRomDetalle('ev-rom');
+  if(descartados){ toastErr(`Hay ${descartados} valor${descartados>1?'es':''} de goniometría fuera de rango: corregilos o borralos antes de guardar.`); return; }
   if(!anamnesis){document.getElementById('ev-anamnesis').style.borderColor='rgba(224,80,80,.6)';toastErr('La anamnesis es obligatoria');return;}
   document.getElementById('ev-anamnesis').style.borderColor='';
   const zonas=['ev-cervical','ev-dorsal','ev-lumbar','ev-sup','ev-inf']
@@ -567,13 +572,13 @@ export async function saveEvalInicial() {
   const {data:ins,error}=await supa.from('session_log').insert({
     patient_id:_evalPatientId,date:fmtDate(new Date()),type:'Evaluación inicial',
     hour:'00:00',status:'asistió',pain_before:eva,pain_after:eva,
-    note:anamnesis+(nota?' | '+nota:'')
+    note:anamnesis+(nota?' | '+nota:''),rom
   }).select('id').single();
   if(error){toastErr('Error al guardar: '+error.message);return;}
   const p=getPatient(_evalPatientId);
   if(p){
     if(!p.log) p.log=[];
-    p.log.unshift({id:ins?.id??null,date:fmtDate(new Date()),type:'Evaluación inicial',hour:'00:00',status:'asistió',pb:eva,pa:eva,note:anamnesis+(nota?' | '+nota:'')});
+    p.log.unshift({id:ins?.id??null,date:fmtDate(new Date()),type:'Evaluación inicial',hour:'00:00',status:'asistió',pb:eva,pa:eva,note:anamnesis+(nota?' | '+nota:''),rom});
   }
   // Diagnóstico elegido en la evaluación → se enlaza a la ficha (escritura optimista con rollback,
   // mismo patrón que persistCie en cie10.js). La evaluación YA está guardada en session_log: si el

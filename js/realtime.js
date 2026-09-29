@@ -2,6 +2,7 @@ import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { getPatient, fmtTime, normHour, findSessionIdx, mapTherapistRow, mapBlockRow, tipoSesion } from './utils.js';
 import { toastInfo } from './toast.js';
+import { romNormalizar } from './rom.js';
 
 // ── Anti-eco por tabla (ventana 3 s) ──
 const ANTI_ECHO_MS = 3000;
@@ -104,7 +105,7 @@ function _mapPatient(r) {
 }
 const _mapTherapist = mapTherapistRow;   // misma fila → mismo objeto que la carga inicial (utils.js)
 function _mapDoctor(r){return{id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'};}
-function _mapSession(s){return{id:s.id,date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null};}
+function _mapSession(s){return{id:s.id,date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null,rom:romNormalizar(s.rom)};}
 
 function _refreshTabAfterAppt() {
   const {renderGrid,renderResumen,renderFacturacion,renderSeguimiento,renderHistorial,updateResumenBadge,updateFacturaBadge}=window._app;

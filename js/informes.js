@@ -6,6 +6,7 @@ import { genSemanalAI, genMensualAI, genAnualAI, genPatientAI, getLastNarrative,
 import { hasPermission } from './permissions.js';
 import { LOGO_DATA_URI } from './pdf-logo.js';
 import { generarInformeWord } from './word.js';
+import { romTexto } from './rom.js';
 
 export { genSemanalAI, genMensualAI, genAnualAI, genPatientAI };
 
@@ -663,6 +664,7 @@ export function renderPatientReport() {
         </span>
       </div>
       ${partes.length?partes.map(x=>`<div style="font-size:11.5px;color:#3a3a36;line-height:1.6;margin-bottom:3px">${esc(limpiarParte(x))}</div>`).join(''):'<div style="font-size:11.5px;color:#9c9a92">Sin detalle registrado</div>'}
+      ${evalRow.rom?`<div class="rom-view"><div class="rom-view-title">Goniometría</div>${evalRow.rom.map(it=>`<div>${esc(romTexto(it))}</div>`).join('')}</div>`:''}
     </div>`;
   }
 
@@ -679,7 +681,8 @@ export function renderPatientReport() {
       const tec=(s.tags&&s.tags.length)?s.tags.join(', '):null;
       const thName=getTherapist(s.therapistId)?.name||'—';
       const td='padding:6px 8px 6px 0;border-top:1px solid rgba(0,0,0,.06);font-size:11px;vertical-align:top';
-      const obs=[tec?`<b style="color:#1a1917">${esc(tec)}</b>`:null,s.note?esc(s.note):null].filter(Boolean).join(' — ')||'—';
+      const romLn=s.rom?`<div class="rom-obs">📐 ${esc(s.rom.map(romTexto).join(' · '))}</div>`:'';
+      const obs=([tec?`<b style="color:#1a1917">${esc(tec)}</b>`:null,s.note?esc(s.note):null].filter(Boolean).join(' — ')||(romLn?'':'—'))+romLn;
       let acc='';
       if(showAcc){
         const btn='font-size:10px;padding:3px 9px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;border:1px solid';

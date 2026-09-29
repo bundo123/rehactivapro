@@ -117,6 +117,45 @@
 #eval-modal input[type=checkbox],
 #eval-modal input[type=radio]{width:17px;height:17px;accent-color:var(--rh-blue);cursor:pointer}
 
+/* ── ROM-1: editor de goniometría (js/rom.js) — Evaluación inicial y Sesión ── */
+.rom-field{margin-bottom:12px}
+.rom-field-label{font-size:12px;color:#5a5a56;margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.rom-wrap{margin-bottom:12px;border:1px solid var(--rh-blue-border);border-radius:9px;background:var(--rh-cream2)}
+.rom-wrap>summary{cursor:pointer;padding:11px 13px;min-height:44px;font-size:13px;font-weight:600;color:var(--rh-blue-dd);list-style-position:inside}
+.rom-wrap>#sess-rom{padding:0 12px 12px}
+.rom-chips{display:flex;flex-wrap:wrap;gap:6px}
+.rom-chip{min-height:40px;padding:6px 11px;border-radius:99px;border:1.5px solid var(--rh-blue-border);background:#fff;color:#5a5a56;font-size:12.5px;font-weight:500;font-family:inherit;cursor:pointer;line-height:1.2}
+.rom-chip[aria-pressed="true"]{border-color:rgba(29,158,117,.55);background:rgba(29,158,117,.15);color:#17865f}
+.rom-block{margin-top:10px;border:1px solid rgba(29,158,117,.2);border-radius:8px;padding:8px 10px;background:#fff}
+.rom-block[hidden]{display:none}
+.rom-block-title{font-size:12px;font-weight:700;color:#1a1917;margin-bottom:4px}
+.rom-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.rom-table th,.rom-table td{padding:4px 3px;vertical-align:top;text-align:left}
+.rom-table thead th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9c9a92;font-weight:600}
+.rom-table thead th:nth-child(1){width:38%}
+.rom-table thead th:last-child{width:17%}
+.rom-table tbody th{font-size:12px;font-weight:500;color:#3a3a36;padding-top:12px}
+.rom-normal{font-size:12px;color:#7a7a76;padding-top:12px!important;white-space:nowrap}
+.rom-input{width:100%;min-height:40px;font-size:14px;padding:6px 7px;border:1px solid var(--rh-blue-border);border-radius:7px;background:var(--rh-cream2);color:#1a1917;font-family:inherit;outline:none}
+.rom-input:focus{border-color:var(--rh-blue)}
+.rom-input::placeholder{color:#a8a69e;font-size:12px}
+.rom-input.rom-input--fuera{border-color:var(--rh-red)}
+.rom-pct{display:block;min-height:13px;font-size:10.5px;font-weight:600;margin-top:2px;color:#7a7a76}
+.rom-pct--ok{color:#17865f}
+.rom-pct--medio{color:#BA7517}
+.rom-pct--bajo{color:var(--rh-red)}
+.rom-input--fuera+.rom-pct{color:var(--rh-red);font-weight:500}
+.rom-view{margin-top:8px}
+.rom-view-title{font-size:10.5px;font-weight:700;color:#1a1917;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.rom-view div{font-size:11.5px;color:#3a3a36;line-height:1.6}
+.rom-obs{margin-top:3px;color:#3a3a36}
+@media (max-width:768px){
+  .rom-input{font-size:16px}            /* iOS no hace zoom al enfocar con ≥16px */
+  .rom-table thead th:nth-child(1){width:34%}
+  .rom-table th,.rom-table td{padding:4px 2px}
+  .rom-table tbody th{font-size:11.5px}
+}
+
 /* ===== BUTTONS ===== */
 .add-btn{padding:6px 14px;background:#29ABE2;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;letter-spacing:-.1px}
 .add-btn:hover{background:#1d8fbf}

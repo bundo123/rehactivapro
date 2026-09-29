@@ -6,6 +6,7 @@ import { toastOk, toastErr, toastInfo, showToast } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { showFieldError, clearFieldError, clearAllErrors } from './validators.js';
 import { updateFacturaBadge, showBillingAlert } from './agenda.js';
+import { renderRomEditor, leerRomDetalle, ultimaMedicion } from './rom.js';
 
 export const PRO_TECNICAS = [
   'Compresa caliente','Crioterapia','Electroterapia','Magnetoterapia',
@@ -61,6 +62,16 @@ export function toggleProTecnica(btn) {
   renderProTecnicas();
 }
 
+// Goniometría del modal de sesión. Editar (valores) abre el <details> con lo guardado precargado, así
+// lo que muestra el editor ES lo que se guarda aunque no se toque. Sesión nueva (previos) lo deja
+// cerrado, con la última medición del episodio como placeholder "antes N".
+function _romSesion(valores, previos) {
+  renderRomEditor('sess-rom',{valores,previos});
+  const w=document.getElementById('sess-rom-wrap');
+  if(w) w.open=!!valores;
+}
+function _abrirRom() { const w=document.getElementById('sess-rom-wrap'); if(w) w.open=true; }
+
 export function renderEvaButtons(containerId, valId, cur, col) {
   const container=document.getElementById(containerId);if(!container)return;
   const valEl=document.getElementById(valId); if(valEl) valEl.textContent=cur;
@@ -112,8 +123,13 @@ export function openSessionModal(appt) {
   // guardada manda igual la cita, que es donde se corrige el tipo si se agendó mal. saveSession()
   // lee appt.type y no este campo; se sincroniza igual para que el modal (compartido con los modos
   // manual y edición) no quede con el tipo de la sesión anterior.
-  proTecnicasSel=[]; document.getElementById('sess-type').value=tipoSesion(appt.type);
+  // Re-registro: se precargan las técnicas guardadas (antes se vaciaban y el UPDATE escribía tags:[]).
+  // Misma regla que rom: lo que muestra el modal es lo que se guarda.
+  proTecnicasSel=Array.isArray(existing?.tags)?[...existing.tags]:[];
+  document.getElementById('sess-type').value=tipoSesion(appt.type);
   renderProTecnicas();
+  if(existing?.rom) _romSesion(existing.rom,null);
+  else _romSesion(null,ultimaMedicion(pt)?.rom);
   document.getElementById('session-modal').classList.add('open');
 }
 
@@ -154,6 +170,7 @@ export function openSessionModalManual(patientId) {
   document.getElementById('sess-type').value=TIPO_SESION_DEFAULT;   // sin cita de la que heredar
   proTecnicasSel=[];
   renderProTecnicas();
+  _romSesion(null,ultimaMedicion(pt)?.rom);
   document.getElementById('session-modal').classList.add('open');
 }
 
@@ -197,12 +214,14 @@ async function saveSessionManual() {
     return;
   }
   clearFieldError('sess-note');
+  const {rom,descartados}=leerRomDetalle('sess-rom');
+  if(descartados){ toastErr(`Hay ${descartados} valor${descartados>1?'es':''} de goniometría fuera de rango: corregilos o borralos antes de guardar.`); _abrirRom(); return; }
   _savingSession=true; _setSaveBtn(true);
   try {
     const hour=await genUniqueHour(pt.id,date);
     const {data:ins,error}=await supa.from('session_log').insert({
       patient_id:pt.id,date,type,hour,status:'asistió',therapist_id:therapistId,
-      pain_before:pb,pain_after:pa,note,tags:proTecnicasSel
+      pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,rom
     }).select('id').single();
     if(error){toastErr('No se pudo guardar la sesión. Intenta de nuevo.');return;}
     // La fila en session_log ES el dato: doneActual/pendientesActual la cuentan sin contadores aparte.
@@ -210,7 +229,7 @@ async function saveSessionManual() {
     const spf=pt.billing?.sesPerFactura||0;
     const pendBefore=pendientesActual(pt);                // umbral: medir antes de agregar la fila
     const doneBefore=doneActual(pt);                      // idem el plan
-    pt.log.push({id:ins?.id??null,date,type,hour,status:'asistió',pb,pa,note,tags:[...proTecnicasSel],therapistId});
+    pt.log.push({id:ins?.id??null,date,type,hour,status:'asistió',pb,pa,note,tags:[...proTecnicasSel],therapistId,rom});
     const crossed=spf>0&&pendBefore<spf&&pendientesActual(pt)>=spf;
     window._app.closeModal('session-modal');
     _manualMode=false; _manualPatientId=null;
@@ -249,6 +268,7 @@ export function editSession(patientId, id) {
   document.getElementById('sess-type').value=s.type||'';
   proTecnicasSel=Array.isArray(s.tags)?[...s.tags]:[];
   renderProTecnicas();
+  _romSesion(s.rom||null,null);   // incluye la 'Evaluación inicial': su rom se preserva igual
   document.getElementById('session-modal').classList.add('open');
 }
 
@@ -287,16 +307,18 @@ async function saveSessionEdit() {
   // Al editar NO se normaliza contra el catálogo de tipos: acá pasan también las filas
   // 'Evaluación inicial', y pisarles el type rompería doneActual y el recorte de episodio.
   const type=document.getElementById('sess-type').value||TIPO_SESION_DEFAULT;
+  const {rom,descartados}=leerRomDetalle('sess-rom');
+  if(descartados){ toastErr(`Hay ${descartados} valor${descartados>1?'es':''} de goniometría fuera de rango: corregilos o borralos antes de guardar.`); _abrirRom(); return; }
   _savingSession=true; _setSaveBtn(true);
   try {
     const {data:upd,error}=await supa.from('session_log')
-      .update({date:newDate,type,pain_before:pb,pain_after:pa,note,tags:proTecnicasSel})
+      .update({date:newDate,type,pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,rom})
       .eq('id',ref.id).select();
     if(error){toastErr('No se pudo guardar el cambio. Intenta de nuevo.');return;}
     if(!upd||!upd.length){toastErr('No se pudo editar (sin permiso o la sesión ya cambió). Refrescá la página.');return;}
     // memoria: actualizar la entrada por su id. done NO se toca (sigue siendo la misma sesión).
     const i=pt.log.findIndex(x=>x.id!=null&&String(x.id)===String(ref.id));
-    if(i>=0) pt.log[i]={...pt.log[i],date:newDate,type,pb,pa,note,tags:[...proTecnicasSel]};
+    if(i>=0) pt.log[i]={...pt.log[i],date:newDate,type,pb,pa,note,tags:[...proTecnicasSel],rom};
     window._app.closeModal('session-modal');
     _editMode=false; _editRef=null;
     window._app.renderPatientReport?.();
@@ -347,6 +369,8 @@ export async function saveSession() {
     return;
   }
   clearFieldError('sess-note');
+  const {rom,descartados}=leerRomDetalle('sess-rom');
+  if(descartados){ toastErr(`Hay ${descartados} valor${descartados>1?'es':''} de goniometría fuera de rango: corregilos o borralos antes de guardar.`); _abrirRom(); return; }
   _savingSession=true; _setSaveBtn(true);
   try {
     let savedId=null;                                        // id real de la fila (para llevarlo a memoria)
@@ -360,12 +384,12 @@ export async function saveSession() {
       let dbError;
       if(ex){
         savedId=ex.id;
-        const {error}=await supa.from('session_log').update({type,pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,therapist_id:therapistId}).eq('id',ex.id);
+        const {error}=await supa.from('session_log').update({type,pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,therapist_id:therapistId,rom}).eq('id',ex.id);
         dbError=error;
       } else {
         const {data:ins,error}=await supa.from('session_log').insert({
           patient_id:appt.patientId,date:appt.date,type,hour:apptHourFmt,status:'asistió',therapist_id:therapistId,
-          pain_before:pb,pain_after:pa,note,tags:proTecnicasSel
+          pain_before:pb,pain_after:pa,note,tags:proTecnicasSel,rom
         }).select('id').single();
         savedId=ins?.id??null;
         dbError=error;
@@ -386,7 +410,7 @@ export async function saveSession() {
       // para que el re-registro REEMPLACE la fila existente en vez de duplicarla.
       const existIdx=pt2.log.findIndex(s=>s.date===appt.date&&normHour(s.hour)===normHour(hh));
       const keepId=existIdx>=0?pt2.log[existIdx].id:null;  // conservar id si reemplazamos
-      const newEntry={id:savedId??keepId,date:appt.date,type,hour:hh,status:'asistió',pb,pa,note,tags:[...proTecnicasSel],therapistId};
+      const newEntry={id:savedId??keepId,date:appt.date,type,hour:hh,status:'asistió',pb,pa,note,tags:[...proTecnicasSel],therapistId,rom};
       if(existIdx>=0) pt2.log[existIdx]=newEntry;          // re-registro: doneActual no cambia -> no cruza
       else pt2.log.push(newEntry);
       crossed=spf>0&&pendBefore<spf&&pendientesActual(pt2)>=spf;

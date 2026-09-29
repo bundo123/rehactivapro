@@ -889,6 +889,11 @@
     <input type="hidden" id="sess-type" value="">
   </div>
 
+  <details id="sess-rom-wrap" class="rom-wrap">
+    <summary>📐 Medir rangos (opcional)</summary>
+    <div id="sess-rom"></div>
+  </details>
+
   <div class="field" style="margin-bottom:12px">
     <label>¿Qué se realizó en la sesión? <span style="color:#E24B4A">*</span></label>
     <textarea id="sess-note" rows="3" placeholder="Ej: Se aplicó masaje descontracturante en zona lumbar, electroterapia 10min, ejercicios de estabilización core..." style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:8px;padding:11px 13px;font-size:14px;min-height:64px;color:#1a1a1a;font-family:inherit;resize:vertical;line-height:1.45"></textarea>
@@ -952,7 +957,7 @@
     </div>
     <div class="field">
       <label>Movilidad</label>
-      <input type="text" id="ev-movilidad" placeholder="Rangos articulares, limitaciones...">
+      <input type="text" id="ev-movilidad" placeholder="Limitaciones, dolor al movimiento, end-feel...">
     </div>
   </div>
 
@@ -968,6 +973,11 @@
         <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:#1a1917"><input type="radio" name="ev-pedido" value="no" id="ev-pedido-no" checked> No</label>
       </div>
     </div>
+  </div>
+
+  <div class="rom-field">
+    <div class="rom-field-label">Goniometría (AAOS) · opcional</div>
+    <div id="ev-rom"></div>
   </div>
 
   <div class="field"><label>Diagnóstico</label>
