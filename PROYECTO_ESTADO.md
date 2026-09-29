@@ -1,21 +1,33 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-09-23
+> Generado: 2026-05-18 · Última actualización: 2026-09-29
 
 ---
 
-## 📍 Estado al 2026-09-23 — dónde quedó todo
+## 📍 Estado al 2026-09-29 — dónde quedó todo
 
-**En producción y VERIFICADO.** El código en `main` es `af45a61` (LOTE CTX-1); encima va solo el
-commit de docs de este cierre. Deploy de Vercel en **verde** para `af45a61` y lo servido en
-`rehactivaec.com` es lo compilado: los hashes de `dist/assets` coinciden (`index-Bv-4USlt.js`,
-`index-DvrMC0Nm.css`). **428 pruebas / 0 fail** con `node --test`; `npx vite build` sin errores.
-Sin ramas de trabajo abiertas: `feat/ctx-1-contexto-curado` se borró local y remota tras el merge.
+**En producción y VERIFICADO.** El código en `main` es `3ab5847` (LOTE ROM-1, fast-forward sobre
+`38f4473`); encima va solo el commit de docs de este cierre. Deploy de Vercel en **verde** para
+`3ab5847` (commit-status `success`) y lo servido en `rehactivaec.com` es lo compilado: los hashes de
+`dist/assets` coinciden (`index-BN-EMbtY.js`, `index-C4lWblHD.css`) y el JS servido es idéntico byte
+a byte al local. **449 pruebas / 0 fail** con `node --test`; `npx vite build` sin errores.
+Rama de trabajo `feat/rom-1-goniometria` ya mergeada (sigue en local y remoto; se puede borrar).
 
-La jornada del 2026-09-18 entró completa (`e7184eb` DIAG-1 · `b314075` DIAG-1b · `661844f` TURNO-1
-· `d6fc328` docs · `f6cb02c` campo fantasma · `8adf4bf` TURNO-1b · `c44ee96` docs); `a19dfc2`
-(2026-09-20) fue solo este documento. El 2026-09-23 entró **CTX-1** y se corrigió una **deriva de
-RLS en `protocols`**: ver «🗓️ Sesión 2026-09-23» abajo.
+El 2026-09-29 entró **ROM-1** (goniometría estructurada): ver «🗓️ Sesión 2026-09-29» abajo. El
+2026-09-23 había entrado **CTX-1** con la corrección de la **deriva de RLS en `protocols`**.
+
+**Próximos en cola (en este orden):**
+- **PLAN-2 — el badge X/N de la agenda y el «Lleva X» del modal de cita no miden lo mismo.** El
+  badge (`citaOrdinal`) cuenta **citas** del episodio: incluye la cita de la evaluación, las
+  atendidas sin registro de sesión y la propia cita. El modal (`plan.js`) muestra `doneActual`, que
+  cuenta **sesiones registradas**. El comentario de `plan.js:7-8` que dice que son «lo MISMO» es
+  **falso**. Primero un **SQL de diagnóstico solo con conteos** (cuántos pacientes difieren y por
+  cuánto); después decidir la fuente única.
+- **SEG-2 — filtro por mes en Seguimiento.**
+- **ROM-2 — evolución de la goniometría:** tabla inicial → última → normal en el informe, en el
+  Word y en el contexto de la IA.
+
+El resto de lo pendiente al 2026-09-23 sigue **sin cambios**:
 
 **Ruta del contexto clínico (`PLAN_CONTEXTO_CLINICO.md`), lo que falta:** reunión clínica (paquete y
 22 borradores listos) → carga de contextos validados (`contexto_clinico_carga.sql`) → **DIAG-2** por
@@ -69,6 +81,63 @@ prompt se arma en el servidor).
 - **Semana 2:** auto-logout (15 min) · I-13 (alerts→toasts) · P-11 (CSP parcial).
 - **Semana 3:** I-12 (focus-trap/Escape) · I-15 (tests `node --test`) · `npm audit fix` · decisión P-2/P-6.
 - **Semana 4:** `clinical_context` de protocolos reales · papeleo LOPDP (lectura abierta + sub-encargado Anthropic) · **audit final**.
+
+---
+
+## 🗓️ Sesión 2026-09-29 — LOTE ROM-1: goniometría estructurada AAOS en evaluación inicial y sesión (`3ab5847`, en `main`)
+
+Rama `feat/rom-1-goniometria` desde `38f4473`, un solo commit (enmendado tras la auditoría: tope
+120, bloqueo por fuera de rango y el fix de técnicas), merge **fast-forward** a `main` y deploy
+verificado (status `success` + hashes `index-BN-EMbtY.js` / `index-C4lWblHD.css` iguales a los
+servidos). **428 → 449 pruebas** (`test/rom.test.js`, +21). Build OK.
+
+**SQL — `rom_session_log.sql`, aplicado ANTES del merge (solo registro en el repo):**
+- `session_log.rom jsonb` (nullable) + `session_log_rom_chk`: `rom IS NULL` o array de **1..120**
+  elementos. Sin mediciones se escribe `NULL`, **nunca `[]`**.
+- **ROM-1b (mismo día):** el tope subió de **80 → 120** (DROP + ADD de la constraint, versionado al
+  final del mismo archivo). El catálogo tiene **107 mediciones posibles** (11 de columna + 48
+  movimientos × 2 lados): con 80, llenar todo cortaba en silencio las últimas.
+
+**Qué hace:**
+- **Formato** `[{j, m, l, v}]`: articulación, movimiento, lado (`'D'|'I'`, `null` en columna) y
+  valor (grados; cm en Schober). **Los normales NO se guardan:** viven en `ROM_CATALOGO`
+  (`js/rom.js`), hoja AAOS de la clínica, 13 articulaciones. La oposición del pulgar queda fuera de
+  v1 (no tiene normal numérico).
+- **`romNormalizar` es la puerta única**, al escribir y al leer (`auth.js` y `_mapSession` de
+  `realtime.js`): descarta j/m desconocidos, lado inválido, `v` no numérico o fuera de rango
+  (−30..200°, 0..15 cm), deduplica por (j,m,l) con el último, orden de catálogo y D antes que I.
+- **Evaluación inicial:** bloque «Goniometría (AAOS) · opcional» bajo la fila Fuerza/Pedido médico
+  (el texto libre de Movilidad se queda, con placeholder nuevo).
+- **Sesión:** `<details>` «📐 Medir rangos (opcional)» entre Técnicas y «¿Qué se realizó?». Sesión
+  nueva o manual: **plegado**, y la última medición del episodio (`ultimaMedicion`, frontera
+  estricta `date > lastFinDate`, incluye la evaluación) aparece como placeholder **«antes N»** y
+  abre esas articulaciones. Editar (también la fila `Evaluación inicial`) **precarga** lo guardado
+  y abre el bloque: **lo que muestra el editor ES lo que se guarda**, así que no se pierde `rom`
+  por no desplegarlo (y un editor vaciado a propósito guarda `null`).
+- **% del normal en vivo** debajo de cada input cuando el normal es > 0 (≥90 verde, 50–89 ámbar,
+  <50 rojo; orientativo). Las extensiones con normal 0 o negativo muestran valor y normal, sin %.
+- **Valores fuera de rango BLOQUEAN el guardado** (nunca se descartan en silencio):
+  `romLeerItems` → `{rom, descartados}`; los 4 guardados (`saveEvalInicial`, `saveSessionManual`,
+  `saveSessionEdit`, `saveSession`) cortan con toast **antes** del candado y de cualquier escritura,
+  y en la sesión abren el `<details>`. El input imposible se marca en rojo con «fuera de rango».
+- **Vista (solo lectura) en el Informe paciente:** sub-sección «Goniometría» en el bloque de la
+  evaluación y una línea «📐 …» por sesión en el detalle (`romTexto`: `Hombro D · Flexión 120° /
+  180° (67%)`).
+- **Cero `onclick` inline nuevos:** `renderRomEditor` usa `addEventListener`; nada nuevo en `window`.
+
+**Fix incluido (bug preexistente):** re-registrar una sesión ya guardada desde su cita **borraba sus
+técnicas** — `openSessionModal` precargaba EVA y nota pero dejaba `proTecnicasSel=[]`, y el UPDATE
+escribía `tags:[]`. Ahora precarga `existing.tags`. Misma regla que `rom`.
+
+**Decisiones tomadas en el lote:**
+- Schober lleva % en el texto (`… 3 cm / ≥4 cm (75%)`), por la regla «sin % solo cuando `romPct`
+  es null».
+- Cerrar un chip de articulación oculta el bloque (no lo borra: reabrirlo recupera lo tipeado),
+  pero `leerRom` solo lee los bloques visibles.
+- `v` debe llegar como número: el string `"120"` se descarta.
+
+**Pendiente — ROM-2:** tabla de evolución **inicial → última → normal** en el informe, el Word
+(`word.js`) y el contexto de la IA (`ia.js`). Hoy la goniometría solo se ve en pantalla.
 
 ---
 
@@ -2109,7 +2178,7 @@ Cuatro commits llevados a producción (push `3b5f7ca..efd7471`):
 | ~~`app.js`~~ *(legacy monolítico — **BORRADO** en `efd7471`, 2026-05-30)* | — |
 | ~~`/src/`~~ *(scaffolding de Vite — **BORRADO**, ya no existe en el repo)* | — |
 
-### `/js/` — 34 módulos activos *(recontado el 2026-09-20; la lista de abajo es del 2026-08-14)*
+### `/js/` — 35 módulos activos *(recontado el 2026-09-29, +`rom.js`; la lista de abajo es del 2026-08-14)*
 | Archivo | Líneas | |
 |---------|--------|---|
 | `pdf-logo.js` | 3 | logo del membrete como data URI (assets de JS nunca por ruta en string) |
@@ -2142,7 +2211,7 @@ Cuatro commits llevados a producción (push `3b5f7ca..efd7471`):
 **`/js/data/cie10-fisio.json`** — 182 KB, 2470 códigos. **No** entra en el bundle inicial: `cie10.js`
 lo carga con `import()` al primer uso (chunk aparte).
 
-### `/css/` — 2.266 líneas *(recontado el 2026-09-20)*
+### `/css/` — 2.327 líneas *(recontado el 2026-09-29; la tabla de abajo es anterior)*
 | Archivo | Líneas |
 |---------|--------|
 | `base.css` | 23 |
@@ -2154,7 +2223,7 @@ lo carga con `import()` al primer uso (chunk aparte).
 | `facturacion.css` | 450 |
 | `responsive.css` | 940 |
 
-### `/test/` — `node --test`, **419 verdes** en 28 archivos *(recontado el 2026-09-20)*
+### `/test/` — `node --test`, **449 verdes** en 30 archivos *(recontado el 2026-09-29)*
 | Archivo | Tests sobre |
 |---------|-------------|
 | `cedula.test.js` · `validators.test.js` | cédula ecuatoriana, email, teléfono |
@@ -2167,6 +2236,7 @@ lo carga con `import()` al primer uso (chunk aparte).
 | `seguimiento.test.js` | auditoría día a día: `detalleSeguimiento`, `diasSinRegistro`, filtros |
 | `terapeutas.test.js` | guard de borrado (`therapistDeleteBlock`) y `parseHourVal`/`hourValToTime` |
 | `episodio.test.js` | cierre con frontera elegida: `citasParaCierre`/`indiceCitaCierre`, `fmtFechaCorta`/`diaAnterior` |
+| `rom.test.js` | goniometría: catálogo, `romNormalizar`, `romLeerItems`, `romPct`, `romTexto`, `ultimaMedicion` |
 
 ### `/api/` — serverless de Vercel
 | `informe.js` | 114 líneas | informe IA con rol `viewAI` y rate-limit **server-side** (`2e0303a`) |
@@ -2174,6 +2244,7 @@ lo carga con `import()` al primer uso (chunk aparte).
 ### SQL y políticas versionados en el repo
 - `audit_log.sql` — bitácora append-only e **inmutable** en 7 tablas (LOPDP). No tocar.
 - `diagnostico_done.sql` — recálculo histórico de `done`; sigue pendiente de decisión (ver **P-2**).
+- `rom_session_log.sql` — `session_log.rom` + `session_log_rom_chk` (1..120), ROM-1 / ROM-1b. Ya aplicado.
 - `rls_policies.md` — las políticas RLS versionadas (no es `.sql`, pero es la fuente de verdad).
 
 ---

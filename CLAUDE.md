@@ -25,6 +25,7 @@ App web de gestión clínica para fisioterapia (Quito, Ecuador). Dominio: rehact
 - birth_date: type date, nullable. pm-age queda hidden por retrocompatibilidad.
 - done es PER-EPISODIO: se resetea a 0 al iniciar nuevo episodio.
 - Fin de episodio = fila en session_log con type='Fin de episodio'.
+- session_log.rom (jsonb): goniometría [{j,m,l,v}]; normales AAOS en js/rom.js, nunca en la DB; sin mediciones = null, nunca [] (CHECK 1..120). Toda lectura/escritura pasa por romNormalizar.
 
 ## Decisiones cerradas
 - La tabla `protocols` es el banco de diagnósticos; en la UI se llama Diagnósticos y no se renombra
