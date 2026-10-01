@@ -26,6 +26,7 @@ App web de gestión clínica para fisioterapia (Quito, Ecuador). Dominio: rehact
 - done es PER-EPISODIO: se resetea a 0 al iniciar nuevo episodio.
 - Fin de episodio = fila en session_log con type='Fin de episodio'.
 - session_log.rom (jsonb): goniometría [{j,m,l,v}]; normales AAOS en js/rom.js, nunca en la DB; sin mediciones = null, nunca [] (CHECK 1..120). Toda lectura/escritura pasa por romNormalizar.
+- therapists.modalidad: 'porcentaje' = sin turno ni extras; 'nomina' = turno start_h/end_h + sáb/dom siempre extra. Fuente: esPorcentaje/turnoDe/esExtra en utils.js.
 
 ## Decisiones cerradas
 - La tabla `protocols` es el banco de diagnósticos; en la UI se llama Diagnósticos y no se renombra

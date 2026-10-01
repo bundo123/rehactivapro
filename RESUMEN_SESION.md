@@ -1,7 +1,7 @@
 # RehactivaPro — Historial de sesiones de desarrollo
 
-> **Período:** 2026-03-31 → 2026-09-29 · **237 entregas** en **52 jornadas de trabajo**
-> **Última actualización:** 2026-09-29
+> **Período:** 2026-03-31 → 2026-10-01 · **239 entregas** en **53 jornadas de trabajo**
+> **Última actualización:** 2026-10-01
 
 ---
 
@@ -40,10 +40,10 @@ git log --oneline --reverse   # ver la lista completa en orden cronológico
 | **3 · Endurecimiento** | 06-17 → 07-09 | 5 | 21 | Auditoría pre-lanzamiento: corrección de fallos y pruebas |
 | **4 · Producción** | 07-31 → 08-14 | 9 | 29 | App en uso real: agenda avanzada, móvil, CIE-10, seguimiento |
 | **5 · Consolidación y seguridad** | 08-24 → 09-10 | 11 | 57 | Informe Word, Excel, historial, QuickBooks, auditoría de 147 hallazgos, endurecimiento SEC-1…5 |
-| **6 · Diagnóstico, contexto clínico y agenda** | 09-18 → 09-29 | 4 | 9 | Diagnóstico como catálogo cerrado, contexto clínico validado para la IA, agenda que muestra qué se atiende fuera del turno y goniometría estructurada |
+| **6 · Diagnóstico, contexto clínico y agenda** | 09-18 → 10-01 | 5 | 11 | Diagnóstico como catálogo cerrado, contexto clínico validado para la IA, agenda que muestra qué se atiende fuera del turno, goniometría estructurada, seguimiento por mes y terapeuta, y modalidad nómina/porcentaje |
 
 **Estado al cierre:** aplicación en producción en `rehactivaec.com`, con despliegue automático
-verificado, **449 pruebas automatizadas** en verde, integración continua en cada cambio y bitácora
+verificado, **470 pruebas automatizadas** en verde, integración continua en cada cambio y bitácora
 de auditoría inmutable conforme a LOPDP.
 
 ---
@@ -103,9 +103,10 @@ de auditoría inmutable conforme a LOPDP.
 | 49 | 2026-09-18 | 6 | 30 | 861 | 167 | **Diagnóstico como catálogo cerrado** + la agenda muestra lo que cae fuera del turno |
 | 50 | 2026-09-20 | 1 | 1 | 31 | 4 | Documentación del estado del proyecto |
 | 51 | 2026-09-23 | 1 | 12 | 680 | 22 | **Contexto clínico validado para el informe con IA** + permisos de base de datos corregidos |
-| 52 | 2026-09-29 | 1 | 10 | 553 | 14 | **Goniometría estructurada (rangos articulares AAOS)** en la evaluación inicial y en cada sesión |
+| 52 | 2026-09-29 | 2 | 18 | 908 | 32 | **Goniometría estructurada (rangos articulares AAOS)** en la evaluación inicial y en cada sesión + seguimiento por mes y terapeuta |
+| 53 | 2026-10-01 | 1 | 6 | 153 | 14 | **Modalidad del terapeuta: nómina o porcentaje** — quién tiene turno y qué cuenta como extra |
 
-**Totales:** 237 entregas · 792 archivos modificados · **48.454 líneas añadidas** · **14.996 retiradas**.
+**Totales:** 239 entregas · 806 archivos modificados · **48.962 líneas añadidas** · **15.028 retiradas**.
 
 *Nota de lectura:* en 2026-04-17 y 2026-04-19 hay una entrega cada día que no registró cambio de
 contenido, por eso «Entregas» supera a «Archivos» esos dos días. Las imágenes y demás binarios
@@ -418,7 +419,7 @@ funcionalidades pasaron por rama de revisión y prueba manual antes de llegar a 
 
 ---
 
-## Fase 6 — Diagnóstico, contexto clínico y agenda (2026-09-18 → 2026-09-29) · 4 jornadas · 9 entregas
+## Fase 6 — Diagnóstico, contexto clínico y agenda (2026-09-18 → 2026-10-01) · 5 jornadas · 11 entregas
 
 El 2026-09-18, dos frentes en el mismo día: **que el diagnóstico sea un dato utilizable** (era texto libre y por
 eso el contexto clínico nunca llegaba al informe con IA) y **que la agenda diga en pantalla lo que
@@ -508,6 +509,31 @@ anterior, cifras de estructura recontadas y pendientes nombrados.
   informe, en el Word y en el informe con IA.
 - **428 → 449 pruebas automatizadas** en verde.
 
+**2026-09-29 — Seguimiento de documentación por mes y por terapeuta** (`cb2584e`)
+- **La pantalla de Seguimiento se filtra por mes** (por defecto, el mes en curso) **y por
+  terapeuta**: ya no hay que leer todo el historial para ver un período o una persona.
+- **Resumen por terapeuta para el administrador:** días atendidos, días sin registro de sesión y el
+  porcentaje documentado de cada uno. Un clic en la fila filtra la pantalla por ese terapeuta.
+- **Mismo criterio que el análisis de datos previo:** el día se le asigna a quien atendió la primera
+  cita y cualquier registro de ese día lo da por documentado, así que las cifras de la pantalla
+  coinciden con las de la consulta a la base. La pantalla incluye además las citas de hoy.
+- Lo que mostró al cierre: **cerca del 30% de los días atendidos no tienen la sesión registrada**,
+  en agosto y en septiembre por igual. Es la causa principal de que el contador de sesiones de la
+  agenda no coincida con el de la ficha; su corrección es la próxima entrega.
+- **449 → 459 pruebas automatizadas** en verde.
+
+**2026-10-01 — Modalidad del terapeuta: nómina o porcentaje** (`4465792`)
+- **Cada terapeuta tiene ahora una modalidad**, que se elige en su ficha: **nómina** (horario fijo)
+  o **porcentaje** (cobra por porcentaje y no tiene turno). Cuatro terapeutas quedaron en
+  porcentaje; el resto, en nómina.
+- **Porcentaje:** nada de lo que atiende cuenta como extra, su columna de la agenda no se marca
+  «fuera de turno» y no entra en el cálculo de ocupación (se muestra «—» en vez de un porcentaje
+  sin sentido).
+- **Nómina:** sigue siendo extra lo que cae fuera de su horario, y **ahora también todo lo que se
+  atiende en sábado o domingo**, a cualquier hora.
+- Como hasta ahora, es una marca visual y de conteo: **nada impide agendar**.
+- **459 → 470 pruebas automatizadas** en verde.
+
 ---
 
 ## Anexo — Prácticas de trabajo aplicadas
@@ -520,7 +546,7 @@ Constan en el repositorio y explican parte del esfuerzo que no se ve en la inter
   lo servido en `rehactivaec.com` es exactamente el código compilado, comparando las huellas de los
   archivos publicados.
 - **Pruebas automatizadas crecientes:** 19 pruebas (2026-06-26) → 104 (2026-08-12) → 131 (2026-08-13)
-  → 154 (2026-08-14) → 326 (2026-09-03) → 383 (2026-09-10) → 419 (2026-09-18) → 428 (2026-09-23) → **449** al cierre. Desde 2026-09-07 (SEC-1) se ejecutan
+  → 154 (2026-08-14) → 326 (2026-09-03) → 383 (2026-09-10) → 419 (2026-09-18) → 428 (2026-09-23) → 449 (2026-09-29) → **470** al cierre. Desde 2026-09-07 (SEC-1) se ejecutan
   automáticamente en cada cambio publicado, junto con la compilación y el escaneo de secretos.
 - **Documentación de estado continua.** `PROYECTO_ESTADO.md` registra cada sesión con sus
   decisiones y su deuda técnica pendiente; `AUDITORIA_PRELANZAMIENTO.md` y `rls_policies.md`

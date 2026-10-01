@@ -1,6 +1,33 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-09-29
+> Generado: 2026-05-18 · Última actualización: 2026-10-01
+
+---
+
+## 📍 Estado al 2026-10-01 — dónde quedó todo
+
+**En producción y VERIFICADO.** El código en `main` es `4465792` (TURNO-2, fast-forward sobre
+`cb2584e` = SEG-2); encima va solo el commit de docs de este cierre. Deploy de Vercel en **verde**
+para `4465792` (commit-status `success`) y lo servido en `rehactivaec.com` es lo compilado: los
+hashes coinciden (`index-D7dqvi5q.js`, `index-kDxfTrY6.css`) y el JS servido es idéntico byte a byte
+al local. **470 pruebas / 0 fail** con `node --test`; `npx vite build` sin errores. Ver «🗓️ Sesión
+2026-10-01» abajo. Las ramas `feat/seg-2-mes-terapeuta` y `feat/turno-2-modalidad` ya están
+mergeadas (siguen en local y remoto; se pueden borrar).
+
+**Ojo con el nombre TURNO-2:** el lote que el «Estado al 2026-09-29» llamaba «TURNO-2 — medias horas
+en la jornada» (recuperar `work_start`/`work_end`) **sigue sin empezar**; el nombre lo tomó la
+modalidad nómina/porcentaje. Si se retoma, necesita nombre nuevo.
+
+**Próximos en cola (en este orden):**
+- **PLAN-2** — el badge X/N de la agenda **sin la cita de evaluación** + modal «Asistió X ·
+  Registradas Y · ⚠ Z sin registrar». Ver los hallazgos de datos de la sesión 2026-10-01: el ~30% de
+  días atendidos sin sesión registrada es la causa principal del descuadre badge vs «Lleva X».
+- **ROM-2** — evolución de la goniometría (inicial → última → normal) en informe, Word e IA.
+- **PULIR-1.**
+- **Respiratoria:** se define junto con el análisis de KALMED.
+
+El resto de lo pendiente (contexto clínico, EXTRAS-2, Dependabot, ramas viejas, smoke de CTX-1) sigue
+como en el bloque del 2026-09-29.
 
 ---
 
@@ -11,7 +38,7 @@
 `3ab5847` (commit-status `success`) y lo servido en `rehactivaec.com` es lo compilado: los hashes de
 `dist/assets` coinciden (`index-BN-EMbtY.js`, `index-C4lWblHD.css`) y el JS servido es idéntico byte
 a byte al local. **449 pruebas / 0 fail** con `node --test`; `npx vite build` sin errores.
-Rama de trabajo `feat/rom-1-goniometria` ya mergeada (sigue en local y remoto; se puede borrar).
+Rama de trabajo `feat/rom-1-goniometria` ya mergeada y **borrada** (local y remoto; verificado 2026-10-01).
 
 El 2026-09-29 entró **ROM-1** (goniometría estructurada): ver «🗓️ Sesión 2026-09-29» abajo. El
 2026-09-23 había entrado **CTX-1** con la corrección de la **deriva de RLS en `protocols`**.
@@ -81,6 +108,45 @@ prompt se arma en el servidor).
 - **Semana 2:** auto-logout (15 min) · I-13 (alerts→toasts) · P-11 (CSP parcial).
 - **Semana 3:** I-12 (focus-trap/Escape) · I-15 (tests `node --test`) · `npm audit fix` · decisión P-2/P-6.
 - **Semana 4:** `clinical_context` de protocolos reales · papeleo LOPDP (lectura abierta + sub-encargado Anthropic) · **audit final**.
+
+---
+
+## 🗓️ Sesión 2026-10-01 — SEG-2 (`cb2584e`) y TURNO-2 (`4465792`), en `main`
+
+Dos lotes, cada uno en su rama con un solo commit, revisados por rama y mergeados **fast-forward**.
+SEG-2 entró primero; TURNO-2 se **rebasó** sobre él (`d0ef876` → `4465792`, contenido idéntico, sin
+conflictos) y recién ahí se mergeó. Deploy verificado (status `success` + hashes
+`index-D7dqvi5q.js` / `index-kDxfTrY6.css` iguales a los servidos). **449 → 470 pruebas** (SEG-2
++10 en `test/seguimiento.test.js`, TURNO-2 +11 en `test/turno.test.js`). Build OK.
+
+**SEG-2 — Seguimiento filtrado por mes y terapeuta (`cb2584e`). Sin SQL.**
+- Filtro por **mes** (default: mes actual, en hora local) y por **terapeuta** (`#seg-mes`,
+  `#seg-terapeuta`). `detalleSeguimiento`/`filasSeguimiento` aceptan `{mes, therapistId}` opcional
+  (retrocompatible); nuevas `mesesSeguimiento` y `resumenDocumentacion` en `utils.js`.
+- **Resumen por terapeuta solo para admin** (permiso `verResumenEquipo`): días atendidos / sin
+  registro / %, con fila clickeable que filtra por ese terapeuta.
+- **Mismo criterio que el SQL de diagnóstico:** el responsable del día es el de la **primera cita
+  del día**, y **cualquier** entrada del log cubre el día. La app incluye además las citas de hoy.
+
+**TURNO-2 — modalidad nómina / porcentaje (`4465792`).**
+- **SQL aplicado antes del merge y versionado en `turno2_modalidad.sql`:** `therapists.modalidad
+  text NOT NULL DEFAULT 'nomina'` + `therapists_modalidad_chk` (`'nomina'|'porcentaje'`). En
+  `'porcentaje'`: Giovanni Berdejo, Sandra Perez, Mariuxi Cuesta y Karina Obando; el resto `'nomina'`.
+- **Porcentaje:** sin turno (`turnoDe` → null), **nunca extra** (ni entre semana ni fin de semana),
+  su columna no se sombrea «fuera de turno», **sin capacidad** (`capacidadSlots` → 0, ocupación
+  `'—'`), y la barra de capacidad del día de la agenda le suma 0. `textoJornada`: «Por porcentaje ·
+  sin turno ni extras».
+- **Nómina:** extra fuera de `start_h`/`end_h` como antes **y TODO sábado/domingo**, a cualquier hora
+  (también con una ficha sin horas válidas). `slotFueraDeTurno(hr, th, ds?)` recibe la fecha en Día y
+  Semana.
+- Sigue siendo criterio de **color y conteo**: nada bloquea ni impide agendar.
+- `<select id="th-modalidad">` en el modal de terapeuta; `mapTherapistRow` normaliza con
+  `modalidad()` (basura/null → `'nomina'`). Helper `esPorcentaje(th)` como fuente única.
+
+**Hallazgos de datos (sin nombres de pacientes):**
+- **~30% de los días atendidos no tienen sesión registrada**, en agosto y en septiembre, estable. Es
+  la causa principal del descuadre del badge X/N contra «Lleva X» → entra en PLAN-2.
+- **Karina Obando y Sandra Perez no tienen usuario en la app.**
 
 ---
 
