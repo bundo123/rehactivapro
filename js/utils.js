@@ -71,6 +71,21 @@ export function especialidad(v){
 export function especialidadLabel(v){
   return ESPECIALIDADES.find(e=>e.id===especialidad(v)).label;
 }
+
+// ── Modalidad del terapeuta (TURNO-2) ──
+// Espejo del CHECK de therapists.modalidad. 'nomina' tiene turno (start_h/end_h) y sábado/domingo
+// es extra; 'porcentaje' cobra por porcentaje y no tiene turno: nada suyo es extra ni tiene
+// capacidad. Desconocido/null → 'nomina' (mismo default que la columna).
+export const MODALIDADES = [
+  {id:'nomina',    label:'Nómina (horario fijo)'},
+  {id:'porcentaje',label:'Porcentaje (sin turno)'},
+];
+export const MODALIDAD_DEFAULT = MODALIDADES[0].id;   // 'nomina'
+
+export function modalidad(v){
+  return MODALIDADES.some(m=>m.id===v)?v:MODALIDAD_DEFAULT;
+}
+export function esPorcentaje(th){ return modalidad(th?.modalidad)==='porcentaje'; }
 // ── Contraseña nueva: una sola regla para los dos caminos ──
 // La usan el modo recuperación (doSetNewPassword, sin sesión, desde el email) y el cambio con
 // sesión activa (doCambiarPassword). Vive acá y no en auth.js porque es pura y testeable:
@@ -514,6 +529,7 @@ export function mapTherapistRow(r){
     initials:r.initials||String(r.name||'').split(' ').map(n=>n[0]||'').join('').slice(0,2).toUpperCase(),
     spec:r.spec||'',
     specialty:especialidad(r.specialty),
+    modalidad:modalidad(r.modalidad),
     startH:r.start_h,
     endH:r.end_h,
     colorId:r.color_id||'ca',
@@ -583,6 +599,7 @@ export function horasTexto(h){
 // Las puntas van por fmtTime y no por `${th.startH}:00`, que escribiría '8.5:00' en cuanto una
 // jornada empiece a la media hora.
 export function textoJornada(th){
+  if(esPorcentaje(th)) return 'Por porcentaje · sin turno ni extras';
   if(!th || typeof th.startH !== 'number' || typeof th.endH !== 'number') return '';
   return `${fmtTime(th.startH)}–${fmtTime(th.endH)} · ${horasTexto(therapistHours(th).length / 2)} h/día`;
 }
@@ -596,11 +613,13 @@ export function textoJornada(th){
 // y la misma que usa capacidadSlots. work_start/work_end NO participa —ni siquiera cuando está
 // cargado—: era un segundo par de horas para un solo concepto, invisible en la agenda y, desde
 // f6cb02c, tampoco editable. Que el color obedeciera a un campo que nadie puede ver ni corregir
-// era el defecto de fondo; las columnas siguen en la base, dormidas, por si TURNO-2 las recupera.
+// era el defecto de fondo; las columnas siguen en la base, dormidas.
 // Devuelve null cuando no hay un turno afirmable (sin terapeuta, sin horas numéricas, o we<=ws):
-// mejor no pintar que pintar media agenda por una ficha incompleta o al revés.
+// mejor no pintar que pintar media agenda por una ficha incompleta o al revés. También null para
+// modalidad 'porcentaje' (TURNO-2): no tiene turno; su start_h/end_h es solo la franja que se dibuja.
 export function turnoDe(th){
   if(!th) return null;
+  if(esPorcentaje(th)) return null;
   const ws = th.startH, we = th.endH;
   if(typeof ws !== 'number' || typeof we !== 'number' || !isFinite(ws) || !isFinite(we)) return null;
   if(we <= ws) return null;
@@ -612,8 +631,12 @@ export function turnoDe(th){
 // El borde exacto NO es extra: empezar en ws o terminar en we es estar dentro.
 // El ALMUERZO no participa: lunch_minutes es una DURACIÓN (cuánto almuerza), no una POSICIÓN (a
 // qué hora) —ver el bloque de capacidad más abajo—, así que no hay franja contra la cual comparar.
+// TURNO-2: 'porcentaje' nunca es extra. 'nomina' en sábado/domingo es extra a cualquier hora, aun
+// con una ficha sin horas válidas (el fin de semana no depende del turno).
 export function esExtra(appt, th){
-  if(!appt) return false;
+  if(!appt || !th) return false;
+  if(esPorcentaje(th)) return false;
+  if(appt.date && !esDiaHabil(appt.date)) return true;
   const t = turnoDe(th);
   if(!t) return false;
   const inicio = appt.hour, fin = appt.hour + (appt.duration || 30) / 60;
@@ -622,7 +645,11 @@ export function esExtra(appt, th){
 
 // ¿La franja de media hora `hr` cae fuera del turno? Intervalo [ws, we): la franja que empieza
 // justo en we ya es de después del turno.
-export function slotFueraDeTurno(hr, th){
+// `ds` (opcional, TURNO-2): con fecha de sábado/domingo, toda franja de una 'nomina' está fuera.
+// 'porcentaje' nunca se sombrea. Sin `ds`, solo cuenta el horario.
+export function slotFueraDeTurno(hr, th, ds){
+  if(!th || esPorcentaje(th) || typeof hr !== 'number' || !isFinite(hr)) return false;
+  if(ds && !esDiaHabil(ds)) return true;
   const t = turnoDe(th);
   if(!t || typeof hr !== 'number' || !isFinite(hr)) return false;
   return hr < t.ws || hr >= t.we;
@@ -677,6 +704,7 @@ export function blockedSlots(th, ds, blocks){
 // Pura: `hoy` se inyecta en los tests. Acepta Date o 'YYYY-MM-DD'.
 export function capacidadSlots(th, dates, blocks, hoy=new Date()){
   if(!th) return 0;
+  if(esPorcentaje(th)) return 0;   // TURNO-2: sin turno no hay capacidad → ocupación '—'
   const hoyStr=typeof hoy==='string'?hoy:fmtDate(hoy);
   const turno=therapistHours(th).length;
   const lunch=lunchSlots(th);

@@ -679,6 +679,11 @@
     </div>
     <div class="field"><label>Descripción</label><input type="text" id="th-spec" placeholder="Ej. Fisioterapeuta deportivo"></div>
   </div>
+  <div class="field"><label>Modalidad</label>
+    <!-- Espejo del CHECK de therapists.modalidad (ver MODALIDADES en js/utils.js). 'porcentaje' no tiene
+         turno: nada suyo es extra y no tiene capacidad. Sábado y domingo de 'nomina' siempre es extra. -->
+    <select id="th-modalidad"><option value="nomina">Nómina (horario fijo)</option><option value="porcentaje">Porcentaje (sin turno)</option></select>
+  </div>
   <div class="field-row two">
     <div class="field"><label>Hora inicio</label>
       <select id="th-start">

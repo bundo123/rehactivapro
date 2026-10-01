@@ -4,7 +4,7 @@ import { esc, fmtDate, fmtTime, getColor, getTherapist, getPatient, getDoctor, t
          apptSlots, slotOf, isAlignedHour, findConflict, compactNoas, occupiedSlots, toTimeInput, parseTimeInput,
          ordinalesDeCitas, ordinalTexto, tipoSesion, TIPO_SESION_DEFAULT,
          citasConciliables, payloadCambioStatus, dmy,
-         findBlock, lunchSlots, blockedSlots, getRecDates, esExtra, slotFueraDeTurno } from './utils.js';
+         findBlock, lunchSlots, blockedSlots, getRecDates, esExtra, slotFueraDeTurno, esPorcentaje } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dbUpdateApptStatus } from './auth.js';
 import { hasPermission, canAccessTab } from './permissions.js';
@@ -165,7 +165,8 @@ export function renderGrid() {
   const fuera=ta.filter(a=>esExtra(a,getTherapist(a.therapistId))).length;
   // Capacidad REAL del día: el turno menos el almuerzo (regla) menos lo bloqueado (excepción).
   // Sin esto la barra ofrecía slots libres que el terapeuta no puede atender.
-  const totalSlots=visTherapists.reduce((s,t)=>s+Math.max(0,therapistHours(t).length-lunchSlots(t)-blockedSlots(t,ds,state.blocks)),0);
+  // 'porcentaje' (TURNO-2) no tiene turno: suma 0, sin restarle un almuerzo que no tiene.
+  const totalSlots=visTherapists.reduce((s,t)=>s+(esPorcentaje(t)?0:Math.max(0,therapistHours(t).length-lunchSlots(t)-blockedSlots(t,ds,state.blocks))),0);
   // Las no-asistió no restan: su franja se puede volver a agendar (mismo criterio que el conflicto).
   const occupied=occupiedSlots(visTa);
   const libres=Math.max(0,totalSlots-occupied);
@@ -284,7 +285,7 @@ export function renderGrid() {
       const stripOver=covered&&!appt;
       // El gris de "fuera de turno" es solo para la franja VACÍA: con tarjeta encima manda la
       // tarjeta, y sobre un slot pisado por una vecina el fondo no le corresponde a este slot.
-      const fueraSlot=(!appt&&!covered&&slotFueraDeTurno(hr,th))?' slot-fuera':'';
+      const fueraSlot=(!appt&&!covered&&slotFueraDeTurno(hr,th,ds))?' slot-fuera':'';
       slot.className='slot'+(stripOver?' slot-strip-over':(!appt?' avail':''))+fueraSlot;
 
       slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('drag-over')});
@@ -1029,7 +1030,7 @@ export function renderWeekView() {
         return;
       }
       const stripOver = covered && !appt;   // pisado por la tarjeta vecina: solo flota la tira
-      const fueraSlotWk = (!appt && !covered && slotFueraDeTurno(hr, th)) ? ' slot-fuera' : '';
+      const fueraSlotWk = (!appt && !covered && slotFueraDeTurno(hr, th, ds)) ? ' slot-fuera' : '';
       slot.className = 'slot' + (stripOver ? ' slot-strip-over' : (!appt ? ' avail' : '')) + fueraSlotWk;
       strips.forEach((na, i) => slot.appendChild(buildNoasStrip(na, i)));
       if(!appt){

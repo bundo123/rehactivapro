@@ -6,7 +6,7 @@
 // valida ni impide agendar. Piezas puras, sin DOM.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { turnoDe, esExtra, slotFueraDeTurno } from '../js/utils.js';
+import { turnoDe, esExtra, slotFueraDeTurno, modalidad, mapTherapistRow, capacidadSlots, textoJornada } from '../js/utils.js';
 
 const cita = (hour, duration = 60) => ({ hour, duration });
 
@@ -119,4 +119,78 @@ test('slotFueraDeTurno — sin turno afirmable o sin hora válida: false', () =>
   assert.equal(slotFueraDeTurno(22, null), false);
   assert.equal(slotFueraDeTurno(null, th), false);
   assert.equal(slotFueraDeTurno(undefined, th), false);
+});
+
+// ── TURNO-2: modalidad nómina / porcentaje ───────────────────────────────────
+// 'porcentaje' cobra por porcentaje y NO tiene turno: nada suyo es extra, su columna no se sombrea
+// y no tiene capacidad. 'nomina' es la regla de siempre entre semana y además todo sábado y domingo
+// es extra, a cualquier hora. Sigue siendo criterio de color y conteo: nada bloquea.
+const SAB = '2026-10-03', DOM = '2026-10-04', LUN = '2026-10-05';
+const citaF = (date, hour, duration = 60) => ({ date, hour, duration });
+const pct = { startH: 7, endH: 13, modalidad: 'porcentaje', lunchMinutes: 60 };
+const nom = { startH: 7, endH: 13, modalidad: 'nomina', lunchMinutes: 60 };
+
+test('TURNO-2 porcentaje — turnoDe null aunque tenga start_h/end_h', () => {
+  assert.equal(turnoDe(pct), null);
+});
+
+test('TURNO-2 porcentaje — esExtra false: lunes fuera de hora, sábado y domingo', () => {
+  assert.equal(esExtra(citaF(LUN, 18), pct), false);
+  assert.equal(esExtra(citaF(LUN, 6), pct), false);
+  assert.equal(esExtra(citaF(SAB, 9), pct), false);
+  assert.equal(esExtra(citaF(DOM, 18), pct), false);
+});
+
+test('TURNO-2 porcentaje — slotFueraDeTurno false con y sin fecha', () => {
+  assert.equal(slotFueraDeTurno(18, pct), false);
+  assert.equal(slotFueraDeTurno(18, pct, LUN), false);
+  assert.equal(slotFueraDeTurno(9, pct, SAB), false);
+  assert.equal(slotFueraDeTurno(9, pct, DOM), false);
+});
+
+test('TURNO-2 porcentaje — capacidadSlots 0 (ocupación "—")', () => {
+  assert.equal(capacidadSlots(pct, [LUN], [], LUN), 0);
+  assert.equal(capacidadSlots(nom, [LUN], [], LUN), 10);   // control: 12 slots − 2 de almuerzo
+});
+
+test('TURNO-2 porcentaje — textoJornada', () => {
+  assert.equal(textoJornada(pct), 'Por porcentaje · sin turno ni extras');
+  assert.equal(textoJornada(nom), '7:00–13:00 · 6 h/día');
+});
+
+test('TURNO-2 nomina — sábado y domingo dentro del horario: extra', () => {
+  assert.equal(esExtra(citaF(SAB, 8), nom), true);
+  assert.equal(esExtra(citaF(DOM, 8), nom), true);
+});
+
+test('TURNO-2 nomina — entre semana, regla vieja intacta', () => {
+  assert.equal(esExtra(citaF(LUN, 8), nom), false);
+  assert.equal(esExtra(citaF(LUN, 13), nom), true);
+  assert.equal(esExtra(citaF(LUN, 12.5), nom), true);   // asoma por la punta
+});
+
+test('TURNO-2 nomina — slotFueraDeTurno con fecha', () => {
+  assert.equal(slotFueraDeTurno(8, nom, SAB), true);
+  assert.equal(slotFueraDeTurno(8, nom, DOM), true);
+  assert.equal(slotFueraDeTurno(8, nom, LUN), false);
+  assert.equal(slotFueraDeTurno(13, nom, LUN), true);
+});
+
+test('TURNO-2 nomina — ficha sin horas válidas: domingo igual es extra, lunes no', () => {
+  const sinHoras = { modalidad: 'nomina' };
+  assert.equal(esExtra(citaF(DOM, 9), sinHoras), true);
+  assert.equal(esExtra(citaF(LUN, 9), sinHoras), false);
+  assert.equal(esExtra(citaF(DOM, 9), { startH: 13, endH: 7 }), true);   // sin modalidad → nomina
+});
+
+test('TURNO-2 modalidad() — normaliza basura a nomina', () => {
+  assert.equal(modalidad('porcentaje'), 'porcentaje');
+  assert.equal(modalidad('nomina'), 'nomina');
+  for (const v of [null, undefined, '', 'PORCENTAJE', 'x', 3]) assert.equal(modalidad(v), 'nomina');
+});
+
+test('TURNO-2 mapTherapistRow — trae modalidad normalizada', () => {
+  assert.equal(mapTherapistRow({ id: 1, name: 'A B', modalidad: 'porcentaje' }).modalidad, 'porcentaje');
+  assert.equal(mapTherapistRow({ id: 2, name: 'C D', modalidad: 'nomina' }).modalidad, 'nomina');
+  assert.equal(mapTherapistRow({ id: 3, name: 'E F' }).modalidad, 'nomina');
 });
