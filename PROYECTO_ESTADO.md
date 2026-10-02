@@ -4,11 +4,21 @@
 
 ---
 
-## 📍 Estado al 2026-10-02 — ROM-2a en revisión (rama, NO en `main`)
+## 📍 Estado al 2026-10-02 — dónde quedó todo
 
-**ROM-2a hecho en la rama `fix/rom-2a-gonio-export`** (desde `9134da2`, un commit), pendiente de
-revisión y merge. `main` sigue como en el bloque del 2026-10-01. **470 → 475 pruebas / 0 fail**;
-`npx vite build` sin errores. Ver «🗓️ Sesión 2026-10-02» abajo.
+**En producción y VERIFICADO.** El código en `main` es `8b743aa` (LOTE ROM-2a, fast-forward sobre
+`9134da2`); encima va solo el commit de docs de este cierre. Deploy de Vercel en **verde** para
+`8b743aa` (commit-status `success`) y lo servido en `rehactivaec.com` es lo compilado: los hashes
+coinciden (`index-Cd0dA8A2.js`, `index-kDxfTrY6.css`) y los 12 archivos de `dist/assets` son
+idénticos byte a byte a los servidos. **475 pruebas / 0 fail** con `node --test`; `npx vite build`
+sin errores. Ver «🗓️ Sesión 2026-10-02» abajo. La rama `fix/rom-2a-gonio-export` ya está mergeada
+(sigue en local y remoto; se puede borrar).
+
+**Pendiente de ROM-2a — prueba visual del PDF partido:** el Word se verificó con un smoke en node
+(tabla + encabezado repetible), pero el PDF **no se abrió en navegador**. Falta confirmar con un
+paciente real con muchas medidas (el de las 54) cómo se corta la tabla entre páginas y que el
+`thead` se repita. Los informes guardados antes de `8b743aa` no traen `rom` → hay que generar uno
+nuevo.
 
 **ROM-2 queda reducido a:** tabla de **evolución inicial → última → normal** (informe, PDF, Word)
 + goniometría en el **contexto de la IA** (`ia.js`). La goniometría de la evaluación inicial ya sale
@@ -16,7 +26,7 @@ en el PDF y el Word con ROM-2a.
 
 ---
 
-## 🗓️ Sesión 2026-10-02 — LOTE ROM-2a: goniometría de la Evaluación inicial en PDF y Word (rama `fix/rom-2a-gonio-export`). Sin SQL.
+## 🗓️ Sesión 2026-10-02 — LOTE ROM-2a: goniometría de la Evaluación inicial en PDF y Word (`8b743aa`, en `main`). Sin SQL.
 
 Urgente: un terapeuta exportó el PDF de un paciente con 54 medidas y no salió ninguna — el
 render-model (`_buildRenderModel`) solo llevaba fecha/pb/partes de la evaluación inicial.

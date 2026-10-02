@@ -1,7 +1,7 @@
 # RehactivaPro — Historial de sesiones de desarrollo
 
-> **Período:** 2026-03-31 → 2026-10-01 · **239 entregas** en **53 jornadas de trabajo**
-> **Última actualización:** 2026-10-01
+> **Período:** 2026-03-31 → 2026-10-02 · **240 entregas** en **54 jornadas de trabajo**
+> **Última actualización:** 2026-10-02
 
 ---
 
@@ -40,10 +40,10 @@ git log --oneline --reverse   # ver la lista completa en orden cronológico
 | **3 · Endurecimiento** | 06-17 → 07-09 | 5 | 21 | Auditoría pre-lanzamiento: corrección de fallos y pruebas |
 | **4 · Producción** | 07-31 → 08-14 | 9 | 29 | App en uso real: agenda avanzada, móvil, CIE-10, seguimiento |
 | **5 · Consolidación y seguridad** | 08-24 → 09-10 | 11 | 57 | Informe Word, Excel, historial, QuickBooks, auditoría de 147 hallazgos, endurecimiento SEC-1…5 |
-| **6 · Diagnóstico, contexto clínico y agenda** | 09-18 → 10-01 | 5 | 11 | Diagnóstico como catálogo cerrado, contexto clínico validado para la IA, agenda que muestra qué se atiende fuera del turno, goniometría estructurada, seguimiento por mes y terapeuta, y modalidad nómina/porcentaje |
+| **6 · Diagnóstico, contexto clínico y agenda** | 09-18 → 10-02 | 6 | 12 | Diagnóstico como catálogo cerrado, contexto clínico validado para la IA, agenda que muestra qué se atiende fuera del turno, goniometría estructurada (también en el informe PDF y Word), seguimiento por mes y terapeuta, y modalidad nómina/porcentaje |
 
 **Estado al cierre:** aplicación en producción en `rehactivaec.com`, con despliegue automático
-verificado, **470 pruebas automatizadas** en verde, integración continua en cada cambio y bitácora
+verificado, **475 pruebas automatizadas** en verde, integración continua en cada cambio y bitácora
 de auditoría inmutable conforme a LOPDP.
 
 ---
@@ -105,8 +105,9 @@ de auditoría inmutable conforme a LOPDP.
 | 51 | 2026-09-23 | 1 | 12 | 680 | 22 | **Contexto clínico validado para el informe con IA** + permisos de base de datos corregidos |
 | 52 | 2026-09-29 | 2 | 18 | 908 | 32 | **Goniometría estructurada (rangos articulares AAOS)** en la evaluación inicial y en cada sesión + seguimiento por mes y terapeuta |
 | 53 | 2026-10-01 | 1 | 6 | 153 | 14 | **Modalidad del terapeuta: nómina o porcentaje** — quién tiene turno y qué cuenta como extra |
+| 54 | 2026-10-02 | 1 | 5 | 148 | 4 | **La goniometría de la evaluación inicial sale en el informe PDF y Word** (corrección urgente) |
 
-**Totales:** 239 entregas · 806 archivos modificados · **48.962 líneas añadidas** · **15.028 retiradas**.
+**Totales:** 240 entregas · 811 archivos modificados · **49.110 líneas añadidas** · **15.032 retiradas**.
 
 *Nota de lectura:* en 2026-04-17 y 2026-04-19 hay una entrega cada día que no registró cambio de
 contenido, por eso «Entregas» supera a «Archivos» esos dos días. Las imágenes y demás binarios
@@ -419,7 +420,7 @@ funcionalidades pasaron por rama de revisión y prueba manual antes de llegar a 
 
 ---
 
-## Fase 6 — Diagnóstico, contexto clínico y agenda (2026-09-18 → 2026-10-01) · 5 jornadas · 11 entregas
+## Fase 6 — Diagnóstico, contexto clínico y agenda (2026-09-18 → 2026-10-02) · 6 jornadas · 12 entregas
 
 El 2026-09-18, dos frentes en el mismo día: **que el diagnóstico sea un dato utilizable** (era texto libre y por
 eso el contexto clínico nunca llegaba al informe con IA) y **que la agenda diga en pantalla lo que
@@ -534,6 +535,21 @@ anterior, cifras de estructura recontadas y pendientes nombrados.
 - Como hasta ahora, es una marca visual y de conteo: **nada impide agendar**.
 - **459 → 470 pruebas automatizadas** en verde.
 
+**2026-10-02 — La goniometría de la evaluación inicial sale en el informe exportado** (`8b743aa`)
+- **Problema reportado:** un terapeuta exportó el PDF de un paciente con **54 mediciones** cargadas
+  en la evaluación inicial y **no salió ninguna**. Las mediciones se veían en pantalla, pero el
+  documento que va al médico no las incluía.
+- Ahora el **PDF y el Word** incluyen, debajo de la evaluación inicial, una tabla **«Goniometría
+  (AAOS)»** con articulación, movimiento, medición (derecho e izquierdo juntos en la misma fila) y
+  el valor normal de referencia.
+- **Una tabla larga continúa en la página siguiente** en vez de saltar entera y dejar un hueco, y
+  el encabezado de columnas se repite en cada página.
+- Los informes **guardados antes del cambio** se conservan tal cual (sin la tabla); para verla hay
+  que generar el informe de nuevo.
+- Sigue pendiente la **tabla de evolución** (inicial → última → normal) y llevar las mediciones al
+  informe con IA.
+- **470 → 475 pruebas automatizadas** en verde.
+
 ---
 
 ## Anexo — Prácticas de trabajo aplicadas
@@ -546,7 +562,7 @@ Constan en el repositorio y explican parte del esfuerzo que no se ve en la inter
   lo servido en `rehactivaec.com` es exactamente el código compilado, comparando las huellas de los
   archivos publicados.
 - **Pruebas automatizadas crecientes:** 19 pruebas (2026-06-26) → 104 (2026-08-12) → 131 (2026-08-13)
-  → 154 (2026-08-14) → 326 (2026-09-03) → 383 (2026-09-10) → 419 (2026-09-18) → 428 (2026-09-23) → 449 (2026-09-29) → **470** al cierre. Desde 2026-09-07 (SEC-1) se ejecutan
+  → 154 (2026-08-14) → 326 (2026-09-03) → 383 (2026-09-10) → 419 (2026-09-18) → 428 (2026-09-23) → 449 (2026-09-29) → 470 (2026-10-01) → **475** al cierre. Desde 2026-09-07 (SEC-1) se ejecutan
   automáticamente en cada cambio publicado, junto con la compilación y el escaneo de secretos.
 - **Documentación de estado continua.** `PROYECTO_ESTADO.md` registra cada sesión con sus
   decisiones y su deuda técnica pendiente; `AUDITORIA_PRELANZAMIENTO.md` y `rls_policies.md`
