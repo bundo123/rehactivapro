@@ -148,6 +148,12 @@
 .rom-view{margin-top:8px}
 .rom-view-title{font-size:10.5px;font-weight:700;color:#1a1917;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
 .rom-view div{font-size:11.5px;color:#3a3a36;line-height:1.6}
+.rom-view-table{border-collapse:collapse;font-size:11.5px;color:#3a3a36;line-height:1.5}
+.rom-view-table thead th{font-size:10px;font-weight:600;color:#9c9a92;text-align:center;padding:0 10px 2px}
+.rom-view-table thead th:first-child{text-align:left;padding-left:0}
+.rom-view-table td{padding:1px 10px;text-align:center;white-space:nowrap}
+.rom-view-table td:first-child{text-align:left;padding-left:0;white-space:normal}
+.rom-view-art th{text-align:left;font-weight:700;color:#1a1917;padding:6px 0 1px}
 .rom-obs{margin-top:3px;color:#3a3a36}
 @media (max-width:768px){
   .rom-input{font-size:16px}            /* iOS no hace zoom al enfocar con ≥16px */

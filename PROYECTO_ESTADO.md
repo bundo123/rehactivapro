@@ -4,6 +4,41 @@
 
 ---
 
+## 📍 Estado al 2026-10-02 (b) — ROM-2b en revisión (rama, NO en `main`)
+
+**ROM-2b hecho en la rama `fix/rom-2b-gonio-agrupada`** (desde `main` local `b8855cd`, un commit),
+pendiente de revisión y merge. **475 → 476 pruebas / 0 fail**; `npx vite build` sin errores. Ver
+«🗓️ Sesión 2026-10-02 (b)» abajo. **La prueba visual del PDF partido queda HECHA** con ROM-2b
+(Chromium, 57 medidas: el `thead` se repite y ninguna articulación se parte entre páginas).
+
+---
+
+## 🗓️ Sesión 2026-10-02 (b) — LOTE ROM-2b: goniometría agrupada por articulación (rama `fix/rom-2b-gonio-agrupada`). Sin SQL.
+
+Pedido del terapeuta tras ver ROM-2a: cada línea repetía la articulación y mostraba normal y %, se
+leía «full texto». Quiere la articulación una sola vez, los movimientos debajo y **solo los grados
+medidos**.
+- **`romGrupos(rom)`** (pura, `js/rom.js`) reemplaza a `romTablaFilas` (borrada):
+  `[{articulacion, lados, filas:[{movimiento, d, i, valor}]}]`. Pasa por `romNormalizar` (null →
+  `[]`), orden de catálogo, solo articulaciones con alguna medida. Con lados `d`/`i` (`'—'` si falta
+  ese lado); sin lados `valor` (Schober en cm). **Sin normal ni %**; `romTexto`, `romNormalTexto` y
+  `romPct` no se tocaron.
+- **PDF:** tabla Movimiento | Der. | Izq., un `tbody` por articulación con fila-cabecera en negrita
+  (colspan 3) y `break-inside:avoid`: la tabla se parte **entre** articulaciones, nunca dentro.
+  Sin lados → valor en colspan 2. Ancho compacto (no a toda la página). Todo por `esc()`.
+- **Word:** misma estructura, 3 columnas; fila de articulación `columnSpan` 3 en negrita con fondo
+  `F6F4EF` y `keepNext`; `keepNext` en todas las filas del grupo menos la última; sin lados →
+  `columnSpan` 2. Encabezado repetible. Smoke en node: 7 filas de articulación, Schober en span 2,
+  ningún valor normal en el XML.
+- **Pantalla (Evaluación inicial del informe):** la lista `romTexto` pasa a la misma tabla agrupada
+  (`gonioViewHtml`, clases `rom-view-table` / `rom-view-art` en `css/components.css`). La línea
+  📐 de las sesiones y el editor **no** se tocaron.
+- Tests: los de `romTablaFilas` reemplazados por 6 de `romGrupos` (par D/I, un lado → —, columna
+  sin lados, Schober cm, null/[]/basura, orden de catálogo, articulación sin medidas no aparece).
+- **No se tocó:** `ia.js`, editor, SQL, sesiones de tratamiento.
+
+---
+
 ## 📍 Estado al 2026-10-02 — dónde quedó todo
 
 **En producción y VERIFICADO.** El código en `main` es `8b743aa` (LOTE ROM-2a, fast-forward sobre

@@ -21,7 +21,7 @@
 import { LOGO_DATA_URI } from './pdf-logo.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dmy, CONFIG_CLINICA, limpiarParte } from './utils.js';
-import { romTablaFilas } from './rom.js';
+import { romGrupos } from './rom.js';
 
 // Data URI (base64) → Uint8Array. ImageRun no acepta el string 'data:...' con cabecera: quiere los
 // bytes. atob es suficiente acá porque las imágenes (logo, gráfico EVA) ya vienen en base64.
@@ -227,8 +227,8 @@ export async function generarInformeWord(m) {
     const met = m.metricas || {};
     const ses = m.sesiones || [];
     const narr = m.narrativa;
-    const gonio = m.evalInicial ? romTablaFilas(m.evalInicial.rom) : [];
-    const GONIO_COLS = [3000, 3300, 2300, 1300];
+    const gonio = m.evalInicial ? romGrupos(m.evalInicial.rom) : [];
+    const GONIO_COLS = [4600, 1500, 1500];  // Movimiento | Der. | Izq. — compacta, no a todo el ancho
 
     // Un solo formato de fecha en todo el documento (DD/MM/YYYY vía dmy) — la fecha de emisión se
     // calcula acá mismo en vez de usar m.fechaLarga (que viene pre-formateada en prosa larga).
@@ -470,27 +470,33 @@ export async function generarInformeWord(m) {
             });
           })(), new Paragraph({ spacing: { before: 0, after: 0, line: 240, lineRule: 'auto' }, children: [] })] : []),
 
-          // ── Goniometría de la evaluación inicial — mismo tratamiento que "Detalle por sesión"
-          // (sin bordes, filas pares F6F4EF) + fila de encabezado que se repite si parte página.
-          // Sin mediciones (o snapshot previo a ROM-2a) → no se agrega nada. ──
+          // ── Goniometría de la evaluación inicial — agrupada por articulación: fila de articulación
+          // (negrita, fondo F6F4EF, ocupa las 3 columnas) y debajo sus movimientos con SOLO los valores
+          // medidos (sin normal ni %). Encabezado repetible; keepNext en todas las filas de un grupo
+          // menos la última, para que una articulación no se parta entre páginas. Sin mediciones (o
+          // snapshot previo a ROM-2a) → no se agrega nada. ──
           ...(gonio.length ? [
             new Paragraph({ style: 'SubtituloNarr', keepNext: true, text: 'Goniometría (AAOS)' }),
             new Table({
-              width: { size: 9900, type: WidthType.DXA },
+              width: { size: GONIO_COLS.reduce((a, b) => a + b, 0), type: WidthType.DXA },
               columnWidths: GONIO_COLS,
               borders: bordesInvisibles,
               rows: [
-                new TableRow({ tableHeader: true, cantSplit: true, children: ['Articulación', 'Movimiento', 'Medición', 'Normal'].map((t, c) =>
-                  gonioCelda(c, [new Paragraph({ style: 'EtiquetaDato', text: t })], undefined)) }),
-                ...gonio.map((f, i) => {
-                  const shading = i % 2 === 1 ? { fill: PANEL_BG } : undefined;
-                  return new TableRow({ cantSplit: true, children: [
-                    gonioCelda(0, [new Paragraph({ style: 'ObsSesion', text: f.articulacion })], shading),
-                    gonioCelda(1, [new Paragraph({ style: 'ObsSesion', text: f.movimiento })], shading),
-                    gonioCelda(2, [new Paragraph({ style: 'ObsSesion', children: [new TextRun({ text: f.medicion, color: ACENTO })] })], shading),
-                    gonioCelda(3, [new Paragraph({ style: 'MetadatoSesion', spacing: { after: 0 }, text: f.normal })], shading),
-                  ] });
-                }),
+                new TableRow({ tableHeader: true, cantSplit: true, children: ['Movimiento', 'Der.', 'Izq.'].map((t, c) =>
+                  gonioCelda(c, 1, [new Paragraph({ style: 'EtiquetaDato', alignment: c ? AlignmentType.CENTER : undefined, text: t })])) }),
+                ...gonio.flatMap(g => [
+                  new TableRow({ cantSplit: true, children: [gonioCelda(0, 3, [new Paragraph({ style: 'ObsSesion', keepNext: true,
+                    children: [new TextRun({ text: g.articulacion, bold: true, color: INK })] })], { fill: PANEL_BG })] }),
+                  ...g.filas.map((f, k) => {
+                    const keepNext = k < g.filas.length - 1;
+                    const valor = t => [new Paragraph({ style: 'ObsSesion', keepNext, alignment: AlignmentType.CENTER,
+                      children: [new TextRun({ text: t, color: t === '—' ? VACIO : ACENTO })] })];
+                    return new TableRow({ cantSplit: true, children: [
+                      gonioCelda(0, 1, [new Paragraph({ style: 'ObsSesion', keepNext, text: f.movimiento })]),
+                      ...(g.lados ? [gonioCelda(1, 1, valor(f.d)), gonioCelda(2, 1, valor(f.i))] : [gonioCelda(1, 2, valor(f.valor))]),
+                    ] });
+                  }),
+                ]),
               ],
             }),
           ] : []),
@@ -606,12 +612,15 @@ export async function generarInformeWord(m) {
       ] });
     }
 
-    // Celda de la tabla de goniometría: mismos márgenes laterales que "Detalle por sesión", más
-    // compacta en vertical (son muchas filas cortas).
-    function gonioCelda(c, children, shading) {
+    // Celda de la tabla de goniometría: compacta en vertical (son muchas filas cortas).
+    // c = primera columna que ocupa, span = cuántas (la fila de articulación ocupa 3; el valor de una
+    // articulación sin lados, 2).
+    function gonioCelda(c, span, children, shading) {
+      const ancho = GONIO_COLS.slice(c, c + span).reduce((a, b) => a + b, 0);
       return new TableCell({
-        width: { size: GONIO_COLS[c], type: WidthType.DXA }, borders: bordesInvisibles, shading, verticalAlign: VerticalAlign.TOP,
-        margins: { top: 80, bottom: 80, left: 0, right: 140 },
+        width: { size: ancho, type: WidthType.DXA }, columnSpan: span > 1 ? span : undefined,
+        borders: bordesInvisibles, shading, verticalAlign: VerticalAlign.TOP,
+        margins: { top: 60, bottom: 60, left: shading ? 100 : 0, right: 140 },
         children,
       });
     }

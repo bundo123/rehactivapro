@@ -123,29 +123,31 @@ export function romTexto(item) {
     + (pct != null ? ` (${pct}%)` : '');
 }
 
-// Filas para la tabla de goniometría del informe exportado (PDF y Word): una por (articulación,
-// movimiento) en orden de catálogo, con D e I juntos en la misma celda. Texto plano: quien lo pinte
-// en HTML lo pasa por esc(). Sin mediciones válidas → [].
-export function romTablaFilas(rom) {
+// Goniometría agrupada por articulación para el informe (PDF, Word y la Evaluación inicial en
+// pantalla): la articulación una sola vez y debajo sus movimientos, SOLO con los valores medidos
+// (sin normal ni %: pedido de los terapeutas, se leía "full texto"). Orden de catálogo; solo
+// articulaciones con alguna medida. Texto plano: quien lo pinte en HTML lo pasa por esc().
+//   lados:true  → d / i = '125°' o '—' si falta ese lado; valor = null
+//   lados:false → valor = '30°' (Schober '3 cm'); d / i = null
+export function romGrupos(rom) {
   const items = romNormalizar(rom);
   if (!items) return [];
-  const filas = [];
-  const porMov = new Map();
+  const grupos = [];
   for (const it of items) {            // ya vienen en orden de catálogo (romNormalizar)
-    const k = it.j + '|' + it.m;
-    if (!porMov.has(k)) { const f = { j: it.j, m: it.m, v: {} }; porMov.set(k, f); filas.push(f); }
-    porMov.get(k).v[it.l || '-'] = it.v;
+    const { art, mov } = romMov(it.j, it.m);
+    let g = grupos[grupos.length - 1];
+    if (!g || g.j !== art.id) { g = { j: art.id, articulacion: art.nombre, lados: art.lados, filas: [] }; grupos.push(g); }
+    let f = g.filas[g.filas.length - 1];
+    if (!f || f.m !== mov.id) {
+      f = art.lados ? { m: mov.id, movimiento: mov.nombre, d: '—', i: '—', valor: null }
+                    : { m: mov.id, movimiento: mov.nombre, d: null, i: null, valor: null };
+      g.filas.push(f);
+    }
+    const txt = romValorTexto(mov, it.v);
+    if (!art.lados) f.valor = txt; else if (it.l === 'D') f.d = txt; else f.i = txt;
   }
-  return filas.map(f => {
-    const { art, mov } = romMov(f.j, f.m);
-    const txt = v => v == null ? '—' : romValorTexto(mov, v);
-    return {
-      articulacion: art.nombre,
-      movimiento: mov.nombre,
-      medicion: art.lados ? `D ${txt(f.v.D)} · I ${txt(f.v.I)}` : txt(f.v['-']),
-      normal: romNormalTexto(mov),
-    };
-  });
+  return grupos.map(({ articulacion, lados, filas }) =>
+    ({ articulacion, lados, filas: filas.map(({ movimiento, d, i, valor }) => ({ movimiento, d, i, valor })) }));
 }
 
 // Fila del log MÁS RECIENTE del episodio actual con mediciones válidas (incluye la Evaluación

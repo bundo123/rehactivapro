@@ -4,7 +4,7 @@
 // episodio actual (misma frontera estricta que doneActual).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ROM_CATALOGO, ROM_MAX, romMov, romNormalizar, romLeerItems, romPct, romTexto, romTablaFilas, ultimaMedicion } from '../js/rom.js';
+import { ROM_CATALOGO, ROM_MAX, romMov, romNormalizar, romLeerItems, romPct, romTexto, romGrupos, ultimaMedicion } from '../js/rom.js';
 
 const it_ = (j, m, l, v) => ({ j, m, l, v });
 
@@ -196,39 +196,45 @@ test('ultimaMedicion — ignora filas con rom inválido; null sin mediciones', (
   assert.equal(ultimaMedicion(null), null);
 });
 
-// ── romTablaFilas (ROM-2a: tabla de goniometría del PDF/Word) ─────────────────
-test('romTablaFilas — par D/I en una sola fila', () => {
-  const f = romTablaFilas([it_('hombro', 'flex', 'I', 120), it_('hombro', 'flex', 'D', 125)]);
-  assert.deepEqual(f, [{ articulacion: 'Hombro', movimiento: 'Flexión', medicion: 'D 125° · I 120°', normal: '180°' }]);
-});
-
-test('romTablaFilas — falta un lado → —', () => {
-  assert.equal(romTablaFilas([it_('rodilla', 'flex', 'D', 100)])[0].medicion, 'D 100° · I —');
-  assert.equal(romTablaFilas([it_('rodilla', 'flex', 'I', 90)])[0].medicion, 'D — · I 90°');
-});
-
-test('romTablaFilas — columna sin lados y Schober en cm', () => {
-  const f = romTablaFilas([it_('cervical', 'flex', null, 30), it_('dorsolumbar', 'schober', null, 3.5)]);
-  assert.deepEqual(f, [
-    { articulacion: 'Columna cervical', movimiento: 'Flexión', medicion: '30°', normal: '45°' },
-    { articulacion: 'Columna dorsolumbar', movimiento: 'Test de Schober', medicion: '3.5 cm', normal: '≥4 cm' },
+// ── romGrupos (ROM-2b: goniometría agrupada por articulación en PDF/Word/pantalla) ─
+test('romGrupos — par D/I en una sola fila, sin normal ni %', () => {
+  assert.deepEqual(romGrupos([it_('hombro', 'flex', 'I', 120), it_('hombro', 'flex', 'D', 125)]), [
+    { articulacion: 'Hombro', lados: true, filas: [{ movimiento: 'Flexión', d: '125°', i: '120°', valor: null }] },
   ]);
 });
 
-test('romTablaFilas — null / [] / basura → []', () => {
-  assert.deepEqual(romTablaFilas(null), []);
-  assert.deepEqual(romTablaFilas(undefined), []);
-  assert.deepEqual(romTablaFilas([]), []);
-  assert.deepEqual(romTablaFilas('x'), []);
-  assert.deepEqual(romTablaFilas([null, 5, { j: 'hombro', m: 'flex', l: 'X', v: 1 }, it_('hombro', 'flex', 'D', 999)]), []);
+test('romGrupos — falta un lado → —', () => {
+  assert.deepEqual(romGrupos([it_('rodilla', 'flex', 'D', 100)])[0].filas[0], { movimiento: 'Flexión', d: '100°', i: '—', valor: null });
+  assert.deepEqual(romGrupos([it_('rodilla', 'flex', 'I', 90)])[0].filas[0], { movimiento: 'Flexión', d: '—', i: '90°', valor: null });
 });
 
-test('romTablaFilas — orden de catálogo (articulación y movimiento), sin importar el de entrada', () => {
-  const f = romTablaFilas([
+test('romGrupos — columna sin lados y Schober en cm', () => {
+  assert.deepEqual(romGrupos([it_('cervical', 'flex', null, 30), it_('dorsolumbar', 'schober', null, 3.5)]), [
+    { articulacion: 'Columna cervical', lados: false, filas: [{ movimiento: 'Flexión', d: null, i: null, valor: '30°' }] },
+    { articulacion: 'Columna dorsolumbar', lados: false, filas: [{ movimiento: 'Test de Schober', d: null, i: null, valor: '3.5 cm' }] },
+  ]);
+});
+
+test('romGrupos — null / [] / basura → []', () => {
+  assert.deepEqual(romGrupos(null), []);
+  assert.deepEqual(romGrupos(undefined), []);
+  assert.deepEqual(romGrupos([]), []);
+  assert.deepEqual(romGrupos('x'), []);
+  assert.deepEqual(romGrupos([null, 5, { j: 'hombro', m: 'flex', l: 'X', v: 1 }, it_('hombro', 'flex', 'D', 999)]), []);
+});
+
+test('romGrupos — orden de catálogo (articulación y movimiento), sin importar el de entrada', () => {
+  const g = romGrupos([
     it_('tobillo', 'dorsiflex', 'D', 10), it_('hombro', 'abd', 'I', 90), it_('cervical', 'rot_i', null, 50),
     it_('hombro', 'flex', 'D', 150), it_('tobillo', 'plantiflex', 'I', 40),
   ]);
-  assert.deepEqual(f.map(x => x.articulacion + '/' + x.movimiento), [
-    'Columna cervical/Rotación izq.', 'Hombro/Flexión', 'Hombro/Abducción', 'Tobillo/Plantiflexión', 'Tobillo/Dorsiflexión',
+  assert.deepEqual(g.map(x => x.articulacion + ': ' + x.filas.map(f => f.movimiento).join(', ')), [
+    'Columna cervical: Rotación izq.', 'Hombro: Flexión, Abducción', 'Tobillo: Plantiflexión, Dorsiflexión',
   ]);
+});
+
+test('romGrupos — articulación sin medidas válidas no aparece', () => {
+  const g = romGrupos([it_('codo', 'flex', 'D', 999), it_('rodilla', 'ext', 'I', 0)]);
+  assert.deepEqual(g.map(x => x.articulacion), ['Rodilla']);
+  assert.deepEqual(g[0].filas, [{ movimiento: 'Extensión', d: '—', i: '0°', valor: null }]);
 });

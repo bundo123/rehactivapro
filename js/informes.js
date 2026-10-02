@@ -6,7 +6,7 @@ import { genSemanalAI, genMensualAI, genAnualAI, genPatientAI, getLastNarrative,
 import { hasPermission } from './permissions.js';
 import { LOGO_DATA_URI } from './pdf-logo.js';
 import { generarInformeWord } from './word.js';
-import { romTexto, romNormalizar, romTablaFilas } from './rom.js';
+import { romTexto, romNormalizar, romGrupos } from './rom.js';
 
 export { genSemanalAI, genMensualAI, genAnualAI, genPatientAI };
 
@@ -664,7 +664,7 @@ export function renderPatientReport() {
         </span>
       </div>
       ${partes.length?partes.map(x=>`<div style="font-size:11.5px;color:#3a3a36;line-height:1.6;margin-bottom:3px">${esc(limpiarParte(x))}</div>`).join(''):'<div style="font-size:11.5px;color:#9c9a92">Sin detalle registrado</div>'}
-      ${evalRow.rom?`<div class="rom-view"><div class="rom-view-title">Goniometría</div>${evalRow.rom.map(it=>`<div>${esc(romTexto(it))}</div>`).join('')}</div>`:''}
+      ${gonioViewHtml(evalRow.rom)}
     </div>`;
   }
 
@@ -806,6 +806,17 @@ export function renderPatientReport() {
   }
 }
 
+// Goniometría de la Evaluación inicial en pantalla: misma estructura agrupada que el PDF/Word
+// (articulación una vez, movimientos debajo, solo los valores medidos).
+function gonioViewHtml(rom) {
+  const grupos=romGrupos(rom);
+  if(!grupos.length) return '';
+  return `<div class="rom-view"><div class="rom-view-title">Goniometría</div><table class="rom-view-table">
+    <thead><tr><th>Movimiento</th><th>Der.</th><th>Izq.</th></tr></thead>${grupos.map(g=>`<tbody>
+    <tr class="rom-view-art"><th colspan="3" scope="colgroup">${esc(g.articulacion)}</th></tr>
+    ${g.filas.map(f=>`<tr><td>${esc(f.movimiento)}</td>${g.lados?`<td>${esc(f.d)}</td><td>${esc(f.i)}</td>`:`<td colspan="2">${esc(f.valor)}</td>`}</tr>`).join('')}</tbody>`).join('')}</table></div>`;
+}
+
 // Construye el render-model del PDF desde el informe en pantalla (_rptCtx + narrativa IA + canvas EVA).
 // Es el MISMO shape que se persiste como snapshot, para que el PDF guardado salga idéntico sin re-llamar a la IA.
 function _buildRenderModel() {
@@ -896,13 +907,18 @@ function buildPdfHtml(m) {
       +(partes.length?partes.map(x=>'<p class="eval-p">'+esc(limpiarParte(x))+'</p>').join(''):'<p class="eval-p mut">Sin detalle registrado</p>')
       +'</div>';
     // Goniometría FUERA del .keep: con muchas medidas la tabla tiene que poder partirse entre páginas
-    // (thead se repite). Snapshots guardados antes de ROM-2a no traen rom → no se agrega nada.
-    const gonio=romTablaFilas(m.evalInicial.rom);
+    // (thead se repite), pero solo ENTRE articulaciones — cada una va en su propio tbody que no se
+    // parte. Solo valores medidos, sin normal ni %. Snapshots previos a ROM-2a no traen rom → nada.
+    const gonio=romGrupos(m.evalInicial.rom);
     if(gonio.length){
       evalBlock+='<h3 class="gonio">Goniometría (AAOS)</h3>'
-        +'<table><thead><tr><th>Articulación</th><th>Movimiento</th><th>Medición</th><th>Normal</th></tr></thead><tbody>'
-        +gonio.map(f=>'<tr><td class="nw">'+esc(f.articulacion)+'</td><td>'+esc(f.movimiento)+'</td><td class="nw">'+esc(f.medicion)+'</td><td class="nw mut">'+esc(f.normal)+'</td></tr>').join('')
-        +'</tbody></table>';
+        +'<table class="gonio"><thead><tr><th>Movimiento</th><th class="ctr">Der.</th><th class="ctr">Izq.</th></tr></thead>'
+        +gonio.map(g=>'<tbody><tr class="gonio-art"><td colspan="3">'+esc(g.articulacion)+'</td></tr>'
+          +g.filas.map(f=>'<tr><td>'+esc(f.movimiento)+'</td>'
+            +(g.lados?'<td class="ctr nw">'+esc(f.d)+'</td><td class="ctr nw">'+esc(f.i)+'</td>':'<td class="ctr nw" colspan="2">'+esc(f.valor)+'</td>')
+            +'</tr>').join('')
+          +'</tbody>').join('')
+        +'</table>';
     }
   }
 
@@ -945,6 +961,9 @@ function buildPdfHtml(m) {
     +'.eval-sub{font-size:12px;font-weight:700;color:#1A1A1A;margin-bottom:6px}'
     +'.eval-p{font-size:11px;line-height:1.55;margin-bottom:3px}'
     +'h3.gonio{font-size:11px;font-weight:700;color:#1A1A1A;margin:14px 0 4px;break-after:avoid;page-break-after:avoid}'
+    +'table.gonio{width:auto;min-width:60%}table.gonio tbody{break-inside:avoid;page-break-inside:avoid}'
+    +'table.gonio td{padding:3px 8px}table.gonio th:first-child{min-width:220px}table.gonio th.ctr{min-width:80px}'
+    +'tr.gonio-art td{font-weight:700;padding-top:8px;border-bottom:1px solid #D8D8D2}'
     +'table{width:100%;border-collapse:collapse;margin-top:4px}'
     +'thead{display:table-header-group}'
     +'tr{break-inside:avoid;page-break-inside:avoid}'
