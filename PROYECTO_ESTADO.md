@@ -4,16 +4,20 @@
 
 ---
 
-## 📍 Estado al 2026-10-02 (b) — ROM-2b en revisión (rama, NO en `main`)
+## 📍 Estado al 2026-10-02 (b) — dónde quedó todo
 
-**ROM-2b hecho en la rama `fix/rom-2b-gonio-agrupada`** (desde `main` local `b8855cd`, un commit),
-pendiente de revisión y merge. **475 → 476 pruebas / 0 fail**; `npx vite build` sin errores. Ver
-«🗓️ Sesión 2026-10-02 (b)» abajo. **La prueba visual del PDF partido queda HECHA** con ROM-2b
+**En producción y VERIFICADO.** El código en `main` es `f27ff36` (LOTE ROM-2b, fast-forward sobre
+`b8855cd`, que subió en el mismo push); encima va solo el commit de docs de este cierre. Deploy de
+Vercel en **verde** para `f27ff36` (commit-status `success`) y lo servido en `rehactivaec.com` es lo
+compilado: los hashes coinciden (`index-CNPTmMjV.js`, `index-C8TfdCPU.css`) y los 12 archivos de
+`dist/assets` son idénticos byte a byte a los servidos. **476 pruebas / 0 fail**; `npx vite build`
+sin errores. Ver «🗓️ Sesión 2026-10-02 (b)» abajo. Las ramas `fix/rom-2a-gonio-export` y
+`fix/rom-2b-gonio-agrupada` ya están mergeadas (siguen en local y remoto; se pueden borrar). **La prueba visual del PDF partido queda HECHA** con ROM-2b
 (Chromium, 57 medidas: el `thead` se repite y ninguna articulación se parte entre páginas).
 
 ---
 
-## 🗓️ Sesión 2026-10-02 (b) — LOTE ROM-2b: goniometría agrupada por articulación (rama `fix/rom-2b-gonio-agrupada`). Sin SQL.
+## 🗓️ Sesión 2026-10-02 (b) — LOTE ROM-2b: goniometría agrupada por articulación (`f27ff36`, en `main`). Sin SQL.
 
 Pedido del terapeuta tras ver ROM-2a: cada línea repetía la articulación y mostraba normal y %, se
 leía «full texto». Quiere la articulación una sola vez, los movimientos debajo y **solo los grados
@@ -49,7 +53,7 @@ idénticos byte a byte a los servidos. **475 pruebas / 0 fail** con `node --test
 sin errores. Ver «🗓️ Sesión 2026-10-02» abajo. La rama `fix/rom-2a-gonio-export` ya está mergeada
 (sigue en local y remoto; se puede borrar).
 
-**Pendiente de ROM-2a — prueba visual del PDF partido:** el Word se verificó con un smoke en node
+**~~Pendiente de ROM-2a — prueba visual del PDF partido~~ (hecha con ROM-2b, ver arriba):** el Word se verificó con un smoke en node
 (tabla + encabezado repetible), pero el PDF **no se abrió en navegador**. Falta confirmar con un
 paciente real con muchas medidas (el de las 54) cómo se corta la tabla entre páginas y que el
 `thead` se repita. Los informes guardados antes de `8b743aa` no traen `rom` → hay que generar uno
