@@ -4,7 +4,7 @@
 // episodio actual (misma frontera estricta que doneActual).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ROM_CATALOGO, ROM_MAX, romMov, romNormalizar, romLeerItems, romPct, romTexto, ultimaMedicion } from '../js/rom.js';
+import { ROM_CATALOGO, ROM_MAX, romMov, romNormalizar, romLeerItems, romPct, romTexto, romTablaFilas, ultimaMedicion } from '../js/rom.js';
 
 const it_ = (j, m, l, v) => ({ j, m, l, v });
 
@@ -194,4 +194,41 @@ test('ultimaMedicion — ignora filas con rom inválido; null sin mediciones', (
   assert.equal(ultimaMedicion({ log: [fila('2026-08-01', '09:00:00', 'Fisioterapia', null)] }), null);
   assert.equal(ultimaMedicion({}), null);
   assert.equal(ultimaMedicion(null), null);
+});
+
+// ── romTablaFilas (ROM-2a: tabla de goniometría del PDF/Word) ─────────────────
+test('romTablaFilas — par D/I en una sola fila', () => {
+  const f = romTablaFilas([it_('hombro', 'flex', 'I', 120), it_('hombro', 'flex', 'D', 125)]);
+  assert.deepEqual(f, [{ articulacion: 'Hombro', movimiento: 'Flexión', medicion: 'D 125° · I 120°', normal: '180°' }]);
+});
+
+test('romTablaFilas — falta un lado → —', () => {
+  assert.equal(romTablaFilas([it_('rodilla', 'flex', 'D', 100)])[0].medicion, 'D 100° · I —');
+  assert.equal(romTablaFilas([it_('rodilla', 'flex', 'I', 90)])[0].medicion, 'D — · I 90°');
+});
+
+test('romTablaFilas — columna sin lados y Schober en cm', () => {
+  const f = romTablaFilas([it_('cervical', 'flex', null, 30), it_('dorsolumbar', 'schober', null, 3.5)]);
+  assert.deepEqual(f, [
+    { articulacion: 'Columna cervical', movimiento: 'Flexión', medicion: '30°', normal: '45°' },
+    { articulacion: 'Columna dorsolumbar', movimiento: 'Test de Schober', medicion: '3.5 cm', normal: '≥4 cm' },
+  ]);
+});
+
+test('romTablaFilas — null / [] / basura → []', () => {
+  assert.deepEqual(romTablaFilas(null), []);
+  assert.deepEqual(romTablaFilas(undefined), []);
+  assert.deepEqual(romTablaFilas([]), []);
+  assert.deepEqual(romTablaFilas('x'), []);
+  assert.deepEqual(romTablaFilas([null, 5, { j: 'hombro', m: 'flex', l: 'X', v: 1 }, it_('hombro', 'flex', 'D', 999)]), []);
+});
+
+test('romTablaFilas — orden de catálogo (articulación y movimiento), sin importar el de entrada', () => {
+  const f = romTablaFilas([
+    it_('tobillo', 'dorsiflex', 'D', 10), it_('hombro', 'abd', 'I', 90), it_('cervical', 'rot_i', null, 50),
+    it_('hombro', 'flex', 'D', 150), it_('tobillo', 'plantiflex', 'I', 40),
+  ]);
+  assert.deepEqual(f.map(x => x.articulacion + '/' + x.movimiento), [
+    'Columna cervical/Rotación izq.', 'Hombro/Flexión', 'Hombro/Abducción', 'Tobillo/Plantiflexión', 'Tobillo/Dorsiflexión',
+  ]);
 });

@@ -1,6 +1,39 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-10-01
+> Generado: 2026-05-18 · Última actualización: 2026-10-02
+
+---
+
+## 📍 Estado al 2026-10-02 — ROM-2a en revisión (rama, NO en `main`)
+
+**ROM-2a hecho en la rama `fix/rom-2a-gonio-export`** (desde `9134da2`, un commit), pendiente de
+revisión y merge. `main` sigue como en el bloque del 2026-10-01. **470 → 475 pruebas / 0 fail**;
+`npx vite build` sin errores. Ver «🗓️ Sesión 2026-10-02» abajo.
+
+**ROM-2 queda reducido a:** tabla de **evolución inicial → última → normal** (informe, PDF, Word)
++ goniometría en el **contexto de la IA** (`ia.js`). La goniometría de la evaluación inicial ya sale
+en el PDF y el Word con ROM-2a.
+
+---
+
+## 🗓️ Sesión 2026-10-02 — LOTE ROM-2a: goniometría de la Evaluación inicial en PDF y Word (rama `fix/rom-2a-gonio-export`). Sin SQL.
+
+Urgente: un terapeuta exportó el PDF de un paciente con 54 medidas y no salió ninguna — el
+render-model (`_buildRenderModel`) solo llevaba fecha/pb/partes de la evaluación inicial.
+- **`romTablaFilas(rom)`** (pura, `js/rom.js`): pasa por `romNormalizar` (null → `[]`), una fila
+  por (articulación, movimiento) en orden de catálogo; con lados `"D 125° · I 120°"` (lado faltante
+  `—`), sin lados `"30°"` / Schober `"3 cm"`; `normal` = `romNormalTexto`. Sin %.
+- **Modelo:** `evalInicial.rom = romNormalizar(evalRow.rom)`. Los snapshots guardados antes no
+  traen `rom` → no se agrega nada (retrocompatible).
+- **PDF:** subtítulo «Goniometría (AAOS)» + tabla Articulación | Movimiento | Medición | Normal con
+  los estilos de la tabla de sesiones, **fuera del `.keep`** de la evaluación (se parte entre
+  páginas; `thead` se repite). Todo por `esc()`.
+- **Word:** después de la caja de Evaluación inicial, subtítulo (estilo `SubtituloNarr`) + tabla de 4
+  columnas con el tratamiento de «Detalle por sesión» (sin bordes, filas pares `F6F4EF`) y fila de
+  encabezado `tableHeader` que se repite al partir página. Smoke en node: el .docx sale con la tabla.
+- Tests: +5 en `test/rom.test.js` (par D/I, un lado, columna sin lados, Schober en cm,
+  null/[]/basura, orden de catálogo).
+- **No se tocó:** `ia.js`, la pantalla (`informes.js` vista de evaluación/sesiones), el editor, SQL.
 
 ---
 
@@ -23,6 +56,7 @@ modalidad nómina/porcentaje. Si se retoma, necesita nombre nuevo.
   Registradas Y · ⚠ Z sin registrar». Ver los hallazgos de datos de la sesión 2026-10-01: el ~30% de
   días atendidos sin sesión registrada es la causa principal del descuadre badge vs «Lleva X».
 - **ROM-2** — evolución de la goniometría (inicial → última → normal) en informe, Word e IA.
+  *(2026-10-02: la goniometría de la evaluación inicial ya sale en PDF/Word con ROM-2a.)*
 - **PULIR-1.**
 - **Respiratoria:** se define junto con el análisis de KALMED.
 

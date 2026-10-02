@@ -6,7 +6,7 @@ import { genSemanalAI, genMensualAI, genAnualAI, genPatientAI, getLastNarrative,
 import { hasPermission } from './permissions.js';
 import { LOGO_DATA_URI } from './pdf-logo.js';
 import { generarInformeWord } from './word.js';
-import { romTexto } from './rom.js';
+import { romTexto, romNormalizar, romTablaFilas } from './rom.js';
 
 export { genSemanalAI, genMensualAI, genAnualAI, genPatientAI };
 
@@ -832,7 +832,7 @@ function _buildRenderModel() {
       evaInicial:(fp&&fp.pb!=null)?fp.pb:null,
       evaActual:(lp&&lp.pa!=null)?lp.pa:null,
     },
-    evalInicial:evalRow?{fecha:evalRow.date,pb:evalRow.pb,partes:(evalRow.note||'').split(' | ').filter(Boolean)}:null,
+    evalInicial:evalRow?{fecha:evalRow.date,pb:evalRow.pb,partes:(evalRow.note||'').split(' | ').filter(Boolean),rom:romNormalizar(evalRow.rom)}:null,
     sesiones:tratRows.map(s=>({
       fecha:s.date,terapeuta:getTherapist(s.therapistId)?.name||'—',
       pb:s.pb,pa:s.pa,
@@ -895,6 +895,15 @@ function buildPdfHtml(m) {
       +'<div class="eval-sub">'+esc(dmy(m.evalInicial.fecha))+' · EVA '+(m.evalInicial.pb!=null?esc(m.evalInicial.pb):'—')+'/10</div>'
       +(partes.length?partes.map(x=>'<p class="eval-p">'+esc(limpiarParte(x))+'</p>').join(''):'<p class="eval-p mut">Sin detalle registrado</p>')
       +'</div>';
+    // Goniometría FUERA del .keep: con muchas medidas la tabla tiene que poder partirse entre páginas
+    // (thead se repite). Snapshots guardados antes de ROM-2a no traen rom → no se agrega nada.
+    const gonio=romTablaFilas(m.evalInicial.rom);
+    if(gonio.length){
+      evalBlock+='<h3 class="gonio">Goniometría (AAOS)</h3>'
+        +'<table><thead><tr><th>Articulación</th><th>Movimiento</th><th>Medición</th><th>Normal</th></tr></thead><tbody>'
+        +gonio.map(f=>'<tr><td class="nw">'+esc(f.articulacion)+'</td><td>'+esc(f.movimiento)+'</td><td class="nw">'+esc(f.medicion)+'</td><td class="nw mut">'+esc(f.normal)+'</td></tr>').join('')
+        +'</tbody></table>';
+    }
   }
 
   let filas='';
@@ -935,6 +944,7 @@ function buildPdfHtml(m) {
     +'.narr-sec{break-inside:avoid;page-break-inside:avoid}'
     +'.eval-sub{font-size:12px;font-weight:700;color:#1A1A1A;margin-bottom:6px}'
     +'.eval-p{font-size:11px;line-height:1.55;margin-bottom:3px}'
+    +'h3.gonio{font-size:11px;font-weight:700;color:#1A1A1A;margin:14px 0 4px;break-after:avoid;page-break-after:avoid}'
     +'table{width:100%;border-collapse:collapse;margin-top:4px}'
     +'thead{display:table-header-group}'
     +'tr{break-inside:avoid;page-break-inside:avoid}'

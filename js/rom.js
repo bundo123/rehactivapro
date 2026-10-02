@@ -123,6 +123,31 @@ export function romTexto(item) {
     + (pct != null ? ` (${pct}%)` : '');
 }
 
+// Filas para la tabla de goniometría del informe exportado (PDF y Word): una por (articulación,
+// movimiento) en orden de catálogo, con D e I juntos en la misma celda. Texto plano: quien lo pinte
+// en HTML lo pasa por esc(). Sin mediciones válidas → [].
+export function romTablaFilas(rom) {
+  const items = romNormalizar(rom);
+  if (!items) return [];
+  const filas = [];
+  const porMov = new Map();
+  for (const it of items) {            // ya vienen en orden de catálogo (romNormalizar)
+    const k = it.j + '|' + it.m;
+    if (!porMov.has(k)) { const f = { j: it.j, m: it.m, v: {} }; porMov.set(k, f); filas.push(f); }
+    porMov.get(k).v[it.l || '-'] = it.v;
+  }
+  return filas.map(f => {
+    const { art, mov } = romMov(f.j, f.m);
+    const txt = v => v == null ? '—' : romValorTexto(mov, v);
+    return {
+      articulacion: art.nombre,
+      movimiento: mov.nombre,
+      medicion: art.lados ? `D ${txt(f.v.D)} · I ${txt(f.v.I)}` : txt(f.v['-']),
+      normal: romNormalTexto(mov),
+    };
+  });
+}
+
 // Fila del log MÁS RECIENTE del episodio actual con mediciones válidas (incluye la Evaluación
 // inicial). Frontera estricta date > último 'Fin de episodio', igual que doneActual.
 export function ultimaMedicion(patient) {

@@ -21,6 +21,7 @@
 import { LOGO_DATA_URI } from './pdf-logo.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { dmy, CONFIG_CLINICA, limpiarParte } from './utils.js';
+import { romTablaFilas } from './rom.js';
 
 // Data URI (base64) → Uint8Array. ImageRun no acepta el string 'data:...' con cabecera: quiere los
 // bytes. atob es suficiente acá porque las imágenes (logo, gráfico EVA) ya vienen en base64.
@@ -226,6 +227,8 @@ export async function generarInformeWord(m) {
     const met = m.metricas || {};
     const ses = m.sesiones || [];
     const narr = m.narrativa;
+    const gonio = m.evalInicial ? romTablaFilas(m.evalInicial.rom) : [];
+    const GONIO_COLS = [3000, 3300, 2300, 1300];
 
     // Un solo formato de fecha en todo el documento (DD/MM/YYYY vía dmy) — la fecha de emisión se
     // calcula acá mismo en vez de usar m.fechaLarga (que viene pre-formateada en prosa larga).
@@ -467,6 +470,31 @@ export async function generarInformeWord(m) {
             });
           })(), new Paragraph({ spacing: { before: 0, after: 0, line: 240, lineRule: 'auto' }, children: [] })] : []),
 
+          // ── Goniometría de la evaluación inicial — mismo tratamiento que "Detalle por sesión"
+          // (sin bordes, filas pares F6F4EF) + fila de encabezado que se repite si parte página.
+          // Sin mediciones (o snapshot previo a ROM-2a) → no se agrega nada. ──
+          ...(gonio.length ? [
+            new Paragraph({ style: 'SubtituloNarr', keepNext: true, text: 'Goniometría (AAOS)' }),
+            new Table({
+              width: { size: 9900, type: WidthType.DXA },
+              columnWidths: GONIO_COLS,
+              borders: bordesInvisibles,
+              rows: [
+                new TableRow({ tableHeader: true, cantSplit: true, children: ['Articulación', 'Movimiento', 'Medición', 'Normal'].map((t, c) =>
+                  gonioCelda(c, [new Paragraph({ style: 'EtiquetaDato', text: t })], undefined)) }),
+                ...gonio.map((f, i) => {
+                  const shading = i % 2 === 1 ? { fill: PANEL_BG } : undefined;
+                  return new TableRow({ cantSplit: true, children: [
+                    gonioCelda(0, [new Paragraph({ style: 'ObsSesion', text: f.articulacion })], shading),
+                    gonioCelda(1, [new Paragraph({ style: 'ObsSesion', text: f.movimiento })], shading),
+                    gonioCelda(2, [new Paragraph({ style: 'ObsSesion', children: [new TextRun({ text: f.medicion, color: ACENTO })] })], shading),
+                    gonioCelda(3, [new Paragraph({ style: 'MetadatoSesion', spacing: { after: 0 }, text: f.normal })], shading),
+                  ] });
+                }),
+              ],
+            }),
+          ] : []),
+
           // ── Narrativa clínica — subtítulo (versalitas, ACENTO) + párrafo, repetido por cada
           // una de las subsecciones (Condición inicial / Evolución del tratamiento / Resultados
           // obtenidos / Recomendaciones). Sin bordes ni fondo. ──
@@ -576,6 +604,16 @@ export async function generarInformeWord(m) {
           children: [new Paragraph({ style: 'EvaSesion', children: [new TextRun({ text: evaTxt, font: SERIF, size: SZ.evaSesion, color: registrada ? ACENTO : VACIO })] })],
         }),
       ] });
+    }
+
+    // Celda de la tabla de goniometría: mismos márgenes laterales que "Detalle por sesión", más
+    // compacta en vertical (son muchas filas cortas).
+    function gonioCelda(c, children, shading) {
+      return new TableCell({
+        width: { size: GONIO_COLS[c], type: WidthType.DXA }, borders: bordesInvisibles, shading, verticalAlign: VerticalAlign.TOP,
+        margins: { top: 80, bottom: 80, left: 0, right: 140 },
+        children,
+      });
     }
 
     function piePagina() {
