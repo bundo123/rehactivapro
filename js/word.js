@@ -599,9 +599,15 @@ export async function generarInformeWord(m) {
           margins: { top: 180, bottom: 180, left: 0, right: 140 },
           children: [
             new Paragraph({ style: 'MetadatoSesion', text: meta }),
-            s.obs
-              ? new Paragraph({ style: 'ObsSesion', text: s.obs })
-              : new Paragraph({ style: 'ObsSesionVacia', text: obsTexto }),
+            // RESP-1: la sesión respiratoria lleva su nota SOAPIE (armada sin IA); la nota libre va
+            // debajo solo si existe, sin el texto de "vacía" (lo hecho ya está en la nota).
+            ...(s.soapie && s.soapie.length
+              ? [...s.soapie.map(l => new Paragraph({ style: 'ObsSesion', children: [
+                  new TextRun({ text: `${l.k}  `, bold: true }), new TextRun({ text: l.t })] })),
+                 ...(s.obs ? [new Paragraph({ style: 'ObsSesion', text: s.obs })] : [])]
+              : [s.obs
+                  ? new Paragraph({ style: 'ObsSesion', text: s.obs })
+                  : new Paragraph({ style: 'ObsSesionVacia', text: obsTexto })]),
           ],
         }),
         new TableCell({

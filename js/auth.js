@@ -3,6 +3,7 @@ import { state } from './state.js';
 import { fmtDate, fmtTime, normHour, mapTherapistRow, mapBlockRow, tipoSesion, validarPassNueva } from './utils.js';
 import { toastErr, toastOk } from './toast.js';
 import { romNormalizar } from './rom.js';
+import { soapNormalizar } from './soap.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -76,7 +77,7 @@ export async function loadAll(force=false) {
       diag:r.diag||'Sin diagnóstico',cie10:r.cie10||null,cie10Desc:r.cie10_desc||null,
       therapistId:r.therapist_id,doctorId:r.doctor_id,
       sessions:r.sessions||10,status:r.status||'active',protocolId:r.protocol_id||null,
-      log:(r.session_log||[]).map(s=>({id:s.id,date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null,rom:romNormalizar(s.rom)})),
+      log:(r.session_log||[]).map(s=>({id:s.id,date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null,rom:romNormalizar(s.rom),soap:soapNormalizar(s.soap)})),
       // done/pendientes NO se leen de columnas (vestigiales): derivan de session_log vía doneActual/pendientesActual.
       billing:{sesPerFactura:r.billing_ses_per_factura||5,
         facturas:cobData.filter(c=>c.patient_id===r.id).map(c=>({id:c.cobro_ref,n:c.n_sessions,fecha:c.date,estado:'cobrada'}))}

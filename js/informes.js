@@ -7,6 +7,7 @@ import { hasPermission } from './permissions.js';
 import { LOGO_DATA_URI } from './pdf-logo.js';
 import { generarInformeWord } from './word.js';
 import { romTexto, romNormalizar, romGrupos } from './rom.js';
+import { notaSoapie, resumenResp } from './soap.js';
 
 export { genSemanalAI, genMensualAI, genAnualAI, genPatientAI };
 
@@ -674,7 +675,8 @@ export function renderPatientReport() {
     const showAcc=canEdit||canDelete;
     tablaHtml=`<div style="margin-top:16px"><div class="rpt-sec-title">Detalle por sesión (${tratRows.length})</div>
       <div class="rpt-table-wrap"><table style="width:100%;border-collapse:collapse;margin-top:4px"><thead><tr>${thc('Fecha')}${thc('Terapeuta')}${thc('EVA','center')}${thc('Técnicas y observación')}${showAcc?thc('Acciones','center'):''}</tr></thead><tbody>`;
-    tratRows.forEach(s=>{
+    let prevResp=null;   // sesión respiratoria anterior (el Análisis de la nota compara contra ella)
+    tratRows.forEach((s,idx)=>{
       const eva=s.pb!=null?`${s.pb}→${s.pa!=null?s.pa:'?'}`:'—';
       // Color del EVA por mejora dentro de la sesión (verde si bajó el dolor, ámbar si no).
       const evaCol=(s.pb!=null&&s.pa!=null&&s.pa<s.pb)?'#17865f':'#BA7517';
@@ -682,7 +684,15 @@ export function renderPatientReport() {
       const thName=getTherapist(s.therapistId)?.name||'—';
       const td='padding:6px 8px 6px 0;border-top:1px solid rgba(0,0,0,.06);font-size:11px;vertical-align:top';
       const romLn=s.rom?`<div class="rom-obs">📐 ${esc(s.rom.map(romTexto).join(' · '))}</div>`:'';
-      const obs=([tec?`<b style="color:#1a1917">${esc(tec)}</b>`:null,s.note?esc(s.note):null].filter(Boolean).join(' — ')||(romLn?'':'—'))+romLn;
+      // RESP-1: resumen de la sesión respiratoria + nota SOAPIE armada sin IA (desplegable).
+      let respLn='';
+      if(s.soap){
+        const nota=notaSoapie(s,prevResp,{n:idx+1,total:epSessions||0});
+        respLn=`<div class="resp-obs">🫁 ${esc(resumenResp(s.soap))}</div>`
+          +(nota.length?`<details class="soapie"><summary>Nota SOAPIE</summary>${nota.map(l=>`<div><b>${l.k}</b> ${esc(l.t)}</div>`).join('')}</details>`:'');
+        if(s.soap.resp) prevResp=s;
+      }
+      const obs=([tec?`<b style="color:#1a1917">${esc(tec)}</b>`:null,s.note?esc(s.note):null].filter(Boolean).join(' — ')||(romLn||respLn?'':'—'))+romLn+respLn;
       let acc='';
       if(showAcc){
         const btn='font-size:10px;padding:3px 9px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;border:1px solid';
@@ -844,12 +854,15 @@ function _buildRenderModel() {
       evaActual:(lp&&lp.pa!=null)?lp.pa:null,
     },
     evalInicial:evalRow?{fecha:evalRow.date,pb:evalRow.pb,partes:(evalRow.note||'').split(' | ').filter(Boolean),rom:romNormalizar(evalRow.rom)}:null,
-    sesiones:tratRows.map(s=>({
-      fecha:s.date,terapeuta:getTherapist(s.therapistId)?.name||'—',
-      pb:s.pb,pa:s.pa,
-      tecnicas:(s.tags&&s.tags.length)?s.tags.join(', '):null,
-      obs:s.note||null,
-    })),
+    // soapie: nota SOAPIE de las sesiones respiratorias ([{k,t}]); los snapshots previos a RESP-1 no la traen.
+    sesiones:(()=>{let prev=null;return tratRows.map((s,i)=>{
+      const o={fecha:s.date,terapeuta:getTherapist(s.therapistId)?.name||'—',
+        pb:s.pb,pa:s.pa,
+        tecnicas:(s.tags&&s.tags.length)?s.tags.join(', '):null,
+        obs:s.note||null};
+      if(s.soap){const n=notaSoapie(s,prev,{n:i+1,total:epSessions||0});if(n.length)o.soapie=n;if(s.soap.resp)prev=s;}
+      return o;
+    });})(),
     evaChartImg:evaImg,
     // Narrativa IA ESTRUCTURADA ([{title,body}], compartida por ia.js): títulos en negrita y secciones separadas.
     narrativa:getLastNarrative(),
@@ -925,7 +938,9 @@ function buildPdfHtml(m) {
   let filas='';
   ses.forEach(function(s){
     const eva=s.pb!=null?s.pb+'→'+(s.pa!=null?s.pa:'?'):'—';
-    filas+='<tr><td class="nw">'+esc(dmy(s.fecha))+'</td><td class="nw">'+esc(s.terapeuta||'—')+'</td><td class="ctr">'+esc(eva)+'</td><td class="mut">'+(s.tecnicas?esc(s.tecnicas):'—')+'</td><td class="mut">'+(s.obs?esc(s.obs):'—')+'</td></tr>';
+    const soap=(s.soapie||[]).map(l=>'<div class="soap-l"><b>'+esc(l.k)+'</b> '+esc(l.t)+'</div>').join('');
+    const obsHtml=soap+(s.obs?(soap?'<div class="soap-l">'+esc(s.obs)+'</div>':esc(s.obs)):'');
+    filas+='<tr><td class="nw">'+esc(dmy(s.fecha))+'</td><td class="nw">'+esc(s.terapeuta||'—')+'</td><td class="ctr">'+esc(eva)+'</td><td class="mut">'+(s.tecnicas?esc(s.tecnicas):'—')+'</td><td class="mut">'+(obsHtml||'—')+'</td></tr>';
   });
   const tabla=ses.length
     ?'<table><thead><tr><th>Fecha</th><th>Terapeuta</th><th class="ctr">EVA (antes→después)</th><th>Técnicas</th><th>Observación</th></tr></thead><tbody>'+filas+'</tbody></table>'
@@ -960,6 +975,7 @@ function buildPdfHtml(m) {
     +'.narr-sec{break-inside:avoid;page-break-inside:avoid}'
     +'.eval-sub{font-size:12px;font-weight:700;color:#1A1A1A;margin-bottom:6px}'
     +'.eval-p{font-size:11px;line-height:1.55;margin-bottom:3px}'
+    +'.soap-l{margin-bottom:2px}.soap-l b{display:inline-block;width:12px;color:#1A1A1A}'
     +'h3.gonio{font-size:11px;font-weight:700;color:#1A1A1A;margin:14px 0 4px;break-after:avoid;page-break-after:avoid}'
     +'table.gonio{width:auto;min-width:60%}table.gonio tbody{break-inside:avoid;page-break-inside:avoid}'
     +'table.gonio td{padding:3px 8px}table.gonio th:first-child{min-width:220px}table.gonio th.ctr{min-width:80px}'

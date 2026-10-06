@@ -7,6 +7,7 @@ import { toastErr } from './toast.js';
 // de función exportadas, así que el binding ya está resuelto cuando se las llama.
 import { renderSemanal, renderMensual, renderAnual } from './informes.js';
 import { supa } from './supabase-client.js';
+import { resumenResp } from './soap.js';
 
 // formatHtml: opcional. Si se pasa, recibe el texto crudo de la IA y devuelve el HTML a inyectar
 // (usado por la narrativa del informe paciente para mostrar 2 párrafos bajo encabezados propios).
@@ -259,7 +260,9 @@ export function genPatientAI() {
     const eva=(s.pb!=null?s.pb:'?')+'→'+(s.pa!=null?s.pa:'?');
     const tec=(s.tags&&s.tags.length)?s.tags.join(', '):'sin técnicas registradas';
     const obs=s.note?s.note:'sin observación';
-    return `- ${s.date}: EVA ${eva}; técnicas: ${tec}; observación: ${obs}`;
+    // RESP-1: lo registrado en la sesión respiratoria (signos antes→después, O₂, secreciones, tolerancia).
+    const resp=s.soap?resumenResp(s.soap):'';
+    return `- ${s.date}: EVA ${eva}; técnicas: ${tec};${resp?` registro respiratorio: ${resp};`:''} observación: ${obs}`;
   }).join('\n'):'Sin sesiones de tratamiento registradas aún';
   const estado=p.status==='active'?'En tratamiento':p.status==='alta'?'Alta médica':'Inactivo';
   // PR-B: contexto del protocolo SOLO por link explícito (protocol_id), sin fallback por keyword (D3).

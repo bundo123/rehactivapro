@@ -26,6 +26,7 @@ App web de gestión clínica para fisioterapia (Quito, Ecuador). Dominio: rehact
 - done es PER-EPISODIO: se resetea a 0 al iniciar nuevo episodio.
 - Fin de episodio = fila en session_log con type='Fin de episodio'.
 - session_log.rom (jsonb): goniometría [{j,m,l,v}]; normales AAOS en js/rom.js, nunca en la DB; sin mediciones = null, nunca [] (CHECK 1..120). Toda lectura/escritura pasa por romNormalizar.
+- session_log.soap (jsonb, RESP-1): registro estructurado de la sesión respiratoria {v,llega,tol,inc,prox,casa,resp:{o2,sv,nomed,sec,med}}; técnicas en `tags`, dolor en pain_*; sin datos = null, nunca {} (CHECK). Toda lectura/escritura pasa por soapNormalizar (js/soap.js). La nota SOAPIE NO se guarda: notaSoapie() la arma sin IA. Fisio no manda `soap`.
 - therapists.modalidad: 'porcentaje' = sin turno ni extras; 'nomina' = turno start_h/end_h + sáb/dom siempre extra. Fuente: esPorcentaje/turnoDe/esExtra en utils.js.
 
 ## Decisiones cerradas

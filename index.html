@@ -869,6 +869,13 @@
     <select id="sess-therapist" style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:8px;padding:11px 13px;font-size:14px;color:#1a1a1a;font-family:inherit"></select>
   </div>
 
+  <!-- TIPO (solo en modo sesión manual: no hay cita de la cual heredarlo) -->
+  <div class="field" id="sess-type-field" style="margin-bottom:20px;display:none">
+    <label>Tipo de sesión</label>
+    <select id="sess-type-sel" style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:8px;padding:11px 13px;font-size:14px;color:#1a1a1a;font-family:inherit"></select>
+  </div>
+
+  <div id="sess-eva-wrap">
   <!-- EVA ANTES -->
   <div class="field" style="margin-bottom:20px">
     <label style="display:flex;justify-content:space-between;align-items:center">
@@ -890,8 +897,9 @@
     </div>
     <div style="display:flex;justify-content:space-between;font-size:11px;color:#7a7a76;margin-top:6px"><span>Sin dolor</span><span>Máximo dolor</span></div>
   </div>
+  </div>
 
-  <div class="field" style="margin-bottom:12px">
+  <div class="field" id="sess-tec-field" style="margin-bottom:12px">
     <label>Técnicas utilizadas <span style="color:#E24B4A">*</span></label>
     <div id="pro-tecnicas-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:8px"></div>
     <input type="hidden" id="sess-type" value="">
@@ -902,8 +910,11 @@
     <div id="sess-rom"></div>
   </details>
 
+  <!-- RESP-1: bloque de Terapia respiratoria (lo pinta js/soap.js) -->
+  <div id="sess-resp" style="display:none"></div>
+
   <div class="field" style="margin-bottom:12px">
-    <label>¿Qué se realizó en la sesión? <span style="color:#E24B4A">*</span></label>
+    <label><span id="sess-note-lbl-fisio">¿Qué se realizó en la sesión? <span style="color:#E24B4A">*</span></span><span id="sess-note-lbl-resp" style="display:none">Nota <span style="font-weight:400;color:#9c9a92">(opcional)</span></span></label>
     <textarea id="sess-note" rows="3" placeholder="Ej: Se aplicó masaje descontracturante en zona lumbar, electroterapia 10min, ejercicios de estabilización core..." style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:8px;padding:11px 13px;font-size:14px;min-height:64px;color:#1a1a1a;font-family:inherit;resize:vertical;line-height:1.45"></textarea>
   </div>
 

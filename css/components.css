@@ -155,7 +155,49 @@
 .rom-view-table td:first-child{text-align:left;padding-left:0;white-space:normal}
 .rom-view-art th{text-align:left;font-weight:700;color:#1a1917;padding:6px 0 1px}
 .rom-obs{margin-top:3px;color:#3a3a36}
+/* ── RESP-1: bloque de Terapia respiratoria en el modal de sesión (js/soap.js) ── */
+.resp{display:flex;flex-direction:column;gap:14px;margin-bottom:14px}
+.resp [hidden]{display:none!important}
+.resp-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.resp-titulo{font-size:11px;font-weight:700;color:var(--rh-blue-dd);text-transform:uppercase;letter-spacing:.06em}
+.resp-copiar{min-height:44px;padding:6px 14px;border-radius:99px;border:1.5px dashed var(--rh-blue);background:#fff;color:var(--rh-blue-dd);font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer}
+.resp-sec{border-radius:9px;transition:background .2s,box-shadow .2s}
+.resp-sec--falta{background:rgba(226,75,74,.05);box-shadow:0 0 0 1.5px var(--rh-red);padding:8px}
+.resp-lbl{font-size:12px;font-weight:600;color:#3a3a36;margin-bottom:6px}
+.resp-lbl .req{color:var(--rh-red)}
+.resp-hint{font-weight:400;color:#9c9a92;font-size:11px}
+.resp-chips{display:flex;flex-wrap:wrap;gap:6px}
+.resp-chips+.resp-chips{margin-top:6px}
+.resp-chip{min-height:44px;padding:6px 13px;border-radius:99px;border:1.5px solid var(--rh-blue-border);background:#fff;color:#5a5a56;font-size:12.5px;font-weight:500;font-family:inherit;cursor:pointer;line-height:1.2}
+.resp-chip[aria-pressed="true"]{border-color:rgba(29,158,117,.55);background:rgba(29,158,117,.15);color:#17865f;font-weight:600}
+.resp-sv{width:100%;border-collapse:collapse;table-layout:fixed}
+.resp-sv th,.resp-sv td{padding:3px 4px;text-align:left;vertical-align:middle}
+.resp-sv thead th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9c9a92;font-weight:600}
+.resp-sv thead th:first-child{width:38%}
+.resp-sv tbody th{font-size:12.5px;font-weight:500;color:#3a3a36}
+.resp-sv small{color:#9c9a92;font-weight:400}
+.resp-in{width:100%;min-height:44px;font-size:15px;padding:6px 9px;border:1px solid var(--rh-blue-border);border-radius:8px;background:var(--rh-cream2);color:#1a1917;font-family:inherit;outline:none}
+.resp-in:focus,.resp-txt:focus{border-color:var(--rh-blue)}
+.resp-in::placeholder{color:#a8a69e;font-size:12px}
+.resp-in:disabled{opacity:.45}
+.resp-o2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.resp-lpm{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#5a5a56}
+.resp-lpm .resp-in{width:80px}
+.resp-nomed{display:flex;align-items:center;gap:8px;min-height:44px;font-size:12px;color:#5a5a56;cursor:pointer}
+.resp-txt{width:100%;min-height:44px;margin-top:6px;font-size:14px;padding:9px 11px;border:1px solid var(--rh-blue-border);border-radius:8px;background:var(--rh-cream2);color:#1a1917;font-family:inherit;outline:none}
+.resp-med{border:1px solid var(--rh-blue-border);border-radius:9px;background:var(--rh-cream2)}
+.resp-med>summary{cursor:pointer;padding:11px 13px;min-height:44px;font-size:13px;font-weight:600;color:var(--rh-blue-dd)}
+.resp-med>div{padding:0 12px 12px}
+.resp-dosis{display:grid;grid-template-columns:1fr 1.3fr;align-items:center;gap:8px;margin-top:6px;font-size:12px;color:#3a3a36}
+.resp-dosis .resp-txt{margin-top:0}
+/* Informe: resumen y nota SOAPIE de la sesión respiratoria */
+.resp-obs{margin-top:3px;color:var(--rh-blue-dd)}
+details.soapie{margin-top:3px}
+details.soapie>summary{cursor:pointer;font-size:10.5px;font-weight:700;color:var(--rh-blue-dd);padding:4px 0}
+details.soapie div{font-size:11px;line-height:1.5;color:#3a3a36;margin:1px 0}
+details.soapie b{display:inline-block;width:14px;color:#1a1917}
 @media (max-width:768px){
+  .resp-in,.resp-txt{font-size:16px}    /* iOS no hace zoom al enfocar con ≥16px */
   .rom-input{font-size:16px}            /* iOS no hace zoom al enfocar con ≥16px */
   .rom-table thead th:nth-child(1){width:34%}
   .rom-table th,.rom-table td{padding:4px 2px}
