@@ -1,6 +1,58 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-10-02
+> Generado: 2026-05-18 · Última actualización: 2026-10-06
+
+---
+
+## 📍 Estado al 2026-10-06 — dónde quedó todo
+
+**En producción y VERIFICADO.** El código en `main` es `4702ccd` (LOTE RESP-1, fast-forward sobre
+`c7882a9`); encima va solo el commit de docs de este cierre. SQL `soap_session_log.sql` **aplicado**
+en Supabase antes del merge (columna `session_log.soap` + `session_log_soap_chk`, verificados).
+Deploy de Vercel en **verde** para `4702ccd` (commit-status `success`) y lo servido en
+`rehactivaec.com` es lo compilado: los hashes coinciden (`index-CK8-TXvf.js`, `index-Dpp9u7pc.css`)
+y el bundle servido contiene «Igual que la última». **497 pruebas / 0 fail**; `npx vite build` sin
+errores. Rama `revision-resp-1` borrada (local y remoto).
+
+**Pendiente para que lo usen:** hoy no hay terapeutas con especialidad Respiratoria ni citas de tipo
+«Terapia respiratoria» en producción (verificado). Marcar a las terapeutas y agendar. Validar con
+ellas el catálogo v1 de técnicas (16) y medicamentos (6) de `js/soap.js`.
+
+---
+
+## 🗓️ Sesión 2026-10-06 — Análisis Kalmed + LOTE RESP-1: registro de terapia respiratoria (`4702ccd`, en `main`). Con SQL.
+
+**Análisis (sin código):** panel de lectores (aseguradora, paciente/familia, médico) sobre un informe
+real de Kalmed y el nuestro, más SOAPIE, contexto clínico y chat interno, con verificación de normas
+con fuentes → `ANALISIS_KALMED.md` (sin datos personales; no versionado). Datos de producción
+(solo lectura, agregados): 0 citas/sesiones respiratorias, 8 terapeutas todos `fisica`, todas las
+filas de `session_log` con status `asistió` (la continuidad del informe sale 100 % por
+construcción), EVA 5→5 en el 29 % de las evaluaciones iniciales (valor por defecto).
+
+**RESP-1** — cuando la cita es «Terapia respiratoria», el mismo modal de sesión muestra el bloque de
+`js/soap.js` en vez del EVA en botones, las técnicas de fisio y la goniometría:
+- Una pantalla, chips: cómo llega (S), signos antes/después SatO₂·FC·FR·Borg + EVA, oxígeno (aire
+  ambiente o L/min), «no se pudieron tomar» + motivo, técnicas respiratorias (en `tags`),
+  secreciones (cantidad/aspecto), medicación con dosis (opcional), tolerancia (+ qué pasó si
+  regular/mala), próxima sesión, para casa. Nota libre opcional.
+- «Igual que la última» copia técnicas, O₂, medicación y casa de la sesión respiratoria anterior
+  del episodio; lo observado nunca se copia (placeholders «últ. N»).
+- Obligatorio: cómo llega, ≥1 signo o motivo, ≥1 técnica, tolerancia, próxima. Valores imposibles
+  y fármaco sin dosis bloquean el guardado (no se pierden en silencio).
+- `session_log.soap` jsonb (`soapNormalizar` al leer y escribir, null nunca {}). Fisio NO manda
+  `soap`. EVA respiratorio arranca en null (no medido).
+- `notaSoapie()` arma la nota sin IA (O = al llegar, E = al terminar, A = solo comparaciones
+  calculadas y avisos): pantalla (desplegable), PDF y Word. La IA del informe recibe `resumenResp`.
+- Sesión manual: selector de tipo (default = tipo de la última sesión).
+- 21 pruebas nuevas (`test/soap.test.js`): 476 → 497. Probado en navegador (vista móvil, datos
+  ficticios, sin guardar).
+- **No se tocó:** fisioterapia, goniometría, CTX, `audit_log`.
+
+**Siguiente (propuesto):** CTX-1b (la IA mezcla episodios, `ia.js:252`) · MET-1 (continuidad real,
+EVA «no medido» en fisio) · RESP-2 (evaluación inicial respiratoria: mMRC, CAT, 6MWT, objetivo de
+SatO₂ por paciente) · bloque «Resumen para el médico».
+
+Auditoría posterior (chat de planificación): 497 pruebas / 0 fail; build OK; SQL soap verificado en producción (columna + session_log_soap_chk); lo servido en www.rehactivaec.com = main 4702ccd, 12/12 archivos idénticos byte a byte. Conteos reales: 330 pacientes, 8 terapeutas (8/8 'fisica'), 0 citas 'Terapia respiratoria'.
 
 ---
 
