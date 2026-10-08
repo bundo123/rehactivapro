@@ -831,6 +831,46 @@ export function doneActual(p) {
   return doneEnLog((p.log || []).filter(s => !lastFin || s.date > lastFin));
 }
 
+// CTX-1b: recorte de session_log al episodio elegido en #patient-rpt-episode ('current' | 'ep_N').
+// Fuente única para el informe en pantalla/PDF/Word (renderPatientReport) y para la narrativa de
+// la IA (genPatientAI). Frontera por marcador 'Fin de episodio': el episodio N va de
+// (finMarkers[N-1].date, finMarkers[N].date] — la fecha del marcador queda en el episodio que cierra.
+// En un episodio cerrado, diagnóstico y sesiones prescritas salen de la nota del marcador.
+// Ojo: el split es ' ·' (no ' · ' como parseFinNote) y el fallback es p.diag — se conserva tal
+// cual lo que ya mostraba el informe.
+export function logDeEpisodio(p, epVal) {
+  const fullLog = (p?.log || []).filter(s => s && s.date);
+  const finMarkers = fullLog.filter(s => s.type === 'Fin de episodio').sort((a, b) => a.date > b.date ? 1 : -1);
+  const esActual = epVal === 'current' || finMarkers.length === 0;
+  let log, epDiag = p?.diag, epSessions = p?.sessions, epDone = doneActual(p);
+  if (esActual) {
+    const lastFin = finMarkers.slice(-1)[0];
+    log = lastFin ? fullLog.filter(s => s.date > lastFin.date && s.type !== 'Fin de episodio') : fullLog.filter(s => s.type !== 'Fin de episodio');
+  } else {
+    const epIdx = parseInt(String(epVal).replace('ep_', ''));
+    const finStart = epIdx > 0 ? finMarkers[epIdx - 1] : null;
+    const finEnd = finMarkers[epIdx];
+    log = fullLog.filter(s => {
+      if (s.type === 'Fin de episodio') return false;
+      if (finStart && s.date <= finStart.date) return false;
+      if (finEnd && s.date > finEnd.date) return false;
+      return true;
+    });
+    if (finEnd && finEnd.note) {
+      epDiag = finEnd.note.split('Episodio anterior: ')[1]?.split(' ·')[0] || p.diag;
+      const sesStr = finEnd.note.match(/(\d+) sesiones/);
+      epSessions = sesStr ? parseInt(sesStr[1]) : p.sessions;
+      // R-2: la 'Evaluación inicial' no es una sesión de tratamiento. Contarla daba "11 de 10 · 110%"
+      // en el informe del episodio pasado. Misma regla que doneActual.
+      epDone = doneEnLog(log);
+    }
+  }
+  // Orden cronológico por fecha (estable para empates) — necesario para que las sesiones
+  // retroactivas/manuales aparezcan en su posición correcta en el gráfico EVA, el detalle y las métricas.
+  log = [...log].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  return { log, epDiag, epSessions, epDone, esActual };
+}
+
 // Sesiones del episodio actual pendientes de cobro. Función pura, derivada.
 // = max(0, doneActual − sesiones ya cobradas en el episodio actual).
 // "Cobradas del episodio" = facturas cuya fecha cae después del último 'Fin de episodio'.

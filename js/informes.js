@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, doneEnLog, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber, ctxEstado } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, logDeEpisodio, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber, ctxEstado } from './utils.js';
 import { apptSlots } from './agenda.js';
 import { genSemanalAI, genMensualAI, genAnualAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasPermission } from './permissions.js';
@@ -574,34 +574,9 @@ export function renderPatientReport() {
   const out=document.getElementById('patient-report-content');
   if(!p){out.innerHTML='<div style="color:#6b6a64;padding:20px;text-align:center">Selecciona un paciente del buscador</div>';return;}
   const epVal=document.getElementById('patient-rpt-episode')?.value||'current';
-  const fullLog=(p.log||[]).filter(s=>s&&s.date);
-  const finMarkers=fullLog.filter(s=>s.type==='Fin de episodio').sort((a,b)=>a.date>b.date?1:-1);
-  let log,epDiag=p.diag,epSessions=p.sessions,epDone=doneActual(p);
-  if(epVal==='current'||finMarkers.length===0){
-    const lastFin=finMarkers.slice(-1)[0];
-    log=lastFin?fullLog.filter(s=>s.date>lastFin.date&&s.type!=='Fin de episodio'):fullLog.filter(s=>s.type!=='Fin de episodio');
-  } else {
-    const epIdx=parseInt(epVal.replace('ep_',''));
-    const finStart=epIdx>0?finMarkers[epIdx-1]:null;
-    const finEnd=finMarkers[epIdx];
-    log=fullLog.filter(s=>{
-      if(s.type==='Fin de episodio')return false;
-      if(finStart&&s.date<=finStart.date)return false;
-      if(finEnd&&s.date>finEnd.date)return false;
-      return true;
-    });
-    if(finEnd&&finEnd.note){
-      epDiag=finEnd.note.split('Episodio anterior: ')[1]?.split(' ·')[0]||p.diag;
-      const sesStr=finEnd.note.match(/(\d+) sesiones/);
-      epSessions=sesStr?parseInt(sesStr[1]):p.sessions;
-      // R-2: la 'Evaluación inicial' no es una sesión de tratamiento. Contarla daba "11 de 10 · 110%"
-      // en el informe del episodio pasado. Misma regla que doneActual (fuente única, utils.js).
-      epDone=doneEnLog(log);
-    }
-  }
-  // Orden cronológico por fecha (estable para empates) — necesario para que las sesiones
-  // retroactivas/manuales aparezcan en su posición correcta en el gráfico EVA, el detalle y las métricas.
-  log=[...log].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  // CTX-1b: recorte por episodio (log ordenado, diagnóstico/sesiones del episodio) — fuente única
+  // compartida con la narrativa de la IA (genPatientAI).
+  const {log,epDiag,epSessions,epDone}=logDeEpisodio(p,epVal);
   const isCurrentEpisode=epVal==='current';
   // El CIE-10 es del paciente HOY: se agrega solo al episodio actual. En un episodio cerrado el
   // diagnóstico que se muestra es el de entonces, y etiquetarlo con el código de ahora mentiría.
