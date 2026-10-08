@@ -501,7 +501,7 @@ export function initPatientValidation() {
 
 // ── EVALUACIÓN INICIAL ──
 let _evalPatientId = null;
-let _evEvaVal = 5;
+let _evEvaVal = null;   // MET-1: null = sin medir (nunca un 5 por defecto)
 
 export function openEvalInicial(patientId) {
   if(!hasPermission('evalInicial')){toastErr('No tienes permisos para registrar evaluaciones.');return;}
@@ -523,13 +523,15 @@ export function openEvalInicial(patientId) {
   const _evNew=document.getElementById('ev-new-diag-btn');
   if(_evNew) _evNew.style.display=hasPermission('createProtocol')?'':'none';
   setCie10Ev(patientId);
-  _evEvaVal=5; renderEvEva();
+  _evEvaVal=null; renderEvEva();
   renderRomEditor('ev-rom',{});   // goniometría limpia: la evaluación es el punto de partida
   document.getElementById('eval-modal').classList.add('open');
 }
 
 export function renderEvEva() {
   const container=document.getElementById('ev-eva-btns');if(!container)return;
+  const lbl=document.getElementById('ev-eva-lbl'); if(lbl) lbl.textContent=_evEvaVal==null?'Sin medir':_evEvaVal+'/10';
+  const hid=document.getElementById('ev-eva-val'); if(hid) hid.value=_evEvaVal==null?'':_evEvaVal;
   const colors=['#22c55e','#4ade80','#86efac','#a3e635','#facc15','#fb923c','#f97316','#ef4444','#dc2626','#b91c1c','#991b1b'];
   container.innerHTML='';
   for(let i=0;i<=10;i++){
@@ -540,7 +542,8 @@ export function renderEvEva() {
       +'border:2px solid '+(active?colors[i]:'transparent')+';'
       +'background:'+(active?colors[i]+'33':'#1a1917')+';'
       +'color:'+(active?colors[i]:'#6b6a64');
-    btn.onclick=()=>{_evEvaVal=i;document.getElementById('ev-eva-val').value=i;renderEvEva();};
+    // Tocar el número ya marcado lo desmarca (vuelve a "Sin medir"): el EVA no es obligatorio.
+    btn.onclick=()=>{_evEvaVal=active?null:i;renderEvEva();};
     container.appendChild(btn);
   }
 }
@@ -568,7 +571,7 @@ export async function saveEvalInicial() {
     document.querySelector('input[name="ev-pedido"]:checked')?.value==='si'?'Pedido médico: SÍ':'',
     document.getElementById('ev-notas').value||''
   ].filter(Boolean).join(' | ');
-  const eva=_evEvaVal;
+  const eva=_evEvaVal;   // null si no se marcó → pain_before/pain_after = null (sin medir)
   const {data:ins,error}=await supa.from('session_log').insert({
     patient_id:_evalPatientId,date:fmtDate(new Date()),type:'Evaluación inicial',
     hour:'00:00',status:'asistió',pain_before:eva,pain_after:eva,

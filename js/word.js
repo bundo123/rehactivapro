@@ -20,7 +20,7 @@
 // al bundle inicial — solo la baja quien exporta un informe a Word.
 import { LOGO_DATA_URI } from './pdf-logo.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
-import { dmy, CONFIG_CLINICA, limpiarParte } from './utils.js';
+import { dmy, CONFIG_CLINICA, limpiarParte, inicioDesdeEval, rotuloDolorInicial, textoCitas } from './utils.js';
 import { romGrupos } from './rom.js';
 
 // Data URI (base64) → Uint8Array. ImageRun no acepta el string 'data:...' con cabecera: quiere los
@@ -81,7 +81,7 @@ function buildEvaSvgWord(m) {
   const startVal = met.evaInicial != null ? met.evaInicial : (rows.find(s => s.pb != null || s.pa != null)?.pb ?? null);
   if (startVal == null) return '';
 
-  const pts = [{ v: startVal, lbl: m.evalInicial ? 'Eval. inicial' : 'Inicio', hollow: false }];
+  const pts = [{ v: startVal, lbl: rotuloDolorInicial(inicioDesdeEval(m) ? 'eval' : 'sesion'), hollow: false }];
   let last = startVal;
   rows.forEach((s, i) => {
     const real = s.pb != null || s.pa != null;
@@ -414,10 +414,18 @@ export async function generarInformeWord(m) {
                 new TextRun({ text: `${met.done ?? 0}`, font: SERIF, size: SZ.cifraPanel, color: ACENTO }),
                 new TextRun({ text: ` / ${met.sessions ?? 0}`, font: SERIF, size: SZ.cifraPanelSec, color: FADED }),
               ], `sesiones · ${met.pct ?? 0}% del plan`),
-              panelCelda([
-                new TextRun({ text: `${met.adh ?? 0}`, font: SERIF, size: SZ.cifraPanel, color: ACENTO }),
-                new TextRun({ text: '%', font: SERIF, size: SZ.cifraPanelSec, color: FADED }),
-              ], `continuidad · ${met.asistidas ?? 0} de ${met.totalCitas ?? 0} citas`),
+              // MET-1: adh null (sin citas decididas) → '—', nunca un 0 % inventado. Un snapshot
+              // viejo (sin `faltas`) sale igual que antes.
+              met.faltas !== undefined && met.adh == null
+                ? panelCelda([
+                  new TextRun({ text: '—', font: SERIF, size: SZ.cifraPanel, color: VACIO }),
+                ], 'continuidad · sin citas pasadas')
+                : panelCelda([
+                  new TextRun({ text: `${met.adh ?? 0}`, font: SERIF, size: SZ.cifraPanel, color: ACENTO }),
+                  new TextRun({ text: '%', font: SERIF, size: SZ.cifraPanelSec, color: FADED }),
+                ], met.faltas === undefined
+                  ? `continuidad · ${met.asistidas ?? 0} de ${met.totalCitas ?? 0} citas`
+                  : `continuidad · ${textoCitas(met.asistidas, met.totalCitas, met.faltas)}`),
               panelCelda([
                 new TextRun({ text: evaFig, font: SERIF, size: SZ.cifraPanel, color: met.evaHas ? ACENTO : VACIO }),
               ], evaSub),
@@ -519,7 +527,7 @@ export async function generarInformeWord(m) {
             let carryEva = met.evaInicial;
             const filas = ses.map((s, i) => {
               const row = filaSesion(s, i, carryEva);
-              if (s.pb != null) carryEva = s.pa != null ? s.pa : s.pb;
+              if (s.pb != null || s.pa != null) carryEva = s.pa != null ? s.pa : s.pb;
               return row;
             });
             return new Table({
@@ -582,8 +590,11 @@ export async function generarInformeWord(m) {
       const par = n % 2 === 0;
       const shading = par ? { fill: PANEL_BG } : undefined;
       const meta = [dmy(s.fecha), s.terapeuta || null, s.tecnicas ? s.tecnicas.toLowerCase() : null].filter(Boolean).join(' · ');
-      const registrada = s.pb != null;
-      const evaTxt = registrada ? `${s.pb} → ${s.pa != null ? s.pa : '?'}` : (carryEva != null ? `${carryEva} → —` : '—');
+      // MET-1: con EVA "sin medir" puede haber solo el después ("— → 3"): es un dato real, no se oculta.
+      const registrada = s.pb != null || s.pa != null;
+      const evaTxt = s.pb != null ? `${s.pb} → ${s.pa != null ? s.pa : '?'}`
+        : s.pa != null ? `— → ${s.pa}`
+        : (carryEva != null ? `${carryEva} → —` : '—');
       // Sin observación: el texto depende de si HAY técnicas registradas o no — una sesión con
       // técnicas (ej. "kinesiotape, electroterapia") pero sin nota no es lo mismo que una sesión
       // sin ningún dato. La frase larga es solo para el caso "nada registrado".

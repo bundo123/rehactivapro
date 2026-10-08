@@ -1,7 +1,8 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, logDeEpisodio, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber, ctxEstado } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, logDeEpisodio, dolorInicial, rotuloDolorInicial, textoCitas, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber, ctxEstado } from './utils.js';
 import { apptSlots } from './agenda.js';
+import { citasDeEpisodio } from './historial-calc.js';
 import { genSemanalAI, genMensualAI, genAnualAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasPermission } from './permissions.js';
 import { LOGO_DATA_URI } from './pdf-logo.js';
@@ -585,12 +586,16 @@ export function renderPatientReport() {
   const th=getTherapist(p.therapistId);
   const doc=p.doctorId?getDoctor(p.doctorId):null;
   const attended=log.filter(s=>s.status==='asistió');
-  // Solo sesiones de TRATAMIENTO para EVA (fp/lp/gráfico): la 'Evaluación inicial' no es una sesión
+  // Solo sesiones de TRATAMIENTO para EVA (dolor inicial/lp/gráfico): la 'Evaluación inicial' no es una sesión
   // y, si se carga con fecha posterior a las sesiones, distorsionaría la curva y el "dolor actual".
   const attendedTrat=attended.filter(s=>s.type!=='Evaluación inicial');
-  const adh=log.length>0?Math.round(attended.length/log.length*100):0;
+  // MET-1: continuidad REAL desde la agenda — asistidas sobre citas ya decididas (conf+noas) del
+  // episodio, hasta hoy. Antes era asistió/filas de session_log, que es 100 % por construcción.
+  // null = sin citas decididas → '—' (nunca un 0 % ni un 100 % inventado).
+  const rc=resumenCitas(hastaHoy(citasDeEpisodio(state.appointments,p,epVal),new Date()));
+  const adh=rc.continuidad, asistidas=rc.conf, faltas=rc.noas, totalCitas=rc.conf+rc.noas;
   const pct=epSessions>0?Math.round(epDone/epSessions*100):0;
-  const lp=attendedTrat.slice(-1)[0];const fp=attendedTrat[0];
+  const lp=attendedTrat.slice(-1)[0];
   const citasConf=state.appointments.filter(a=>String(a.patientId)===String(p.id)&&a.status==='conf').length;
   const doneNow=doneActual(p);
   // Terapeuta(s) del episodio: modelo POR-SESIÓN (patient.therapistId no se usa en este app).
@@ -599,9 +604,11 @@ export function renderPatientReport() {
   const thHeader=epThIds.length===0?'—':epThIds.length===1?(getTherapist(epThIds[0])?.name||'—'):'Varios';
   const sesCompletas=doneNow>=(p.sessions||1)&&p.sessions>0;
   let sp='';
-  if(p.status==='alta'||sesCompletas) sp='<span class="pill pb">Alta médica</span>';
+  // MET-1: completar las sesiones del plan no es un alta médica — eso lo dice solo p.status.
+  if(p.status==='alta') sp='<span class="pill pb">Alta médica</span>';
+  else if(sesCompletas) sp='<span class="pill pa">Plan completado</span>';
   else if(citasConf>=1||doneNow>=1) sp='<span class="pill pg">En tratamiento</span>';
-  const ac=adh>=85?'#1D9E75':adh>=70?'#BA7517':'#E24B4A';
+  const ac=adh==null?'#7a7a76':adh>=85?'#1D9E75':adh>=70?'#BA7517':'#E24B4A';
   const avisoEpisodio=sesCompletas&&p.status!=='alta'
     ?`<div style="background:#fef3c7;border:1px solid rgba(186,117,23,.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
         <div><div style="font-size:12px;font-weight:600;color:#BA7517">✓ Tratamiento completado</div><div style="font-size:11px;color:#6b6a64;margin-top:2px">${esc(p.name)} completó sus ${p.sessions} sesiones. ¿Viene por algo nuevo?</div></div>
@@ -616,7 +623,10 @@ export function renderPatientReport() {
   const evaSes=attendedTrat.filter(s=>s.pb!=null);
   const prot=p.protocolId?state.protocols.find(x=>x.id===p.protocolId):null;
   const cellG=(lbl,val,span)=>`<div${span?` style="grid-column:span ${span}"`:''}><div class="rpt-lbl">${lbl}</div><div class="rpt-val">${esc(val)}</div></div>`;
-  const evaDelta=(fp&&lp&&fp.pb!=null&&lp.pa!=null)?lp.pa-fp.pb:null;
+  // MET-1: dolor inicial = EVA de la Evaluación inicial si se midió; si no, el primer "antes" medido.
+  const ini=dolorInicial(log.find(s=>s.type==='Evaluación inicial'),attendedTrat);
+  const evaHas=!!(ini&&lp);
+  const evaDelta=(evaHas&&lp.pa!=null)?lp.pa-ini.valor:null;
 
   // La 'Evaluación inicial' se muestra como bloque destacado ANTES de la tabla (punto de partida);
   // la tabla "Detalle por sesión" lista solo las sesiones de TRATAMIENTO, en orden ascendente.
@@ -652,7 +662,8 @@ export function renderPatientReport() {
       <div class="rpt-table-wrap"><table style="width:100%;border-collapse:collapse;margin-top:4px"><thead><tr>${thc('Fecha')}${thc('Terapeuta')}${thc('EVA','center')}${thc('Técnicas y observación')}${showAcc?thc('Acciones','center'):''}</tr></thead><tbody>`;
     let prevResp=null;   // sesión respiratoria anterior (el Análisis de la nota compara contra ella)
     tratRows.forEach((s,idx)=>{
-      const eva=s.pb!=null?`${s.pb}→${s.pa!=null?s.pa:'?'}`:'—';
+      // MET-1: con EVA "sin medir" puede haber solo el después: se muestra igual ("—→3"), no se pierde.
+      const eva=s.pb!=null?`${s.pb}→${s.pa!=null?s.pa:'?'}`:s.pa!=null?`—→${s.pa}`:'—';
       // Color del EVA por mejora dentro de la sesión (verde si bajó el dolor, ámbar si no).
       const evaCol=(s.pb!=null&&s.pa!=null&&s.pa<s.pb)?'#17865f':'#BA7517';
       const tec=(s.tags&&s.tags.length)?s.tags.join(', '):null;
@@ -710,10 +721,10 @@ export function renderPatientReport() {
           <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:#1d8fbf">${epDone}<span style="font-size:13px;color:#9c9a92">/${epSessions}</span></span><span style="font-size:11px;color:#7a7a76">${pct}% del plan</span></div>
           <div style="margin-top:6px;height:5px;background:#f0e8d8;border-radius:3px"><div style="width:${Math.min(pct,100)}%;height:5px;background:#29ABE2;border-radius:3px"></div></div></div>
         <div class="rpt-kpi"><div class="rpt-lbl">Continuidad</div>
-          <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:${ac}">${adh}%</span><span style="font-size:11px;color:#7a7a76">${attended.length} asistencias / ${log.length} citas</span></div>
-          <div style="font-size:10.5px;color:${adh>=85?'#17865f':'#a06a00'};margin-top:8px">${adh>=85?'✓ Sobre la meta (85%)':'Bajo la meta (85%)'}</div></div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:${ac}">${adh==null?'—':adh+'%'}</span><span style="font-size:11px;color:#7a7a76">${adh==null?'Aún sin citas pasadas':textoCitas(asistidas,totalCitas,faltas)}</span></div>
+          ${adh==null?'':`<div style="font-size:10.5px;color:${adh>=85?'#17865f':'#a06a00'};margin-top:8px">${adh>=85?'✓ Sobre la meta (85%)':'Bajo la meta (85%)'}</div>`}</div>
         <div class="rpt-kpi"><div class="rpt-lbl">Dolor EVA</div>
-          ${fp&&lp&&fp.pb!=null?`<div style="display:flex;align-items:center;gap:10px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:${evaColor(fp.pb)}">${fp.pb}</span><span style="color:#9c9a92">→</span><span style="font-size:22px;font-weight:700;color:${lp.pa!=null?evaColor(lp.pa):'#7a7a76'}">${lp.pa!=null?lp.pa:'?'}</span>${evaDelta!=null?`<span style="font-size:11px;color:#7a7a76;line-height:1.3">${evaDelta>0?'+':'−'}${Math.abs(evaDelta)} puntos<br>desde el inicio</span>`:''}</div>`:'<div style="font-size:13px;color:#7a7a76;padding:8px 0">Sin datos EVA</div>'}</div>
+          ${evaHas?`<div style="display:flex;align-items:center;gap:10px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:${evaColor(ini.valor)}">${ini.valor}</span><span style="color:#9c9a92">→</span><span style="font-size:22px;font-weight:700;color:${lp.pa!=null?evaColor(lp.pa):'#7a7a76'}">${lp.pa!=null?lp.pa:'?'}</span>${evaDelta!=null?`<span style="font-size:11px;color:#7a7a76;line-height:1.3">${evaDelta>0?'+':'−'}${Math.abs(evaDelta)} puntos<br>desde el inicio</span>`:''}</div>`:'<div style="font-size:13px;color:#7a7a76;padding:8px 0">Sin datos EVA</div>'}</div>
       </div>
       ${evaSes.length?`<div style="margin-top:16px"><div class="rpt-sec-title">Evolución del dolor (EVA)</div><canvas id="eva-evolution-chart" height="90" style="margin-top:8px"></canvas></div>`:''}
       ${evalBlockHtml}
@@ -754,7 +765,7 @@ export function renderPatientReport() {
   </div>`;
 
   out.innerHTML=html;
-  _rptCtx={p,log,attended,pct,adh,fp,lp,th,doc,epDiag,epDone,epSessions,inicio,rptNo,fechaLarga,thHeader,prot,cieRpt};
+  _rptCtx={p,log,pct,adh,asistidas,faltas,totalCitas,ini,evaHas,lp,th,doc,epDiag,epDone,epSessions,inicio,rptNo,fechaLarga,thHeader,prot,cieRpt};
   renderInformesGuardados();
 
   if(evaSes.length){
@@ -763,13 +774,13 @@ export function renderPatientReport() {
       Chart.getChart(ctx)?.destroy();   // destruir chart previo del mismo canvas (evita "Canvas already in use")
       const ddmm=d=>String(d||'').slice(8,10)+'/'+String(d||'').slice(5,7);
       // Línea ÚNICA consistente con la tarjeta "Dolor EVA inicial→actual":
-      // inicia en el dolor inicial (fp.pb) y termina en el dolor actual (lp.pa); en medio, el dolor tras cada sesión.
-      const startVal=(fp&&fp.pb!=null)?fp.pb:evaSes[0].pb;
+      // inicia en el dolor inicial (dolorInicial) y termina en el dolor actual (lp.pa); en medio, el dolor tras cada sesión.
+      const startVal=ini?ini.valor:evaSes[0].pb;
       const endVal=(lp&&lp.pa!=null)?lp.pa:evaSes[evaSes.length-1].pa;
       const mid=evaSes.map(s=>s.pa!=null?s.pa:s.pb);
       if(endVal!=null&&mid.length) mid[mid.length-1]=endVal;
       const evaData=[startVal,...mid];
-      const evaLabels=['Inicio',...evaSes.map(s=>ddmm(s.date))];
+      const evaLabels=[rotuloDolorInicial(ini?.fuente),...evaSes.map(s=>ddmm(s.date))];
       // Bandas de referencia alineadas con evaColor (:74): leve (0–3.5) / moderado (3.5–6.5) /
       // severo (6.5–10), para que cada punto caiga en la banda del color de su número. Alpha más
       // marcado (~.13-.16) para que el terapeuta las distinga, sin tapar la curva coral (2px saturada).
@@ -805,7 +816,7 @@ function gonioViewHtml(rom) {
 // Construye el render-model del PDF desde el informe en pantalla (_rptCtx + narrativa IA + canvas EVA).
 // Es el MISMO shape que se persiste como snapshot, para que el PDF guardado salga idéntico sin re-llamar a la IA.
 function _buildRenderModel() {
-  const {p,log,attended,pct,adh,fp,lp,doc,inicio,rptNo,fechaLarga,thHeader,prot,epDiag,epDone,epSessions,cieRpt,firmante}=_rptCtx;
+  const {p,log,pct,adh,asistidas,faltas,totalCitas,ini,evaHas,lp,doc,inicio,rptNo,fechaLarga,thHeader,prot,epDiag,epDone,epSessions,cieRpt,firmante}=_rptCtx;
   // Captura del gráfico EVA ya dibujado en pantalla — evita el canvas en blanco por timing.
   const evaCanvas=document.getElementById('eva-evolution-chart');
   const evaImg=evaCanvas?evaCanvas.toDataURL('image/png'):'';
@@ -823,9 +834,13 @@ function _buildRenderModel() {
     inicio,
     metricas:{
       pct,done:epDone,sessions:epSessions||0,
-      adh,asistidas:attended.length,totalCitas:log.length,
-      evaHas:!!(fp&&lp&&fp.pb!=null),
-      evaInicial:(fp&&fp.pb!=null)?fp.pb:null,
+      // MET-1: adh = continuidad desde la agenda (null sin citas decididas); asistidas = conf,
+      // totalCitas = conf+noas. Mismos nombres que los snapshots viejos; faltas es nuevo (los
+      // viejos no lo traen y así se reconocen para pintarlos como antes).
+      adh,asistidas,totalCitas,faltas,
+      evaHas,
+      evaInicial:ini?ini.valor:null,
+      evaInicialFuente:ini?ini.fuente:null,
       evaActual:(lp&&lp.pa!=null)?lp.pa:null,
     },
     evalInicial:evalRow?{fecha:evalRow.date,pb:evalRow.pb,partes:(evalRow.note||'').split(' | ').filter(Boolean),rom:romNormalizar(evalRow.rom)}:null,
@@ -878,7 +893,10 @@ function buildPdfHtml(m) {
     :'—';
   const resumen='<div class="sum">'
     +sumCol('Sesiones',esc(met.done)+' de '+esc(met.sessions),esc(met.pct)+'% del plan')
-    +sumCol('Continuidad',esc(met.adh)+'%',esc(met.asistidas)+'/'+esc(met.totalCitas)+' citas asistidas')
+    // MET-1: snapshot viejo (sin faltas) → igual que antes; nuevo → '—' si no hay citas decididas.
+    +(met.faltas===undefined
+      ?sumCol('Continuidad',esc(met.adh)+'%',esc(met.asistidas)+'/'+esc(met.totalCitas)+' citas asistidas')
+      :sumCol('Continuidad',met.adh==null?'—':esc(met.adh)+'%',met.adh==null?'sin citas pasadas':esc(textoCitas(met.asistidas,met.totalCitas,met.faltas))))
     +sumCol('Dolor EVA',evaVal,met.evaHas?'inicial → actual':'sin datos registrados')
     +'</div>';
 
@@ -912,7 +930,7 @@ function buildPdfHtml(m) {
 
   let filas='';
   ses.forEach(function(s){
-    const eva=s.pb!=null?s.pb+'→'+(s.pa!=null?s.pa:'?'):'—';
+    const eva=s.pb!=null?s.pb+'→'+(s.pa!=null?s.pa:'?'):s.pa!=null?'—→'+s.pa:'—';
     const soap=(s.soapie||[]).map(l=>'<div class="soap-l"><b>'+esc(l.k)+'</b> '+esc(l.t)+'</div>').join('');
     const obsHtml=soap+(s.obs?(soap?'<div class="soap-l">'+esc(s.obs)+'</div>':esc(s.obs)):'');
     filas+='<tr><td class="nw">'+esc(dmy(s.fecha))+'</td><td class="nw">'+esc(s.terapeuta||'—')+'</td><td class="ctr">'+esc(eva)+'</td><td class="mut">'+(s.tecnicas?esc(s.tecnicas):'—')+'</td><td class="mut">'+(obsHtml||'—')+'</td></tr>';

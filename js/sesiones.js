@@ -1,7 +1,7 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { getPatient, esc, fmtDate, fmtTime, normHour, doneActual, pendientesActual, orderedTherapists,
-         tipoSesion, TIPO_SESION_DEFAULT, TIPOS_SESION } from './utils.js';
+         tipoSesion, TIPO_SESION_DEFAULT, TIPOS_SESION, leerEva } from './utils.js';
 import { toastOk, toastErr, toastInfo, showToast } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { showFieldError, clearFieldError, clearAllErrors } from './validators.js';
@@ -75,8 +75,9 @@ function _leerSesion() {
   clearFieldError('sess-note');
   const { rom, descartados } = leerRomDetalle('sess-rom');
   if (descartados) { toastErr(`Hay ${descartados} valor${descartados > 1 ? 'es' : ''} de goniometría fuera de rango: corregilos o borralos antes de guardar.`); _abrirRom(); return null; }
-  const pb = parseInt(document.getElementById('sess-eva-before-val').textContent) || 0;
-  const pa = parseInt(document.getElementById('sess-eva-after-val').textContent) || 0;
+  // MET-1: '—' = sin medir → null (nunca 0). El 0 marcado sí es un valor.
+  const pb = leerEva(document.getElementById('sess-eva-before-val').textContent);
+  const pa = leerEva(document.getElementById('sess-eva-after-val').textContent);
   return { pb, pa, tags: [...proTecnicasSel], note, rom, soap: null, conSoap: false };
 }
 
@@ -128,9 +129,12 @@ function _romSesion(valores, previos) {
 }
 function _abrirRom() { const w=document.getElementById('sess-rom-wrap'); if(w) w.open=true; }
 
+// MET-1: cur=null = sin medir (ningún botón activo, el valor muestra '—'). Tocar el número ya
+// activo lo desmarca y vuelve a null. No es obligatorio marcar.
 export function renderEvaButtons(containerId, valId, cur, col) {
   const container=document.getElementById(containerId);if(!container)return;
-  const valEl=document.getElementById(valId); if(valEl) valEl.textContent=cur;
+  if(cur===undefined) cur=null;
+  const valEl=document.getElementById(valId); if(valEl) valEl.textContent=cur==null?'—':cur;
   container.innerHTML='';
   for(let i=0;i<=10;i++){
     const btn=document.createElement('button');
@@ -140,13 +144,12 @@ export function renderEvaButtons(containerId, valId, cur, col) {
       +'border:2px solid '+(active?col:'rgba(41,171,226,.22)')+';'
       +'background:'+(active?col+'22':'#fff')+';'
       +'color:'+(active?col:'#5a5a56');
-    btn.onclick=()=>setEva(containerId,valId,i,col);
+    btn.onclick=()=>setEva(containerId,valId,active?null:i,col);
     container.appendChild(btn);
   }
 }
 
 export function setEva(containerId, valId, val, col) {
-  document.getElementById(valId).textContent=val;
   renderEvaButtons(containerId,valId,val,col);
 }
 
@@ -170,8 +173,9 @@ export function openSessionModal(appt) {
   const existing=pt&&pt.log?pt.log.find(s=>s.date===appt.date&&normHour(s.hour)===normHour(apptHour)):null;
   document.getElementById('session-modal-title').textContent=(existing?'Editar sesión — ':'Registrar sesión — ')+(pt?pt.name.split(' ').slice(0,2).join(' '):'Paciente');
   document.getElementById('session-modal-sub').textContent=appt.type+' · '+appt.date+' · '+apptHour;
-  const pb=existing?(existing.pb!=null?existing.pb:5):5;
-  const pa=existing?(existing.pa!=null?existing.pa:5):5;
+  // MET-1: sin valor guardado = sin medir (null), nunca un 5 por defecto.
+  const pb=existing?.pb??null;
+  const pa=existing?.pa??null;
   renderEvaButtons('eva-before-btns','sess-eva-before-val',pb,'#E24B4A');
   renderEvaButtons('eva-after-btns','sess-eva-after-val',pa,'#1D9E75');
   document.getElementById('sess-note').value=existing?(existing.note||''):'';
@@ -225,8 +229,8 @@ export function openSessionModalManual(patientId) {
   if(thf) thf.style.display='';
   const cancelBtn=document.getElementById('session-cancel-btn');
   if(cancelBtn) cancelBtn.textContent='Cancelar';
-  renderEvaButtons('eva-before-btns','sess-eva-before-val',5,'#E24B4A');
-  renderEvaButtons('eva-after-btns','sess-eva-after-val',5,'#1D9E75');
+  renderEvaButtons('eva-before-btns','sess-eva-before-val',null,'#E24B4A');
+  renderEvaButtons('eva-after-btns','sess-eva-after-val',null,'#1D9E75');
   document.getElementById('sess-note').value='';
   proTecnicasSel=[];
   renderProTecnicas();
@@ -330,8 +334,8 @@ export function editSession(patientId, id) {
   if(thf) thf.style.display='none';     // al editar se conserva el terapeuta original de la sesión
   const cancelBtn=document.getElementById('session-cancel-btn');
   if(cancelBtn) cancelBtn.textContent='Cancelar';
-  renderEvaButtons('eva-before-btns','sess-eva-before-val',s.pb!=null?s.pb:5,'#E24B4A');
-  renderEvaButtons('eva-after-btns','sess-eva-after-val',s.pa!=null?s.pa:5,'#1D9E75');
+  renderEvaButtons('eva-before-btns','sess-eva-before-val',s.pb??null,'#E24B4A');
+  renderEvaButtons('eva-after-btns','sess-eva-after-val',s.pa??null,'#1D9E75');
   document.getElementById('sess-note').value=s.note||'';
   document.getElementById('sess-type').value=s.type||'';
   proTecnicasSel=Array.isArray(s.tags)?[...s.tags]:[];

@@ -1187,8 +1187,41 @@ export const CONFIG_CLINICA = {
   EMAIL: '', // poner 'recepcion@rehactivaec.com' cuando se confirme que el buzón recibe
 };
 
+// MET-1: lectura del valor EVA que muestra el modal ('—' o vacío = sin medir). El 0 es un valor
+// válido ("sin dolor"): nada de `|| 0`, que convertía un "sin medir" en un 0 inventado.
+export function leerEva(txt) {
+  const t = String(txt ?? '').trim();
+  if (!t || t === '—') return null;
+  const n = parseInt(t, 10);
+  return Number.isInteger(n) && n >= 0 && n <= 10 ? n : null;
+}
+
+// MET-1: UNA regla para el dolor inicial (pantalla, PDF, Word y gráficos). Es el EVA de la
+// Evaluación inicial del episodio si se midió; si no, el primer "antes" medido de una sesión de
+// tratamiento. `fuente` decide el rótulo: 'Eval. inicial' solo si el valor sale de la evaluación.
+// evalRow / sesiones son filas de session_log (date) o del render-model (fecha). null = sin dato.
+export function dolorInicial(evalRow, sesiones) {
+  if (evalRow && evalRow.pb != null) return { valor: evalRow.pb, fuente: 'eval', fecha: evalRow.date ?? evalRow.fecha ?? null };
+  const s = (sesiones || []).find(x => x && x.pb != null);
+  return s ? { valor: s.pb, fuente: 'sesion', fecha: s.date ?? s.fecha ?? null } : null;
+}
+export function rotuloDolorInicial(fuente) { return fuente === 'eval' ? 'Eval. inicial' : 'Inicio'; }
+// ¿El primer punto del gráfico del render-model sale de la Evaluación inicial? Modelos nuevos lo
+// dicen en metricas.evaInicialFuente; los snapshots previos a MET-1 no lo traen y conservan la
+// regla vieja (rótulo por existencia de la evaluación) para seguir viéndose igual.
+export function inicioDesdeEval(m) {
+  const f = m?.metricas?.evaInicialFuente;
+  return f !== undefined ? f === 'eval' : !!m?.evalInicial;
+}
+
+// MET-1: "9 de 10 citas · 1 falta" (asistidas de citas decididas, y las faltas si hay).
+export function textoCitas(asistidas, total, faltas) {
+  const f = Number(faltas) || 0;
+  return `${asistidas ?? 0} de ${total ?? 0} citas` + (f > 0 ? ` · ${f} falta${f === 1 ? '' : 's'}` : '');
+}
+
 // PURA: render-model de informe (ver _buildRenderModel en informes.js) → SVG del gráfico EVA.
-// Arranca en el dolor inicial (metricas.evaInicial, capturado de fp.pb), sigue con el dolor tras
+// Arranca en el dolor inicial (metricas.evaInicial, ver dolorInicial), sigue con el dolor tras
 // cada sesión con EVA (pa, o pb si falta) y termina en el dolor actual (metricas.evaActual). El
 // snapshot no guarda status, así que el espejo de evaSes es pb!=null (una sesión sin EVA registrado
 // no puntúa). Devuelve '' si no hay serie construible (el caller cae a evaChartImg para snapshots
@@ -1204,8 +1237,10 @@ export function buildEvaSvg(m) {
   if(endVal!=null) mid[mid.length-1]=endVal;
   // Punto 0 = estado inicial (fechado en la evaluación inicial si existe); luego "Sesión N"
   // con el N de la tabla "Detalle por sesión" para que gráfico y tabla se lean juntos.
+  // MET-1: el rótulo sigue a la FUENTE del dolor inicial (inicioDesdeEval).
+  const desdeEval=inicioDesdeEval(m);
   const pts=[startVal,...mid].map((v,i)=>i===0
-    ?{v,lbl:m.evalInicial?'Eval. inicial':'Inicio',fecha:m.evalInicial?m.evalInicial.fecha:ses[0].fecha}
+    ?{v,lbl:rotuloDolorInicial(desdeEval?'eval':'sesion'),fecha:desdeEval&&m.evalInicial?m.evalInicial.fecha:ses[0].fecha}
     :{v,lbl:'Sesión '+ses[i-1].n,fecha:ses[i-1].fecha});
   const n=pts.length;
   const L=34,R=700,T=20,B=190;

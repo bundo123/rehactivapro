@@ -70,6 +70,17 @@ export function episodioDeCita(cita, episodios) {
   return ep ? ep.idx : null;
 }
 
+// MET-1: citas del paciente que caen en el episodio elegido en el selector del informe
+// ('current' | 'ep_N'). Misma frontera que logDeEpisodio (desde < date <= hasta). 'current', o un
+// paciente sin marcadores, es el último episodio; 'ep_N' es el episodio idx N+1.
+export function citasDeEpisodio(appointments, patient, epVal) {
+  if (!patient) return [];
+  const eps = episodiosDePaciente(patient);
+  const m = /^ep_(\d+)$/.exec(String(epVal ?? ''));
+  const idx = (epVal === 'current' || eps.length === 1 || !m) ? eps.length : parseInt(m[1], 10) + 1;
+  return citasDePaciente(appointments, patient.id).filter(c => episodioDeCita(c, eps) === idx);
+}
+
 // Mapa cita → { x, n, ep }: el ordinal DENTRO de su episodio. La clave es la cita MISMA, no su id
 // (los ids mezclan números optimistas, uuids y 'rec-...' — mismo motivo que ordinalesDeCitas).
 // Reglas idénticas a las de citasNumerables: una 'no asistió' NO consume número (no entra al mapa,
