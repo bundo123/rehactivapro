@@ -1,6 +1,34 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-10-06
+> Generado: 2026-05-18 · Última actualización: 2026-10-08
+
+---
+
+## 🗓️ Sesión 2026-10-08 — Limpieza de 169 pacientes sin actividad + LOTE CTX-1b: la IA del informe respeta el episodio (`2eba49c`, en `main`). Sin SQL de esquema.
+
+**Limpieza de pacientes** (SQL corrido por Jefferson en Supabase, con candado n=169): se borraron
+169 pacientes sin citas, sesiones, informes ni cobros, creados hace más de 30 días y sin diagnóstico
+ni médico. La mayoría venían de la importación inicial del 17-abr-2026 e incluían 2 registros de
+prueba y 4 empresas. Verificado: 337 → 168 pacientes; `audit_log` registra 169 DELETE en
+`patients`; citas, sesiones e informes intactos; ninguno era duplicado de un paciente activo. Se
+dejó fuera el registro «RESERVADO».
+
+**CTX-1b** (`2eba49c`, en `main`): `logDeEpisodio(p, epVal)` en `js/utils.js` es la fuente única
+del corte de episodio para `renderPatientReport` y `genPatientAI`. La IA usa el log, el
+diagnóstico, X/N y el protocolo del episodio elegido, y no menciona médico referente si no hay
+(83 de 139 pacientes con sesiones no tienen médico). 497 → 506 pruebas. Deploy verificado:
+commit-status `success`; 12/12 archivos idénticos a lo servido (`index-0XB6MXf3.js`,
+`index-Dpp9u7pc.css`).
+
+**Pendientes conocidos (ya existían):** episodio cerrado sin nota muestra el X/N del episodio
+actual; `lastFinDate` falla si `p.log` trae una fila null. Los resuelve EPI-2.
+
+**Siguiente:** MET-1 → EPI-2 (episodios editables con nombre y diagnóstico, «sesiones previas a
+RehactivaPro», informe por rango) → ficha del paciente con documentos → informe único (PDF oficial
++ resumen para el médico + firma) → PULIR-1. El plan está en el Proyecto de claude.ai.
+
+**RESP-1 sigue sin uso:** faltan especialidad Respiratoria en las terapeutas y citas de tipo
+«Terapia respiratoria».
 
 ---
 
