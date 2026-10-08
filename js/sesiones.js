@@ -8,6 +8,7 @@ import { showFieldError, clearFieldError, clearAllErrors } from './validators.js
 import { updateFacturaBadge, showBillingAlert } from './agenda.js';
 import { renderRomEditor, leerRomDetalle, ultimaMedicion } from './rom.js';
 import { TIPO_RESP, renderRespEditor, leerRespDetalle, faltantesResp, respAnterior, marcarFaltantes } from './soap.js';
+import { resetPulir, estadoPulir } from './pulir.js';
 
 export const PRO_TECNICAS = [
   'Compresa caliente','Crioterapia','Electroterapia','Magnetoterapia',
@@ -52,8 +53,12 @@ function _setModo(resp, opts = {}) {
 // Lee y valida el formulario según el modo. null = algo bloquea el guardado (ya se avisó).
 // conSoap: solo el modo respiratorio escribe la columna soap. Fisio no la manda, así sus sesiones
 // siguen guardando aunque el SQL de RESP-1 todavía no se haya corrido.
+// PULIR-1: noteOriginal/noteIaAt van a memoria; pulirCol a la DB, y solo trae columnas si la nota
+// se pulió (o venía pulida y se volvió al texto propio, para limpiarlas). Igual que soap.
 function _leerSesion() {
   const note = document.getElementById('sess-note').value.trim();
+  const pul = estadoPulir();
+  const pulir = { noteOriginal: pul.noteOriginal, noteIaAt: pul.noteIaAt, pulirCol: pul.columnas || {} };
   if (_modoResp) {
     const r = leerRespDetalle('sess-resp');
     if (r.invalidos.length) { toastErr(r.invalidos[0]); return null; }
@@ -64,7 +69,7 @@ function _leerSesion() {
       return null;
     }
     clearFieldError('sess-note');
-    return { pb: r.pb, pa: r.pa, tags: r.tags, note, rom: null, soap: r.soap, conSoap: true };
+    return { pb: r.pb, pa: r.pa, tags: r.tags, note, rom: null, soap: r.soap, conSoap: true, ...pulir };
   }
   if (!note) {
     showFieldError('sess-note', 'Describe brevemente qué se realizó en la sesión');
@@ -78,7 +83,7 @@ function _leerSesion() {
   // MET-1: '—' = sin medir → null (nunca 0). El 0 marcado sí es un valor.
   const pb = leerEva(document.getElementById('sess-eva-before-val').textContent);
   const pa = leerEva(document.getElementById('sess-eva-after-val').textContent);
-  return { pb, pa, tags: [...proTecnicasSel], note, rom, soap: null, conSoap: false };
+  return { pb, pa, tags: [...proTecnicasSel], note, rom, soap: null, conSoap: false, ...pulir };
 }
 
 // Aviso "plan completo": salta SOLO en la sesión que cierra el plan (doneActual pasa de n−1 a n),
@@ -179,6 +184,7 @@ export function openSessionModal(appt) {
   renderEvaButtons('eva-before-btns','sess-eva-before-val',pb,'#E24B4A');
   renderEvaButtons('eva-after-btns','sess-eva-after-val',pa,'#1D9E75');
   document.getElementById('sess-note').value=existing?(existing.note||''):'';
+  resetPulir(existing);
   // El tipo se HEREDA de la cita: es el servicio que se agendó. Al re-registrar una sesión ya
   // guardada manda igual la cita, que es donde se corrige el tipo si se agendó mal. saveSession()
   // lee appt.type y no este campo; se sincroniza igual para que el modal (compartido con los modos
@@ -232,6 +238,7 @@ export function openSessionModalManual(patientId) {
   renderEvaButtons('eva-before-btns','sess-eva-before-val',null,'#E24B4A');
   renderEvaButtons('eva-after-btns','sess-eva-after-val',null,'#1D9E75');
   document.getElementById('sess-note').value='';
+  resetPulir(null);
   proTecnicasSel=[];
   renderProTecnicas();
   _romSesion(null,ultimaMedicion(pt)?.rom);
@@ -293,7 +300,7 @@ async function saveSessionManual() {
     const hour=await genUniqueHour(pt.id,date);
     const {data:ins,error}=await supa.from('session_log').insert({
       patient_id:pt.id,date,type,hour,status:'asistió',therapist_id:therapistId,
-      pain_before:pb,pain_after:pa,note,tags:f.tags,rom,...(f.conSoap?{soap:f.soap}:{})
+      pain_before:pb,pain_after:pa,note,tags:f.tags,rom,...(f.conSoap?{soap:f.soap}:{}),...f.pulirCol
     }).select('id').single();
     if(error){toastErr('No se pudo guardar la sesión. Intenta de nuevo.');return;}
     // La fila en session_log ES el dato: doneActual/pendientesActual la cuentan sin contadores aparte.
@@ -301,7 +308,8 @@ async function saveSessionManual() {
     const spf=pt.billing?.sesPerFactura||0;
     const pendBefore=pendientesActual(pt);                // umbral: medir antes de agregar la fila
     const doneBefore=doneActual(pt);                      // idem el plan
-    pt.log.push({id:ins?.id??null,date,type,hour,status:'asistió',pb,pa,note,tags:[...f.tags],therapistId,rom,soap:f.soap});
+    pt.log.push({id:ins?.id??null,date,type,hour,status:'asistió',pb,pa,note,tags:[...f.tags],therapistId,rom,soap:f.soap,
+      noteOriginal:f.noteOriginal,noteIaAt:f.noteIaAt});
     const crossed=spf>0&&pendBefore<spf&&pendientesActual(pt)>=spf;
     window._app.closeModal('session-modal');
     _manualMode=false; _manualPatientId=null;
@@ -337,6 +345,7 @@ export function editSession(patientId, id) {
   renderEvaButtons('eva-before-btns','sess-eva-before-val',s.pb??null,'#E24B4A');
   renderEvaButtons('eva-after-btns','sess-eva-after-val',s.pa??null,'#1D9E75');
   document.getElementById('sess-note').value=s.note||'';
+  resetPulir(s);
   document.getElementById('sess-type').value=s.type||'';
   proTecnicasSel=Array.isArray(s.tags)?[...s.tags]:[];
   renderProTecnicas();
@@ -378,13 +387,14 @@ async function saveSessionEdit() {
   try {
     const soapCol=f.conSoap?{soap:f.soap}:{};
     const {data:upd,error}=await supa.from('session_log')
-      .update({date:newDate,type,pain_before:pb,pain_after:pa,note,tags:f.tags,rom,...soapCol})
+      .update({date:newDate,type,pain_before:pb,pain_after:pa,note,tags:f.tags,rom,...soapCol,...f.pulirCol})
       .eq('id',ref.id).select();
     if(error){toastErr('No se pudo guardar el cambio. Intenta de nuevo.');return;}
     if(!upd||!upd.length){toastErr('No se pudo editar (sin permiso o la sesión ya cambió). Refrescá la página.');return;}
     // memoria: actualizar la entrada por su id. done NO se toca (sigue siendo la misma sesión).
     const i=pt.log.findIndex(x=>x.id!=null&&String(x.id)===String(ref.id));
-    if(i>=0) pt.log[i]={...pt.log[i],date:newDate,type,pb,pa,note,tags:[...f.tags],rom,...soapCol};
+    if(i>=0) pt.log[i]={...pt.log[i],date:newDate,type,pb,pa,note,tags:[...f.tags],rom,...soapCol,
+      noteOriginal:f.noteOriginal,noteIaAt:f.noteIaAt};
     window._app.closeModal('session-modal');
     _editMode=false; _editRef=null;
     window._app.renderPatientReport?.();
@@ -441,12 +451,12 @@ export async function saveSession() {
       let dbError;
       if(ex){
         savedId=ex.id;
-        const {error}=await supa.from('session_log').update({type,pain_before:pb,pain_after:pa,note,tags:f.tags,therapist_id:therapistId,rom,...soapCol}).eq('id',ex.id);
+        const {error}=await supa.from('session_log').update({type,pain_before:pb,pain_after:pa,note,tags:f.tags,therapist_id:therapistId,rom,...soapCol,...f.pulirCol}).eq('id',ex.id);
         dbError=error;
       } else {
         const {data:ins,error}=await supa.from('session_log').insert({
           patient_id:appt.patientId,date:appt.date,type,hour:apptHourFmt,status:'asistió',therapist_id:therapistId,
-          pain_before:pb,pain_after:pa,note,tags:f.tags,rom,...soapCol
+          pain_before:pb,pain_after:pa,note,tags:f.tags,rom,...soapCol,...f.pulirCol
         }).select('id').single();
         savedId=ins?.id??null;
         dbError=error;
@@ -467,7 +477,8 @@ export async function saveSession() {
       // para que el re-registro REEMPLACE la fila existente en vez de duplicarla.
       const existIdx=pt2.log.findIndex(s=>s.date===appt.date&&normHour(s.hour)===normHour(hh));
       const keepId=existIdx>=0?pt2.log[existIdx].id:null;  // conservar id si reemplazamos
-      const newEntry={id:savedId??keepId,date:appt.date,type,hour:hh,status:'asistió',pb,pa,note,tags:[...f.tags],therapistId,rom,soap:f.soap};
+      const newEntry={id:savedId??keepId,date:appt.date,type,hour:hh,status:'asistió',pb,pa,note,tags:[...f.tags],therapistId,rom,soap:f.soap,
+        noteOriginal:f.noteOriginal,noteIaAt:f.noteIaAt};
       if(existIdx>=0) pt2.log[existIdx]=newEntry;          // re-registro: doneActual no cambia -> no cruza
       else pt2.log.push(newEntry);
       crossed=spf>0&&pendBefore<spf&&pendientesActual(pt2)>=spf;

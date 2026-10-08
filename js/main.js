@@ -42,6 +42,7 @@ import {
   openSessionModal, openSessionModalManual, editSession, deleteSession, saveSession, skipSession,
   toggleProTecnica
 } from './sesiones.js';
+import { pulirNota, usarPulido, descartarPulido, volverNotaOriginal } from './pulir.js';
 import {
   renderSemanal, changeWeek, showSubTab, changeMensualMonth, changeAnualYear,
   renderPatientReportSelect, updateEpisodes, renderPatientReport,
@@ -236,6 +237,7 @@ Object.assign(window, {
   agendarCitaParaPaciente, nuevoEpisodio,
   saveAppt, savePatient, saveTherapist, saveDoctor, saveProtocol,
   saveSession, saveEvalInicial, guardarNuevoEpisodio,
+  pulirNota, usarPulido, descartarPulido, volverNotaOriginal,
   delAppt, deletePatient, deleteTherapist, deleteDoctor, deleteProtocol,
   cycleStatus, changeDay, changeWeek, goToDate, goToToday,
   changeResumenDay, goToResumenDate, resumenHoy, openResumenDatePicker, setResumenTherapist,

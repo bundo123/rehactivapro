@@ -28,6 +28,11 @@ App web de gestión clínica para fisioterapia (Quito, Ecuador). Dominio: rehact
 - session_log.rom (jsonb): goniometría [{j,m,l,v}]; normales AAOS en js/rom.js, nunca en la DB; sin mediciones = null, nunca [] (CHECK 1..120). Toda lectura/escritura pasa por romNormalizar.
 - session_log.soap (jsonb, RESP-1): registro estructurado de la sesión respiratoria {v,llega,tol,inc,prox,casa,resp:{o2,sv,nomed,sec,med}}; técnicas en `tags`, dolor en pain_*; sin datos = null, nunca {} (CHECK). Toda lectura/escritura pasa por soapNormalizar (js/soap.js). La nota SOAPIE NO se guarda: notaSoapie() la arma sin IA. Fisio no manda `soap`.
 - therapists.modalidad: 'porcentaje' = sin turno ni extras; 'nomina' = turno start_h/end_h + sáb/dom siempre extra. Fuente: esPorcentaje/turnoDe/esExtra en utils.js.
+- session_log.note_original / note_ia_at (PULIR-1): nota pulida con IA. `note` = versión aceptada; `note_original` = PRIMER texto del terapeuta; las dos NULL si no se pulió (CHECK). Solo se mandan si la nota se pulió (js/pulir.js estadoPulir). Prompt fijo en el servidor (lib/pulir.js SYSTEM_PULIR).
+- IA: modelo = ANTHROPIC_MODEL || 'claude-sonnet-5-5' (lib/ia-modelo.js). Sonnet 5.5 rechaza temperature (400) y piensa por defecto: thinking 'between_tools' y leer solo los bloques `text`.
+
+## Flujo
+- Cada lote es UN commit con código + pruebas + su entrada en PROYECTO_ESTADO.md (sin hash propio). No hay lote de cierre. El merge, el push a main y el borrado de la rama los hace Jefferson con ! en un solo comando. La verificación del deploy se hace al empezar el lote siguiente.
 
 ## Decisiones cerradas
 - La tabla `protocols` es el banco de diagnósticos; en la UI se llama Diagnósticos y no se renombra

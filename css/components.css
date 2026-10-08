@@ -196,6 +196,22 @@ details.soapie{margin-top:3px}
 details.soapie>summary{cursor:pointer;font-size:10.5px;font-weight:700;color:var(--rh-blue-dd);padding:4px 0}
 details.soapie div{font-size:11px;line-height:1.5;color:#3a3a36;margin:1px 0}
 details.soapie b{display:inline-block;width:14px;color:#1a1917}
+/* PULIR-1: pulir la nota de la sesión con IA */
+.pulir-bar{display:flex;align-items:center;gap:12px;margin-top:6px;flex-wrap:wrap}
+.pulir-btn{min-height:44px;padding:8px 14px;border-radius:9px;border:1.5px solid var(--rh-blue-border);background:#fff;color:var(--rh-blue-dd);font-size:13px;font-weight:600;line-height:1.2;font-family:inherit;cursor:pointer}
+.pulir-btn:disabled{opacity:.5;cursor:default}
+.pulir-volver{min-height:44px;padding:8px 4px;border:0;background:none;color:var(--rh-blue-dd);font-size:12.5px;font-weight:500;font-family:inherit;text-decoration:underline;cursor:pointer}
+.pulir-panel{margin-top:10px;padding:12px;border:1px solid var(--rh-blue-border);border-radius:9px;background:var(--rh-cream2)}
+.pulir-aviso-fijo{font-size:11.5px;color:#6b6a64;margin-bottom:8px}
+.pulir-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pulir-lbl{font-size:11px;font-weight:700;color:#6b6a64;text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px}
+.pulir-txt{font-size:13px;line-height:1.45;color:#1a1917;white-space:pre-wrap;word-break:break-word;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:7px;padding:8px 10px;min-height:44px}
+.pulir-ia{border-color:rgba(29,158,117,.35)}
+.pulir-igual{font-size:12px;color:#6b6a64;margin-top:8px}
+.pulir-revisa{font-size:12px;color:#7a5a00;background:#fff6d6;border:1px solid #f0d77a;border-radius:7px;padding:6px 9px;margin-top:8px}
+.pulir-acc{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+.ia-mark{font-size:10px;color:#9c9a92;font-style:italic;white-space:nowrap}
+@media (max-width:560px){.pulir-cols{grid-template-columns:1fr}}
 @media (max-width:768px){
   .resp-in,.resp-txt{font-size:16px}    /* iOS no hace zoom al enfocar con ≥16px */
   .rom-input{font-size:16px}            /* iOS no hace zoom al enfocar con ≥16px */

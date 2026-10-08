@@ -3,12 +3,48 @@
 // Sin console.log a propósito: los datos clínicos del prompt no deben quedar en los logs de Vercel.
 
 import { scrubPII } from '../lib/informe-scrub.js';
+import { modeloIA, opcionesThinking, textoDeRespuesta } from '../lib/ia-modelo.js';
+import { pedidoPulir, salidaPulidaValida } from '../lib/pulir.js';
 
 // Rate-limit in-memory por usuario. Vive por instancia serverless (se resetea en cold start y no
 // se comparte entre instancias), pero corta el spam sostenido desde una misma sesión sin infra extra.
 const RATE_MAX = 10;              // llamadas
 const RATE_WINDOW_MS = 60_000;    // por minuto
 const rateLog = new Map();        // userId -> [timestamps]
+
+// Única salida a Anthropic de los dos modos. Devuelve el JSON de la respuesta o null si falló
+// (sin el cuerpo del error: puede traer detalles internos).
+async function llamarAnthropic(payload) {
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': process.env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+  return r.ok ? r.json() : null;
+}
+
+// PULIR-1: corrige la redacción de la nota de una sesión. El system prompt vive en lib/pulir.js
+// y del cliente solo se usa body.texto (body.prompt se ignora). La salida se rechaza si viene
+// vacía, cortada por max_tokens o rechazada por el modelo, o si creció de más.
+async function pulir(res, body, model) {
+  const pedido = pedidoPulir(body, model);
+  if (pedido.error) return res.status(pedido.status).json({ error: pedido.error });
+  try {
+    const data = await llamarAnthropic(pedido.payload);
+    const text = data && data.stop_reason === 'end_turn' ? textoDeRespuesta(data) : '';
+    if (!salidaPulidaValida(text, pedido.largo)) {
+      return res.status(500).json({ error: 'No se pudo pulir la nota' });
+    }
+    return res.status(200).json({ text });
+  } catch (e) {
+    // Sin loguear 'e': podría arrastrar la nota.
+    return res.status(500).json({ error: 'No se pudo pulir la nota' });
+  }
+}
 
 function isRateLimited(userId) {
   const now = Date.now();
@@ -79,7 +115,11 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Demasiadas solicitudes. Espera un minuto.' });
   }
 
-  const { prompt } = req.body || {};
+  const body = req.body || {};
+  const model = modeloIA(process.env);
+  if (body.mode === 'pulir') return pulir(res, body, model);
+
+  const { prompt } = body;
   if (!prompt || typeof prompt !== 'string') {
     return res.status(400).json({ error: 'Falta el prompt' });
   }
@@ -93,26 +133,17 @@ export default async function handler(req, res) {
   // sigue midiendo el prompt original a propósito: es un control de abuso, no de contenido.
   const safePrompt = scrubPII(prompt);
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: safePrompt }]
-      })
+    const data = await llamarAnthropic({
+      model,
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: safePrompt }],
+      ...opcionesThinking(model)
     });
-    if (!r.ok) {
+    if (!data) {
       // No reenviamos el cuerpo de Anthropic al cliente (puede traer detalles internos).
       return res.status(500).json({ error: 'No se pudo generar el informe' });
     }
-    const data = await r.json();
-    const text = data?.content?.[0]?.text || '';
-    return res.status(200).json({ text });
+    return res.status(200).json({ text: textoDeRespuesta(data) });
   } catch (e) {
     // Sin loguear 'e': podría arrastrar el prompt o detalles sensibles.
     return res.status(500).json({ error: 'No se pudo generar el informe' });

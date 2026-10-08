@@ -4,7 +4,7 @@
 
 ---
 
-## 🗓️ Sesión 2026-10-08 — Limpieza de 169 pacientes sin actividad + LOTE CTX-1b: la IA del informe respeta el episodio (`2eba49c`, en `main`). Sin SQL de esquema.
+## 🗓️ Sesión 2026-10-08 — Limpieza de 169 pacientes sin actividad + LOTE CTX-1b: la IA del informe respeta el episodio (`2eba49c`, en `main`) + MET-1 (`b253c54`, en `main`) + PULIR-1 (con SQL).
 
 **Limpieza de pacientes** (SQL corrido por Jefferson en Supabase, con candado n=169): se borraron
 169 pacientes sin citas, sesiones, informes ni cobros, creados hace más de 30 días y sin diagnóstico
@@ -29,6 +29,37 @@ RehactivaPro», informe por rango) → ficha del paciente con documentos → inf
 
 **RESP-1 sigue sin uso:** faltan especialidad Respiratoria en las terapeutas y citas de tipo
 «Terapia respiratoria».
+
+**MET-1** (`b253c54`, en `main`): continuidad desde la agenda (asistidas / (asistidas + faltas) del
+episodio hasta hoy; «—» sin citas pasadas); EVA «sin medir» (null, nunca 5 por defecto); dolor
+inicial = EVA de la evaluación si se midió, si no el primer «antes» medido (mismo rótulo en
+pantalla, PDF, Word y gráfico); «Plan completado» ≠ «Alta médica». 506 → 522 pruebas. Deploy
+verificado: 12/12 idénticos (`index-Yld4BY2D.js`). Datos heredados: 18 de 61 evaluaciones tienen
+EVA 5 (frente a 8 con 4 y 4 con 6), probablemente ~10 por defecto; no se tocaron. Pendiente: una
+sesión con solo el «después» no sale en el gráfico del PDF ni en el de pantalla (lote del informe
+único).
+
+**PULIR-1** (este commit): botón «✨ Pulir redacción» bajo la nota del modal de sesión (fisio y
+respiratoria; solo con `viewAI`, la secretaria no lo ve; activo desde 5 caracteres). Panel «Tu
+texto» / «Versión IA» con «Usar esta versión» y «Descartar»; tras aceptar, «Volver a mi texto».
+Aviso fijo: «No escribas nombres de pacientes en la nota.» Guarda `verificarPulido`
+(`lib/pulir.js`): números con unidad (min, s, kg, °, %, cm, rep, series, «3x10»), números sueltos
+y lados (derecho/a, izquierdo/a, bilateral, D/I, MID/MII…); si algo se perdió, cambió o apareció,
+aviso amarillo («Revisa: la IA cambió '10 min'»). No bloquea. Servidor: `api/informe.js` con
+`mode: 'pulir'` ignora `prompt` y usa `texto` (5 a 1.500 caracteres: 400/413), `scrubPII`, system
+fijo `SYSTEM_PULIR`, `max_tokens` 600, sin `temperature`; 500 si la salida viene vacía, cortada o
+mide más de 2,5 × la entrada + 50. `session_log.note` guarda la versión aceptada;
+`note_original` (el PRIMER texto propio) y `note_ia_at` se mandan solo si la nota se pulió (o, al
+editar una que venía pulida y volver al texto propio, en null para limpiarla). El informe en
+pantalla marca «redacción asistida por IA»; PDF y Word no cambian. 522 → 543 pruebas.
+**SQL `pulir_session_log.sql`: lo corre Jefferson en Supabase antes del merge** (sin las columnas,
+guardar una nota pulida falla; las demás sesiones no las mandan).
+
+**Modelo de IA:** `claude-sonnet-5-5` por defecto (USD 2/10 por MTok; antes Sonnet 4.6 a 3/15). Se
+cambia con la variable `ANTHROPIC_MODEL` en Vercel + redeploy. Sonnet 5.5 piensa por defecto y ese
+pensamiento sale del mismo `max_tokens`: los dos modos lo apagan con `thinking: between_tools`
+(`lib/ia-modelo.js`), y el texto se lee de los bloques `text` (antes `content[0].text`, que con
+thinking venía vacío). Sin API key local: probado con `fetch` simulado, no contra Anthropic.
 
 ---
 

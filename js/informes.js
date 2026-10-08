@@ -678,7 +678,9 @@ export function renderPatientReport() {
           +(nota.length?`<details class="soapie"><summary>Nota SOAPIE</summary>${nota.map(l=>`<div><b>${l.k}</b> ${esc(l.t)}</div>`).join('')}</details>`:'');
         if(s.soap.resp) prevResp=s;
       }
-      const obs=([tec?`<b style="color:#1a1917">${esc(tec)}</b>`:null,s.note?esc(s.note):null].filter(Boolean).join(' — ')||(romLn||respLn?'':'—'))+romLn+respLn;
+      // PULIR-1: marca discreta en pantalla (PDF y Word no cambian).
+      const iaLn=s.noteOriginal&&s.note?` <span class="ia-mark">· redacción asistida por IA</span>`:'';
+      const obs=([tec?`<b style="color:#1a1917">${esc(tec)}</b>`:null,s.note?esc(s.note)+iaLn:null].filter(Boolean).join(' — ')||(romLn||respLn?'':'—'))+romLn+respLn;
       let acc='';
       if(showAcc){
         const btn='font-size:10px;padding:3px 9px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;border:1px solid';

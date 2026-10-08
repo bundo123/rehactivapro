@@ -106,7 +106,7 @@ function _mapPatient(r) {
 }
 const _mapTherapist = mapTherapistRow;   // misma fila → mismo objeto que la carga inicial (utils.js)
 function _mapDoctor(r){return{id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'};}
-function _mapSession(s){return{id:s.id,date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null,rom:romNormalizar(s.rom),soap:soapNormalizar(s.soap)};}
+function _mapSession(s){return{id:s.id,date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null,rom:romNormalizar(s.rom),soap:soapNormalizar(s.soap),noteOriginal:s.note_original||null,noteIaAt:s.note_ia_at||null};}
 
 function _refreshTabAfterAppt() {
   const {renderGrid,renderResumen,renderFacturacion,renderSeguimiento,renderHistorial,updateResumenBadge,updateFacturaBadge}=window._app;

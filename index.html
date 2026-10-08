@@ -916,6 +916,14 @@
   <div class="field" style="margin-bottom:12px">
     <label><span id="sess-note-lbl-fisio">¿Qué se realizó en la sesión? <span style="color:#E24B4A">*</span></span><span id="sess-note-lbl-resp" style="display:none">Nota <span style="font-weight:400;color:#9c9a92">(opcional)</span></span></label>
     <textarea id="sess-note" rows="3" placeholder="Ej: Se aplicó masaje descontracturante en zona lumbar, electroterapia 10min, ejercicios de estabilización core..." style="width:100%;background:#f8f8f4;border:1px solid rgba(29,158,117,.25);border-radius:8px;padding:11px 13px;font-size:14px;min-height:64px;color:#1a1a1a;font-family:inherit;resize:vertical;line-height:1.45"></textarea>
+    <!-- PULIR-1: corregir la redacción con IA (js/pulir.js). Sin viewAI no se muestra. -->
+    <div id="sess-pulir" class="pulir-wrap" style="display:none">
+      <div class="pulir-bar">
+        <button type="button" id="sess-pulir-btn" class="pulir-btn" onclick="pulirNota()" disabled>✨ Pulir redacción</button>
+        <button type="button" id="sess-pulir-volver" class="pulir-volver" onclick="volverNotaOriginal()" style="display:none">Volver a mi texto</button>
+      </div>
+      <div id="sess-pulir-panel" class="pulir-panel" style="display:none"></div>
+    </div>
   </div>
 
   <div class="modal-actions">
