@@ -1,7 +1,14 @@
 // Tests de billingInfo — "Cobro X de Y", numeración episodio-aware (cubre I-4) — node --test.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { billingInfo, doneActual, pendientesActual } from '../js/utils.js';
+import { billingInfo as _billingInfo, doneActual as _doneActual, pendientesActual as _pendientesActual } from '../js/utils.js';
+
+// EPI-2a: los marcadores 'Fin de episodio' de estos fixtures se convierten en filas de
+// episodios con el mismo backfill del SQL (test/_episodios.js): mismos resultados = equivalencia.
+import { conEpisodios } from './_episodios.js';
+const billingInfo = (p, ...r) => _billingInfo(conEpisodios(p), ...r);
+const doneActual = p => _doneActual(conEpisodios(p));
+const pendientesActual = p => _pendientesActual(conEpisodios(p));
 
 const ses = (date) => ({ date, type: 'Fisioterapia', status: 'asistió' });
 const finEpisodio = (date) => ({ date, type: 'Fin de episodio', status: 'asistió' });

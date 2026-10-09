@@ -20,7 +20,7 @@
 // al bundle inicial — solo la baja quien exporta un informe a Word.
 import { LOGO_DATA_URI } from './pdf-logo.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
-import { dmy, CONFIG_CLINICA, limpiarParte, inicioDesdeEval, rotuloDolorInicial, textoCitas } from './utils.js';
+import { dmy, CONFIG_CLINICA, limpiarParte, inicioDesdeEval, rotuloDolorInicial, textoCitas, textoPrevias } from './utils.js';
 import { romGrupos } from './rom.js';
 
 // Data URI (base64) → Uint8Array. ImageRun no acepta el string 'data:...' con cabecera: quiere los
@@ -413,7 +413,7 @@ export async function generarInformeWord(m) {
               panelCelda([
                 new TextRun({ text: `${met.done ?? 0}`, font: SERIF, size: SZ.cifraPanel, color: ACENTO }),
                 new TextRun({ text: ` / ${met.sessions ?? 0}`, font: SERIF, size: SZ.cifraPanelSec, color: FADED }),
-              ], `sesiones · ${met.pct ?? 0}% del plan`),
+              ], `sesiones · ${met.pct ?? 0}% del plan${met.previas ? ` · ${textoPrevias(met.previas)}` : ''}`),
               // MET-1: adh null (sin citas decididas) → '—', nunca un 0 % inventado. Un snapshot
               // viejo (sin `faltas`) sale igual que antes.
               met.faltas !== undefined && met.adh == null

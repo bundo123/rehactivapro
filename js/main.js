@@ -43,6 +43,7 @@ import {
   toggleProTecnica
 } from './sesiones.js';
 import { pulirNota, usarPulido, descartarPulido, volverNotaOriginal } from './pulir.js';
+import { editarEpisodio, pedirUnirEpisodio } from './episodios.js';
 import {
   renderSemanal, changeWeek, showSubTab, changeMensualMonth, changeAnualYear,
   renderPatientReportSelect, updateEpisodes, renderPatientReport,
@@ -238,6 +239,7 @@ Object.assign(window, {
   saveAppt, savePatient, saveTherapist, saveDoctor, saveProtocol,
   saveSession, saveEvalInicial, guardarNuevoEpisodio,
   pulirNota, usarPulido, descartarPulido, volverNotaOriginal,
+  editarEpisodio, pedirUnirEpisodio,
   delAppt, deletePatient, deleteTherapist, deleteDoctor, deleteProtocol,
   cycleStatus, changeDay, changeWeek, goToDate, goToToday,
   changeResumenDay, goToResumenDate, resumenHoy, openResumenDatePicker, setResumenTherapist,

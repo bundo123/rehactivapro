@@ -5,7 +5,13 @@
 // que doneActual/tramoEpisodio) y el orden es por fecha y luego hora decimal.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { citaOrdinal, ordinalesDeCitas, ordinalTexto } from '../js/utils.js';
+import { citaOrdinal as _citaOrdinal, ordinalesDeCitas as _ordinalesDeCitas, ordinalTexto } from '../js/utils.js';
+
+// EPI-2a: los marcadores 'Fin de episodio' de estos fixtures se convierten en filas de
+// episodios con el mismo backfill del SQL (test/_episodios.js): mismos resultados = equivalencia.
+import { conEpisodios } from './_episodios.js';
+const citaOrdinal = (as, p, a) => _citaOrdinal(as, conEpisodios(p), a);
+const ordinalesDeCitas = (as, get) => _ordinalesDeCitas(as, get && (id => conEpisodios(get(id))));
 
 const cita = (id, date, hour, status = 'conf', patientId = 'p1') =>
   ({ id, date, hour, duration: 60, status, patientId, therapistId: 't1' });

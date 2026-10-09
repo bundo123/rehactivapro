@@ -4,7 +4,12 @@
 // sesión respiratoria anterior del episodio (misma frontera estricta que doneActual).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TIPO_RESP, RESP_TECNICAS, SIGNOS, soapNormalizar, faltantesResp, resumenResp, notaSoapie, respAnterior } from '../js/soap.js';
+import { TIPO_RESP, RESP_TECNICAS, SIGNOS, soapNormalizar, faltantesResp, resumenResp, notaSoapie, respAnterior as _respAnterior } from '../js/soap.js';
+
+// EPI-2a: los marcadores 'Fin de episodio' de estos fixtures se convierten en filas de
+// episodios con el mismo backfill del SQL (test/_episodios.js): mismos resultados = equivalencia.
+import { conEpisodios } from './_episodios.js';
+const respAnterior = (p, a) => _respAnterior(conEpisodios(p), a);
 
 const completo = () => ({
   llega: 'mejor', tol: 'buena', prox: 'continuar', casa: 'Incentivómetro 3x10',

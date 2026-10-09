@@ -4,6 +4,52 @@
 
 ---
 
+## 🗓️ Sesión 2026-10-08 (3) — LOTE EPI-2a: episodios como tabla (editables, con nombre, diagnóstico e inicio; unir; sesiones previas). Con SQL.
+
+**MINI-1 en producción desde `64d0e25`** (commit vacío sobre `53cc227`): Vercel solo había creado
+el Preview de `53cc227` y no el deploy de Production; se forzó con un commit vacío. Verificado:
+commit-status `success` (Production); 15/16 archivos idénticos (`index-C6VcQAxN.js`,
+`index-B8Sgy4QA.css`); `robots.txt` solo difiere en CRLF/LF.
+
+**EPI-2a** (este commit). **SQL `episodios.sql`: lo audita el chat y lo corre Jefferson ANTES del
+merge** (el código nuevo lee `episodios(*)` en la carga inicial). Re-ejecutable: si entre la
+corrida y el merge alguien inicia un episodio con el código viejo, volver a correrlo lo migra.
+- **Semántica:** episodio = rango [desde, desde del siguiente); desde NULL = desde el inicio;
+  actual = el de mayor desde. Un corte no puede caer dentro de un mismo día (limitación aceptada).
+  En el actual diag/CIE-10/protocolo/plan van NULL (valen los del paciente); al cerrarlo se guarda
+  una foto. `lastFinDate(p)` = día anterior al desde del actual, así doneActual, pendientesActual,
+  citasNumerables, respAnterior y el resto no cambian.
+- **SQL:** tabla con RLS (SELECT todos; INSERT/UPDATE los 3 roles; DELETE los 3 roles y nunca el
+  primero), `trg_audit`, realtime (REPLICA IDENTITY FULL), trigger que crea el episodio inicial de
+  cada paciente nuevo, backfill (uno por paciente + uno por marcador con desde = marcador + 1 día;
+  la foto del que cierra sale de la nota) y tres funciones SECURITY INVOKER con lock por paciente:
+  `crear_episodio` (foto + nuevo + paciente con diag/plan nuevos y **CIE-10 limpio**: antes el del
+  diagnóstico viejo quedaba pegado al nuevo), `unir_con_anterior` y `mover_inicio`. Los 4
+  marcadores de producción no se borran: quedan inertes.
+- **Código:** `episodiosOrdenados`/`episodioActual`/`lastFinDate` (utils.js); `logDeEpisodio`,
+  `episodiosDePaciente`, `citasDeEpisodio` y el selector del informe leen la tabla (etiqueta =
+  nombre || diag; valores 'current'/'ep_N' de siempre). «Nuevo episodio» llama a `crear_episodio`
+  con desde = fecha de la cita elegida (ya no "día anterior") y suma «Nombre del episodio» y
+  «Sesiones previas a RehactivaPro». Bloque «Episodios» en el panel derecho del informe
+  (newEpisode): lista con rango y sesiones; «Editar» (nombre, previas, inicio entre las fechas de
+  sesiones/citas que caen entre los vecinos y, en los cerrados, diagnóstico del catálogo y plan) y
+  «Unir con el anterior» con confirmación dentro de la app. Realtime de `episodios`.
+- **Sesiones previas:** solo en lo que se muestra — badge X/N de la agenda (y el Historial, que
+  numera igual), «Lleva X de N» del plan en la cita, «Sesiones completadas» del informe en
+  pantalla/PDF/Word («incluye N previas a RehactivaPro») y el X/N del prompt IA. Nunca en
+  facturación ni en `pendientesActual`.
+- **Cambio de comportamiento menor:** un episodio cerrado cuyo marcador no tenía nota mostraba el
+  diagnóstico y el done del paciente HOY; ahora «Tratamiento anterior» y el done de su tramo. Los 4
+  marcadores de producción tienen nota: no les afecta.
+- Fuera de este lote: informe por rango «de la sesión X a la Y» (EPI-2b).
+
+559 → 574 pruebas (+15 en `test/epi2a.test.js`; node cuenta 575 porque `test/_episodios.js`, el
+espejo en JS del backfill que convierte los fixtures con marcadores, también es un archivo de
+`test/`). Las pruebas viejas con marcadores ahora pasan por ese backfill: mismos resultados =
+equivalencia.
+
+---
+
 ## 🗓️ Sesión 2026-10-08 (2) — LOTE MINI-1: arreglos detectados en un informe real. Sin SQL nuevo que correr.
 
 **Deploy de PULIR-1 verificado** (`62a061a`, en `main`): commit-status de Vercel `success`; 16/16

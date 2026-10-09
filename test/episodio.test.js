@@ -7,8 +7,13 @@
 // del episodio) y citaOrdinal (badge X/N).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { citasParaCierre, indiceCitaCierre, fmtFechaCorta, diaAnterior,
-         doneActual, citaOrdinal } from '../js/utils.js';
+import { citasParaCierre, indiceCitaCierre, fmtFechaCorta, diaAnterior, doneActual as _doneActual, citaOrdinal as _citaOrdinal } from '../js/utils.js';
+
+// EPI-2a: los marcadores 'Fin de episodio' de estos fixtures se convierten en filas de
+// episodios con el mismo backfill del SQL (test/_episodios.js): mismos resultados = equivalencia.
+import { conEpisodios } from './_episodios.js';
+const doneActual = p => _doneActual(conEpisodios(p));
+const citaOrdinal = (as, p, a) => _citaOrdinal(as, conEpisodios(p), a);
 
 const HOY = '2026-08-14', AYER = '2026-08-13', MANANA = '2026-08-15';
 

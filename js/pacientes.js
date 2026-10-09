@@ -1,7 +1,7 @@
 ﻿import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { esc, fmtDate, fmtTime, fmtFechaCorta, diaAnterior, getPatient, getDoctor, getTherapist,
-         patientMatchesSearch, highlightMatch, getFullAge, doneActual, safeColor, findCedulaDuplicate,
+         patientMatchesSearch, highlightMatch, getFullAge, safeColor, findCedulaDuplicate,
          citasParaCierre, indiceCitaCierre, diagOptionsHtml, diagSync } from './utils.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
@@ -9,6 +9,7 @@ import { hasPermission } from './permissions.js';
 import { validateRequired, validateMinChars, validatePositiveInt, validateDocumento, validateTelefono, validateEmail, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker, validateBirthDate } from './validators.js';
 import { resetCie10Pm, getCie10Pm, setCie10Ev } from './cie10.js';
 import { renderRomEditor, leerRomDetalle } from './rom.js';
+import { recargarEpisodiosPaciente } from './episodios.js';
 
 const _patientDirty = createDirtyTracker();
 const _patNameFn = (v) => { const r = validateRequired(v); return r.valid ? validateMinChars(v, 3) : r; };
@@ -368,8 +369,8 @@ function renderNeCitas(patientId) {
   const hoy=fmtDate(new Date());
   _neCitas=citasParaCierre(state.appointments,patientId,hoy);
   if(!_neCitas.length){
-    // Sin citas no hay nada que elegir: el episodio nuevo arranca HOY y guardarNuevoEpisodio fecha
-    // el marcador AYER, para que lo que se registre hoy ya cuente en el episodio nuevo.
+    // Sin citas no hay nada que elegir: el episodio nuevo arranca HOY, así lo que se registre hoy
+    // ya cuenta en el episodio nuevo.
     sel.innerHTML='<option value="">Sin citas — el episodio nuevo arranca hoy</option>';
     renderNeHint(hoy);
     return;
@@ -411,6 +412,8 @@ export function nuevoEpisodio(patientId) {
   const _neNew=document.getElementById('ne-new-diag-btn');
   if(_neNew) _neNew.style.display=hasPermission('createProtocol')?'':'none';
   document.getElementById('ne-sessions').value=12;
+  const _neNom=document.getElementById('ne-nombre'); if(_neNom) _neNom.value='';
+  const _nePrev=document.getElementById('ne-previas'); if(_nePrev) _nePrev.value='0';
   document.querySelector('input[name="ne-eval"][value="si"]').checked=true;
   renderNeCitas(patientId);
   populateDiagSelects();
@@ -429,48 +432,37 @@ export async function guardarNuevoEpisodio() {
   const newSessions=parseInt(document.getElementById('ne-sessions').value)||12;
   const abrirEval=document.querySelector('input[name="ne-eval"]:checked').value==='si';
   if(!newDiag){toastErr('Elige el nuevo diagnóstico');return;}
-  const oldDiag=p.diag;
+  const nombre=(document.getElementById('ne-nombre')?.value||'').trim();
+  const prevRaw=String(document.getElementById('ne-previas')?.value??'').trim();
+  const previas=prevRaw===''?0:Number(prevRaw);
+  if(!Number.isInteger(previas)||previas<0||previas>200){toastErr('Sesiones previas: un número entero de 0 a 200');return;}
   const hoy=fmtDate(new Date());
-  // Frontera ELEGIDA: el selector pregunta por la cita que ABRE el episodio nuevo, así que el
-  // marcador se fecha el DÍA ANTERIOR a esa cita — la frontera es estricta (cuenta lo que tiene
-  // date > fin) y con la fecha misma la sesión de esa cita caería en el episodio viejo. Sin citas
-  // que ofrecer el episodio nuevo arranca hoy, o sea marcador AYER.
+  // EPI-2a: el episodio nuevo EMPIEZA el día de la cita elegida (episodios.desde); sin citas que
+  // ofrecer, hoy. crear_episodio (SQL) es atómica: guarda la foto del episodio actual, crea el nuevo
+  // y deja al paciente con el diagnóstico/plan nuevos y el CIE-10 limpio (era del diagnóstico
+  // anterior). Ya no se escribe el marcador 'Fin de episodio'.
   const idxCita=parseInt(document.getElementById('ne-last-appt')?.value,10);
-  const citaFin=Number.isInteger(idxCita)?_neCitas[idxCita]:null;
-  const fechaFin=citaFin?diaAnterior(String(citaFin.date)):diaAnterior(hoy);
-  const finNote=`Episodio anterior: ${oldDiag} · ${doneActual(p)} sesiones completadas`;
-  // El marcador 'Fin de episodio' en session_log ES la frontera del episodio: a partir de su fecha,
-  // doneActual/pendientesActual cuentan desde cero. No hace falta resetear columnas en memoria/DB.
-  const {data:insFin,error:errFin}=await supa.from('session_log').insert({
-    patient_id:_nePatientId,date:fechaFin,type:'Fin de episodio',
-    hour:'00:00',status:'asistió',pain_before:0,pain_after:0,note:finNote
-  }).select('id').single();
-  // Sin el marcador no hay frontera de episodio: abortar acá deja todo consistente (ni diag nuevo,
-  // ni push a memoria, ni modal cerrado).
-  if(errFin){toastErr('Error al iniciar episodio: '+errFin.message);return;}
-  const {data:updRows,error}=await supa.from('patients').update({diag:newDiag,protocol_id:_diagNe.protocolId,sessions:newSessions,status:'active'}).eq('id',_nePatientId).select('id');
-  if(error||!updRows?.length){
-    // El marcador ya está en DB y sin diag nuevo sería una frontera falsa: se intenta retirarlo.
-    // Si el retiro también falla, se avisa con el id para que un admin lo borre desde Sesiones.
-    const {error:errUndo}=await supa.from('session_log').delete().eq('id',insFin?.id);
-    const base=error?('Error: '+error.message):'No se pudo actualizar el paciente (0 filas)';
-    toastErr(errUndo?base+`. Marcador 'Fin de episodio' quedó huérfano (id ${insFin?.id}); avisar a un admin.`:base+'. Episodio no iniciado.');
-    return;
+  const citaIni=Number.isInteger(idxCita)?_neCitas[idxCita]:null;
+  const desde=citaIni?String(citaIni.date):hoy;
+  const pid=_nePatientId;
+  const {error}=await supa.rpc('crear_episodio',{
+    p_patient:pid,p_desde:desde,p_protocol_id:_diagNe.protocolId,p_diag:newDiag,
+    p_sesiones:newSessions,p_nombre:nombre||null,p_previas:previas
+  });
+  if(error){toastErr('No se pudo iniciar el episodio: '+error.message);return;}
+  // La verdad la tiene el SQL: se releen paciente y episodios (sin esperar el realtime).
+  if(!await recargarEpisodiosPaciente(pid)){
+    p.diag=newDiag; p.protocolId=_diagNe.protocolId; p.sessions=newSessions; p.status='active'; p.cie10=null; p.cie10Desc=null;
   }
-  p.diag=newDiag; p.protocolId=_diagNe.protocolId; p.sessions=newSessions; p.status='active';
-  // El log en memoria aún no tiene la fila recién insertada (el wrapper supa anti-eco no la reenvía).
-  // Agregarla para que doneActual/pendientesActual reflejen el corte de inmediato (sin esperar recarga).
-  if(!p.log) p.log=[];
-  p.log.push({id:insFin?.id??null,date:fechaFin,type:'Fin de episodio',hour:'00:00',status:'asistió',pb:0,pa:0,note:finNote});
   window._app.closeModal('nuevo-episodio-modal');
   toastOk('✓ Nuevo episodio iniciado — '+newDiag);
   renderPatients();
   window._app.renderPatientReportSelect();
   setTimeout(()=>{
     const sel=document.getElementById('patient-rpt-select');
-    if(sel){sel.value=String(_nePatientId);window._app.updateEpisodes();}
+    if(sel){sel.value=String(pid);window._app.updateEpisodes();}
   },100);
-  if(abrirEval) setTimeout(()=>openEvalInicial(_nePatientId),400);
+  if(abrirEval) setTimeout(()=>openEvalInicial(pid),400);
 }
 
 export function initPatientValidation() {

@@ -2,7 +2,14 @@
 // Lógica pura derivada de session_log; frontera del episodio = último 'Fin de episodio'.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { doneActual, doneEnLog, pendientesActual, lastFinDate, normalizeSearch } from '../js/utils.js';
+import { doneActual as _doneActual, doneEnLog, pendientesActual as _pendientesActual, lastFinDate as _lastFinDate, normalizeSearch } from '../js/utils.js';
+
+// EPI-2a: los marcadores 'Fin de episodio' de estos fixtures se convierten en filas de
+// episodios con el mismo backfill del SQL (test/_episodios.js): mismos resultados = equivalencia.
+import { conEpisodios } from './_episodios.js';
+const doneActual = p => _doneActual(conEpisodios(p));
+const pendientesActual = p => _pendientesActual(conEpisodios(p));
+const lastFinDate = p => _lastFinDate(conEpisodios(p));
 
 const ses = (date, status = 'asistió', type = 'Fisioterapia') => ({ date, type, status });
 const evalInicial = (date) => ({ date, type: 'Evaluación inicial', status: 'asistió' });

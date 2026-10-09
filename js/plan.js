@@ -8,7 +8,7 @@
 // sola fuente, session_log, sin contadores paralelos.
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, doneActual } from './utils.js';
+import { esc, doneActual, previasActual } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { nuevoEpisodio } from './pacientes.js';
@@ -25,7 +25,8 @@ function renderPlan() {
   const p = paciente();
   const box = $('plan-appt-current');
   if (!box || !p) return;
-  const x = doneActual(p), n = p.sessions || 0;
+  // EPI-2a: las sesiones previas a RehactivaPro se suman como en el badge (solo se muestran).
+  const x = doneActual(p) + previasActual(p), n = p.sessions || 0;
   // Sin plan definido el conteo sigue siendo útil (es lo que la agenda muestra como "X" a secas).
   const over = n > 0 && x > n;
   box.innerHTML = n

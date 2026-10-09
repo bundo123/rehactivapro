@@ -6,9 +6,14 @@
 //  · dolorInicial (utils.js): UNA regla para pantalla, PDF, Word y gráficos.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { citasDeEpisodio } from '../js/historial-calc.js';
-import { resumenCitas, hastaHoy, leerEva, dolorInicial, rotuloDolorInicial, inicioDesdeEval,
-         textoCitas, logDeEpisodio, buildEvaSvg } from '../js/utils.js';
+import { citasDeEpisodio as _citasDeEpisodio } from '../js/historial-calc.js';
+import { resumenCitas, hastaHoy, leerEva, dolorInicial, rotuloDolorInicial, inicioDesdeEval, textoCitas, logDeEpisodio as _logDeEpisodio, buildEvaSvg } from '../js/utils.js';
+
+// EPI-2a: los marcadores 'Fin de episodio' de estos fixtures se convierten en filas de
+// episodios con el mismo backfill del SQL (test/_episodios.js): mismos resultados = equivalencia.
+import { conEpisodios } from './_episodios.js';
+const citasDeEpisodio = (as, p, ep) => _citasDeEpisodio(as, conEpisodios(p), ep);
+const logDeEpisodio = (p, ep) => _logDeEpisodio(conEpisodios(p), ep);
 
 const HOY = '2026-10-08';
 const cita = (date, status = 'conf', patientId = 'p1', hour = 9) => ({ date, status, patientId, hour });

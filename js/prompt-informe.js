@@ -1,7 +1,7 @@
 // Prompt de la narrativa IA del informe del paciente (genPatientAI en ia.js). Función PURA, sin DOM
 // ni state, para poder testear las reglas con node --test (ia.js importa el cliente de Supabase y no
 // carga fuera de Vite). Lo que depende de state (protocolo, médico) llega ya resuelto.
-import { getDisplayAge, diagParaPrompt, ctxParaPrompt } from './utils.js';
+import { getDisplayAge, diagParaPrompt, ctxParaPrompt, sesionesMostradas, textoPrevias } from './utils.js';
 import { resumenResp } from './soap.js';
 
 // MINI-1: sin EVA en la evaluación → "no medido" (antes "?/10", que la IA leía como dato).
@@ -21,8 +21,9 @@ export function evalTextoPrompt(evalRow) {
  * @param {boolean} a.esActual   el episodio es el actual
  * @param {object|null} a.prot   protocolo vinculado (solo en el episodio actual)
  * @param {boolean} a.tieneMedico hay médico referente registrado
+ * @param {number} [a.epPrevias] sesiones previas a RehactivaPro del episodio (EPI-2a)
  */
-export function promptInformePaciente({ p, log, epDiag, epSessions, epDone, esActual, prot, tieneMedico }) {
+export function promptInformePaciente({ p, log, epDiag, epSessions, epDone, esActual, prot, tieneMedico, epPrevias = 0 }) {
   const evalRow = log.find(s => s.type === 'Evaluación inicial');
   const evalText = evalTextoPrompt(evalRow);
   const trat = log.filter(s => s.type !== 'Evaluación inicial');
@@ -60,7 +61,7 @@ DATOS CLÍNICOS (anonimizado):
 - Edad: ${getDisplayAge(p)}
 - Diagnóstico: ${diagPrompt}
 - Estado actual: ${estado}
-- Sesiones realizadas/prescritas: ${epDone}/${epSessions || 0}
+- Sesiones realizadas/prescritas: ${sesionesMostradas(epDone, epPrevias)}/${epSessions || 0}${epPrevias ? ` (${textoPrevias(epPrevias)})` : ''}
 - EVALUACIÓN INICIAL (anamnesis, inspección, palpación, movilidad, fuerza): ${evalText}
 - HISTORIAL POR SESIÓN (fecha; EVA antes→después; técnicas aplicadas; observación):
 ${sesiones}${protCtx ? `

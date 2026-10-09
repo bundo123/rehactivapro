@@ -22,8 +22,8 @@ const ROLE_TABS = {
 // 'editAppt' = reprogramar/reasignar una cita existente (fecha, hora, paciente, terapeuta, nota).
 // Es agenda pura como 'createAppt': lo hace recepción. El terapeuta cambia el ESTADO desde la
 // tarjeta ('cycleStatus'); el modal de edición se le abre en solo lectura.
-// 'newEpisode' = cerrar el episodio clínico e iniciar otro (marcador 'Fin de episodio' + diag
-// nuevo). Es decisión clínica y resetea el conteo que alimenta facturación: admin y terapeuta.
+// 'newEpisode' = cerrar el episodio clínico e iniciar otro (crear_episodio: fila en `episodios` +
+// diag nuevo) y editar/unir episodios (EPI-2a). Es decisión clínica y resetea el conteo que alimenta facturación: admin y terapeuta.
 // 'createProtocol' = dar de alta un diagnóstico en el banco (tabla `protocols`); 'editProtocol' =
 // editarlo y borrarlo. Van partidos igual que createTherapist/deleteTherapist y espejan la RLS
 // (INSERT = is_admin() OR is_terapeuta(); UPDATE/DELETE = is_admin()): el terapeuta CREA el

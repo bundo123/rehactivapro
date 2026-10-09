@@ -240,7 +240,7 @@ export function notaSoapie(fila, prev, ctx = {}) {
 }
 
 // Sesión RESPIRATORIA más reciente con registro del episodio actual, anterior a (date, hour) si se
-// pasa `antesDe`. Misma frontera estricta que doneActual: date > último 'Fin de episodio'.
+// pasa `antesDe`. Misma frontera estricta que doneActual: date > lastFinDate.
 export function respAnterior(patient, antesDe) {
   const fin = lastFinDate(patient);
   const clave = s => String(s.date) + 'T' + normHour(s.hour);

@@ -4,7 +4,12 @@
 // episodio actual (misma frontera estricta que doneActual).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ROM_CATALOGO, ROM_MAX, romMov, romNormalizar, romLeerItems, romPct, romTexto, romGrupos, ultimaMedicion } from '../js/rom.js';
+import { ROM_CATALOGO, ROM_MAX, romMov, romNormalizar, romLeerItems, romPct, romTexto, romGrupos, ultimaMedicion as _ultimaMedicion } from '../js/rom.js';
+
+// EPI-2a: los marcadores 'Fin de episodio' de estos fixtures se convierten en filas de
+// episodios con el mismo backfill del SQL (test/_episodios.js): mismos resultados = equivalencia.
+import { conEpisodios } from './_episodios.js';
+const ultimaMedicion = p => _ultimaMedicion(conEpisodios(p));
 
 const it_ = (j, m, l, v) => ({ j, m, l, v });
 

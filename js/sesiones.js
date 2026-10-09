@@ -1,7 +1,7 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { getPatient, esc, fmtDate, fmtTime, normHour, doneActual, pendientesActual, orderedTherapists,
-         tipoSesion, TIPO_SESION_DEFAULT, TIPOS_SESION, leerEva, avisosSesion } from './utils.js';
+         tipoSesion, TIPO_SESION_DEFAULT, TIPOS_SESION, leerEva, avisosSesion, lastFinDate } from './utils.js';
 import { toastOk, toastErr, toastInfo, showToast } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { showFieldError, clearFieldError, clearAllErrors } from './validators.js';
@@ -400,8 +400,7 @@ async function saveSessionEdit() {
   // GUARDA del edge de fecha: si mover la fecha cambia la pertenencia al episodio actual, abortar
   // (done debe quedar exacto; mover entre episodios = eliminar y recrear).
   if(newDate!==ref.date){
-    const finDates=(pt.log||[]).filter(x=>x.type==='Fin de episodio').map(x=>x.date).sort();
-    const lastFin=finDates.length?finDates[finDates.length-1]:null;
+    const lastFin=lastFinDate(pt);   // EPI-2a: frontera del episodio actual, desde la tabla
     const wasCurrent =!lastFin||ref.date>lastFin;
     const willCurrent=!lastFin||newDate>lastFin;
     if(wasCurrent!==willCurrent){

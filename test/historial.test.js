@@ -8,12 +8,14 @@
 //     actual: ordinalesDeCitas no se refactorizó, se ató con un test de invariante.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ordinalesDeCitas, parseFinNote } from '../js/utils.js';
-import {
-  episodiosDePaciente, citasDePaciente, episodioDeCita, ordinalesHistorial,
-  estadoHistorial, resumenHistorial, filtrarHistorial, agruparPorMes,
-  filasCsvHistorial, tipoAbbr,
-} from '../js/historial-calc.js';
+import { ordinalesDeCitas as _ordinalesDeCitas, parseFinNote } from '../js/utils.js';
+import { episodiosDePaciente as _episodiosDePaciente, citasDePaciente, episodioDeCita, ordinalesHistorial, estadoHistorial, resumenHistorial, filtrarHistorial, agruparPorMes, filasCsvHistorial, tipoAbbr } from '../js/historial-calc.js';
+
+// EPI-2a: los marcadores 'Fin de episodio' de estos fixtures se convierten en filas de
+// episodios con el mismo backfill del SQL (test/_episodios.js): mismos resultados = equivalencia.
+import { conEpisodios } from './_episodios.js';
+const ordinalesDeCitas = (as, get) => _ordinalesDeCitas(as, get && (id => conEpisodios(get(id))));
+const episodiosDePaciente = p => _episodiosDePaciente(conEpisodios(p));
 
 const HOY = '2026-09-01';
 
@@ -46,15 +48,21 @@ test('parseFinNote — diagnóstico con varias palabras y separador intacto', ()
 test('episodiosDePaciente — paciente SIN log: un solo episodio, el actual, abierto por los dos lados', () => {
   const eps = episodiosDePaciente(pac());
   assert.equal(eps.length, 1);
-  assert.deepEqual(eps[0], { idx: 1, desde: null, hasta: null, diag: 'Lumbalgia', plan: 15, actual: true });
+  // EPI-2a: el episodio trae además id, inicio, nombre, etiqueta y previas; acá se mira la frontera.
+  const base = ({ idx, desde, hasta, diag, plan, actual }) => ({ idx, desde, hasta, diag, plan, actual });
+  assert.deepEqual(base(eps[0]), { idx: 1, desde: null, hasta: null, diag: 'Lumbalgia', plan: 15, actual: true });
+  assert.equal(eps[0].etiqueta, 'Lumbalgia');
+  assert.equal(eps[0].previas, 0);
 });
 
 test('episodiosDePaciente — un marcador parte el histórico en dos; el actual es el último', () => {
   const p = pac({ log: [finEp('2026-06-30', notaFin('Cervicalgia', 20))] });
   const eps = episodiosDePaciente(p);
   assert.equal(eps.length, 2);
-  assert.deepEqual(eps[0], { idx: 1, desde: null, hasta: '2026-06-30', diag: 'Cervicalgia', plan: 20, actual: false });
-  assert.deepEqual(eps[1], { idx: 2, desde: '2026-06-30', hasta: null, diag: 'Lumbalgia', plan: 15, actual: true });
+  const base = ({ idx, desde, hasta, diag, plan, actual }) => ({ idx, desde, hasta, diag, plan, actual });
+  assert.deepEqual(base(eps[0]), { idx: 1, desde: null, hasta: '2026-06-30', diag: 'Cervicalgia', plan: 20, actual: false });
+  assert.deepEqual(base(eps[1]), { idx: 2, desde: '2026-06-30', hasta: null, diag: 'Lumbalgia', plan: 15, actual: true });
+  assert.equal(eps[1].inicio, '2026-07-01');   // episodios.desde = día siguiente al marcador
 });
 
 test('episodiosDePaciente — marcadores desordenados en el log: salen del más viejo al más nuevo', () => {

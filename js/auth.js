@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { fmtDate, fmtTime, normHour, mapTherapistRow, mapBlockRow, tipoSesion, validarPassNueva } from './utils.js';
+import { fmtDate, fmtTime, normHour, mapTherapistRow, mapBlockRow, tipoSesion, validarPassNueva, mapEpisodioRow } from './utils.js';
 import { toastErr, toastOk } from './toast.js';
 import { romNormalizar } from './rom.js';
 import { soapNormalizar } from './soap.js';
@@ -52,7 +52,7 @@ export async function loadAll(force=false) {
     const [th,doc,pat,appt,prot,cob,inf,blk] = await Promise.all([
       supa.from('therapists').select('*',{count:'exact'}).order('created_at'),
       supa.from('doctors').select('*',{count:'exact'}).order('created_at'),
-      supa.from('patients').select('*,session_log(*)',{count:'exact'}).order('created_at'),
+      supa.from('patients').select('*,session_log(*),episodios(*)',{count:'exact'}).order('created_at'),
       supa.from('appointments').select('*,patients(name)',{count:'exact'}).order('date').order('hour'),
       supa.from('protocols').select('*',{count:'exact'}).order('created_at'),
       supa.from('cobros').select('*',{count:'exact'}).order('created_at'),
@@ -78,6 +78,8 @@ export async function loadAll(force=false) {
       therapistId:r.therapist_id,doctorId:r.doctor_id,
       sessions:r.sessions||10,status:r.status||'active',protocolId:r.protocol_id||null,
       log:(r.session_log||[]).map(s=>({id:s.id,date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null,rom:romNormalizar(s.rom),soap:soapNormalizar(s.soap),noteOriginal:s.note_original||null,noteIaAt:s.note_ia_at||null})),
+      // EPI-2a: episodios del paciente (tabla). Sin filas = un episodio implícito desde el inicio.
+      episodios:(r.episodios||[]).map(mapEpisodioRow),
       // done/pendientes NO se leen de columnas (vestigiales): derivan de session_log vía doneActual/pendientesActual.
       billing:{sesPerFactura:r.billing_ses_per_factura||5,
         facturas:cobData.filter(c=>c.patient_id===r.id).map(c=>({id:c.cobro_ref,n:c.n_sessions,fecha:c.date,estado:'cobrada'}))}

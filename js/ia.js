@@ -256,12 +256,12 @@ export function genPatientAI() {
   // CTX-1b: la narrativa respeta el episodio elegido en el selector, con el MISMO recorte que la
   // pantalla/PDF/Word (logDeEpisodio). Antes mandaba todo p.log y el diagnóstico/sesiones de hoy.
   const epVal=document.getElementById('patient-rpt-episode')?.value||'current';
-  const {log,epDiag,epSessions,epDone,esActual}=logDeEpisodio(p,epVal);
+  const {log,epDiag,epSessions,epDone,esActual,epPrevias}=logDeEpisodio(p,epVal);
   // CTX-1b: protocolId y médico son los de HOY; en un episodio cerrado no se manda el protocolo.
   const prot=esActual&&p.protocolId?state.protocols.find(x=>x.id===p.protocolId):null;
   const tieneMedico=!!(p.doctorId&&getDoctor(p.doctorId));
   // MINI-1: el texto del prompt vive en prompt-informe.js (puro, testeable).
-  const prompt=promptInformePaciente({p,log,epDiag,epSessions,epDone,esActual,prot,tieneMedico});
+  const prompt=promptInformePaciente({p,log,epDiag,epSessions,epDone,esActual,prot,tieneMedico,epPrevias});
   const outputEl=document.getElementById('patient-rpt-ai-output');
   if(outputEl){outputEl.style.display='block';callAI(prompt,'patient-rpt-ai-output',_renderPatientNarrative);}
 }

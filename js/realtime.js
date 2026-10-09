@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { getPatient, fmtTime, normHour, findSessionIdx, mapTherapistRow, mapBlockRow, tipoSesion } from './utils.js';
+import { getPatient, fmtTime, normHour, findSessionIdx, mapTherapistRow, mapBlockRow, tipoSesion, mapEpisodioRow } from './utils.js';
 import { toastInfo } from './toast.js';
 import { romNormalizar } from './rom.js';
 import { soapNormalizar } from './soap.js';
@@ -99,6 +99,8 @@ function _mapPatient(r) {
     therapistId:r.therapist_id,doctorId:r.doctor_id,
     sessions:r.sessions||10,status:r.status||'active',protocolId:r.protocol_id||null,
     log:existing?existing.log:[],
+    // EPI-2a: los episodios llegan por su propio canal; un UPDATE del paciente no los borra.
+    episodios:existing?existing.episodios:[],
     // done/pendientes NO se leen de columnas (vestigiales): derivan de session_log vía doneActual/pendientesActual.
     billing:{sesPerFactura:r.billing_ses_per_factura||5,
       facturas:existing&&existing.billing?existing.billing.facturas:[]}
@@ -196,10 +198,36 @@ function _onSessionLog(payload) {
   if(state.currentTab==='paciente_rpt'){const sel=document.getElementById('patient-rpt-select')?.value;if(String(sel)===String(pid))_scheduleRender(renderPatientReport);}
   if(state.currentTab==='agenda')_scheduleRender(renderGrid);
   if(state.currentTab==='seguimiento')_scheduleRender(renderSeguimiento);
-  // Un 'Fin de episodio' nuevo mueve la frontera y con ella TODOS los cortes y ordinales de la
-  // pantalla, así que el Historial se repinta aunque el paciente abierto sea otro (barato: es un
-  // render sobre datos que ya están en memoria).
+  // El Historial se repinta aunque el paciente abierto sea otro (barato: es un render sobre datos
+  // que ya están en memoria). La frontera de episodio ya no vive acá: ver _onEpisodio (EPI-2a).
   if(state.currentTab==='historial')_scheduleRender(renderHistorial);
+}
+
+// EPI-2a: un episodio nuevo, editado o unido mueve la frontera, y con ella los cortes, ordinales y
+// conteos de todas las pantallas: se repinta lo mismo que con un cambio de session_log.
+// Con REPLICA IDENTITY FULL el DELETE trae patient_id; si no viniera, se busca el episodio por id.
+function _onEpisodio(payload) {
+  touchLoaded('patients');
+  const ev=payload.eventType;
+  const row=payload.new&&Object.keys(payload.new).length?payload.new:payload.old;if(!row)return;
+  let p=row.patient_id!=null?getPatient(row.patient_id):null;
+  if(!p&&row.id!=null) p=state.patients.find(x=>(x.episodios||[]).some(e=>String(e.id)===String(row.id)));
+  if(!p)return;
+  if(!p.episodios)p.episodios=[];
+  const idx=p.episodios.findIndex(e=>String(e.id)===String(row.id));
+  if(ev==='DELETE'){ if(idx>=0)p.episodios.splice(idx,1); }
+  else { const m=mapEpisodioRow(payload.new); if(idx>=0)p.episodios[idx]=m; else p.episodios.push(m); }
+  const {renderPatientReport,updateEpisodes,renderGrid,renderSeguimiento,renderHistorial}=window._app;
+  if(state.currentTab==='paciente_rpt'){
+    const sel=document.getElementById('patient-rpt-select')?.value;
+    // El selector de episodio cambia de opciones: updateEpisodes lo rearma (y repinta el informe).
+    if(String(sel)===String(p.id))_scheduleRender(updateEpisodes||renderPatientReport);
+  }
+  if(state.currentTab==='agenda')_scheduleRender(renderGrid);
+  if(state.currentTab==='seguimiento')_scheduleRender(renderSeguimiento);
+  if(state.currentTab==='historial')_scheduleRender(renderHistorial);
+  window._app.updateResumenBadge?.();
+  window._app.updateFacturaBadge?.();
 }
 
 function _onCobro(payload) {
@@ -334,6 +362,7 @@ export function subscribeRealtime() {
     .on('postgres_changes',{event:'*',schema:'public',table:'appointments'},_onAppt)
     .on('postgres_changes',{event:'*',schema:'public',table:'patients'},_onPatient)
     .on('postgres_changes',{event:'*',schema:'public',table:'session_log'},_onSessionLog)
+    .on('postgres_changes',{event:'*',schema:'public',table:'episodios'},_onEpisodio)
     .on('postgres_changes',{event:'*',schema:'public',table:'cobros'},_onCobro)
     .on('postgres_changes',{event:'*',schema:'public',table:'therapists'},_onTherapist)
     .on('postgres_changes',{event:'*',schema:'public',table:'doctors'},_onDoctor)

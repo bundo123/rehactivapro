@@ -787,11 +787,48 @@ export function getFullAge(p) {
   return 'Sin edad';
 }
 
+// ── EPI-2a: episodios = tabla public.episodios ──
+// Un episodio es un rango de fechas [desde, desde del siguiente); desde null = desde el inicio.
+// El ACTUAL es el de mayor desde. En el actual diag/cie10/protocolo/plan van en null y valen los
+// del paciente; al cerrarlo (crear_episodio) se guardan como foto. Un corte no puede caer dentro
+// de un mismo día. Los marcadores 'Fin de episodio' de session_log quedan inertes: ya no son
+// frontera (siguen fuera de los conteos).
+
+// Fila de la DB → objeto en memoria (carga inicial y realtime).
+export function mapEpisodioRow(r) {
+  return {
+    id: r.id, patientId: r.patient_id, desde: r.desde || null, nombre: r.nombre || null,
+    diag: r.diag || null, cie10: r.cie10 || null, cie10Desc: r.cie10_desc || null,
+    protocolId: r.protocol_id || null,
+    sesionesPlan: r.sesiones_plan ?? null,
+    sesionesPrevias: Number(r.sesiones_previas) || 0,
+    createdAt: r.created_at || null,
+  };
+}
+
+// Episodios del paciente del más viejo al más nuevo (desde null primero). Sin filas en la tabla
+// (paciente recién creado, o antes del SQL de EPI-2a) hay UN episodio implícito, desde el inicio:
+// es exactamente lo que hoy es un paciente sin marcadores.
+export function episodiosOrdenados(p) {
+  const eps = (Array.isArray(p?.episodios) ? p.episodios : []).filter(Boolean);
+  if (!eps.length) return [{ id: null, desde: null, nombre: null, diag: null, cie10: null, cie10Desc: null,
+    protocolId: null, sesionesPlan: null, sesionesPrevias: 0, implicito: true }];
+  return [...eps].sort((a, b) => (a.desde == null ? -1 : 0) - (b.desde == null ? -1 : 0)
+    || String(a.desde || '').localeCompare(String(b.desde || '')));
+}
+
+export function episodioActual(p) {
+  const eps = episodiosOrdenados(p);
+  return eps[eps.length - 1];
+}
+
 // ── FUENTE ÚNICA de done/pendientes (derivados de session_log, nunca de columnas almacenadas) ──
-// Frontera del episodio actual = fecha del último 'Fin de episodio' en session_log (null si no hay).
+// Frontera del episodio actual: el día ANTERIOR a su inicio (null si empieza desde el inicio).
+// Se mantiene la forma de siempre ("cuenta lo que tiene date > fin"), así doneActual,
+// pendientesActual, citasNumerables, respAnterior y el resto no cambian.
 export function lastFinDate(p) {
-  const fins = (p?.log || []).filter(s => s.type === 'Fin de episodio').map(s => s.date).sort();
-  return fins.length ? fins[fins.length - 1] : null;
+  const act = episodioActual(p);
+  return act?.desde ? diaAnterior(act.desde) : null;
 }
 
 // Nota del marcador 'Fin de episodio' → { diag, plan } del episodio que se cerró.
@@ -824,56 +861,70 @@ export function doneEnLog(log) {
 }
 
 // Sesiones realizadas en el episodio ACTUAL. Función pura, fuente única = session_log.
-// = doneEnLog() sobre las filas con date posterior al último 'Fin de episodio'.
+// = doneEnLog() sobre las filas con date > lastFinDate (el episodio actual de la tabla episodios).
 export function doneActual(p) {
   if (!p) return 0;
   const lastFin = lastFinDate(p);
   return doneEnLog((p.log || []).filter(s => !lastFin || s.date > lastFin));
 }
 
+// Valor del selector del informe → índice en episodiosOrdenados. 'current' (o cualquier valor
+// que no sea un 'ep_N' de un episodio cerrado existente) = el actual. 'ep_N' = el N-ésimo cerrado,
+// contando desde el más viejo (N = 0..cerrados−1): los informes guardados (informes.episodio)
+// siguen abriendo el mismo episodio que con los marcadores.
+export function indiceEpisodio(eps, epVal) {
+  const m = /^ep_(\d+)$/.exec(String(epVal ?? ''));
+  const n = m ? parseInt(m[1], 10) : -1;
+  return n >= 0 && n < eps.length - 1 ? n : eps.length - 1;
+}
+
+// ¿La fecha cae en el episodio i? [desde, desde del siguiente).
+export function enEpisodio(date, eps, i) {
+  const d = String(date || '');
+  const ini = eps[i]?.desde, sig = eps[i + 1]?.desde;
+  return (!ini || d >= ini) && (!sig || d < sig);
+}
+
 // CTX-1b: recorte de session_log al episodio elegido en #patient-rpt-episode ('current' | 'ep_N').
 // Fuente única para el informe en pantalla/PDF/Word (renderPatientReport) y para la narrativa de
-// la IA (genPatientAI). Frontera por marcador 'Fin de episodio': el episodio N va de
-// (finMarkers[N-1].date, finMarkers[N].date] — la fecha del marcador queda en el episodio que cierra.
-// En un episodio cerrado, diagnóstico y sesiones prescritas salen de la nota del marcador.
-// Ojo: el split es ' ·' (no ' · ' como parseFinNote) y el fallback es p.diag — se conserva tal
-// cual lo que ya mostraba el informe.
+// la IA (genPatientAI). EPI-2a: el rango sale de la tabla episodios; en un episodio cerrado el
+// diagnóstico y el plan salen de su foto (si falta, los del paciente, como antes). epPrevias son
+// las sesiones previas a RehactivaPro de ese episodio: solo para MOSTRAR (nunca en epDone).
 export function logDeEpisodio(p, epVal) {
-  const fullLog = (p?.log || []).filter(s => s && s.date);
-  const finMarkers = fullLog.filter(s => s.type === 'Fin de episodio').sort((a, b) => a.date > b.date ? 1 : -1);
-  const esActual = epVal === 'current' || finMarkers.length === 0;
-  let log, epDiag = p?.diag, epSessions = p?.sessions, epDone = doneActual(p);
-  if (esActual) {
-    const lastFin = finMarkers.slice(-1)[0];
-    log = lastFin ? fullLog.filter(s => s.date > lastFin.date && s.type !== 'Fin de episodio') : fullLog.filter(s => s.type !== 'Fin de episodio');
-  } else {
-    const epIdx = parseInt(String(epVal).replace('ep_', ''));
-    const finStart = epIdx > 0 ? finMarkers[epIdx - 1] : null;
-    const finEnd = finMarkers[epIdx];
-    log = fullLog.filter(s => {
-      if (s.type === 'Fin de episodio') return false;
-      if (finStart && s.date <= finStart.date) return false;
-      if (finEnd && s.date > finEnd.date) return false;
-      return true;
-    });
-    if (finEnd && finEnd.note) {
-      epDiag = finEnd.note.split('Episodio anterior: ')[1]?.split(' ·')[0] || p.diag;
-      const sesStr = finEnd.note.match(/(\d+) sesiones/);
-      epSessions = sesStr ? parseInt(sesStr[1]) : p.sessions;
-      // R-2: la 'Evaluación inicial' no es una sesión de tratamiento. Contarla daba "11 de 10 · 110%"
-      // en el informe del episodio pasado. Misma regla que doneActual.
-      epDone = doneEnLog(log);
-    }
+  const fullLog = (p?.log || []).filter(s => s && s.date && s.type !== 'Fin de episodio');
+  const eps = episodiosOrdenados(p);
+  const i = indiceEpisodio(eps, epVal);
+  const ep = eps[i];
+  const esActual = i === eps.length - 1;
+  let log = fullLog.filter(s => enEpisodio(s.date, eps, i));
+  let epDiag = p?.diag, epSessions = p?.sessions, epDone = doneActual(p);
+  if (!esActual) {
+    epDiag = ep.diag || p?.diag;
+    epSessions = ep.sesionesPlan ?? p?.sessions;
+    // R-2: la 'Evaluación inicial' no es una sesión de tratamiento (misma regla que doneActual).
+    epDone = doneEnLog(log);
   }
   // Orden cronológico por fecha (estable para empates) — necesario para que las sesiones
   // retroactivas/manuales aparezcan en su posición correcta en el gráfico EVA, el detalle y las métricas.
   log = [...log].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
-  return { log, epDiag, epSessions, epDone, esActual };
+  return { log, epDiag, epSessions, epDone, esActual, episodio: ep,
+    epPrevias: ep?.sesionesPrevias || 0, epNombre: ep?.nombre || null };
+}
+
+// Lo que se MUESTRA como sesiones hechas: las de RehactivaPro + las previas. Nunca entra en
+// facturación ni en pendientesActual.
+export function sesionesMostradas(done, previas) {
+  return (Number(done) || 0) + (Number(previas) || 0);
+}
+export function textoPrevias(previas) {
+  const n = Number(previas) || 0;
+  return n > 0 ? `incluye ${n} previa${n === 1 ? '' : 's'} a RehactivaPro` : '';
 }
 
 // Sesiones del episodio actual pendientes de cobro. Función pura, derivada.
 // = max(0, doneActual − sesiones ya cobradas en el episodio actual).
-// "Cobradas del episodio" = facturas cuya fecha cae después del último 'Fin de episodio'.
+// "Cobradas del episodio" = facturas cuya fecha cae dentro del episodio actual (date > lastFinDate).
+// EPI-2a: las sesiones previas a RehactivaPro NO entran acá (no se cobran).
 export function pendientesActual(p) {
   if (!p || !p.billing) return 0;
   const lastFin = lastFinDate(p);
@@ -883,18 +934,24 @@ export function pendientesActual(p) {
   return Math.max(0, doneActual(p) - cobradasEp);
 }
 
+// Sesiones previas a RehactivaPro del episodio actual (0 sin paciente o sin tabla).
+export function previasActual(p) {
+  return p ? (episodioActual(p)?.sesionesPrevias || 0) : 0;
+}
+
 // ── Ordinal de cita en la agenda ("X/N") ──
 // X = posición de la cita en la secuencia del paciente DENTRO de su episodio actual; N = plan de
 // sesiones (p.sessions). Es informativo de agenda: no toca facturación ni sus conteos, que siguen
 // derivando de session_log (doneActual/pendientesActual).
 //
 // Universo y reglas (una sola definición, la comparten citaOrdinal y ordinalesDeCitas):
-//  · Solo citas del MISMO paciente posteriores al último 'Fin de episodio' — frontera ESTRICTA
+//  · Solo citas del MISMO paciente del episodio actual (date > lastFinDate) — frontera ESTRICTA
 //    (date > fin), la misma que doneActual y que el recorte de episodio de los informes: una cita
 //    con la fecha del corte pertenece al episodio que cierra, no al nuevo.
 //  · Se EXCLUYEN las 'no asistió': un no-show no consume número, así que la siguiente cita hereda
 //    el ordinal que aquélla habría tenido.
 //  · Orden por fecha y luego hora (decimal, así que una hora exacta 10:45 va después de 10:30).
+//  · EPI-2a: X arranca después de las sesiones previas a RehactivaPro del episodio (previasActual).
 function citasNumerables(appts, patient) {
   const fin = lastFinDate(patient);
   return (appts || [])
@@ -910,7 +967,8 @@ export function citaOrdinal(appointments, patient, appt) {
   if (!appt || appt.patientId == null || appt.status === 'noas') return null;
   const mismas = (appointments || []).filter(a => a && String(a.patientId) === String(appt.patientId));
   const i = citasNumerables(mismas, patient).indexOf(appt);
-  return i < 0 ? null : { x: i + 1, n: patient?.sessions || null };
+  // EPI-2a: las sesiones previas a RehactivaPro del episodio actual corren el número (solo lo que se ve).
+  return i < 0 ? null : { x: i + 1 + previasActual(patient), n: patient?.sessions || null };
 }
 
 // Mapa cita → { x, n } de TODA la lista, en una pasada: la agenda lo calcula una vez por render
@@ -928,7 +986,8 @@ export function ordinalesDeCitas(appointments, getPacienteFn) {
   porPaciente.forEach(lista => {
     const p = getPacienteFn ? getPacienteFn(lista[0].patientId) : null;
     const n = p?.sessions || null;
-    citasNumerables(lista, p).forEach((a, i) => out.set(a, { x: i + 1, n }));
+    const prev = previasActual(p);
+    citasNumerables(lista, p).forEach((a, i) => out.set(a, { x: i + 1 + prev, n }));
   });
   return out;
 }
@@ -939,8 +998,8 @@ export function ordinalesDeCitas(appointments, getPacienteFn) {
 // en orden ascendente por fecha y hora, como se leen en la agenda. Se ofrecen pasadas porque el
 // episodio nuevo suele arrancar en una cita ya atendida, y futuras porque a veces se abre desde la
 // próxima ya agendada.
-// El marcador 'Fin de episodio' se fecha el DÍA ANTERIOR a la elegida, y como la frontera es
-// estricta (date > fin), lo registrado en la cita elegida y en adelante cuenta en el episodio nuevo.
+// EPI-2a: el episodio nuevo EMPIEZA el día de la cita elegida (episodios.desde), así que lo
+// registrado en esa cita y en adelante cuenta en el episodio nuevo.
 // Pura: `hoy` se inyecta en los tests.
 export function citasParaCierre(appointments, patientId, hoy = fmtDate(new Date())) {
   const suyas = (appointments || [])
@@ -1161,7 +1220,7 @@ export function contarSeguimiento(filas) {
 
 // Datos de facturación del episodio ACTUAL (I-4): "Cobro X de Y", cajitas y cierre.
 // Pura y episodio-aware (misma frontera que pendientesActual): solo cuenta las facturas con fecha
-// posterior al último 'Fin de episodio', para que al iniciar un episodio nuevo la numeración de
+// dentro del episodio actual (date > lastFinDate), para que al iniciar un episodio nuevo la numeración de
 // cobros vuelva a empezar y no arrastre cobros de episodios anteriores. spf = sesiones por factura.
 export function billingInfo(p, spf) {
   const lastFin          = lastFinDate(p);
@@ -1323,4 +1382,31 @@ export function avisosSesion({log,note,date,propia=null,mismoDia=false}){
     if(dia) out.push(`Ya hay una sesión registrada el ${ddmm(dia.date)}. ¿Es otra sesión distinta?`);
   }
   return out;
+}
+
+// ── EPI-2a: mover el inicio de un episodio (validación del cliente, espejo de mover_inicio) ──
+// eps = episodiosOrdenados(p); i = índice del episodio a mover. null = la fecha vale.
+// Regla: estrictamente después del inicio del anterior y antes del inicio del siguiente. El
+// primero empieza "desde el inicio" y no se mueve.
+export function validarInicio(eps, i, fecha) {
+  if (!Array.isArray(eps) || i < 0 || i >= eps.length) return 'Episodio no encontrado.';
+  if (i === 0) return 'El primer episodio empieza desde el inicio: no tiene fecha que mover.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(fecha || ''))) return 'Elegí una fecha.';
+  const prev = eps[i - 1]?.desde, sig = eps[i + 1]?.desde;
+  if (prev && fecha <= prev) return `El inicio tiene que quedar después del ${dmy(prev)}.`;
+  if (sig && fecha >= sig) return `El inicio tiene que quedar antes del ${dmy(sig)}.`;
+  return null;
+}
+
+// Fechas que se ofrecen como nuevo inicio del episodio i: las de sus sesiones y citas (sin las
+// 'no asistió') que caen entre los vecinos, más el inicio actual. Ascendentes y sin repetir.
+export function fechasParaInicio(p, appointments, i) {
+  const eps = episodiosOrdenados(p);
+  const out = new Set();
+  (p?.log || []).forEach(s => { if (s && s.date && s.type !== 'Fin de episodio') out.add(String(s.date)); });
+  (appointments || []).forEach(a => {
+    if (a && a.date && a.status !== 'noas' && String(a.patientId) === String(p?.id)) out.add(String(a.date));
+  });
+  if (eps[i]?.desde) out.add(eps[i].desde);
+  return [...out].filter(d => validarInicio(eps, i, d) === null).sort();
 }

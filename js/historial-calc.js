@@ -9,12 +9,12 @@
 //    agendada. Motivo: checkAutoNoas (agenda.js:95-106) pasa a 'noas' toda 'pend' vencida, así que
 //    una 'conf' ya pasada es, por construcción, una cita atendida. Es la misma lectura que hace
 //    Seguimiento ("cita pasada = conf con fecha ≤ hoy", utils.js).
-//  · EPISODIO = tramo entre marcadores 'Fin de episodio' del session_log. Frontera ESTRICTA
-//    (desde < date <= hasta): la cita con la fecha EXACTA del marcador pertenece al episodio que
-//    CIERRA, no al que abre. Es la misma regla de doneActual, citasNumerables y del recorte de los
-//    informes; el marcador se fecha a propósito el día ANTERIOR a la cita que abre el episodio
-//    nuevo (ver guardarNuevoEpisodio en pacientes.js).
-import { MES_LARGO, fmtDate, fmtTime, parseFinNote, tipoSesion, TIPOS_SESION } from './utils.js';
+//  · EPISODIO = fila de la tabla episodios (EPI-2a, episodiosOrdenados en utils.js). Acá se
+//    expresa con la frontera de siempre, ESTRICTA (desde < date <= hasta), donde desde/hasta son
+//    los días ANTERIORES al inicio de este episodio y del siguiente: la misma regla de doneActual,
+//    citasNumerables y del recorte de los informes.
+import { MES_LARGO, fmtDate, fmtTime, tipoSesion, TIPOS_SESION, episodiosOrdenados, diaAnterior,
+         indiceEpisodio, logDeEpisodio } from './utils.js';
 
 // Orden canónico de citas: fecha y luego hora decimal. Copia EXACTA del de citasNumerables
 // (utils.js) — de ahí depende que ordinalesHistorial coincida con ordinalesDeCitas.
@@ -22,34 +22,42 @@ const _porFechaHora = (a, b) =>
   String(a.date).localeCompare(String(b.date)) || (Number(a.hour) || 0) - (Number(b.hour) || 0);
 
 // Episodios del paciente, del MÁS VIEJO al más nuevo; el último es siempre el ACTUAL (hasta:null).
-// Un paciente sin marcadores tiene UN episodio, el actual, abierto por los dos lados.
-// El diag/plan de un episodio CERRADO sale de la nota de su marcador (parseFinNote); el del actual
-// es el del paciente hoy.
+// Un paciente sin filas en la tabla tiene UN episodio, el actual, abierto por los dos lados.
+// desde/hasta son la frontera estricta (desde < date <= hasta); inicio es episodios.desde.
+// El diag/plan de un episodio CERRADO sale de su foto; el del actual es el del paciente hoy.
+// etiqueta = nombre || diag (lo que se muestra). previas = sesiones previas a RehactivaPro.
 export function episodiosDePaciente(patient) {
   if (!patient) return [];
-  const fins = (patient.log || [])
-    .filter(s => s && s.type === 'Fin de episodio' && s.date)
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  const eps = fins.map((fin, i) => {
-    const { diag, plan } = parseFinNote(fin.note);
+  const eps = episodiosOrdenados(patient);
+  return eps.map((e, i) => {
+    const sig = eps[i + 1];
+    const actual = !sig;
+    const diag = actual ? (patient.diag || 'Sin diagnóstico') : (e.diag || 'Tratamiento anterior');
     return {
       idx: i + 1,
-      desde: i > 0 ? String(fins[i - 1].date) : null,
-      hasta: String(fin.date),
+      id: e.id || null,
+      inicio: e.desde || null,
+      desde: e.desde ? diaAnterior(e.desde) : null,
+      hasta: sig ? diaAnterior(sig.desde) : null,
       diag,
-      plan,
-      actual: false,
+      plan: actual ? (patient.sessions || null) : (e.sesionesPlan ?? null),
+      nombre: e.nombre || null,
+      etiqueta: e.nombre || diag,
+      previas: e.sesionesPrevias || 0,
+      actual,
     };
   });
-  eps.push({
-    idx: fins.length + 1,
-    desde: fins.length ? String(fins[fins.length - 1].date) : null,
-    hasta: null,
-    diag: patient.diag || 'Sin diagnóstico',
-    plan: patient.sessions || null,
-    actual: true,
-  });
-  return eps;
+}
+
+// Opciones del selector de episodio del informe: 'current' (el actual) primero y después los
+// cerrados como 'ep_N', N = índice entre los cerrados del más viejo al más nuevo — los valores que
+// guardan los informes (informes.episodio). La fecha entre paréntesis es el último día del episodio.
+export function opcionesEpisodio(eps) {
+  const lista = eps || [];
+  const act = lista[lista.length - 1];
+  const out = [{ value: 'current', label: `Episodio actual — ${act?.etiqueta || 'Sin diagnóstico'}` }];
+  lista.slice(0, -1).forEach((e, i) => out.push({ value: `ep_${i}`, label: `Episodio ${i + 1} — ${e.etiqueta} (${e.hasta})` }));
+  return out;
 }
 
 // Citas del paciente, ASCENDENTES por fecha y hora. Se quedan TODAS (también las 'no asistió' y las
@@ -76,8 +84,7 @@ export function episodioDeCita(cita, episodios) {
 export function citasDeEpisodio(appointments, patient, epVal) {
   if (!patient) return [];
   const eps = episodiosDePaciente(patient);
-  const m = /^ep_(\d+)$/.exec(String(epVal ?? ''));
-  const idx = (epVal === 'current' || eps.length === 1 || !m) ? eps.length : parseInt(m[1], 10) + 1;
+  const idx = indiceEpisodio(eps, epVal) + 1;   // misma lectura del selector que logDeEpisodio
   return citasDePaciente(appointments, patient.id).filter(c => episodioDeCita(c, eps) === idx);
 }
 
@@ -91,15 +98,17 @@ export function citasDeEpisodio(appointments, patient, epVal) {
 // refactor de una función que ya está en producción con los tests de ordinal encima.
 export function ordinalesHistorial(citas, episodios) {
   const planDe = new Map((episodios || []).map(e => [e.idx, e.plan || null]));
+  // EPI-2a: las sesiones previas a RehactivaPro del episodio corren el número (igual que la agenda).
+  const previasDe = new Map((episodios || []).map(e => [e.idx, e.previas || 0]));
   const cuenta = new Map();
   const out = new Map();
   [...(citas || [])].sort(_porFechaHora).forEach(c => {
     if (!c || c.status === 'noas') return;
     const ep = episodioDeCita(c, episodios);
     if (ep == null) return;
-    const x = (cuenta.get(ep) || 0) + 1;
-    cuenta.set(ep, x);
-    out.set(c, { x, n: planDe.get(ep) ?? null, ep });
+    const k = (cuenta.get(ep) || 0) + 1;
+    cuenta.set(ep, k);
+    out.set(c, { x: k + (previasDe.get(ep) || 0), n: planDe.get(ep) ?? null, ep });
   });
   return out;
 }
@@ -219,4 +228,16 @@ export function filasCsvHistorial(citas, episodiosPorCita, ordinales, getTherapi
     ]);
   });
   return rows;
+}
+
+// EPI-2a: filas del bloque "Episodios" del informe, del MÁS NUEVO al más viejo. hechas = sesiones
+// de RehactivaPro del tramo (doneEnLog, sin evaluación ni marcadores); previas aparte; plan = el de
+// ese episodio (el actual, el del paciente). value = el del selector del informe ('current'/'ep_N').
+export function filasEpisodios(patient) {
+  if (!patient) return [];
+  const eps = episodiosDePaciente(patient);
+  return eps.map((e, i) => {
+    const value = e.actual ? 'current' : `ep_${i}`;
+    return { ...e, i, value, hechas: logDeEpisodio(patient, value).epDone };
+  }).reverse();
 }

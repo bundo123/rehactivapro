@@ -151,7 +151,7 @@ export function romGrupos(rom) {
 }
 
 // Fila del log MÁS RECIENTE del episodio actual con mediciones válidas (incluye la Evaluación
-// inicial). Frontera estricta date > último 'Fin de episodio', igual que doneActual.
+// inicial). Frontera estricta date > lastFinDate (inicio del episodio actual − 1 día), igual que doneActual.
 export function ultimaMedicion(patient) {
   const fin = lastFinDate(patient);
   const filas = (patient?.log || []).filter(s => s && (!fin || s.date > fin) && romNormalizar(s.rom));

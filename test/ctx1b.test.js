@@ -4,7 +4,13 @@
 // dentro de renderPatientReport y la IA mandaba todo p.log con el diagnóstico/sesiones de hoy.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { logDeEpisodio, doneEnLog, doneActual } from '../js/utils.js';
+import { logDeEpisodio as _logDeEpisodio, doneEnLog, doneActual as _doneActual } from '../js/utils.js';
+
+// EPI-2a: los marcadores 'Fin de episodio' de estos fixtures se convierten en filas de
+// episodios con el mismo backfill del SQL (test/_episodios.js): mismos resultados = equivalencia.
+import { conEpisodios } from './_episodios.js';
+const logDeEpisodio = (p, ep) => _logDeEpisodio(conEpisodios(p), ep);
+const doneActual = p => _doneActual(conEpisodios(p));
 
 const ses = (date, extra = {}) => ({ date, type: 'Fisioterapia', status: 'asistió', ...extra });
 const evalIni = (date) => ({ date, type: 'Evaluación inicial', status: 'asistió' });
@@ -73,15 +79,19 @@ test('episodio cerrado: diagnóstico y sesiones de la nota del marcador; epDone 
   assert.notEqual(e1.epDone, doneActual(p3));
 });
 
-test('episodio cerrado con marcador sin nota: diagnóstico/sesiones/done del paciente hoy', () => {
+// EPI-2a: antes, un marcador SIN nota daba el diagnóstico y el done del paciente HOY para un
+// episodio cerrado (el done de otro episodio). Con la tabla, el backfill le pone 'Tratamiento
+// anterior', sin plan (cae al del paciente) y el done de SU tramo. Los 4 marcadores de producción
+// tienen nota, así que ninguno cambia por esto.
+test('episodio cerrado con marcador sin nota: "Tratamiento anterior", plan del paciente, done de su tramo', () => {
   const p = { diag: 'Rodilla', sessions: 12, log: [
     ses('2026-01-05'), { date: '2026-01-10', type: 'Fin de episodio', status: 'asistió' }, ses('2026-02-01')] };
   const r = logDeEpisodio(p, 'ep_0');
   assert.deepEqual(fechas(r.log), ['2026-01-05']);
   assert.equal(r.esActual, false);
-  assert.equal(r.epDiag, 'Rodilla');
+  assert.equal(r.epDiag, 'Tratamiento anterior');
   assert.equal(r.epSessions, 12);
-  assert.equal(r.epDone, doneActual(p));
+  assert.equal(r.epDone, 1);
 });
 
 test('orden por fecha aunque p.log venga desordenado (marcadores incluidos), estable en empates', () => {

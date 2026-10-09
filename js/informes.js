@@ -1,8 +1,9 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, logDeEpisodio, dolorInicial, rotuloDolorInicial, textoCitas, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber, ctxEstado, tieneEva, textoDeltaEva } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, logDeEpisodio, dolorInicial, rotuloDolorInicial, textoCitas, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber, ctxEstado, tieneEva, textoDeltaEva, sesionesMostradas, textoPrevias } from './utils.js';
 import { apptSlots } from './agenda.js';
-import { citasDeEpisodio } from './historial-calc.js';
+import { citasDeEpisodio, episodiosDePaciente, opcionesEpisodio } from './historial-calc.js';
+import { htmlPanelEpisodios } from './episodios.js';
 import { genSemanalAI, genMensualAI, genAnualAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasPermission } from './permissions.js';
 import { LOGO_DATA_URI } from './pdf-logo.js';
@@ -546,25 +547,21 @@ document.addEventListener('click',function(e){
   }
 });
 
+// Selector de episodio del informe. Valores: 'current' y 'ep_N' (N = índice entre los CERRADOS,
+// del más viejo al más nuevo) — los mismos que guardan los informes (informes.episodio), así que un
+// informe guardado sigue abriendo su episodio. EPI-2a: sale de la tabla episodios; etiqueta =
+// nombre || diagnóstico. Si la opción elegida sigue existiendo, se conserva (un cambio por realtime
+// no salta al episodio actual).
 export function updateEpisodes() {
   syncRptSearchInput();
   const id=document.getElementById('patient-rpt-select').value;
   const p=state.patients.find(x=>String(x.id)===String(id));
   const ep=document.getElementById('patient-rpt-episode');
   if(!p){ep.innerHTML='<option value="0">Episodio actual</option>';renderPatientReport();return;}
-  const log=p.log||[];
-  const finEpisodios=log.filter(s=>s.type==='Fin de episodio').sort((a,b)=>a.date>b.date?1:-1);
-  let options='';
-  if(finEpisodios.length===0){
-    options=`<option value="current">Episodio actual — ${esc(p.diag||'Sin diagnóstico')}</option>`;
-  } else {
-    options=`<option value="current">Episodio actual — ${esc(p.diag||'Sin diagnóstico')}</option>`;
-    finEpisodios.forEach((fin,i)=>{
-      const diagAnterior=fin.note?fin.note.split('Episodio anterior: ')[1]?.split(' · ')[0]||'Tratamiento anterior':'Tratamiento anterior';
-      options+=`<option value="ep_${i}">Episodio ${i+1} — ${esc(diagAnterior)} (${esc(fin.date)})</option>`;
-    });
-  }
-  ep.innerHTML=options;
+  const prev=ep.value;
+  const opciones=opcionesEpisodio(episodiosDePaciente(p));
+  ep.innerHTML=opciones.map(o=>`<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('');
+  if(opciones.some(o=>o.value===prev)) ep.value=prev;
   renderPatientReport();
 }
 
@@ -577,7 +574,9 @@ export function renderPatientReport() {
   const epVal=document.getElementById('patient-rpt-episode')?.value||'current';
   // CTX-1b: recorte por episodio (log ordenado, diagnóstico/sesiones del episodio) — fuente única
   // compartida con la narrativa de la IA (genPatientAI).
-  const {log,epDiag,epSessions,epDone}=logDeEpisodio(p,epVal);
+  const {log,epDiag,epSessions,epDone,epPrevias}=logDeEpisodio(p,epVal);
+  // EPI-2a: lo que se MUESTRA como hechas suma las previas a RehactivaPro (nunca en facturación).
+  const epHechas=sesionesMostradas(epDone,epPrevias);
   const isCurrentEpisode=epVal==='current';
   // El CIE-10 es del paciente HOY: se agrega solo al episodio actual. En un episodio cerrado el
   // diagnóstico que se muestra es el de entonces, y etiquetarlo con el código de ahora mentiría.
@@ -594,7 +593,7 @@ export function renderPatientReport() {
   // null = sin citas decididas → '—' (nunca un 0 % ni un 100 % inventado).
   const rc=resumenCitas(hastaHoy(citasDeEpisodio(state.appointments,p,epVal),new Date()));
   const adh=rc.continuidad, asistidas=rc.conf, faltas=rc.noas, totalCitas=rc.conf+rc.noas;
-  const pct=epSessions>0?Math.round(epDone/epSessions*100):0;
+  const pct=epSessions>0?Math.round(epHechas/epSessions*100):0;
   const lp=attendedTrat.slice(-1)[0];
   const citasConf=state.appointments.filter(a=>String(a.patientId)===String(p.id)&&a.status==='conf').length;
   const doneNow=doneActual(p);
@@ -720,7 +719,8 @@ export function renderPatientReport() {
       </div>
       <div class="rpt-kpi-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px">
         <div class="rpt-kpi"><div class="rpt-lbl">Sesiones completadas</div>
-          <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:#1d8fbf">${epDone}<span style="font-size:13px;color:#9c9a92">/${epSessions}</span></span><span style="font-size:11px;color:#7a7a76">${pct}% del plan</span></div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:#1d8fbf">${epHechas}<span style="font-size:13px;color:#9c9a92">/${epSessions}</span></span><span style="font-size:11px;color:#7a7a76">${pct}% del plan</span></div>
+          ${epPrevias?`<div style="font-size:10.5px;color:#7a7a76;margin-top:2px">${esc(textoPrevias(epPrevias))}</div>`:''}
           <div style="margin-top:6px;height:5px;background:#f0e8d8;border-radius:3px"><div style="width:${Math.min(pct,100)}%;height:5px;background:#29ABE2;border-radius:3px"></div></div></div>
         <div class="rpt-kpi"><div class="rpt-lbl">Continuidad</div>
           <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:${ac}">${adh==null?'—':adh+'%'}</span><span style="font-size:11px;color:#7a7a76">${adh==null?'Aún sin citas pasadas':textoCitas(asistidas,totalCitas,faltas)}</span></div>
@@ -762,12 +762,13 @@ export function renderPatientReport() {
           ${(isCurrentEpisode&&hasPermission('newEpisode'))?`<button class="side-btn warn" onclick="nuevoEpisodio('${esc(p.id)}')">Nuevo episodio</button>`:''}
         </div>
       </div>
+      ${htmlPanelEpisodios(p)}
       <div id="informes-guardados" class="side-card"></div>
     </aside>
   </div>`;
 
   out.innerHTML=html;
-  _rptCtx={p,log,pct,adh,asistidas,faltas,totalCitas,ini,evaHas,lp,th,doc,epDiag,epDone,epSessions,inicio,rptNo,fechaLarga,thHeader,prot,cieRpt};
+  _rptCtx={p,log,pct,adh,asistidas,faltas,totalCitas,ini,evaHas,lp,th,doc,epDiag,epDone,epPrevias,epSessions,inicio,rptNo,fechaLarga,thHeader,prot,cieRpt};
   renderInformesGuardados();
 
   if(evaSes.length){
@@ -820,7 +821,7 @@ function gonioViewHtml(rom) {
 // Construye el render-model del PDF desde el informe en pantalla (_rptCtx + narrativa IA + canvas EVA).
 // Es el MISMO shape que se persiste como snapshot, para que el PDF guardado salga idéntico sin re-llamar a la IA.
 function _buildRenderModel() {
-  const {p,log,pct,adh,asistidas,faltas,totalCitas,ini,evaHas,lp,doc,inicio,rptNo,fechaLarga,thHeader,prot,epDiag,epDone,epSessions,cieRpt,firmante}=_rptCtx;
+  const {p,log,pct,adh,asistidas,faltas,totalCitas,ini,evaHas,lp,doc,inicio,rptNo,fechaLarga,thHeader,prot,epDiag,epDone,epPrevias,epSessions,cieRpt,firmante}=_rptCtx;
   // Captura del gráfico EVA ya dibujado en pantalla — evita el canvas en blanco por timing.
   const evaCanvas=document.getElementById('eva-evolution-chart');
   const evaImg=evaCanvas?evaCanvas.toDataURL('image/png'):'';
@@ -837,7 +838,9 @@ function _buildRenderModel() {
     protocolo:prot?.name||null,
     inicio,
     metricas:{
-      pct,done:epDone,sessions:epSessions||0,
+      // EPI-2a: done = lo que se muestra (incluye las previas); previas va aparte para la aclaración.
+      // Los snapshots viejos no traen previas y se ven igual que antes.
+      pct,done:sesionesMostradas(epDone,epPrevias),previas:epPrevias||0,sessions:epSessions||0,
       // MET-1: adh = continuidad desde la agenda (null sin citas decididas); asistidas = conf,
       // totalCitas = conf+noas. Mismos nombres que los snapshots viejos; faltas es nuevo (los
       // viejos no lo traen y así se reconocen para pintarlos como antes).
@@ -896,7 +899,7 @@ function buildPdfHtml(m) {
     ?esc(met.evaInicial)+' <span class="sum-arrow">→</span> '+(met.evaActual!=null?esc(met.evaActual):'?')
     :'—';
   const resumen='<div class="sum">'
-    +sumCol('Sesiones',esc(met.done)+' de '+esc(met.sessions),esc(met.pct)+'% del plan')
+    +sumCol('Sesiones',esc(met.done)+' de '+esc(met.sessions),esc(met.pct)+'% del plan'+(met.previas?' · '+esc(textoPrevias(met.previas)):''))
     // MET-1: snapshot viejo (sin faltas) → igual que antes; nuevo → '—' si no hay citas decididas.
     +(met.faltas===undefined
       ?sumCol('Continuidad',esc(met.adh)+'%',esc(met.asistidas)+'/'+esc(met.totalCitas)+' citas asistidas')
