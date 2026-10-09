@@ -129,11 +129,13 @@ export function soapNormalizar(x) {
 
 // Lo mínimo para guardar una sesión respiratoria, en el orden del formulario. [] = completa.
 // Es lo que pide la aseguradora (qué se hizo, con qué medición, cómo respondió) y lo que lee el médico.
-export function faltantesResp(soap, tags) {
+// hayPrevio: hay una sesión respiratoria anterior en el episodio (respAnterior). En la primera,
+// "cómo llega frente a la sesión anterior" no tiene contra qué compararse y no se pide (MINI-1).
+export function faltantesResp(soap, tags, hayPrevio = true) {
   const s = soapNormalizar(soap) || {};
   const r = s.resp || {};
   const f = [];
-  if (!s.llega) f.push({ k: 'llega', msg: 'Marca cómo llega el paciente' });
+  if (hayPrevio && !s.llega) f.push({ k: 'llega', msg: 'Marca cómo llega el paciente' });
   if (!r.sv && !r.nomed) f.push({ k: 'signos', msg: 'Anota al menos un signo (SatO₂, FC, FR o Borg) o explica por qué no se pudieron tomar' });
   if (!Array.isArray(tags) || !tags.length) f.push({ k: 'tec', msg: 'Marca al menos una técnica' });
   if (!s.tol) f.push({ k: 'tol', msg: 'Marca la tolerancia a la sesión' });
@@ -188,7 +190,8 @@ export function notaSoapie(fila, prev, ctx = {}) {
   const add = (k, frases) => { const t = frases.filter(Boolean).join(' '); if (t) out.push({ k, t }); };
 
   add('S', [
-    s.llega ? `Llega ${_lab(LLEGA, s.llega).toLowerCase()} que en la sesión anterior.` : null,
+    // Sin sesión anterior no hay con qué comparar: no se escribe (MINI-1).
+    s.llega && prev ? `Llega ${_lab(LLEGA, s.llega).toLowerCase()} que en la sesión anterior.` : null,
     fila.pb != null ? `Dolor ${fila.pb}/10.` : null,
     sv.borg?.[0] != null ? `Disnea (Borg) ${_n(sv.borg[0])}/10.` : null,
   ]);
@@ -283,6 +286,8 @@ function _sync(root) {
 
 // valores = registro guardado (editar / re-registrar) · pb, pa = EVA guardado · tags = técnicas
 // guardadas · previo = sesión respiratoria anterior del episodio (placeholders "últ." y "Igual que la última").
+// Sin previo (primera sesión respiratoria del episodio) "¿Cómo llega hoy?" se oculta, salvo que la fila
+// ya traiga ese dato (MINI-1).
 export function renderRespEditor(containerId, { valores = null, pb = null, pa = null, tags = [], previo = null } = {}) {
   const el = document.getElementById(containerId);
   if (!el) return;
@@ -314,7 +319,7 @@ export function renderRespEditor(containerId, { valores = null, pb = null, pa = 
       <span class="resp-titulo">Terapia respiratoria</span>
       ${puedeCopiar ? `<button type="button" class="resp-copiar" data-copiar>↺ Igual que la última (${esc(dmy(previo.date))})</button>` : ''}
     </div>
-    <div class="resp-sec" data-sec="llega">
+    <div class="resp-sec" data-sec="llega"${!previo && !s.llega ? ' style="display:none"' : ''}>
       <div class="resp-lbl">¿Cómo llega hoy? <span class="req">*</span> <span class="resp-hint">frente a la sesión anterior</span></div>
       ${chips('llega', LLEGA, id => s.llega === id)}
     </div>

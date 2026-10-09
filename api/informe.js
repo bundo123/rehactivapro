@@ -11,6 +11,7 @@ import { pedidoPulir, salidaPulidaValida } from '../lib/pulir.js';
 const RATE_MAX = 10;              // llamadas
 const RATE_WINDOW_MS = 60_000;    // por minuto
 const rateLog = new Map();        // userId -> [timestamps]
+const INFORME_MAX_TOKENS = 2048;   // modo informe (MINI-1)
 
 // Única salida a Anthropic de los dos modos. Devuelve el JSON de la respuesta o null si falló
 // (sin el cuerpo del error: puede traer detalles internos).
@@ -133,15 +134,21 @@ export default async function handler(req, res) {
   // sigue midiendo el prompt original a propósito: es un control de abuso, no de contenido.
   const safePrompt = scrubPII(prompt);
   try {
+    // MINI-1: 2.048 tokens. Con 1.024 un informe real de Sonnet 5.5 salió cortado a media palabra
+    // en RECOMENDACIONES (pide 280-380 palabras en español, más los rótulos).
     const data = await llamarAnthropic({
       model,
-      max_tokens: 1024,
+      max_tokens: INFORME_MAX_TOKENS,
       messages: [{ role: 'user', content: safePrompt }],
       ...opcionesThinking(model)
     });
     if (!data) {
       // No reenviamos el cuerpo de Anthropic al cliente (puede traer detalles internos).
       return res.status(500).json({ error: 'No se pudo generar el informe' });
+    }
+    // Mismo criterio que pulir: nunca texto cortado (max_tokens) ni rechazado (refusal).
+    if (data.stop_reason !== 'end_turn') {
+      return res.status(500).json({ error: 'El informe salió incompleto. Intenta de nuevo.' });
     }
     return res.status(200).json({ text: textoDeRespuesta(data) });
   } catch (e) {

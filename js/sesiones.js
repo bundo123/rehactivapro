@@ -1,7 +1,7 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
 import { getPatient, esc, fmtDate, fmtTime, normHour, doneActual, pendientesActual, orderedTherapists,
-         tipoSesion, TIPO_SESION_DEFAULT, TIPOS_SESION, leerEva } from './utils.js';
+         tipoSesion, TIPO_SESION_DEFAULT, TIPOS_SESION, leerEva, avisosSesion } from './utils.js';
 import { toastOk, toastErr, toastInfo, showToast } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { showFieldError, clearFieldError, clearAllErrors } from './validators.js';
@@ -26,6 +26,8 @@ let _editMode = false;         // true cuando el modal se abre para EDITAR una s
 let _editRef = null;           // {patientId, date, hour} ORIGINAL — clave del UPDATE
 let _savingSession = false;    // candado anti-doble-submit (todos los saves)
 let _modoResp = false;         // RESP-1: la sesión es de Terapia respiratoria (bloque de soap.js)
+let _respHayPrevio = true;     // MINI-1: hay sesión respiratoria anterior en el episodio (respAnterior)
+let _avisoVisto = null;        // MINI-1: avisos ya mostrados para este contenido (el 2.º clic guarda)
 
 const NOTA_PH_FISIO = 'Ej: Se aplicó masaje descontracturante en zona lumbar, electroterapia 10min, ejercicios de estabilización core...';
 const NOTA_PH_RESP = 'Lo que no entra en los botones y el médico deba saber. En el celular puedes dictarlo con el micrófono del teclado.';
@@ -35,6 +37,7 @@ const NOTA_PH_RESP = 'Lo que no entra en los botones y el médico deba saber. En
 // queda en técnicas, signos y tolerancia). Fisio queda exactamente como estaba.
 function _setModo(resp, opts = {}) {
   _modoResp = !!resp;
+  _respHayPrevio = !!opts.previo;
   const ver = (id, on) => { const e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none'; };
   ver('sess-eva-wrap', !resp);
   ver('sess-tec-field', !resp);
@@ -62,7 +65,7 @@ function _leerSesion() {
   if (_modoResp) {
     const r = leerRespDetalle('sess-resp');
     if (r.invalidos.length) { toastErr(r.invalidos[0]); return null; }
-    const faltan = faltantesResp(r.soap, r.tags);
+    const faltan = faltantesResp(r.soap, r.tags, _respHayPrevio);
     if (faltan.length) {
       marcarFaltantes('sess-resp', faltan);
       toastErr(faltan[0].msg + (faltan.length > 1 ? ` · faltan ${faltan.length} datos` : ''));
@@ -99,6 +102,28 @@ function avisoPlanCompleto(pt, doneBefore) {
 function _setSaveBtn(saving) {
   const b=document.getElementById('session-save-btn'); if(!b)return;
   b.disabled=saving; b.textContent=saving?'Guardando…':'Guardar sesión';
+}
+
+// MINI-1: avisos NO bloqueantes del guardado (nota igual a otra sesión, otra sesión el mismo día).
+// El primer clic los muestra junto al botón y no guarda; un segundo clic con el mismo contenido
+// guarda igual. Si el contenido cambia, se vuelve a revisar. Sin confirm() del navegador.
+function _limpiarAviso() {
+  _avisoVisto=null;
+  const el=document.getElementById('sess-aviso'); if(el){ el.style.display='none'; el.innerHTML=''; }
+}
+// true = se mostró un aviso nuevo y el guardado debe esperar el segundo clic.
+function _frenarPorAviso(lineas, contenido) {
+  if(!lineas.length){ _limpiarAviso(); return false; }
+  const clave=JSON.stringify([lineas,contenido]);
+  if(_avisoVisto===clave) return false;
+  _avisoVisto=clave;
+  const el=document.getElementById('sess-aviso');
+  if(el){
+    el.innerHTML=lineas.map(t=>`<div>⚠️ ${esc(t)}</div>`).join('')
+      +'<div class="sess-aviso-hint">Si está bien así, toca «Guardar sesión» otra vez.</div>';
+    el.style.display='';
+  }
+  return true;
 }
 
 export function renderProTecnicas() {
@@ -185,6 +210,7 @@ export function openSessionModal(appt) {
   renderEvaButtons('eva-after-btns','sess-eva-after-val',pa,'#1D9E75');
   document.getElementById('sess-note').value=existing?(existing.note||''):'';
   resetPulir(existing);
+  _limpiarAviso();
   // El tipo se HEREDA de la cita: es el servicio que se agendó. Al re-registrar una sesión ya
   // guardada manda igual la cita, que es donde se corrige el tipo si se agendó mal. saveSession()
   // lee appt.type y no este campo; se sincroniza igual para que el modal (compartido con los modos
@@ -239,6 +265,7 @@ export function openSessionModalManual(patientId) {
   renderEvaButtons('eva-after-btns','sess-eva-after-val',null,'#1D9E75');
   document.getElementById('sess-note').value='';
   resetPulir(null);
+  _limpiarAviso();
   proTecnicasSel=[];
   renderProTecnicas();
   _romSesion(null,ultimaMedicion(pt)?.rom);
@@ -295,6 +322,7 @@ async function saveSessionManual() {
   clearFieldError('sess-therapist');
   const f=_leerSesion(); if(!f) return;
   const {pb,pa,note,rom}=f;
+  if(_frenarPorAviso(avisosSesion({log:pt.log,note,date,mismoDia:true}),date+'|'+note)) return;
   _savingSession=true; _setSaveBtn(true);
   try {
     const hour=await genUniqueHour(pt.id,date);
@@ -346,6 +374,7 @@ export function editSession(patientId, id) {
   renderEvaButtons('eva-after-btns','sess-eva-after-val',s.pa??null,'#1D9E75');
   document.getElementById('sess-note').value=s.note||'';
   resetPulir(s);
+  _limpiarAviso();
   document.getElementById('sess-type').value=s.type||'';
   proTecnicasSel=Array.isArray(s.tags)?[...s.tags]:[];
   renderProTecnicas();
@@ -380,6 +409,7 @@ async function saveSessionEdit() {
       return;
     }
   }
+  if(_frenarPorAviso(avisosSesion({log:pt.log,note,date:newDate,propia:{id:ref.id}}),note)) return;
   // Al editar NO se normaliza contra el catálogo de tipos: acá pasan también las filas
   // 'Evaluación inicial', y pisarles el type rompería doneActual y el recorte de episodio.
   const type=document.getElementById('sess-type').value||TIPO_SESION_DEFAULT;
@@ -437,6 +467,8 @@ export async function saveSession() {
   const therapistId=appt.therapistId||null;               // I3: quién atendió = terapeuta de la cita
   const f=_leerSesion(); if(!f) return;
   const {pb,pa,note,rom}=f;
+  const ptA=getPatient(appt.patientId);
+  if(_frenarPorAviso(avisosSesion({log:ptA?.log,note,date:appt.date,propia:{date:appt.date,hour:fmtTime(appt.hour)}}),note)) return;
   const soapCol=f.conSoap?{soap:f.soap}:{};
   _savingSession=true; _setSaveBtn(true);
   try {

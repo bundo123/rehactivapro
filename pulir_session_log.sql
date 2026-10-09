@@ -22,6 +22,12 @@ ALTER TABLE public.session_log ADD CONSTRAINT session_log_note_ia_chk
   CHECK ((note_original IS NULL AND note_ia_at IS NULL)
       OR (note_original IS NOT NULL AND note_original <> '' AND note_ia_at IS NOT NULL));
 
+-- 3. Tope de largo del original (está en producción desde PULIR-1; agregado al repo en MINI-1).
+--    El servidor solo pule notas de hasta 1.500 caracteres; 4.000 es margen.
+ALTER TABLE public.session_log DROP CONSTRAINT IF EXISTS session_log_note_original_chk;
+ALTER TABLE public.session_log ADD CONSTRAINT session_log_note_original_chk
+  CHECK (note_original IS NULL OR length(note_original) <= 4000);
+
 COMMENT ON COLUMN public.session_log.note_original IS
   'PULIR-1: texto del terapeuta antes de aceptar la versión de la IA (el primero). NULL = nota no pulida';
 COMMENT ON COLUMN public.session_log.note_ia_at IS
@@ -34,4 +40,5 @@ COMMIT;
 --  WHERE table_schema='public' AND table_name='session_log'
 --    AND column_name IN ('note_original','note_ia_at');
 -- SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint
---  WHERE conrelid='public.session_log'::regclass AND conname='session_log_note_ia_chk';
+--  WHERE conrelid='public.session_log'::regclass
+--    AND conname IN ('session_log_note_ia_chk','session_log_note_original_chk');

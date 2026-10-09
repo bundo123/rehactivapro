@@ -110,7 +110,8 @@ test('notaSoapie — sin registro devuelve [] (fisio y sesiones viejas no invent
 });
 
 test('notaSoapie — letras en orden SOAPIE y cada dato una sola vez (O = al llegar, E = al terminar)', () => {
-  const n = notaSoapie(fila(), null, { n: 3, total: 10 });
+  // Con una sesión anterior (sin signos que comparar): "Llega mejor que en la sesión anterior".
+  const n = notaSoapie(fila(), { date: '2026-10-05', soap: { resp: { o2: 0 } } }, { n: 3, total: 10 });
   assert.deepEqual(n.map(l => l.k), ['S', 'O', 'A', 'P', 'I', 'E']);
   const t = Object.fromEntries(n.map(l => [l.k, l.t]));
   assert.equal(t.S, 'Llega mejor que en la sesión anterior. Dolor 0/10. Disnea (Borg) 4/10.');
@@ -132,7 +133,8 @@ test('notaSoapie — el Análisis compara con la sesión anterior al llegar y av
 
 test('notaSoapie — no muestra lo que no se registró (sin EVA, sin signos: motivo en O, sin letra A)', () => {
   const n = notaSoapie({ date: '2026-10-06', pb: null, pa: null, tags: ['Drenaje postural'],
-                         soap: { llega: 'igual', tol: 'buena', prox: 'ajustar', resp: { nomed: 'Sin oxímetro' } } }, null);
+                         soap: { llega: 'igual', tol: 'buena', prox: 'ajustar', resp: { nomed: 'Sin oxímetro' } } },
+                       { date: '2026-10-05', soap: { resp: { o2: 0 } } });   // MINI-1: "que en la anterior" pide una anterior
   const t = Object.fromEntries(n.map(l => [l.k, l.t]));
   assert.equal(t.S, 'Llega igual que en la sesión anterior.');
   assert.equal(t.O, 'Signos no tomados: Sin oxímetro.');

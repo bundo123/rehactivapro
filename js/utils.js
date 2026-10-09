@@ -1223,15 +1223,16 @@ export function textoCitas(asistidas, total, faltas) {
 // PURA: render-model de informe (ver _buildRenderModel en informes.js) → SVG del gráfico EVA.
 // Arranca en el dolor inicial (metricas.evaInicial, ver dolorInicial), sigue con el dolor tras
 // cada sesión con EVA (pa, o pb si falta) y termina en el dolor actual (metricas.evaActual). El
-// snapshot no guarda status, así que el espejo de evaSes es pb!=null (una sesión sin EVA registrado
-// no puntúa). Devuelve '' si no hay serie construible (el caller cae a evaChartImg para snapshots
-// viejos). Compartida por el PDF (embebido inline) y el Word (rasterizado a PNG vía svgToPngDataUri
+// snapshot no guarda status, así que el espejo de evaSes es tieneEva: una sesión puntúa si tiene el
+// "antes" o el "después" (MINI-1: antes solo el "antes", y la que tenía solo el "después" no salía).
+// Sin dolor inicial conocido no hay punto de inicio. Devuelve '' si no hay serie construible (el
+// caller cae a evaChartImg para snapshots viejos). Compartida por el PDF (embebido inline) y el Word (rasterizado a PNG vía svgToPngDataUri
 // en word.js — por eso lleva xmlns/width/height explícitos, que un <img> necesita para rasterizar).
 export function buildEvaSvg(m) {
-  const ses=(m.sesiones||[]).map((s,i)=>({...s,n:i+1})).filter(s=>s.pb!=null);
+  const ses=(m.sesiones||[]).map((s,i)=>({...s,n:i+1})).filter(tieneEva);
   if(!ses.length) return '';
   const met=m.metricas||{};
-  const startVal=met.evaInicial!=null?met.evaInicial:ses[0].pb;
+  const startVal=met.evaInicial!=null?met.evaInicial:(ses.find(s=>s.pb!=null)?.pb??null);
   const endVal=met.evaActual!=null?met.evaActual:ses[ses.length-1].pa;
   const mid=ses.map(s=>s.pa!=null?s.pa:s.pb);
   if(endVal!=null) mid[mid.length-1]=endVal;
@@ -1241,7 +1242,7 @@ export function buildEvaSvg(m) {
   const desdeEval=inicioDesdeEval(m);
   const pts=[startVal,...mid].map((v,i)=>i===0
     ?{v,lbl:rotuloDolorInicial(desdeEval?'eval':'sesion'),fecha:desdeEval&&m.evalInicial?m.evalInicial.fecha:ses[0].fecha}
-    :{v,lbl:'Sesión '+ses[i-1].n,fecha:ses[i-1].fecha});
+    :{v,lbl:'Sesión '+ses[i-1].n,fecha:ses[i-1].fecha}).filter((p,i)=>i>0||p.v!=null);
   const n=pts.length;
   const L=34,R=700,T=20,B=190;
   const y=v=>B-(v/10)*(B-T);
@@ -1268,4 +1269,58 @@ export function buildEvaSvg(m) {
     }
   });
   return '<svg xmlns="http://www.w3.org/2000/svg" width="760" height="240" viewBox="0 0 760 240" font-family="Arial,Helvetica,sans-serif" style="width:100%;height:auto;display:block;background:#fff">'+g+'</svg>';
+}
+
+// MINI-1: una sesión entra al gráfico de dolor si tiene el "antes" o el "después" medido; su punto
+// es el después, o el antes si falta (mismo criterio que el Word). Pantalla (evaSes) y PDF
+// (buildEvaSvg) usan esta regla.
+export function tieneEva(s){ return !!s&&(s.pb!=null||s.pa!=null); }
+
+// MINI-1: tarjeta "Dolor EVA": cambio desde el inicio. 0 = "sin cambio"; 1 en singular.
+export function textoDeltaEva(d){
+  if(d==null||!Number.isFinite(Number(d))) return '';
+  const n=Number(d);
+  if(n===0) return 'sin cambio';
+  const a=Math.abs(n);
+  return `${n>0?'+':'−'}${a} punto${a===1?'':'s'}`;
+}
+
+// ── MINI-1: avisos no bloqueantes al guardar una sesión ──────────────────────
+// "dd/mm" de una fecha 'YYYY-MM-DD'.
+export function ddmm(d){ const p=String(d||'').split('-'); return p.length===3?`${p[2]}/${p[1]}`:String(d||''); }
+const _SIN_TRAT=['Evaluación inicial','Fin de episodio'];
+const _normNota=t=>String(t||'').trim().toLowerCase();
+// ¿La fila es la que se está guardando? Por id si hay; si no, por fecha + hora (re-registro desde
+// la agenda de una sesión ya guardada).
+function _esPropia(s,propia){
+  if(!propia) return false;
+  if(propia.id!=null) return s.id!=null&&String(s.id)===String(propia.id);
+  return s.date===propia.date&&propia.hour!=null&&normHour(s.hour)===normHour(propia.hour);
+}
+
+// Otra sesión del paciente con la MISMA nota (sin espacios en los extremos, sin distinguir
+// mayúsculas). Devuelve la más reciente o null. Nota vacía = no hay nada que comparar.
+export function notaRepetida(log,note,propia){
+  const n=_normNota(note);
+  if(!n) return null;
+  const iguales=(log||[]).filter(s=>s&&s.type!=='Fin de episodio'&&!_esPropia(s,propia)&&_normNota(s.note)===n);
+  iguales.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  return iguales[0]||null;
+}
+
+// Una sesión de tratamiento (no evaluación ni fin de episodio) ya registrada ese día, o null.
+export function sesionMismoDia(log,date,propia){
+  return (log||[]).find(s=>s&&s.date===date&&!_SIN_TRAT.includes(s.type)&&!_esPropia(s,propia))||null;
+}
+
+// Los avisos del guardado, en orden. mismoDia solo lo pide la sesión manual.
+export function avisosSesion({log,note,date,propia=null,mismoDia=false}){
+  const out=[];
+  const rep=notaRepetida(log,note,propia);
+  if(rep) out.push(`Esta nota es igual a la del ${ddmm(rep.date)}. Si la sesión fue distinta, descríbela.`);
+  if(mismoDia){
+    const dia=sesionMismoDia(log,date,propia);
+    if(dia) out.push(`Ya hay una sesión registrada el ${ddmm(dia.date)}. ¿Es otra sesión distinta?`);
+  }
+  return out;
 }

@@ -213,7 +213,7 @@ test('handler informe: mismo modelo (ANTHROPIC_MODEL manda) y texto aunque llegu
   assert.equal(r.code, 200);
   assert.deepEqual(r.body, { text: 'Narrativa.' });
   assert.equal(r.enviados[0].model, 'claude-sonnet-5-5');
-  assert.equal(r.enviados[0].max_tokens, 1024);
+  assert.equal(r.enviados[0].max_tokens, 2048);   // MINI-1 (antes 1024)
   assert.ok(!('system' in r.enviados[0]));
   const env = await llamar({ prompt: 'Informe de prueba' }, undefined, { env: { ANTHROPIC_MODEL: 'claude-sonnet-4-6' } });
   assert.equal(env.enviados[0].model, 'claude-sonnet-4-6');

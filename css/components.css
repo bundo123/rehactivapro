@@ -212,6 +212,10 @@ details.soapie b{display:inline-block;width:14px;color:#1a1917}
 .pulir-acc{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
 .ia-mark{font-size:10px;color:#9c9a92;font-style:italic;white-space:nowrap}
 @media (max-width:560px){.pulir-cols{grid-template-columns:1fr}}
+/* MINI-1: aviso no bloqueante junto al botón Guardar sesión */
+.sess-aviso{margin-top:12px;font-size:12.5px;line-height:1.4;color:#7a5a00;background:#fff6d6;border:1px solid #f0d77a;border-radius:8px;padding:9px 11px}
+.sess-aviso>div+div{margin-top:4px}
+.sess-aviso .sess-aviso-hint{font-size:11.5px;color:#8a7a50}
 @media (max-width:768px){
   .resp-in,.resp-txt{font-size:16px}    /* iOS no hace zoom al enfocar con ≥16px */
   .rom-input{font-size:16px}            /* iOS no hace zoom al enfocar con ≥16px */

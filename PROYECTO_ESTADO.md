@@ -4,6 +4,48 @@
 
 ---
 
+## 🗓️ Sesión 2026-10-08 (2) — LOTE MINI-1: arreglos detectados en un informe real. Sin SQL nuevo que correr.
+
+**Deploy de PULIR-1 verificado** (`62a061a`, en `main`): commit-status de Vercel `success`; 16/16
+archivos de `dist/` iguales a lo servido en rehactivaec.com (`index-dP4xkPJa.js`,
+`index-B0bLN3G-.css`). Los 3 HTML son iguales tras normalizar espacios (Vercel colapsa líneas en
+blanco) y `robots.txt` solo difiere en CRLF/LF del checkout de Windows.
+
+**MINI-1** (este commit):
+1. **Narrativa cortada:** un informe real con `claude-sonnet-5-5` salió cortado a media palabra en
+   RECOMENDACIONES. Modo informe: `max_tokens` 1.024 → 2.048, y si `stop_reason` ≠ `end_turn` →
+   500 «El informe salió incompleto. Intenta de nuevo.» (nunca texto cortado; mismo criterio que
+   pulir). El navegador muestra ese motivo.
+2. **Prompt del informe** (ahora en `js/prompt-informe.js`, puro y testeable): AVD solo si
+   aparecen en los datos; «limitaciones funcionales registradas»; no reemplazar términos clínicos
+   por otros parecidos («sin complicaciones» ≠ «sin compensaciones»); evaluación sin EVA → «EVA
+   inicial: no medido» (antes «?/10»). Para no contradecir la regla de las AVD se ajustaron otras
+   tres líneas que las pedían o suponían: «sobre todo el impacto en las actividades de la vida
+   diaria», «funciones que el paciente ya puede realizar» (→ «funciones registradas») y la
+   ocupación en RECOMENDACIONES (→ «solo si aparecen en los datos»).
+3. **Nota clonada:** si la nota es igual (trim, sin mayúsculas) a la de otra sesión del paciente,
+   aviso amarillo junto al botón: «Esta nota es igual a la del dd/mm. Si la sesión fue distinta,
+   descríbela.» No bloquea: un segundo clic en «Guardar sesión» guarda igual; si cambia el
+   contenido se vuelve a revisar. Los 3 caminos de guardado. Sin `confirm()`.
+4. **Segunda sesión el mismo día** (sesión manual): mismo mecanismo, «Ya hay una sesión registrada
+   el dd/mm. ¿Es otra sesión distinta?». Solo sesiones de tratamiento (no evaluación ni fin).
+5. **`pulir_session_log.sql`** refleja producción: `session_log_note_original_chk`
+   (`note_original` ≤ 4.000 caracteres). No hay SQL nuevo que correr.
+6. **Gráficos EVA:** la sesión con solo el «después» entra al canvas de pantalla y al SVG del PDF
+   (`tieneEva`, valor `pa ?? pb`; el Word ya lo hacía). Sin dolor inicial conocido no se dibuja
+   un punto de inicio en 0. Un snapshot sin sesiones de solo «después» da el SVG idéntico al de
+   `main` (comparado en 5 casos); uno guardado que sí las tenga ahora las muestra en el PDF.
+7. **Tarjeta «Dolor EVA»:** «1 punto» en singular; cambio 0 → «sin cambio» (antes «−0 puntos»).
+8. **Primera sesión respiratoria del episodio:** «¿Cómo llega hoy? frente a la sesión anterior»
+   se oculta (salvo que la fila ya traiga el dato) y deja de ser obligatorio
+   (`faltantesResp(…, hayPrevio)`); la nota SOAPIE no escribe «que en la sesión anterior» sin
+   sesión anterior.
+
+543 → 559 pruebas (16 nuevas en `test/mini1.test.js`; 3 existentes ajustadas al cambio pedido:
+`max_tokens` 2.048 y dos notas SOAPIE que ahora pasan una sesión anterior).
+
+---
+
 ## 🗓️ Sesión 2026-10-08 — Limpieza de 169 pacientes sin actividad + LOTE CTX-1b: la IA del informe respeta el episodio (`2eba49c`, en `main`) + MET-1 (`b253c54`, en `main`) + PULIR-1 (con SQL).
 
 **Limpieza de pacientes** (SQL corrido por Jefferson en Supabase, con candado n=169): se borraron

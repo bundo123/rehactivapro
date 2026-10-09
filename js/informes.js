@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, logDeEpisodio, dolorInicial, rotuloDolorInicial, textoCitas, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber, ctxEstado } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, logDeEpisodio, dolorInicial, rotuloDolorInicial, textoCitas, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber, ctxEstado, tieneEva, textoDeltaEva } from './utils.js';
 import { apptSlots } from './agenda.js';
 import { citasDeEpisodio } from './historial-calc.js';
 import { genSemanalAI, genMensualAI, genAnualAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
@@ -620,7 +620,7 @@ export function renderPatientReport() {
   const ymd=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
   const rptNo=`INF-${ymd}-${(String(p.id).replace(/\D/g,'').slice(-4)||'0000').padStart(4,'0')}`;
   const fechaLarga=now.toLocaleDateString('es-EC',{day:'2-digit',month:'long',year:'numeric'});
-  const evaSes=attendedTrat.filter(s=>s.pb!=null);
+  const evaSes=attendedTrat.filter(tieneEva);   // MINI-1: también la que solo tiene el "después"
   const prot=p.protocolId?state.protocols.find(x=>x.id===p.protocolId):null;
   const cellG=(lbl,val,span)=>`<div${span?` style="grid-column:span ${span}"`:''}><div class="rpt-lbl">${lbl}</div><div class="rpt-val">${esc(val)}</div></div>`;
   // MET-1: dolor inicial = EVA de la Evaluación inicial si se midió; si no, el primer "antes" medido.
@@ -726,7 +726,7 @@ export function renderPatientReport() {
           <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:${ac}">${adh==null?'—':adh+'%'}</span><span style="font-size:11px;color:#7a7a76">${adh==null?'Aún sin citas pasadas':textoCitas(asistidas,totalCitas,faltas)}</span></div>
           ${adh==null?'':`<div style="font-size:10.5px;color:${adh>=85?'#17865f':'#a06a00'};margin-top:8px">${adh>=85?'✓ Sobre la meta (85%)':'Bajo la meta (85%)'}</div>`}</div>
         <div class="rpt-kpi"><div class="rpt-lbl">Dolor EVA</div>
-          ${evaHas?`<div style="display:flex;align-items:center;gap:10px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:${evaColor(ini.valor)}">${ini.valor}</span><span style="color:#9c9a92">→</span><span style="font-size:22px;font-weight:700;color:${lp.pa!=null?evaColor(lp.pa):'#7a7a76'}">${lp.pa!=null?lp.pa:'?'}</span>${evaDelta!=null?`<span style="font-size:11px;color:#7a7a76;line-height:1.3">${evaDelta>0?'+':'−'}${Math.abs(evaDelta)} puntos<br>desde el inicio</span>`:''}</div>`:'<div style="font-size:13px;color:#7a7a76;padding:8px 0">Sin datos EVA</div>'}</div>
+          ${evaHas?`<div style="display:flex;align-items:center;gap:10px;margin-top:3px"><span style="font-size:22px;font-weight:700;color:${evaColor(ini.valor)}">${ini.valor}</span><span style="color:#9c9a92">→</span><span style="font-size:22px;font-weight:700;color:${lp.pa!=null?evaColor(lp.pa):'#7a7a76'}">${lp.pa!=null?lp.pa:'?'}</span>${evaDelta!=null?`<span style="font-size:11px;color:#7a7a76;line-height:1.3">${textoDeltaEva(evaDelta)}<br>desde el inicio</span>`:''}</div>`:'<div style="font-size:13px;color:#7a7a76;padding:8px 0">Sin datos EVA</div>'}</div>
       </div>
       ${evaSes.length?`<div style="margin-top:16px"><div class="rpt-sec-title">Evolución del dolor (EVA)</div><canvas id="eva-evolution-chart" height="90" style="margin-top:8px"></canvas></div>`:''}
       ${evalBlockHtml}
@@ -777,12 +777,14 @@ export function renderPatientReport() {
       const ddmm=d=>String(d||'').slice(8,10)+'/'+String(d||'').slice(5,7);
       // Línea ÚNICA consistente con la tarjeta "Dolor EVA inicial→actual":
       // inicia en el dolor inicial (dolorInicial) y termina en el dolor actual (lp.pa); en medio, el dolor tras cada sesión.
-      const startVal=ini?ini.valor:evaSes[0].pb;
+      const startVal=ini?ini.valor:(evaSes.find(s=>s.pb!=null)?.pb??null);
       const endVal=(lp&&lp.pa!=null)?lp.pa:evaSes[evaSes.length-1].pa;
       const mid=evaSes.map(s=>s.pa!=null?s.pa:s.pb);
       if(endVal!=null&&mid.length) mid[mid.length-1]=endVal;
-      const evaData=[startVal,...mid];
-      const evaLabels=[rotuloDolorInicial(ini?.fuente),...evaSes.map(s=>ddmm(s.date))];
+      // Sin dolor inicial conocido (ningún "antes" ni evaluación medidos) no hay punto de inicio.
+      const conInicio=startVal!=null;
+      const evaData=conInicio?[startVal,...mid]:mid;
+      const evaLabels=[...(conInicio?[rotuloDolorInicial(ini?.fuente)]:[]),...evaSes.map(s=>ddmm(s.date))];
       // Bandas de referencia alineadas con evaColor (:74): leve (0–3.5) / moderado (3.5–6.5) /
       // severo (6.5–10), para que cada punto caiga en la banda del color de su número. Alpha más
       // marcado (~.13-.16) para que el terapeuta las distinga, sin tapar la curva coral (2px saturada).

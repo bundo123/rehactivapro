@@ -1,6 +1,6 @@
 import { state } from './state.js';
-import { getDisplayAge, esc, dmy, fmtDate, semanaRango, citasEnFechas, citasEnPrefijo,
-         nuevosEnPrefijo, resumenCitas, hastaHoy, MES_LARGO, diagParaPrompt, ctxParaPrompt,
+import { esc, dmy, fmtDate, semanaRango, citasEnFechas, citasEnPrefijo,
+         nuevosEnPrefijo, resumenCitas, hastaHoy, MES_LARGO,
          logDeEpisodio, getDoctor } from './utils.js';
 import { toastErr } from './toast.js';
 // Import circular a propósito: informes.js importa las tres gen*AI de acá y acá se importan sus
@@ -8,7 +8,7 @@ import { toastErr } from './toast.js';
 // de función exportadas, así que el binding ya está resuelto cuando se las llama.
 import { renderSemanal, renderMensual, renderAnual } from './informes.js';
 import { supa } from './supabase-client.js';
-import { resumenResp } from './soap.js';
+import { promptInformePaciente } from './prompt-informe.js';
 
 // formatHtml: opcional. Si se pasa, recibe el texto crudo de la IA y devuelve el HTML a inyectar
 // (usado por la narrativa del informe paciente para mostrar 2 párrafos bajo encabezados propios).
@@ -34,6 +34,8 @@ export async function callAI(prompt, targetId, formatHtml, onDone) {
     });
     if(res.status===429) errMsg='Demasiadas solicitudes de IA. Espera un minuto e intenta de nuevo.';
     if(res.status===403) errMsg='Tu rol no permite generar informes con IA.';
+    // MINI-1: un 500 trae su motivo (p. ej. «El informe salió incompleto. Intenta de nuevo.»).
+    if(res.status===500){ try{ const j=await res.json(); if(j&&typeof j.error==='string'&&j.error) errMsg=j.error; }catch(_){} }
     if(!res.ok) throw new Error('status '+res.status);
     const data=await res.json();
     const text=data&&data.text?data.text:'';
@@ -255,66 +257,11 @@ export function genPatientAI() {
   // pantalla/PDF/Word (logDeEpisodio). Antes mandaba todo p.log y el diagnóstico/sesiones de hoy.
   const epVal=document.getElementById('patient-rpt-episode')?.value||'current';
   const {log,epDiag,epSessions,epDone,esActual}=logDeEpisodio(p,epVal);
-  const evalRow=log.find(s=>s.type==='Evaluación inicial');
-  const evalText=evalRow
-    ?`EVA inicial ${evalRow.pb!=null?evalRow.pb:'?'}/10. Hallazgos: ${evalRow.note||'sin detalle registrado'}`
-    :'No hay evaluación inicial registrada';
-  const trat=log.filter(s=>s.type!=='Evaluación inicial');
-  const sesiones=trat.length?trat.map(s=>{
-    const eva=(s.pb!=null?s.pb:'?')+'→'+(s.pa!=null?s.pa:'?');
-    const tec=(s.tags&&s.tags.length)?s.tags.join(', '):'sin técnicas registradas';
-    const obs=s.note?s.note:'sin observación';
-    // RESP-1: lo registrado en la sesión respiratoria (signos antes→después, O₂, secreciones, tolerancia).
-    const resp=s.soap?resumenResp(s.soap):'';
-    return `- ${s.date}: EVA ${eva}; técnicas: ${tec};${resp?` registro respiratorio: ${resp};`:''} observación: ${obs}`;
-  }).join('\n'):'Sin sesiones de tratamiento registradas aún';
-  const estado=!esActual?'Episodio cerrado'
-    :p.status==='active'?'En tratamiento':p.status==='alta'?'Alta médica':'Inactivo';
-  // El CIE-10 es del paciente HOY (misma regla que el informe): en un episodio cerrado va solo el
-  // diagnóstico de entonces, leído de la nota del marcador.
-  const diagPrompt=esActual?diagParaPrompt(p):(epDiag||p.diag||'No especificado');
-  // PR-B: contexto del protocolo SOLO por link explícito (protocol_id), sin fallback por keyword (D3).
-  // Plantilla de referencia (no PII, no historia clínica) → tope duro de 1.200 caracteres (D4).
-  // CTX-1b: protocolId es el de HOY; en un episodio cerrado no se manda.
+  // CTX-1b: protocolId y médico son los de HOY; en un episodio cerrado no se manda el protocolo.
   const prot=esActual&&p.protocolId?state.protocols.find(x=>x.id===p.protocolId):null;
-  const protCtx=prot?ctxParaPrompt(prot):'';
-  // Sin médico registrado no hay "médico que refirió": la IA no debe inventarlo.
   const tieneMedico=!!(p.doctorId&&getDoctor(p.doctorId));
-  const destinatario=tieneMedico?'dirigido al médico que refirió al paciente y que también puede leer el propio paciente'
-    :'dirigido al paciente y a su equipo de salud';
-  const prompt=`Eres un fisioterapeuta colegiado redactando un informe de evolución clínica en Ecuador, ${destinatario}. Escribe con tono formal y profesional, pero claro. RESPETA estas reglas de redacción de forma estricta:
-- TEXTO PLANO: prohibido markdown, asteriscos, numerales (#), guiones de viñeta o cualquier símbolo de formato. Solo prosa en párrafos.
-- NO repitas cifras crudas que ya están en las tablas y el gráfico del informe (no listes los valores EVA de cada sesión ni el número de sesiones). En su lugar, INTERPRÉTALOS clínicamente.
-- Sé específico y concreto. Prohibidas frases vagas o de relleno como 'respuesta favorable', 'abordaje multimodal', 'evolución satisfactoria', 'se recomienda continuar el tratamiento'. Cada oración debe aportar información clínica real y verificable.
-- Enfócate en la FUNCIÓN: dolor, rango de movimiento, fuerza, y sobre todo el impacto en las actividades de la vida diaria del paciente.
-- Refiérete siempre al 'paciente', nunca con nombre propio.${tieneMedico?'':`
-- No menciones a ningún médico referente: este paciente no tiene uno registrado.`}
-- Basa todo en los datos provistos (evaluación inicial, técnicas aplicadas, observaciones, EVA). No inventes hallazgos que no estén en los datos.${protCtx?`
-- BARRERA: más abajo se incluye un CONTEXTO DEL PROTOCOLO. Es una PLANTILLA DE REFERENCIA (objetivos e hitos típicos de este tipo de tratamiento), NO la historia clínica de este paciente. Jamás afirmes que algo de esa plantilla se le aplicó, se le encontró o le ocurrió al paciente: SOLO lo listado en DATOS CLÍNICOS ocurrió realmente. Úsala únicamente para enmarcar objetivos y recomendaciones.`:''}
-
-DATOS CLÍNICOS (anonimizado):
-- Edad: ${getDisplayAge(p)}
-- Diagnóstico: ${diagPrompt}
-- Estado actual: ${estado}
-- Sesiones realizadas/prescritas: ${epDone}/${epSessions||0}
-- EVALUACIÓN INICIAL (anamnesis, inspección, palpación, movilidad, fuerza): ${evalText}
-- HISTORIAL POR SESIÓN (fecha; EVA antes→después; técnicas aplicadas; observación):
-${sesiones}${protCtx?`
-
-CONTEXTO DEL PROTOCOLO (plantilla de referencia, NO son hallazgos de este paciente; úsalo solo para enmarcar objetivos y recomendaciones, jamás como algo que se le hizo o registró):
-${protCtx}`:''}
-
-Redacta el informe en EXACTAMENTE estas cuatro secciones, cada una empezando con su etiqueta en MAYÚSCULAS seguida de dos puntos, separadas por una línea en blanco:
-
-CONDICIÓN INICIAL: Resume el estado del paciente al iniciar el tratamiento según la evaluación inicial: diagnóstico, hallazgos físicos relevantes, nivel de dolor y limitaciones funcionales de partida (qué no podía hacer).
-
-EVOLUCIÓN DEL TRATAMIENTO: Describe el progreso a lo largo de las sesiones. Relaciona las técnicas aplicadas con la respuesta del paciente. Explica cómo evolucionaron el dolor, la movilidad y la fuerza, y en qué momento se dieron los cambios más relevantes.
-
-RESULTADOS OBTENIDOS: Compara el estado funcional ACTUAL con el inicial. Detalla concretamente qué mejoró (rango articular recuperado, reducción del dolor, funciones que el paciente ya puede realizar). Sé específico.
-
-RECOMENDACIONES: Plan a seguir de forma concreta: tipo de ejercicios o fortalecimiento sugerido, continuidad del tratamiento, manejo o cuidados en casa, y signos de alerta a vigilar si aplica. Adapta las recomendaciones al diagnóstico y la ocupación/actividad del paciente.
-
-Extensión total del informe: entre 280 y 380 palabras (completo, que llene aproximadamente dos páginas con el resto del documento, pero SIN relleno). Cada sección de 2 a 4 frases sustanciales.`;
+  // MINI-1: el texto del prompt vive en prompt-informe.js (puro, testeable).
+  const prompt=promptInformePaciente({p,log,epDiag,epSessions,epDone,esActual,prot,tieneMedico});
   const outputEl=document.getElementById('patient-rpt-ai-output');
   if(outputEl){outputEl.style.display='block';callAI(prompt,'patient-rpt-ai-output',_renderPatientNarrative);}
 }
