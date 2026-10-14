@@ -16,6 +16,7 @@ const ACCIONES = [
   'registerSession','deleteSession','evalInicial','createTherapist','deleteTherapist',
   'createDoctor','createProtocol','editProtocol','emitirFactura','viewAI','deleteInforme','apptPastDate',
   'conciliarQB','manageBlocks','editAppt','newEpisode','registrarOrden','borrarOrden',
+  'subirDocumento','quitarDocumento',
 ];
 
 // true = el rol PUEDE. Escrita a mano, acción por acción.
@@ -26,6 +27,7 @@ const MATRIZ = {
     createTherapist:true, deleteTherapist:true, createDoctor:true, createProtocol:true, editProtocol:true,
     emitirFactura:true, viewAI:true, deleteInforme:true, apptPastDate:true, conciliarQB:true,
     manageBlocks:true, editAppt:true, newEpisode:true, registrarOrden:true, borrarOrden:true,
+    subirDocumento:true, quitarDocumento:true,
   },
   secretaria: {
     createAppt:true, deleteAppt:true, cycleStatus:true, createPatient:true, editPatient:true,
@@ -33,6 +35,7 @@ const MATRIZ = {
     createTherapist:true, deleteTherapist:false, createDoctor:true, createProtocol:false, editProtocol:false,
     emitirFactura:true, viewAI:false, deleteInforme:false, apptPastDate:true, conciliarQB:true,
     manageBlocks:true, editAppt:true, newEpisode:false, registrarOrden:true, borrarOrden:false,
+    subirDocumento:true, quitarDocumento:false,
   },
   terapeuta: {
     createAppt:false, deleteAppt:false, cycleStatus:true, createPatient:false, editPatient:true,
@@ -40,6 +43,7 @@ const MATRIZ = {
     createTherapist:false, deleteTherapist:false, createDoctor:false, createProtocol:true, editProtocol:false,
     emitirFactura:false, viewAI:true, deleteInforme:true, apptPastDate:false, conciliarQB:false,
     manageBlocks:false, editAppt:false, newEpisode:true, registrarOrden:true, borrarOrden:false,
+    subirDocumento:true, quitarDocumento:false,
   },
 };
 

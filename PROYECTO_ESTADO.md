@@ -1,6 +1,59 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-10-14
+> Generado: 2026-05-18 · Última actualización: 2026-10-15
+
+---
+
+## 🗓️ Sesión 2026-10-15 (1) — BLOQUE B · LOTE B2a: documentos del paciente en Storage (DOC-2) y orden médica con adjunto. Con SQL (`b2a_documentos.sql`, ya corrido).
+
+Rama `feat/b2a-documentos`. El SQL corrió en producción ANTES del lote (verificado: bucket, 3+3
+policies, `trg_audit`, `documento_id`); acá solo se versiona tal cual. Nada se ejecutó contra la base
+ni se subió nada a Storage desde este lote.
+- **SQL (`b2a_documentos.sql`):** bucket privado `documentos` (10 MB; `application/pdf`, `image/jpeg`,
+  `image/png`). Policies en `storage.objects`: SELECT todo autenticado, INSERT los tres roles, DELETE
+  admin o dueño del objeto (solo para limpiar si falla el INSERT de la fila); sin UPDATE. Tabla nueva
+  `documentos` (`patient_id` CASCADE, `tipo` en 5 valores, `nombre` 1..120, `storage_path` UNIQUE y
+  con prefijo `<patient_id>/`, `mime`, `bytes` 1..10 MB, `fecha_doc`, `nota` ≤ 300, `subido_por`
+  DEFAULT `auth.uid()`, borrado lógico `deleted/deleted_at/deleted_by` con CHECK de coherencia). RLS:
+  SELECT todos; INSERT tres roles a nombre propio y no borrado; UPDATE solo borrado lógico (admin o
+  quien subió, firmado por sí mismo, sin «resucitar»); sin DELETE. `trg_audit`. Y
+  `pedidos_medicos.documento_id` → `documentos` (SET NULL).
+- **`js/documento.js` (puro):** `TIPOS_DOC` + `labelTipoDoc` (desconocido → «Otro»), `MIMES_DOC`,
+  `DOC_MAX_BYTES`, `validarArchivo` (sin archivo · «Solo PDF, JPG o PNG.» · vacío · «Máximo 10 MB;
+  este pesa X.» · sin nombre), `rutaDocumento` = `<patientId>/<uuid>.<ext>` (NUNCA el nombre original:
+  es PII), `textoBytes` («340 KB», «1,2 MB»), `mapDocumentoRow`, `puedeQuitarDoc` (admin o quien subió,
+  espejo de la RLS UPDATE).
+- **`js/documentos.js` + `#doc-modal`:** «Documentos · {paciente}». Carga PEREZOSA al abrir (`select`
+  de `documentos` por paciente y `deleted=false`); nada en el select de pacientes ni en realtime. Fila:
+  tipo (pill gris de texto), nombre, fecha del documento o de subida, tamaño, nota, «Ver» y, si
+  `puedeQuitarDoc`, «Quitar». Formulario: Tipo, Fecha del documento (opcional), Archivo (`accept`
+  PDF/JPEG/PNG, SIN `capture`: el iPhone ofrece cámara y archivos y convierte HEIC a JPEG), Nota.
+  `subirDocumento` (la reutiliza ordenes.js): valida → `upload` (`upsert:false`) → INSERT de la fila;
+  si el INSERT falla, `remove` del objeto (mejor esfuerzo). Guard `_subiendo` y botón «Subiendo…».
+  «Ver»: abre la pestaña ANTES del await (si no, el navegador la bloquea) y le pone la URL firmada de
+  300 s con `opener = null`. «Quitar» = UPDATE lógico con confirmación; el objeto NO se borra.
+- **Orden con adjunto (`ordenes.js` + `#orden-modal`):** campo «Adjuntar la orden (PDF o foto,
+  opcional)»; el archivo se valida ANTES de registrar la orden. Tras el INSERT de la orden sube el
+  documento (`tipo pedido_medico`, `fecha_doc` = fecha de la orden, nota «Orden médica del dd/mm/aaaa»)
+  y hace UPDATE de `documento_id`; si el adjunto falla, la orden queda y el toast lo dice. En la lista,
+  «Ver orden» si tiene `documentoId` (busca `storage_path` por id; si fue quitado, avisa) o «Adjuntar»
+  (input oculto `#or-archivo-adj`). `mapOrdenRow` suma `documentoId`.
+- **Permisos y botones:** `subirDocumento` (admin, secretaria, terapeuta) y `quitarDocumento` (admin;
+  quien subió también, por `puedeQuitarDoc`). Botón «Documentos» en la fila de Pacientes (después de
+  «Orden médica») y en la side-card Paciente del informe. CSS `.doc-item/.doc-tipo/.doc-meta/.doc-acc`:
+  a 375 px el texto se encoge y los botones bajan de línea.
+- **Docs:** `rls_policies.md` (documentos + storage.objects; `patients` UPDATE corregido a
+  `staff_update_patients` con los tres roles; `therapist_blocks` documentado; 14 tablas con RLS),
+  `CLAUDE.md` (14 tablas + gotcha DOC-2), tabla de módulos de abajo.
+
+637 → 650 pruebas (+13 en `test/b2a.test.js`; `permissions.test.js` suma las 2 acciones;
+`b1.test.js` ajusta `mapOrdenRow` con `documentoId`). `vite build` en verde. E2E con Playwright y el
+harness en memoria (datos ficticios; `supa.from` y `supa.storage` contestados por stubs, red a
+supabase.co abortada): 29/29 a 1280 px y 29/29 a 375 px — lista perezosa, WebP y 11 MB rechazados sin
+subir nada, subida con ruta `<pid>/<uuid>.pdf` sin el nombre original, «Ver» con URL firmada de 300 s y
+`opener=null`, «Quitar» lógico sin borrar el objeto, secretaria sin «Quitar» en documentos ajenos y
+admin con él, orden con adjunto (documento + `documento_id`), «Ver orden», «Adjuntar» a una orden
+vieja, sin scroll horizontal.
 
 ---
 
@@ -2842,7 +2895,8 @@ lo carga con `import()` al primer uso (chunk aparte).
 | `doctores.js` | `doctors`, `patients` |
 | `protocolos.js` | `protocols` |
 | `cie10.js` | `patients` *(el CIE-10 es dato de la ficha, no de la cita)* |
-| `ordenes.js` | `pedidos_medicos` *(ORD-1: alta y baja de la orden médica; sin realtime)* |
+| `ordenes.js` | `pedidos_medicos` *(ORD-1: alta y baja de la orden médica; DOC-2: UPDATE de `documento_id` al adjuntar; sin realtime)* |
+| `documentos.js` | `documentos` + Storage bucket `documentos` *(DOC-2: carga perezosa al abrir el modal, alta, borrado lógico; URL firmada para ver; sin realtime)* |
 | `realtime.js` | `appointments`, `patients`, `session_log`, `cobros`, `therapists`, `doctors` |
 | `resumen.js`, `informes.js`, `search.js`, `historial.js` | *(solo leen de `state`, sin queries directas)* |
 

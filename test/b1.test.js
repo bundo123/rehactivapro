@@ -88,7 +88,7 @@ test('ordenAgotada — usa las sesiones desde la orden (usadas) y, si no vienen,
 
 test('mapOrdenRow / ordenarOrdenes — fila de pedidos_medicos → memoria; por fecha y alta asc', () => {
   const r = { id: 'u1', patient_id: 'p1', doctor_id: null, fecha: '2026-09-05', sesiones_autorizadas: 12, vigencia_hasta: null, nota: null, created_at: '2026-09-05T10:00:00Z' };
-  assert.deepEqual(mapOrdenRow(r), { id: 'u1', doctorId: null, fecha: '2026-09-05', sesiones: 12, vigenciaHasta: null, nota: '', createdAt: '2026-09-05T10:00:00Z' });
+  assert.deepEqual(mapOrdenRow(r), { id: 'u1', doctorId: null, fecha: '2026-09-05', sesiones: 12, vigenciaHasta: null, nota: '', createdAt: '2026-09-05T10:00:00Z', documentoId: null });
   const l = ordenarOrdenes([{ id: 3, fecha: '2026-10-01', createdAt: 'b' }, { id: 1, fecha: '2026-09-01', createdAt: 'z' }, { id: 2, fecha: '2026-10-01', createdAt: 'a' }]);
   assert.deepEqual(l.map(x => x.id), [1, 2, 3]);
   assert.deepEqual(ordenarOrdenes(undefined), []);

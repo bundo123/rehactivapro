@@ -7,7 +7,7 @@
 
 ## Estado de RLS por tabla — verificado
 
-Las 12 tablas tienen **RLS activada (`relrowsecurity = true`)**. Sin esto, las policies de abajo se ignorarían:
+Las 14 tablas tienen **RLS activada (`relrowsecurity = true`)**. Sin esto, las policies de abajo se ignorarían:
 
 | Tabla | RLS activa |
 |---|---|
@@ -15,6 +15,7 @@ Las 12 tablas tienen **RLS activada (`relrowsecurity = true`)**. Sin esto, las p
 | audit_log | ✅ true |
 | cobros | ✅ true |
 | doctors | ✅ true |
+| documentos | ✅ true *(DOC-2, `b2a_documentos.sql`, verificado en producción el 2026-10-14)* |
 | episodios | ✅ true *(EPI-2a, `episodios.sql`)* |
 | informes | ✅ true |
 | patients | ✅ true |
@@ -22,6 +23,7 @@ Las 12 tablas tienen **RLS activada (`relrowsecurity = true`)**. Sin esto, las p
 | profiles | ✅ true |
 | protocols | ✅ true |
 | session_log | ✅ true |
+| therapist_blocks | ✅ true *(verificado en producción el 2026-10-14)* |
 | therapists | ✅ true |
 
 ## Policies por tabla (cmd · rol · condición)
@@ -34,7 +36,8 @@ Las 12 tablas tienen **RLS activada (`relrowsecurity = true`)**. Sin esto, las p
 
 **patients**
 - SELECT `auth_users_read_patients` — `true` (⚠️ lectura abierta a todo autenticado — ver C-2)
-- INSERT/UPDATE — `is_admin() OR is_secretaria()`
+- INSERT — `is_admin() OR is_secretaria()`
+- UPDATE `staff_update_patients` — `is_admin() OR is_secretaria() OR is_terapeuta()` (**corregido el 2026-10-14**, verificado en producción: este archivo decía admin/secretaria; el terapeuta edita la ficha, espejo de `editPatient`)
 - DELETE — `is_admin()`
 
 **session_log**
@@ -79,6 +82,10 @@ Las 12 tablas tienen **RLS activada (`relrowsecurity = true`)**. Sin esto, las p
 - DELETE — `is_admin()`. ✅ La baja, única acción irreversible de la pantalla, no se delega.
 - ✅ **Aplicado y verificado en producción el 2026-08-14** con `rls_therapists_secretaria.sql` (versionado en el repo): quedan 4 policies y la `ALL = is_admin()` vieja fue eliminada. Espeja la partición del permiso de front (`createTherapist` vs `deleteTherapist`).
 
+**therapist_blocks** (bloqueos de agenda del terapeuta) — 4 policies, **verificado en producción el 2026-10-14**
+- SELECT `blocks_select` — `true`
+- INSERT `admin_secretaria_insert_blocks` / UPDATE `admin_secretaria_update_blocks` / DELETE `admin_secretaria_delete_blocks` — `is_admin() OR is_secretaria()`. Espeja el permiso de front `manageBlocks`: la agenda la maneja recepción, no el terapeuta.
+
 **episodios** (EPI-2a) — 4 policies, `episodios.sql`
 - SELECT `episodios_select` — `true` (todo autenticado)
 - INSERT `episodios_insert` / UPDATE `episodios_update` — `is_admin() OR is_secretaria() OR is_terapeuta()`
@@ -89,10 +96,25 @@ Las 12 tablas tienen **RLS activada (`relrowsecurity = true`)**. Sin esto, las p
 **pedidos_medicos** (ORD-1, orden del médico referente) — 4 policies, `b1_orden_campos.sql` (corrido y verificado en producción el 2026-10-14: columnas, 4 policies y `trg_audit`)
 - SELECT `pedidos_select` — `true` (todo autenticado; misma postura que `patients`, ver C-2)
 - INSERT `pedidos_insert` — `is_admin() OR is_secretaria() OR is_terapeuta()`
-- UPDATE `pedidos_update` — USING y WITH CHECK `is_admin() OR is_secretaria() OR is_terapeuta()` (el front todavía no edita órdenes: solo alta y baja)
+- UPDATE `pedidos_update` — USING y WITH CHECK `is_admin() OR is_secretaria() OR is_terapeuta()` (el front solo la usa para poner `documento_id` al adjuntar el escaneo, DOC-2)
 - DELETE `pedidos_delete` — `is_admin()`. Espeja el permiso de front `borrarOrden` (solo admin); `registrarOrden` = los tres roles.
 - `REVOKE ALL ... FROM anon`. Auditoría: `trg_audit` → `audit_log` (INSERT/UPDATE/DELETE). `REPLICA IDENTITY FULL` por si B2 suma realtime (hoy sin canal).
 - CHECK: `sesiones_autorizadas` 1..200 · `vigencia_hasta >= fecha` · `nota` ≤ 300. FK a `patients` ON DELETE CASCADE y a `doctors` ON DELETE SET NULL.
+- `documento_id` (DOC-2, `b2a_documentos.sql`) → `documentos(id)` ON DELETE SET NULL: el escaneo de la orden.
+
+**documentos** (DOC-2, documentos del paciente; el archivo vive en Storage) — 3 policies, `b2a_documentos.sql` (corrido y verificado en producción el 2026-10-14: bucket, 3+3 policies, `trg_audit`, `documento_id`)
+- SELECT `documentos_select` — `true` (todo autenticado; misma postura que `patients`, ver C-2)
+- INSERT `documentos_insert` — `(is_admin() OR is_secretaria() OR is_terapeuta()) AND subido_por = auth.uid() AND deleted = false`. ✅ autoría no falsificable y la fila nace viva.
+- UPDATE `documentos_update` — USING `is_admin() OR subido_por = auth.uid()`; WITH CHECK `deleted = true AND deleted_by = auth.uid()`. El ÚNICO UPDATE posible es el **borrado lógico**, firmado por quien lo hace, y no se puede «resucitar» (lección H-2 de `informes`). Espeja `quitarDocumento` (admin) + `puedeQuitarDoc` (quien subió).
+- **Sin DELETE**: nadie borra filas desde el cliente.
+- `REVOKE ALL ... FROM anon`. Auditoría: `trg_audit` → `audit_log` (INSERT/UPDATE/DELETE). Sin realtime: carga perezosa al abrir el modal.
+- CHECK: `tipo` ∈ {pedido_medico, consentimiento, examen, informe_externo, otro} · `nombre` 1..120 · `mime` ∈ {application/pdf, image/jpeg, image/png} · `bytes` 1..10485760 · `nota` ≤ 300 · `storage_path LIKE patient_id || '/%'` (UNIQUE) · borrado coherente (`deleted` ⇔ `deleted_at` y `deleted_by` no nulos). FK a `patients` ON DELETE CASCADE.
+
+**storage.objects (bucket documentos)** — 3 policies, `b2a_documentos.sql`. Bucket **privado** (`public = false`), `file_size_limit` 10 MB, `allowed_mime_types` PDF/JPEG/PNG. Ruta `<patient_id>/<uuid>.<ext>`: nunca el nombre original (PII).
+- SELECT `documentos_obj_select` — `bucket_id = 'documentos'` (todo autenticado; el front lee con URL firmada de 300 s)
+- INSERT `documentos_obj_insert` — `bucket_id = 'documentos' AND (is_admin() OR is_secretaria() OR is_terapeuta())`
+- DELETE `documentos_obj_delete` — `bucket_id = 'documentos' AND (is_admin() OR owner_id = auth.uid()::text)`: solo para limpiar el objeto si falla el INSERT de la fila. «Quitar» en la app NO borra el objeto.
+- Sin UPDATE: no hay upsert ni renombrado desde el cliente (`upsert:false`).
 
 **audit_log**
 - SELECT — solo admin

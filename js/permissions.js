@@ -34,17 +34,21 @@ const ROLE_TABS = {
 // 'registrarOrden' = cargar la orden del médico referente (ORD-1, tabla pedidos_medicos): la recibe
 // quien tenga el papel en la mano — recepción o el terapeuta. 'borrarOrden' = eliminarla: solo admin,
 // espejo de la RLS (DELETE = is_admin()).
+// 'subirDocumento' = ver y subir documentos del paciente (DOC-2: tabla documentos + bucket privado):
+// los tres roles, como la RLS de INSERT. 'quitarDocumento' = quitar (borrado lógico) cualquiera: solo
+// admin. Quien SUBIÓ un documento también puede quitarlo, pero eso no es un rol: lo decide
+// puedeQuitarDoc (documento.js), espejo de la RLS UPDATE (is_admin() OR subido_por = auth.uid()).
 const ROLE_ACTIONS = {
   admin:     ['createAppt','deleteAppt','cycleStatus','createPatient','editPatient','deletePatient',
               'registerSession','deleteSession','evalInicial','createTherapist','deleteTherapist',
               'createDoctor','createProtocol','editProtocol','emitirFactura','viewAI','deleteInforme',
               'apptPastDate','conciliarQB','manageBlocks','editAppt','newEpisode','verResumenEquipo',
-              'registrarOrden','borrarOrden'],
+              'registrarOrden','borrarOrden','subirDocumento','quitarDocumento'],
   secretaria:['createAppt','deleteAppt','cycleStatus','createPatient','editPatient',
               'createTherapist','createDoctor','emitirFactura','apptPastDate','conciliarQB','manageBlocks',
-              'editAppt','registrarOrden'],
+              'editAppt','registrarOrden','subirDocumento'],
   terapeuta: ['cycleStatus','editPatient','registerSession','evalInicial','viewAI','deleteInforme',
-              'newEpisode','createProtocol','registrarOrden'],
+              'newEpisode','createProtocol','registrarOrden','subirDocumento'],
 };
 
 export function hasPermission(action) {

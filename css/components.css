@@ -83,6 +83,18 @@
 .orden-nota{font-size:11px;color:#6b6a64;margin-top:2px}
 .orden-venc{font-size:10.5px;font-weight:700;color:#c33a3a;margin-left:4px}
 .orden-empty{font-size:12px;color:#9c9a92;font-style:italic;padding:4px 0 8px}
+/* DOC-2: documentos del paciente (y «Ver orden»/«Adjuntar» de la orden). A 375 px el texto se
+   encoge (min-width:0) y los botones bajan de línea en vez de desbordar. */
+.doc-item{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:6px 10px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.07)}
+.doc-item:last-child{border-bottom:none}
+.doc-txt{flex:1 1 200px;min-width:0;font-size:12px;color:#1a1917;line-height:1.45;overflow-wrap:anywhere}
+.doc-tipo{display:inline-block;font-size:10.5px;font-weight:700;color:#5a5a56;background:#efeee9;border-radius:999px;padding:1px 8px;margin-right:2px;white-space:nowrap}
+.doc-meta{font-size:11px;color:#6b6a64;margin-top:2px;font-variant-numeric:tabular-nums}
+.doc-acc{display:flex;flex-wrap:wrap;gap:6px;flex-shrink:0}
+.orden-item .doc-acc{margin-left:auto}
+.orden-item{flex-wrap:wrap}
+.orden-item .orden-txt{flex:1 1 200px}
+.doc-file{max-width:100%;box-sizing:border-box}
 .cie-combo{position:relative}
 .cie-combo input{width:100%;box-sizing:border-box;background:#fff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;font-size:13px;color:#1a1917;outline:none;font-family:inherit}
 .cie-combo input:focus{border-color:rgba(29,158,117,.5)}

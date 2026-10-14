@@ -77,7 +77,8 @@ import { globalSearch, selectGlobalResult, checkCitasPendientes } from './search
 import { initMobileMenu } from './mobile-menu.js';
 import { openBlockModal, saveBlock, deleteBlockFromModal, toggleBlockAllDay, onBlockTherapistChange } from './bloqueos.js';
 import { abrirRecordatorios, cambiarFechaRecordatorios, enviarRecordatorio } from './recordatorios.js';
-import { abrirOrdenes, guardarOrden, borrarOrden } from './ordenes.js';
+import { abrirOrdenes, guardarOrden, borrarOrden, adjuntarOrden, onArchivoOrdenAdj } from './ordenes.js';
+import { abrirDocumentos, subirDocumentoModal, quitarDocumento, abrirDocumento, verDocumentoPorId } from './documentos.js';
 
 // ── Registro central de funciones para módulos cross-cutting ──
 window._app = {
@@ -264,7 +265,8 @@ Object.assign(window, {
   irAHistorial, setHistorialCorte, setHistorialMes, setHistorialEstado,
   exportarHistorialPDF, exportarHistorialCSV,
   cie10Search, cie10Pick, cie10Clear, setCie10Ev,
-  abrirOrdenes, guardarOrden, borrarOrden,
+  abrirOrdenes, guardarOrden, borrarOrden, adjuntarOrden, onArchivoOrdenAdj,
+  abrirDocumentos, subirDocumentoModal, quitarDocumento, abrirDocumento, verDocumentoPorId,
   planGuardarSesiones, planNuevoEpisodio,
   setAgendaView, setTherapistFilter, goToDateAndSelect,
   renderTherapistList, renderDoctorsList,

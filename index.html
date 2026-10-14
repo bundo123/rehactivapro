@@ -828,10 +828,35 @@
     <div class="field"><label>Sesiones autorizadas</label><input type="number" id="or-sesiones" min="1" max="200" value="10"></div>
     <div class="field"><label>Vigente hasta <span style="text-transform:none;font-weight:400;color:#9c9a92">(opcional)</span></label><input type="date" id="or-vigencia"></div>
   </div>
+  <!-- DOC-2: el escaneo de la orden sube a Storage como documento tipo pedido_medico. Sin `capture`:
+       el iPhone ofrece cámara y archivos y convierte HEIC a JPEG. -->
+  <div class="field"><label>Adjuntar la orden <span style="text-transform:none;font-weight:400;color:#9c9a92">(PDF o foto, opcional)</span></label><input type="file" id="or-archivo" class="doc-file" accept="application/pdf,image/jpeg,image/png"></div>
   <div class="field"><label>Nota <span style="text-transform:none;font-weight:400;color:#9c9a92">(opcional)</span></label><input type="text" id="or-nota" maxlength="300" placeholder="Ej. Orden escaneada en la carpeta física"></div>
+  <!-- «Adjuntar» de una orden ya registrada: la lista lo abre con .click() -->
+  <input type="file" id="or-archivo-adj" accept="application/pdf,image/jpeg,image/png" hidden onchange="onArchivoOrdenAdj(this)">
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal('orden-modal')">Cerrar</button>
     <button class="btn-save" id="or-save-btn" onclick="guardarOrden()">Registrar orden</button>
+  </div>
+</div>
+</div>
+
+<!-- DOC-2: documentos del paciente (tabla documentos + bucket privado `documentos`). Lista perezosa
+     (se carga al abrir), alta y «Quitar» lógico. Límites = bucket y CHECK: PDF/JPEG/PNG, 10 MB, nota <= 300.
+     El título no usa doc-modal-title: ese id es del modal de doctores. -->
+<div class="modal-bg" id="doc-modal">
+<div class="modal">
+  <h3 id="docs-modal-title">Documentos</h3>
+  <div id="doc-list" class="orden-list"></div>
+  <div class="field-row two">
+    <div class="field"><label>Tipo</label><select id="doc-tipo-sel"></select></div>
+    <div class="field"><label>Fecha del documento <span style="text-transform:none;font-weight:400;color:#9c9a92">(opcional)</span></label><input type="date" id="doc-fecha"></div>
+  </div>
+  <div class="field"><label>Archivo <span style="text-transform:none;font-weight:400;color:#9c9a92">(PDF, JPG o PNG; máx. 10 MB)</span></label><input type="file" id="doc-archivo" class="doc-file" accept="application/pdf,image/jpeg,image/png"></div>
+  <div class="field"><label>Nota <span style="text-transform:none;font-weight:400;color:#9c9a92">(opcional)</span></label><input type="text" id="doc-nota" maxlength="300" placeholder="Ej. Resonancia de rodilla derecha"></div>
+  <div class="modal-actions">
+    <button class="btn-cancel" onclick="closeModal('doc-modal')">Cerrar</button>
+    <button class="btn-save" id="doc-save-btn" onclick="subirDocumentoModal()">Subir</button>
   </div>
 </div>
 </div>

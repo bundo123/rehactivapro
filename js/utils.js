@@ -836,6 +836,7 @@ export function mapOrdenRow(r) {
     id: r.id, doctorId: r.doctor_id || null, fecha: r.fecha,
     sesiones: r.sesiones_autorizadas, vigenciaHasta: r.vigencia_hasta || null,
     nota: r.nota || '', createdAt: r.created_at || null,
+    documentoId: r.documento_id || null,   // DOC-2: escaneo de la orden (tabla documentos)
   };
 }
 

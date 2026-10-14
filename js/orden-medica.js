@@ -1,7 +1,8 @@
 // ── ORD-1: orden del médico referente (tabla public.pedidos_medicos) ──
 // PURO: sin DOM ni state (se prueba en node). La orden NO se vincula a un episodio: el informe cita
 // la más reciente con fecha <= fin del período. Las fechas son 'YYYY-MM-DD' y se comparan como texto.
-// Forma en memoria (mapOrdenRow, utils.js): {id, doctorId, fecha, sesiones, vigenciaHasta, nota, createdAt}.
+// Forma en memoria (mapOrdenRow, utils.js): {id, doctorId, fecha, sesiones, vigenciaHasta, nota, createdAt,
+// documentoId} — documentoId = escaneo de la orden (DOC-2), no influye en la lógica de acá.
 // Forma en el render-model del informe: {fecha, doctor:'Nombre (spec)'|null, sesiones, vigenciaHasta,
 // nota, usadas} — `usadas` = sesiones asistidas desde la fecha de la orden hasta el fin del período.
 
