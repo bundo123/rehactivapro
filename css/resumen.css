@@ -69,3 +69,17 @@
 
 /* Estado vacío */
 .resd-empty{color:#5a5a56;font-size:13px;padding:20px 0}
+
+/* REC-0: botones del encabezado y modal de recordatorios por WhatsApp */
+.resd-hdr-btns{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.rec-lista{max-height:52vh;overflow-y:auto;border-top:1px solid rgba(0,0,0,.06)}
+.rec-fila{display:flex;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid rgba(0,0,0,.06)}
+.rec-fila.rec-enviado{background:rgba(29,158,117,.05)}
+.rec-hora{font-size:13px;font-weight:700;color:#1a1917;font-variant-numeric:tabular-nums;width:46px;flex-shrink:0}
+.rec-info{flex:1;min-width:0}
+.rec-pac{font-size:13px;font-weight:600;color:#1a1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-meta{font-size:11px;color:#7a7a76}
+.rec-acc{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.rec-acc .resd-btn-wa{min-height:36px}
+.rec-ok{font-size:11.5px;font-weight:700;color:#17865f;white-space:nowrap}
+.rec-vacio{color:#5a5a56;font-size:13px;padding:18px 0}

@@ -4,6 +4,29 @@
 
 ---
 
+## 🗓️ Sesión 2026-10-14 (2) — BLOQUE A · LOTE REC-0: recordatorios de citas por WhatsApp en un clic. Sin SQL.
+
+**REC-0** (este commit, rama `revision-bloque-a`):
+- **Resumen del día:** botón «Recordatorios de mañana» (solo admin/secretaria = `createAppt`;
+  `data-permission="admin-secretaria"` y chequeo en `abrirRecordatorios`). Abre un modal con un
+  selector de día (por defecto mañana; si hoy es sábado, el lunes) y las citas `conf`/`pend` de ese
+  día por hora: hora · paciente · terapeuta · tipo · «WhatsApp».
+- **WhatsApp:** `https://wa.me/<593…>?text=<mensaje>` en pestaña nueva. Sin celular válido el botón
+  queda deshabilitado con tooltip «Sin celular»: además de `waNumber`, `waCelular` exige 593 + 9
+  dígitos empezando en 9 (un fijo de Quito pasaba `waNumber` y wa.me no lo abre).
+- **Mensaje** (`js/recordatorios.js`, puro): «Hola <primer nombre>, le recordamos su cita de <tipo>
+  en Rehactiva mañana <día dd/mm> a las <hh:mm> con <terapeuta>. Si no puede asistir, avísenos por
+  este medio. ¡Gracias!». Sin datos clínicos. Si el día elegido no es mañana dice «el lunes 19/10»
+  (no «mañana»); sin terapeuta, no agrega «con …».
+- **«✓ enviado»** al hacer clic, solo en memoria (se pierde al recargar; persistencia en Bloque B).
+  Sin citas (domingo o día vacío): «No hay citas para mañana» / «para el <día>».
+
+587 → 594 pruebas (+7 en `test/recordatorios.test.js`). E2E con Playwright (datos ficticios): botón
+visible para admin y oculto para terapeuta, 2 citas de mañana ordenadas (la `noas` no entra),
+paciente sin teléfono con botón deshabilitado, el clic abre wa.me con el mensaje y marca «✓ enviado».
+
+---
+
 ## 🗓️ Sesión 2026-10-14 (1) — BLOQUE A · LOTE EPI-2b: informe por rango de sesiones o de fechas. Sin SQL.
 
 **Deploy de EPI-2a verificado** (`3cf75ef`, en `main`): commit-status de Vercel `success` y deploy

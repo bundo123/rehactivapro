@@ -75,6 +75,7 @@ import { callAI } from './ia.js';
 import { globalSearch, selectGlobalResult, checkCitasPendientes } from './search.js';
 import { initMobileMenu } from './mobile-menu.js';
 import { openBlockModal, saveBlock, deleteBlockFromModal, toggleBlockAllDay, onBlockTherapistChange } from './bloqueos.js';
+import { abrirRecordatorios, cambiarFechaRecordatorios, enviarRecordatorio } from './recordatorios.js';
 
 // ── Registro central de funciones para módulos cross-cutting ──
 window._app = {
@@ -249,6 +250,7 @@ Object.assign(window, {
   renderPatientReport, renderProtocols, protPage,
   toggleRecurrencia, toggleProTecnica,
   skipSession, simWA, simEmail, emitirFactura,
+  abrirRecordatorios, cambiarFechaRecordatorios, enviarRecordatorio,
   marcarTodosFacturados, exportarPDF, genSemanalAI, genMensualAI, genAnualAI, genResumenDiaAI,
   genPatientAI, guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado, globalSearch, selectGlobalResult,
   abrirFirmanteModal, confirmarExportarWord, aplicarRangoInforme, cambiarModoRango,

@@ -426,7 +426,11 @@
       <button class="icon-btn txt" onclick="resumenHoy()">Hoy</button>
     </div>
     <div class="resd-thfilter" id="resumen-th-chips" role="group" aria-label="Filtrar por terapeuta"></div>
-    <button class="ai-btn" style="margin-left:auto;height:36px;padding:0 16px;font-size:12.5px" onclick="document.getElementById('resumen-ai-output').style.display='block';genResumenDiaAI()" data-permission="admin-terapeuta">Análisis con IA</button>
+    <div class="resd-hdr-btns">
+      <!-- REC-0: quien agenda (createAppt = admin/secretaria) manda los recordatorios -->
+      <button class="add-btn" style="height:36px;padding:0 16px;font-size:12.5px" onclick="abrirRecordatorios()" data-permission="admin-secretaria">Recordatorios de mañana</button>
+      <button class="ai-btn" style="height:36px;padding:0 16px;font-size:12.5px" onclick="document.getElementById('resumen-ai-output').style.display='block';genResumenDiaAI()" data-permission="admin-terapeuta">Análisis con IA</button>
+    </div>
   </div>
   <div class="main-body">
     <div id="resumen-ai-output" class="full-card" style="display:none;margin-bottom:14px"></div>
@@ -1127,6 +1131,22 @@
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal('episodio-modal')">Cancelar</button>
     <button class="btn-save" id="episodio-modal-ok">Guardar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL RECORDATORIOS (REC-0): citas de un día con su botón de WhatsApp (js/recordatorios.js) -->
+<div class="modal-bg" id="recordatorios-modal">
+<div class="modal" style="max-width:560px">
+  <h3 id="rec-titulo">Recordatorios de mañana</h3>
+  <div class="field" style="max-width:220px">
+    <label for="rec-fecha">Día de las citas</label>
+    <input type="date" id="rec-fecha" onchange="cambiarFechaRecordatorios(this.value)">
+  </div>
+  <div style="font-size:12px;color:#6b6a64;margin-bottom:10px">Cada botón abre WhatsApp con el mensaje escrito; se envía desde ahí.</div>
+  <div id="rec-lista" class="rec-lista"></div>
+  <div class="modal-actions">
+    <button class="btn-cancel" onclick="closeModal('recordatorios-modal')">Cerrar</button>
   </div>
 </div>
 </div>
