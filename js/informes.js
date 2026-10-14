@@ -1,9 +1,10 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, logDeEpisodio, dolorInicial, rotuloDolorInicial, textoCitas, diagConCie, orderedTherapists, dmy, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber, ctxEstado, tieneEva, textoDeltaEva, sesionesMostradas, textoPrevias, sesionesNumeradas, parseRangoInforme, valorRangoInforme, textoPeriodoRango, ddmm, numeroInforme, cargoFirmante, lugarSesion, horaSesion, pieLegal, tipoCorto } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, logDeEpisodio, dolorInicial, rotuloDolorInicial, textoCitas, diagConCie, orderedTherapists, dmy, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber, ctxEstado, tieneEva, textoDeltaEva, sesionesMostradas, textoPrevias, sesionesNumeradas, parseRangoInforme, valorRangoInforme, textoPeriodoRango, ddmm, numeroInforme, cargoFirmante, lugarSesion, horaSesion } from './utils.js';
 import { apptSlots } from './agenda.js';
 import { citasDeEpisodio, episodiosDePaciente, opcionesEpisodio, citasDePaciente, resumenHistorial } from './historial-calc.js';
-import { resumenMedico, PEDIDOS, PEDIDO_OTRO_MAX, periodoInforme, tipoTerapiaDe } from './resumen-medico.js';
+import { resumenMedico, PEDIDOS, PEDIDO_OTRO_MAX, tipoTerapiaDe } from './resumen-medico.js';
+import { buildPdfHtml, htmlResumenMedico } from './informe-doc.js';
 import { htmlPanelEpisodios } from './episodios.js';
 import { genSemanalAI, genMensualAI, genAnualAI, genPatientAI, getLastNarrative, clearLastNarrative, renderNarrativeHtml } from './ia.js';
 import { hasPermission } from './permissions.js';
@@ -932,7 +933,9 @@ function _buildRenderModel(opts) {
     // EPI-2b: rango del informe ({desdeN,hastaN,desdeFecha,hastaFecha}) o null (episodio entero).
     rango:rango||null,
     // Mismo texto que la pantalla: el PDF que va al médico lleva el CIE-10 junto al diagnóstico.
-    paciente:{nombre:p?.name||'',cedula:p?.cedula||'',edad:getDisplayAge(p,true),edadCorta:getDisplayAge(p),diagnostico:diagConCie(epDiag||p?.diag||'',cieRpt)},
+    paciente:{nombre:p?.name||'',cedula:p?.cedula||'',edad:getDisplayAge(p,true),edadCorta:getDisplayAge(p),diagnostico:diagConCie(epDiag||p?.diag||'',cieRpt),
+      // INF-2: diagnóstico y código por separado para «Diagnóstico principal» (con la descripción del CIE-10).
+      diag:epDiag||p?.diag||'',cie10:cieRpt||null,cie10Desc:cieRpt?(p?.cie10Desc||null):null},
     terapeuta:thHeader,
     // DOC-1: terapeutas del episodio por nombre (datos administrativos al final del documento).
     terapeutas:(epThIds||[]).map(id=>getTherapist(id)?.name).filter(Boolean),
@@ -990,180 +993,7 @@ function _pintarResumenMedico() {
   const el=document.getElementById('rpt-resumen-medico');
   if(!el||!_rptCtx) return;
   const rm=_buildRenderModel().resumenMedico;
-  el.innerHTML=rm?`<div class="rpt-rm"><div class="rpt-rm-tit">Resumen para el médico</div>${_htmlResumenMedico(rm,!_rptCtx.pedido)}</div>`:'';
-}
-
-// HTML del resumen (pantalla y PDF): identificación + una fila por línea. sugerido: marca el pedido.
-function _htmlResumenMedico(rm,sugerido) {
-  return '<div class="rm-id">'+esc(rm.identificacion)+'</div><table class="rm"><tbody>'
-    +rm.lineas.map(l=>'<tr><th>'+esc(l.k)+'</th><td>'+esc(l.t)+(sugerido&&l.k==='Pedido'?' <span class="rm-sug">(sugerido; se elige al exportar)</span>':'')+'</td></tr>').join('')
-    +'</tbody></table>';
-}
-
-// PURA: render-model → HTML del PDF con formato de documento médico formal (sin look dashboard:
-// nada de verdes, cajas tintadas ni colores semáforo — esos siguen solo en pantalla). No toca
-// state/_rptCtx/DOM. La usan el export vivo y el guardado.
-// INF-UNI: es EL diseño del informe; el Word (word.js) sale con el mismo contenido y orden.
-// Orden: encabezado · resumen para el médico · resumen de evolución · gráfico EVA · evaluación
-// inicial y goniometría · narrativa · detalle por sesión · datos administrativos · firma.
-// Encabezado ("CONFIDENCIAL · Historia clínica" + N.º) y pie legal se repiten en cada página: van
-// en el thead/tfoot de una tabla que envuelve todo (Chrome los repite al imprimir). @page sin
-// margen = el navegador no imprime about:blank ni la fecha; los márgenes los ponen el padding del
-// body (laterales) y el alto del thead/tfoot (arriba y abajo de cada página).
-// opts.hoy: fecha de referencia del resumen de un snapshot viejo que no lo trae (su emisión).
-function buildPdfHtml(m, opts) {
-  const met=m.metricas||{};
-  const ses=m.sesiones||[];
-  const narr=m.narrativa;
-  const aiHTML=(narr&&narr.length)
-    ?narr.map(s=>'<div class="narr-sec"><h3 class="narr">'+esc(s.title)+'</h3><div class="narr-body">'+esc(s.body).replace(/\n/g,'<br>')+'</div></div>').join('')
-    :'';
-
-  const periodo=periodoInforme(m)||m.fechaLarga;
-  // MED-1: snapshots previos a INF-UNI no traen el resumen: se calcula al vuelo (o se omite).
-  const rm=m.resumenMedico||resumenMedico(m,opts?.hoy||m.emitido||new Date());
-
-  const sumCol=(lbl,valHtml,sub)=>'<div><div class="pd-lbl">'+lbl+'</div><div class="sum-val">'+valHtml+'</div><div class="sum-sub">'+sub+'</div></div>';
-  const evaVal=met.evaHas
-    ?esc(met.evaInicial)+' <span class="sum-arrow">→</span> '+(met.evaActual!=null?esc(met.evaActual):'?')
-    :'—';
-  const resumen='<div class="sum">'
-    +sumCol('Sesiones',esc(met.done)+' de '+esc(met.sessions),esc(met.pct)+'% del plan'+(met.previas?' · '+esc(textoPrevias(met.previas)):''))
-    // MET-1: snapshot viejo (sin faltas) → igual que antes; nuevo → '—' si no hay citas decididas.
-    +(met.faltas===undefined
-      ?sumCol('Continuidad',esc(met.adh)+'%',esc(met.asistidas)+'/'+esc(met.totalCitas)+' citas asistidas')
-      :sumCol('Continuidad',met.adh==null?'—':esc(met.adh)+'%',met.adh==null?'sin citas pasadas':esc(textoCitas(met.asistidas,met.totalCitas,met.faltas))))
-    +sumCol('Dolor EVA',evaVal,met.evaHas?'inicial → actual':'sin datos registrados')
-    +'</div>';
-
-  const evaSvg=buildEvaSvg(m);
-  const chart=evaSvg
-    ?'<div class="keep"><h2>Evolución del dolor (EVA)</h2>'+evaSvg+'</div>'
-    :(m.evaChartImg?'<div class="keep"><h2>Evolución del dolor (EVA)</h2><img src="'+esc(m.evaChartImg)+'" style="max-width:100%;display:block"></div>':'');
-
-  let evalBlock='';
-  if(m.evalInicial){
-    const partes=m.evalInicial.partes||[];
-    evalBlock='<div class="keep"><h2>Evaluación inicial</h2>'
-      +'<div class="eval-sub">'+esc(dmy(m.evalInicial.fecha))+(m.evalInicial.pb!=null?' · EVA '+esc(m.evalInicial.pb)+'/10':'')+'</div>'
-      +partes.map(x=>'<p class="eval-p">'+esc(limpiarParte(x))+'</p>').join('')
-      +'</div>';
-    // Goniometría FUERA del .keep: con muchas medidas la tabla tiene que poder partirse entre páginas
-    // (thead se repite), pero solo ENTRE articulaciones — cada una va en su propio tbody que no se
-    // parte. Solo valores medidos, sin normal ni %. Snapshots previos a ROM-2a no traen rom → nada.
-    const gonio=romGrupos(m.evalInicial.rom);
-    if(gonio.length){
-      evalBlock+='<h3 class="gonio">Goniometría (AAOS)</h3>'
-        +'<table class="gonio"><thead><tr><th>Movimiento</th><th class="ctr">Der.</th><th class="ctr">Izq.</th></tr></thead>'
-        +gonio.map(g=>'<tbody><tr class="gonio-art"><td colspan="3">'+esc(g.articulacion)+'</td></tr>'
-          +g.filas.map(f=>'<tr><td>'+esc(f.movimiento)+'</td>'
-            +(g.lados?'<td class="ctr nw">'+esc(f.d)+'</td><td class="ctr nw">'+esc(f.i)+'</td>':'<td class="ctr nw" colspan="2">'+esc(f.valor)+'</td>')
-            +'</tr>').join('')
-          +'</tbody>').join('')
-        +'</table>';
-    }
-  }
-
-  // DOC-1: tabla por sesión para aseguradoras. Hora/tipo/lugar no existen en snapshots viejos: '—'.
-  let filas='';
-  ses.forEach(function(s){
-    const eva=s.pb!=null?s.pb+'→'+(s.pa!=null?s.pa:'?'):s.pa!=null?'—→'+s.pa:'—';
-    const soap=(s.soapie||[]).map(l=>'<div class="soap-l"><b>'+esc(l.k)+'</b> '+esc(l.t)+'</div>').join('');
-    const obsHtml=soap+(s.obs?(soap?'<div class="soap-l">'+esc(s.obs)+'</div>':esc(s.obs)):'');
-    filas+='<tr><td class="nw">'+esc(dmy(s.fecha))+'</td><td class="nw">'+esc(s.hora||'—')+'</td><td>'+esc(tipoCorto(s.tipo))+'</td>'
-      +'<td>'+esc(s.lugar||'—')+'</td><td>'+esc(s.terapeuta||'—')+'</td><td class="ctr nw">'+esc(eva)+'</td>'
-      +'<td class="mut">'+(s.tecnicas?esc(s.tecnicas):'—')+'</td><td class="mut">'+(obsHtml||'—')+'</td></tr>';
-  });
-  const tabla=ses.length
-    ?'<table class="ses"><thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Lugar</th><th>Terapeuta</th><th class="ctr">Dolor (antes→después)</th><th>Técnicas</th><th>Observación</th></tr></thead><tbody>'+filas+'</tbody></table>'
-    :'<div class="mut" style="padding:10px 0;font-size:11px">Sin sesiones de tratamiento registradas.</div>';
-
-  // DOC-1: datos administrativos al final; el dato que falta no se imprime (nada de "No registrado").
-  const adm=[['Cédula',m.paciente?.cedula],['Médico referente',m.doctor],
-    ['Terapeutas del episodio',(m.terapeutas&&m.terapeutas.length)?m.terapeutas.join(', '):(m.terapeuta&&m.terapeuta!=='Varios'&&m.terapeuta!=='—'?m.terapeuta:'')],
-    ['Protocolo',m.protocolo],['Inicio de tratamiento',m.inicio&&m.inicio!=='—'?dmy(m.inicio):'']]
-    .filter(([,v])=>String(v??'').trim());
-  const admHtml=adm.length?'<div class="keep"><h2>Datos administrativos</h2><div class="pd-grid">'
-    +adm.map(([l,v])=>'<div><div class="pd-lbl">'+esc(l)+'</div><div class="pd-val">'+esc(v)+'</div></div>').join('')+'</div></div>':'';
-
-  const firma='<div class="firma keep"><div class="firma-linea"></div>'
-    +(m.firmante?'<div class="firma-nombre">'+esc(m.firmante)+'</div>':'')
-    +'<div class="firma-cargo">'+esc([m.firmante?(m.firmanteCargo||'Fisioterapeuta'):'','Rehactiva'].filter(Boolean).join(' · '))+'</div>'
-    +'<div class="firma-cargo">Emitido el '+esc(m.fechaLarga)+'</div>'
-    +'<div class="firma-ec">Firmado electrónicamente con FirmaEC <span>(espacio reservado)</span></div></div>';
-
-  const titulo='Informe '+(m.numero||'');
-  return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>'+esc(titulo)+'</title>'
-    +'<style>'
-    +'*{box-sizing:border-box;margin:0;padding:0}'
-    +'@page{margin:0}'
-    +'body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#1A1A1A;background:#fff;padding:32px;max-width:800px;margin:0 auto}'
-    +'h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#1A1A1A;margin:22px 0 10px;padding-bottom:5px;border-bottom:1px solid #D8D8D2;break-after:avoid;page-break-after:avoid}'
-    +'.mut{color:#6B6B66}.nw{white-space:nowrap}.ctr{text-align:center}'
-    +'.keep{break-inside:avoid;page-break-inside:avoid}'
-    +'table.pg{width:100%;margin:0;border-collapse:collapse}'
-    +'table.pg>thead>tr>td,table.pg>tbody>tr>td,table.pg>tfoot>tr>td{padding:0;border:0;font-size:12px;vertical-align:top}'
-    +'table.pg>tbody>tr{break-inside:auto;page-break-inside:auto}'
-    +'tfoot{display:table-footer-group}'
-    +'.run-h{display:flex;justify-content:space-between;gap:12px;font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6B6B66;padding-bottom:6px;margin-bottom:14px;border-bottom:1px solid #D8D8D2}'
-    +'.run-f{display:flex;justify-content:space-between;gap:12px;margin-top:22px;padding-top:6px;border-top:1px solid #D8D8D2;font-size:8px;color:#6B6B66}'
-    +'.header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}'
-    +'.h-right{text-align:right;flex-shrink:0}'
-    +'.h-title{font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#1A1A1A}'
-    +'.h-meta{font-size:10px;color:#6B6B66;margin-top:4px}'
-    +'.rule{display:flex;height:3px;margin-top:12px}.rule-a{width:64px;background:#F09028}.rule-b{flex:1;background:#28A8C8}'
-    +'.rm-id{font-size:12px;font-weight:700;color:#1A1A1A;margin-bottom:6px;line-height:1.45}'
-    +'table.rm{width:100%;margin:0}table.rm th{width:84px;font-size:9px;padding:5px 8px 5px 0;border-bottom:1px solid #EAEAE4;vertical-align:top}'
-    +'table.rm td{font-size:11px;padding:5px 0;border-bottom:1px solid #EAEAE4;line-height:1.45}'
-    +'.rm-sug{color:#6B6B66}'
-    +'.pd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 18px}'
-    +'.pd-lbl{font-size:9px;font-weight:700;color:#6B6B66;text-transform:uppercase;letter-spacing:.06em}'
-    +'.pd-val{font-size:12px;color:#1A1A1A;margin-top:2px}'
-    +'.sum{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;border-top:1px solid #D8D8D2;border-bottom:1px solid #D8D8D2;padding:12px 0}'
-    +'.sum-val{font-size:22px;font-weight:700;color:#1A1A1A;margin:4px 0 2px}'
-    +'.sum-arrow{font-size:15px;font-weight:400;color:#6B6B66}'
-    +'.sum-sub{font-size:9px;color:#6B6B66}'
-    +'h3.narr{font-size:12px;font-weight:700;color:#1A1A1A;margin:10px 0 4px;letter-spacing:.02em}'
-    +'.narr-body{font-size:11px;line-height:1.6;color:#1A1A1A;margin-bottom:6px}'
-    +'.narr-sec{break-inside:avoid;page-break-inside:avoid}'
-    +'.eval-sub{font-size:12px;font-weight:700;color:#1A1A1A;margin-bottom:6px}'
-    +'.eval-p{font-size:11px;line-height:1.55;margin-bottom:3px}'
-    +'.soap-l{margin-bottom:2px}.soap-l b{display:inline-block;width:12px;color:#1A1A1A}'
-    +'h3.gonio{font-size:11px;font-weight:700;color:#1A1A1A;margin:14px 0 4px;break-after:avoid;page-break-after:avoid}'
-    +'table.gonio{width:auto;min-width:60%}table.gonio tbody{break-inside:avoid;page-break-inside:avoid}'
-    +'table.gonio td{padding:3px 8px}table.gonio th:first-child{min-width:220px}table.gonio th.ctr{min-width:80px}'
-    +'tr.gonio-art td{font-weight:700;padding-top:8px;border-bottom:1px solid #D8D8D2}'
-    +'table{width:100%;border-collapse:collapse;margin-top:4px}'
-    +'thead{display:table-header-group}'
-    +'tr{break-inside:avoid;page-break-inside:avoid}'
-    +'th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6B6B66;text-align:left;padding:6px 8px;border-bottom:1px solid #1A1A1A}'
-    +'td{font-size:11px;color:#1A1A1A;padding:7px 8px;border-bottom:1px solid #EAEAE4;vertical-align:top}'
-    +'table.ses th{font-size:8.5px;padding:5px 5px;letter-spacing:.03em}table.ses td{font-size:10px;padding:6px 5px}'
-    +'.firma{margin-top:36px;width:300px}.firma-linea{border-top:1px solid #1A1A1A;margin-bottom:6px}'
-    +'.firma-nombre{font-size:12px;font-weight:700;color:#1A1A1A}.firma-cargo{font-size:10px;color:#6B6B66;margin-top:2px}'
-    +'.firma-ec{margin-top:10px;padding:6px 8px;border:1px dashed #B8B8B0;font-size:9px;color:#9A9A94}.firma-ec span{font-size:8px}'
-    +'.print-btn{margin-top:10px;padding:6px 14px;background:#1A1A1A;color:#fff;border:none;cursor:pointer;font-size:11px;font-family:inherit}'
-    +'@media print{body{padding:0 15mm;max-width:none}button{display:none}.run-h{margin-top:12mm}.run-f{margin-bottom:10mm}}'
-    +'</style></head><body>'
-    +'<table class="pg"><thead><tr><td><div class="run-h"><span>Confidencial · Historia clínica</span><span>Informe de evolución · N.º '+esc(m.numero)+'</span></div></td></tr></thead>'
-    +'<tfoot><tr><td><div class="run-f"><div>'+esc(pieLegal())+'</div><div class="nw">Generado por RehactivaPro</div></div></td></tr></tfoot>'
-    +'<tbody><tr><td>'
-    +'<div class="header"><div><img src="'+LOGO_DATA_URI+'" alt="Rehactiva" style="height:44px;display:block"></div>'
-    +'<div class="h-right"><div class="h-title">Informe de evolución</div>'
-    +'<div class="h-meta">N.º '+esc(m.numero)+' · '+esc(m.fechaLarga)+'</div>'
-    +'<div class="h-meta">'+(m.rango?esc(textoPeriodoRango(m.rango)):'Período del informe: '+esc(periodo))+'</div>'
-    +'<button class="print-btn" onclick="window.print()">Imprimir / Guardar PDF</button></div></div>'
-    +'<div class="rule"><div class="rule-a"></div><div class="rule-b"></div></div>'
-    +(rm?'<h2>Resumen para el médico</h2>'+_htmlResumenMedico(rm,false):'')
-    +'<h2>Resumen de evolución</h2>'+resumen
-    +chart
-    +evalBlock
-    +(aiHTML?'<h2>Narrativa clínica</h2>'+aiHTML:'')
-    +'<h2>Detalle por sesión ('+ses.length+')</h2>'+tabla
-    // La firma no queda sola en una página: viaja con los datos administrativos.
-    +'<div class="keep">'+admHtml+firma+'</div>'
-    +'</td></tr></tbody></table>'
-    +'</body></html>';
+  el.innerHTML=rm?`<div class="rpt-rm"><div class="rpt-rm-tit">Resumen para el médico</div>${htmlResumenMedico(rm,{identificacion:true,sugerido:!_rptCtx.pedido})}</div>`:'';
 }
 
 // Exportada: el Historial de citas abre su hoja imprimible con esta MISMA ventana (mismo aviso de

@@ -1,6 +1,7 @@
 // ── MED-1: resumen para el médico (arriba de la página 1 del informe) ──
 // Lo calcula esta función PURA a partir del render-model del informe (el mismo shape que el PDF,
-// el Word y el snapshot guardado) — NO la IA. Una línea de identificación y cinco líneas:
+// el Word y el snapshot guardado) — NO la IA. Una línea de identificación (solo en pantalla desde
+// INF-2: en el PDF/Word ya está el bloque «Datos del paciente») y cinco líneas:
 // ESTADO · MEDIDAS · ALERTAS · PEDIDO (solo con médico referente) · PRÓXIMO.
 // Los umbrales son constantes exportadas (UMBRALES) para que el equipo clínico los valide.
 //
@@ -203,15 +204,17 @@ export function resumenMedico(m, hoy = new Date()) {
     clave = 'EN_CURSO'; frase = 'Sin cambios que superen los umbrales por ahora.';
   }
   const est = ESTADOS[clave];
-  const sesionTxt = plan > 0 ? `Sesión ${done}/${plan} (${pct} %)` : `Sesión ${done}`;
+  // INF-2: "Sesiones del plan" y "Asistencia a citas": sesiones y citas no se confunden.
+  const sesionTxt = plan > 0 ? `Sesiones del plan: ${done} de ${plan} (${pct} %)` : `Sesiones realizadas: ${done}`;
 
   // ── Medidas ──
   const medDolor = hayDolor ? `Dolor ${base} → ${actual}/10 (${_signo(dDolor)})` : 'Dolor: sin mediciones suficientes';
   const medRom = !rom ? 'sin goniometría'
     : rom.ultima ? `ROM clave: ${rom.nombre} ${rom.baseTxt} → ${rom.ultimaTxt} / ${rom.normalTxt}`
     : `ROM clave: ${rom.nombre} ${rom.baseTxt} / ${rom.normalTxt} (sin re-medición)`;
+  const nFaltas = Number(met.faltas) || 0;
   const medAsis = met.adh == null && met.faltas !== undefined ? 'Asistencia: sin citas pasadas'
-    : `Asistencia: ${met.asistidas ?? 0} de ${met.totalCitas ?? 0} citas`;
+    : `Asistencia a citas: ${met.asistidas ?? 0} de ${met.totalCitas ?? 0}` + (nFaltas > 0 ? ` (${nFaltas} falta${nFaltas === 1 ? '' : 's'})` : '');
 
   // ── Alertas (solo reglas; máximo MAX_ALERTAS) ──
   const alertas = [];
@@ -232,8 +235,7 @@ export function resumenMedico(m, hoy = new Date()) {
   if ((Number(met.faltas) || 0) >= U.ALERTA_INASISTENCIAS) alertas.push(`${met.faltas} inasistencias`);
   if (sinAlta) alertas.push('plan completo sin alta registrada');
   if ((Number(met.previas) || 0) > 0) alertas.push(`incluye ${met.previas} sesiones previas a RehactivaPro`);
-  const alertasTxt = (alertas.length ? alertas.slice(0, U.MAX_ALERTAS).join(' · ') : 'ninguna regla disparada')
-    + ' · Signos de alarma: sin registro estructurado';
+  const alertasTxt = alertas.length ? alertas.slice(0, U.MAX_ALERTAS).join(' · ') : 'ninguna regla disparada';
 
   // ── Pedido (solo con médico referente) ──
   const sugerido = pedidoSugerido(clave, { done, sessions: plan });

@@ -4,6 +4,42 @@
 
 ---
 
+## 🗓️ Sesión 2026-10-14 (4) — LOTE INF-2: datos del paciente primero; sin tarjetas de evolución ni datos administrativos (PDF y Word). Sin SQL.
+
+Pedido de Jefferson tras comparar el PDF de INF-UNI con el de otra clínica. Ninguna regla ni cálculo
+cambia; se reordena lo que ya arma `_buildRenderModel`. La pantalla no se toca (salvo los tres textos
+del resumen, que vienen de `resumenMedico`).
+- **Orden nuevo (PDF y Word idénticos):** encabezado · 1. Datos del paciente · 2. Resumen para el
+  médico · 3. Evolución del dolor (EVA) · 4. Evaluación inicial (+ goniometría) · 5. Narrativa
+  clínica · 6. Detalle por sesión · firma. Los números se asignan entre las secciones PRESENTES (sin
+  gráfico, la evaluación inicial es la 3).
+- **Nuevo `js/informe-doc.js` (puro):** `filasDatosPaciente`, `renglonesDatosPaciente`,
+  `seccionesInforme` y `buildPdfHtml` (sale de informes.js) + `htmlResumenMedico`. El Word arma sus
+  secciones con la MISMA lista, así no pueden divergir; y el orden del PDF se prueba en node.
+- **1. Datos del paciente:** ficha de dos columnas, «Etiqueta: valor» con la etiqueta en negrita:
+  Nombre completo · Identificación · Fecha de nacimiento «dd/mm/aaaa (N años)» (con edad legacy:
+  «Edad: N años») · Diagnóstico principal a lo ancho «Dx (CIE-10 X — descripción)» · Fisioterapeuta(s)
+  · Médico referente (solo si hay) · Inicio del tratamiento · Sesiones del plan «8 de 12 (67 %)» (+
+  «· incluye N previas a RehactivaPro») · Protocolo · Tipo de terapia. Lo que falta no se imprime. El
+  render-model suma `paciente.diag/cie10/cie10Desc`; los snapshots viejos usan su `diagnostico`
+  combinado tal cual.
+- **2. Resumen para el médico:** en PDF/Word sin la línea de identificación (en pantalla sigue).
+  Textos en `resumen-medico.js` (también pantalla y snapshot): «Sesiones del plan: 8 de 12 (67 %)»,
+  «Asistencia a citas: 9 de 10 (1 falta)» (sin faltas «9 de 9»; sin citas pasadas igual que antes) y
+  ALERTAS sin la coletilla «Signos de alarma: sin registro estructurado».
+- **Eliminado:** «Resumen de evolución» (3 tarjetas) y «Datos administrativos» (subieron al bloque 1),
+  con su CSS (`.sum*`, `.pd-grid/.pd-lbl/.pd-val`, `.rm-id` del PDF) y el código del Word.
+- La firma ya no se ata a los datos administrativos (no existen): queda con `.keep`.
+
+614 → 620 pruebas (+6 en `test/inf-uni.test.js`; 5 existentes ajustadas a los textos nuevos). E2E
+con Playwright (datos ficticios, IA simulada): PDF y Word de 2 páginas; la página 1 trae datos del
+paciente + resumen + gráfico + evaluación inicial, y la 2 termina con la firma (no hay página casi
+vacía). El .docx abre en Word real y su XML no tiene «Resumen de evolución», «Datos
+administrativos» ni la línea de identificación, con el orden 1→6 + firma. Regresión de los e2e de
+EPI-2b e INF-UNI en verde. Ejemplos regenerados en `Claude outputs/` (fuera de la repo).
+
+---
+
 ## 🗓️ Sesión 2026-10-14 (3) — BLOQUE A · LOTE INF-UNI: un solo diseño PDF/Word, resumen para el médico (MED-1) y datos para aseguradoras (DOC-1). Sin SQL.
 
 **INF-UNI** (este commit, rama `revision-bloque-a`):

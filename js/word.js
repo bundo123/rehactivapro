@@ -1,5 +1,5 @@
 // ── Exportación de informes a Word (.docx) ──────────────────────────────────
-// INF-UNI: el Word es una COPIA EDITABLE del PDF (buildPdfHtml en informes.js), con el mismo
+// INF-UNI: el Word es una COPIA EDITABLE del PDF (buildPdfHtml en informe-doc.js), con el mismo
 // contenido, el mismo orden y el mismo lenguaje visual: Arial, tinta negra 1A1A1A, etiquetas en gris
 // 6B6B66, filetes finos y tablas compactas — sin cajas tintadas ni colores semáforo. Antes tenía un
 // diseño propio (el de newdesign/…VERSION-FINAL.docx, serif y paneles sombreados) y el médico
@@ -7,18 +7,19 @@
 // oficial es el PDF».
 //
 // Recibe el MISMO render-model que el PDF (_buildRenderModel en informes.js), con firmante y pedido
-// ya elegidos en el modal del firmante. Orden: encabezado · resumen para el médico · resumen de
-// evolución · gráfico EVA · evaluación inicial y goniometría · narrativa · detalle por sesión ·
-// datos administrativos · firma. En cada página: «CONFIDENCIAL · Historia clínica» + N.º arriba y el
-// pie legal abajo.
+// ya elegidos en el modal del firmante. Orden (INF-2, compartido con el PDF vía seccionesInforme en
+// informe-doc.js): encabezado · 1. Datos del paciente · 2. Resumen para el médico · 3. Evolución del
+// dolor · 4. Evaluación inicial y goniometría · 5. Narrativa · 6. Detalle por sesión · firma. En
+// cada página: «CONFIDENCIAL · Historia clínica» + N.º arriba y el pie legal abajo.
 //
 // La librería (docx v9) se carga por IMPORT DINÁMICO: pesa ~1 MB sin comprimir y no puede entrar
 // al bundle inicial — solo la baja quien exporta un informe a Word.
 import { LOGO_DATA_URI } from './pdf-logo.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
-import { dmy, limpiarParte, textoCitas, textoPrevias, textoPeriodoRango, buildEvaSvg, pieLegal, tipoCorto, nombreArchivoInforme } from './utils.js';
+import { dmy, limpiarParte, textoPeriodoRango, buildEvaSvg, pieLegal, tipoCorto, nombreArchivoInforme } from './utils.js';
 import { romGrupos } from './rom.js';
-import { resumenMedico, periodoInforme } from './resumen-medico.js';
+import { periodoInforme } from './resumen-medico.js';
+import { filasDatosPaciente, renglonesDatosPaciente, seccionesInforme, resumenDelModelo } from './informe-doc.js';
 
 // Data URI (base64) → Uint8Array. ImageRun no acepta el string 'data:...' con cabecera: quiere los
 // bytes. atob es suficiente acá porque las imágenes (logo, gráfico EVA) ya vienen en base64.
@@ -77,7 +78,7 @@ export async function generarInformeWord(m) {
     const NARANJA = 'F09028', CELESTE = '28A8C8';
     const SANS = 'Arial';
     // Tamaños en medios puntos (px del PDF × 0,75 × 2).
-    const SZ = { cuerpo: 18, chico: 16, tabla: 15, etiqueta: 14, h2: 17, titulo: 24, cifra: 33, cifraSub: 14, mini: 12 };
+    const SZ = { cuerpo: 18, chico: 16, tabla: 15, etiqueta: 14, h2: 17, titulo: 24, mini: 12 };
 
     const PAGE_W = 12240, PAGE_H = 15840;   // carta
     const MARGIN = { top: 1300, bottom: 1150, left: 850, right: 850, header: 500, footer: 450, gutter: 0 };
@@ -87,11 +88,10 @@ export async function generarInformeWord(m) {
     const sinBordes = { top: nada, bottom: nada, left: nada, right: nada, insideHorizontal: nada, insideVertical: nada };
     const linea = (color, size = 4) => ({ style: BorderStyle.SINGLE, size, color });
 
-    const met = m.metricas || {};
     const ses = m.sesiones || [];
     const narr = m.narrativa;
     const gonio = m.evalInicial ? romGrupos(m.evalInicial.rom) : [];
-    const rm = m.resumenMedico || resumenMedico(m, m.emitido || new Date());
+    const rm = resumenDelModelo(m);
     const periodo = m.rango ? textoPeriodoRango(m.rango) : `Período del informe: ${periodoInforme(m) || m.fechaLarga || ''}`;
 
     const run = (text, o = {}) => new TextRun({ text: String(text ?? ''), font: SANS, size: o.size || SZ.cuerpo, color: o.color || INK, bold: o.bold, allCaps: o.caps, characterSpacing: o.caps ? 16 : undefined, italics: o.italics });
@@ -131,119 +131,82 @@ export async function generarInformeWord(m) {
       celda(par(run('', { size: 2 }), { after: 0, line: 40 }), ANCHO - 1000, { fill: CELESTE, mt: 0, mb: 0, mr: 0 }),
     ] })]));
 
-    // ── Resumen para el médico (MED-1) ──
-    if (rm) {
-      body.push(h2('Resumen para el médico'));
-      body.push(par(run(rm.identificacion, { bold: true }), { after: 80, keepNext: true }));
-      body.push(tabla([1300, ANCHO - 1300], rm.lineas.map(l => new TableRow({ cantSplit: true, children: [
+    // ── Secciones en el orden y con el número de seccionesInforme (informe-doc.js), el MISMO que
+    // usa el PDF: 1. Datos del paciente · 2. Resumen para el médico · 3. Evolución del dolor ·
+    // 4. Evaluación inicial · 5. Narrativa clínica · 6. Detalle por sesión. Luego la firma.
+    const MITAD = Math.floor(ANCHO / 2);
+    const fichaPar = f => par([run(f.k + ': ', { size: SZ.chico, bold: true }), run(f.v, { size: SZ.chico })], { after: 0 });
+    const constructores = {
+      // Ficha de dos columnas sin bordes: etiqueta en negrita y valor en la misma línea.
+      paciente: () => [tabla([MITAD, ANCHO - MITAD], renglonesDatosPaciente(filasDatosPaciente(m)).map(r => new TableRow({ cantSplit: true,
+        children: r.length === 1 && r[0].ancho
+          ? [celda(fichaPar(r[0]), ANCHO, { span: 2, mt: 30, mb: 30, mr: 0 })]
+          : [celda(fichaPar(r[0]), MITAD, { mt: 30, mb: 30, mr: 240 }), celda(r[1] ? fichaPar(r[1]) : par(run(''), { after: 0 }), ANCHO - MITAD, { mt: 30, mb: 30, mr: 0 })] })))],
+      // Sin la línea de identificación: ya está en «Datos del paciente».
+      resumen: () => [tabla([1300, ANCHO - 1300], rm.lineas.map(l => new TableRow({ cantSplit: true, children: [
         celda(par(run(l.k, { size: SZ.etiqueta, bold: true, caps: true, color: MUT }), { after: 0 }), 1300, { bottom: linea(FILA) }),
         celda(par(run(l.t, { size: SZ.chico }), { after: 0 }), ANCHO - 1300, { bottom: linea(FILA), mr: 0 }),
-      ] }))));
-    }
-
-    // ── Resumen de evolución (3 cifras) ──
-    body.push(h2('Resumen de evolución'));
-    const cont = met.faltas === undefined
-      ? [`${met.adh ?? 0}%`, `${met.asistidas ?? 0}/${met.totalCitas ?? 0} citas asistidas`]
-      : met.adh == null ? ['—', 'sin citas pasadas'] : [`${met.adh}%`, textoCitas(met.asistidas, met.totalCitas, met.faltas)];
-    const cifras = [
-      ['Sesiones', `${met.done ?? 0} de ${met.sessions ?? 0}`, `${met.pct ?? 0}% del plan${met.previas ? ' · ' + textoPrevias(met.previas) : ''}`],
-      ['Continuidad', cont[0], cont[1]],
-      ['Dolor EVA', met.evaHas ? `${met.evaInicial} → ${met.evaActual != null ? met.evaActual : '?'}` : '—', met.evaHas ? 'inicial → actual' : 'sin datos registrados'],
-    ];
-    const tercio = Math.floor(ANCHO / 3);
-    body.push(tabla([tercio, tercio, ANCHO - 2 * tercio], [new TableRow({ cantSplit: true, children: cifras.map(([l, v, s], i) =>
-      celda([
-        par(run(l, { size: SZ.etiqueta, bold: true, caps: true, color: MUT }), { align: AlignmentType.CENTER, after: 40 }),
-        par(run(v, { size: SZ.cifra, bold: true }), { align: AlignmentType.CENTER, after: 20 }),
-        par(run(s, { size: SZ.cifraSub, color: MUT }), { align: AlignmentType.CENTER, after: 0 }),
-      ], i < 2 ? tercio : ANCHO - 2 * tercio, { top: linea(REGLA), bottom: linea(REGLA), mt: 160, mb: 160, mr: 0 })) })]));
-
-    // ── Evolución del dolor ──
-    if (evaPng) {
-      body.push(h2('Evolución del dolor (EVA)'));
-      body.push(par(new ImageRun({ type: 'png', data: dataUriToBytes(evaPng), transformation: { width: evaW, height: evaH } }), { after: 60 }));
-    }
-
-    // ── Evaluación inicial + goniometría (ANTES de la narrativa) ──
-    if (m.evalInicial) {
-      body.push(h2('Evaluación inicial'));
-      body.push(par(run(`${dmy(m.evalInicial.fecha)}${m.evalInicial.pb != null ? ` · EVA ${m.evalInicial.pb}/10` : ''}`, { bold: true }), { after: 80, keepNext: true }));
-      (m.evalInicial.partes || []).forEach(x => body.push(par(run(limpiarParte(x)), { after: 50 })));
-      if (gonio.length) {
-        const GC = [4200, 1300, 1300];
-        body.push(par(run('Goniometría (AAOS)', { bold: true }), { before: 200, after: 60, keepNext: true }));
-        body.push(tabla(GC, [
-          new TableRow({ tableHeader: true, cantSplit: true, children: ['Movimiento', 'Der.', 'Izq.'].map((t, c) =>
-            celda(par(run(t, { size: SZ.etiqueta, bold: true, caps: true, color: MUT }), { after: 0, align: c ? AlignmentType.CENTER : undefined }), GC[c], { bottom: linea(INK) })) }),
-          ...gonio.flatMap(g => [
-            new TableRow({ cantSplit: true, children: [celda(par(run(g.articulacion, { bold: true, size: SZ.chico }), { after: 0, keepNext: true }), GC[0] + GC[1] + GC[2], { span: 3, bottom: linea(REGLA), mt: 120 })] }),
-            ...g.filas.map((f, k) => {
-              const keepNext = k < g.filas.length - 1;
-              const v = t => par(run(t, { size: SZ.chico }), { after: 0, align: AlignmentType.CENTER, keepNext });
-              return new TableRow({ cantSplit: true, children: [
-                celda(par(run(f.movimiento, { size: SZ.chico }), { after: 0, keepNext }), GC[0], { bottom: linea(FILA), mt: 40, mb: 40 }),
-                ...(g.lados
-                  ? [celda(v(f.d), GC[1], { bottom: linea(FILA), mt: 40, mb: 40 }), celda(v(f.i), GC[2], { bottom: linea(FILA), mt: 40, mb: 40 })]
-                  : [celda(v(f.valor), GC[1] + GC[2], { span: 2, bottom: linea(FILA), mt: 40, mb: 40 })]),
-              ] });
-            }),
-          ]),
-        ]));
-      }
-    }
-
-    // ── Narrativa clínica (IA) ──
-    if (narr && narr.length) {
-      body.push(h2('Narrativa clínica'));
-      narr.forEach(s => {
-        body.push(par(run(s.title, { bold: true }), { before: 120, after: 40, keepNext: true }));
-        String(s.body || '').split('\n').filter(Boolean).forEach(l => body.push(par(run(l), { after: 60, line: 300 })));
-      });
-    }
-
-    // ── Detalle por sesión (DOC-1) ──
-    body.push(h2(`Detalle por sesión (${ses.length})`));
-    if (ses.length) {
-      const SC = [1000, 620, 1050, 900, 1150, 900, 2200, 2720];
-      const cab = ['Fecha', 'Hora', 'Tipo', 'Lugar', 'Terapeuta', 'Dolor (antes→después)', 'Técnicas', 'Observación'];
-      const t = (txt, o = {}) => par(run(txt, { size: SZ.tabla, color: o.color }), { after: 0, align: o.align });
-      body.push(tabla(SC, [
-        new TableRow({ tableHeader: true, cantSplit: true, children: cab.map((c, i) =>
-          celda(par(run(c, { size: SZ.mini, bold: true, caps: true, color: MUT }), { after: 0, align: i === 5 ? AlignmentType.CENTER : undefined }), SC[i], { bottom: linea(INK), mr: 80 })) }),
-        ...ses.map(s => {
-          const eva = s.pb != null ? `${s.pb}→${s.pa != null ? s.pa : '?'}` : s.pa != null ? `—→${s.pa}` : '—';
-          const obs = [...(s.soapie || []).map(l => `${l.k} ${l.t}`), ...(s.obs ? [s.obs] : [])];
-          const o = { bottom: linea(FILA), mr: 80 };
-          return new TableRow({ cantSplit: true, children: [
-            celda(t(dmy(s.fecha)), SC[0], o), celda(t(s.hora || '—'), SC[1], o), celda(t(tipoCorto(s.tipo)), SC[2], o),
-            celda(t(s.lugar || '—'), SC[3], o), celda(t(s.terapeuta || '—'), SC[4], o),
-            celda(t(eva, { align: AlignmentType.CENTER }), SC[5], o),
-            celda(t(s.tecnicas || '—', { color: MUT }), SC[6], o),
-            celda(obs.length ? obs.map(x => t(x, { color: MUT })) : t('—', { color: MUT }), SC[7], { ...o, mr: 0 }),
-          ] });
-        }),
-      ]));
-    } else {
-      body.push(par(run('Sin sesiones de tratamiento registradas.', { color: MUT })));
-    }
-
-    // ── Datos administrativos: el dato que falta no se imprime ──
-    const adm = [['Cédula', m.paciente?.cedula], ['Médico referente', m.doctor],
-      ['Terapeutas del episodio', (m.terapeutas && m.terapeutas.length) ? m.terapeutas.join(', ') : (m.terapeuta && m.terapeuta !== 'Varios' && m.terapeuta !== '—' ? m.terapeuta : '')],
-      ['Protocolo', m.protocolo], ['Inicio de tratamiento', m.inicio && m.inicio !== '—' ? dmy(m.inicio) : '']]
-      .filter(([, v]) => String(v ?? '').trim());
-    if (adm.length) {
-      body.push(h2('Datos administrativos'));
-      const filasAdm = [];
-      for (let i = 0; i < adm.length; i += 3) filasAdm.push(adm.slice(i, i + 3));
-      body.push(tabla([tercio, tercio, ANCHO - 2 * tercio], filasAdm.map(f => new TableRow({ cantSplit: true, children: [0, 1, 2].map(c => {
-        const d = f[c];
-        // keepNext: la firma no queda sola en una página — viaja con los datos administrativos.
-        return celda(d ? [par(run(d[0], { size: SZ.etiqueta, bold: true, caps: true, color: MUT }), { after: 20, keepNext: true }), par(run(d[1]), { after: 0, keepNext: true })] : par(run(''), { after: 0, keepNext: true }),
-          c < 2 ? tercio : ANCHO - 2 * tercio);
-      }) }))));
-    }
+      ] })))],
+      dolor: () => [par(new ImageRun({ type: 'png', data: dataUriToBytes(evaPng), transformation: { width: evaW, height: evaH } }), { after: 60 })],
+      evaluacion: () => {
+        const out = [par(run(`${dmy(m.evalInicial.fecha)}${m.evalInicial.pb != null ? ` · EVA ${m.evalInicial.pb}/10` : ''}`, { bold: true }), { after: 80, keepNext: true })];
+        (m.evalInicial.partes || []).forEach(x => out.push(par(run(limpiarParte(x)), { after: 50 })));
+        if (gonio.length) {
+          const GC = [4200, 1300, 1300];
+          out.push(par(run('Goniometría (AAOS)', { bold: true }), { before: 200, after: 60, keepNext: true }));
+          out.push(tabla(GC, [
+            new TableRow({ tableHeader: true, cantSplit: true, children: ['Movimiento', 'Der.', 'Izq.'].map((t, c) =>
+              celda(par(run(t, { size: SZ.etiqueta, bold: true, caps: true, color: MUT }), { after: 0, align: c ? AlignmentType.CENTER : undefined }), GC[c], { bottom: linea(INK) })) }),
+            ...gonio.flatMap(g => [
+              new TableRow({ cantSplit: true, children: [celda(par(run(g.articulacion, { bold: true, size: SZ.chico }), { after: 0, keepNext: true }), GC[0] + GC[1] + GC[2], { span: 3, bottom: linea(REGLA), mt: 120 })] }),
+              ...g.filas.map((f, k) => {
+                const keepNext = k < g.filas.length - 1;
+                const v = t => par(run(t, { size: SZ.chico }), { after: 0, align: AlignmentType.CENTER, keepNext });
+                return new TableRow({ cantSplit: true, children: [
+                  celda(par(run(f.movimiento, { size: SZ.chico }), { after: 0, keepNext }), GC[0], { bottom: linea(FILA), mt: 40, mb: 40 }),
+                  ...(g.lados
+                    ? [celda(v(f.d), GC[1], { bottom: linea(FILA), mt: 40, mb: 40 }), celda(v(f.i), GC[2], { bottom: linea(FILA), mt: 40, mb: 40 })]
+                    : [celda(v(f.valor), GC[1] + GC[2], { span: 2, bottom: linea(FILA), mt: 40, mb: 40 })]),
+                ] });
+              }),
+            ]),
+          ]));
+        }
+        return out;
+      },
+      narrativa: () => narr.flatMap(s => [
+        par(run(s.title, { bold: true }), { before: 120, after: 40, keepNext: true }),
+        ...String(s.body || '').split('\n').filter(Boolean).map(l => par(run(l), { after: 60, line: 300 })),
+      ]),
+      // DOC-1: tabla por sesión para aseguradoras.
+      detalle: () => {
+        if (!ses.length) return [par(run('Sin sesiones de tratamiento registradas.', { color: MUT }))];
+        const SC = [1000, 620, 1050, 900, 1150, 900, 2200, 2720];
+        const cab = ['Fecha', 'Hora', 'Tipo', 'Lugar', 'Terapeuta', 'Dolor (antes→después)', 'Técnicas', 'Observación'];
+        const t = (txt, o = {}) => par(run(txt, { size: SZ.tabla, color: o.color }), { after: 0, align: o.align });
+        return [tabla(SC, [
+          new TableRow({ tableHeader: true, cantSplit: true, children: cab.map((c, i) =>
+            celda(par(run(c, { size: SZ.mini, bold: true, caps: true, color: MUT }), { after: 0, align: i === 5 ? AlignmentType.CENTER : undefined }), SC[i], { bottom: linea(INK), mr: 80 })) }),
+          ...ses.map(s => {
+            const eva = s.pb != null ? `${s.pb}→${s.pa != null ? s.pa : '?'}` : s.pa != null ? `—→${s.pa}` : '—';
+            const obs = [...(s.soapie || []).map(l => `${l.k} ${l.t}`), ...(s.obs ? [s.obs] : [])];
+            const o = { bottom: linea(FILA), mr: 80 };
+            return new TableRow({ cantSplit: true, children: [
+              celda(t(dmy(s.fecha)), SC[0], o), celda(t(s.hora || '—'), SC[1], o), celda(t(tipoCorto(s.tipo)), SC[2], o),
+              celda(t(s.lugar || '—'), SC[3], o), celda(t(s.terapeuta || '—'), SC[4], o),
+              celda(t(eva, { align: AlignmentType.CENTER }), SC[5], o),
+              celda(t(s.tecnicas || '—', { color: MUT }), SC[6], o),
+              celda(obs.length ? obs.map(x => t(x, { color: MUT })) : t('—', { color: MUT }), SC[7], { ...o, mr: 0 }),
+            ] });
+          }),
+        ])];
+      },
+    };
+    seccionesInforme(m, rm).forEach(s => {
+      // El gráfico: la sección existe si hay SVG o imagen vieja; si la rasterización falló, se omite.
+      if (s.id === 'dolor' && !evaPng) return;
+      body.push(h2(s.rotulo), ...constructores[s.id]());
+    });
 
     // ── Firma ──
     body.push(par(run(''), { before: 500, after: 0, keepNext: true }));
