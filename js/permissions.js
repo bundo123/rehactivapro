@@ -31,16 +31,20 @@ const ROLE_TABS = {
 // el informe. Sin la partición, el terapeuta vería botones de Editar/Eliminar que la RLS rechaza.
 // 'verResumenEquipo' = el % de días sin registro por terapeuta en Seguimiento. Solo admin: es
 // información de desempeño del personal — la ve la dirección, no los compañeros.
+// 'registrarOrden' = cargar la orden del médico referente (ORD-1, tabla pedidos_medicos): la recibe
+// quien tenga el papel en la mano — recepción o el terapeuta. 'borrarOrden' = eliminarla: solo admin,
+// espejo de la RLS (DELETE = is_admin()).
 const ROLE_ACTIONS = {
   admin:     ['createAppt','deleteAppt','cycleStatus','createPatient','editPatient','deletePatient',
               'registerSession','deleteSession','evalInicial','createTherapist','deleteTherapist',
               'createDoctor','createProtocol','editProtocol','emitirFactura','viewAI','deleteInforme',
-              'apptPastDate','conciliarQB','manageBlocks','editAppt','newEpisode','verResumenEquipo'],
+              'apptPastDate','conciliarQB','manageBlocks','editAppt','newEpisode','verResumenEquipo',
+              'registrarOrden','borrarOrden'],
   secretaria:['createAppt','deleteAppt','cycleStatus','createPatient','editPatient',
               'createTherapist','createDoctor','emitirFactura','apptPastDate','conciliarQB','manageBlocks',
-              'editAppt'],
+              'editAppt','registrarOrden'],
   terapeuta: ['cycleStatus','editPatient','registerSession','evalInicial','viewAI','deleteInforme',
-              'newEpisode','createProtocol'],
+              'newEpisode','createProtocol','registrarOrden'],
 };
 
 export function hasPermission(action) {

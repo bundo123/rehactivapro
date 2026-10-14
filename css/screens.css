@@ -154,7 +154,9 @@
 .pl-muted{font-size:13px;color:#a8a6a0;font-style:italic}
 .pl-action-th{text-align:right}
 .pl-action-cell{text-align:right;white-space:nowrap}
-.pl-actions{display:inline-flex;align-items:center;gap:5px;flex-wrap:nowrap;white-space:nowrap}
+/* ORD-1: con «Orden médica» (y «Eval. inicial») los botones no entran en el 23 % de la columna: bajan de
+   línea alineados a la derecha en vez de cortarse contra el borde de la tabla. */
+.pl-actions{display:flex;align-items:center;justify-content:flex-end;gap:5px;flex-wrap:wrap;white-space:nowrap}
 .pl-act-btn{font-size:11px;padding:5px 8px;white-space:nowrap;flex-shrink:0}
 .ver-btn{background:#29ABE2;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-family:inherit}
 .ver-btn:hover{background:#1d8fbf}

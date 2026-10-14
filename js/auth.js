@@ -1,6 +1,6 @@
 import { supa } from './supabase-client.js';
 import { state } from './state.js';
-import { fmtDate, fmtTime, normHour, mapTherapistRow, mapBlockRow, tipoSesion, validarPassNueva, mapEpisodioRow } from './utils.js';
+import { fmtDate, fmtTime, normHour, mapTherapistRow, mapBlockRow, tipoSesion, validarPassNueva, mapEpisodioRow, mapOrdenRow, ordenarOrdenes } from './utils.js';
 import { toastErr, toastOk } from './toast.js';
 import { romNormalizar } from './rom.js';
 import { soapNormalizar } from './soap.js';
@@ -52,7 +52,7 @@ export async function loadAll(force=false) {
     const [th,doc,pat,appt,prot,cob,inf,blk] = await Promise.all([
       supa.from('therapists').select('*',{count:'exact'}).order('created_at'),
       supa.from('doctors').select('*',{count:'exact'}).order('created_at'),
-      supa.from('patients').select('*,session_log(*),episodios(*)',{count:'exact'}).order('created_at'),
+      supa.from('patients').select('*,session_log(*),episodios(*),pedidos_medicos(*)',{count:'exact'}).order('created_at'),
       supa.from('appointments').select('*,patients(name)',{count:'exact'}).order('date').order('hour'),
       supa.from('protocols').select('*',{count:'exact'}).order('created_at'),
       supa.from('cobros').select('*',{count:'exact'}).order('created_at'),
@@ -75,11 +75,15 @@ export async function loadAll(force=false) {
     state.patients = (pat.data||[]).map(r=>({
       id:r.id,createdAt:r.created_at||null,name:r.name,age:r.age||null,birth_date:r.birth_date||null,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
       diag:r.diag||'Sin diagnóstico',cie10:r.cie10||null,cie10Desc:r.cie10_desc||null,
+      // CAMPOS-1: sexo F/M y diagnósticos secundarios [{c,d}] (sin datos = null, nunca []).
+      sexo:r.sexo||null,diagSec:Array.isArray(r.diag_sec)&&r.diag_sec.length?r.diag_sec:null,
       therapistId:r.therapist_id,doctorId:r.doctor_id,
       sessions:r.sessions||10,status:r.status||'active',protocolId:r.protocol_id||null,
       log:(r.session_log||[]).map(s=>({id:s.id,date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null,rom:romNormalizar(s.rom),soap:soapNormalizar(s.soap),noteOriginal:s.note_original||null,noteIaAt:s.note_ia_at||null})),
       // EPI-2a: episodios del paciente (tabla). Sin filas = un episodio implícito desde el inicio.
       episodios:(r.episodios||[]).map(mapEpisodioRow),
+      // ORD-1: órdenes del médico referente, por fecha asc.
+      ordenes:ordenarOrdenes((r.pedidos_medicos||[]).map(mapOrdenRow)),
       // done/pendientes NO se leen de columnas (vestigiales): derivan de session_log vía doneActual/pendientesActual.
       billing:{sesPerFactura:r.billing_ses_per_factura||5,
         facturas:cobData.filter(c=>c.patient_id===r.id).map(c=>({id:c.cobro_ref,n:c.n_sessions,fecha:c.date,estado:'cobrada'}))}

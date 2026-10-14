@@ -7,7 +7,7 @@ import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasEvalInicial } from './resumen.js';
 import { hasPermission } from './permissions.js';
 import { validateRequired, validateMinChars, validatePositiveInt, validateDocumento, validateTelefono, validateEmail, showFieldError, clearFieldError, clearAllErrors, createDirtyTracker, validateBirthDate } from './validators.js';
-import { resetCie10Pm, getCie10Pm, setCie10Ev } from './cie10.js';
+import { resetCie10Pm, getCie10Pm, setCie10Ev, resetDiagSecPm, getDiagSecPm } from './cie10.js';
 import { renderRomEditor, leerRomDetalle } from './rom.js';
 import { recargarEpisodiosPaciente } from './episodios.js';
 
@@ -106,6 +106,7 @@ export function openPatientModal() {
   // y savePatient la escribiría al paciente nuevo (fuga de datos entre pacientes).
   ['pm-name','pm-cedula','pm-tel','pm-email','pm-dir','pm-age'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm-birth').value='';
+  document.getElementById('pm-sexo').value='';
   document.getElementById('pm-sessions').value='12';
   document.getElementById('pm-status').value='active';
   document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
@@ -116,6 +117,7 @@ export function openPatientModal() {
   populateDiagSelects();   // I-11: el catálogo de diagnósticos también debe poblarse al CREAR (no solo al editar)
   renderDiagLegacy(null);
   resetCie10Pm(null);   // sin código: el del último paciente editado no puede quedar pegado
+  resetDiagSecPm(null);
   document.getElementById('patient-modal').classList.add('open');
 }
 
@@ -150,6 +152,7 @@ export async function savePatient() {
     p.name=document.getElementById('pm-name').value.trim();
     p.age=parseInt(document.getElementById('pm-age').value)||null;
     p.birth_date=document.getElementById('pm-birth').value||null;
+    p.sexo=document.getElementById('pm-sexo').value||null;
     p.cedula=document.getElementById('pm-cedula').value||'';
     p.tel=document.getElementById('pm-tel').value||'';
     p.email=document.getElementById('pm-email').value||'';
@@ -160,6 +163,8 @@ export async function savePatient() {
     p.diag=_diag.diag; p.protocolId=_diag.protocolId;
     const _cie=getCie10Pm();
     p.cie10=_cie.cie10; p.cie10Desc=_cie.cie10Desc;
+    const _sec=getDiagSecPm();
+    p.diagSec=_sec.length?_sec:null;   // nunca []: CHECK de patients.diag_sec
     p.doctorId=document.getElementById('pm-doctor').value||null;
     p.sessions=parseInt(document.getElementById('pm-sessions').value)||10;
     p.status=document.getElementById('pm-status').value;
@@ -170,8 +175,8 @@ export async function savePatient() {
     state.editingPatientId=null;
     if(typeof p.id==='string'){
       const {error}=await supa.from('patients').update({
-        name:p.name,age:p.age,birth_date:p.birth_date,cedula:p.cedula,tel:p.tel,email:p.email,
-        dir:p.dir,diag:p.diag,cie10:p.cie10||null,cie10_desc:p.cie10Desc||null,
+        name:p.name,age:p.age,birth_date:p.birth_date,sexo:p.sexo||null,cedula:p.cedula,tel:p.tel,email:p.email,
+        dir:p.dir,diag:p.diag,cie10:p.cie10||null,cie10_desc:p.cie10Desc||null,diag_sec:p.diagSec||null,
         doctor_id:p.doctorId||null,protocol_id:p.protocolId||null,sessions:p.sessions,status:p.status
       }).eq('id',p.id);
       if(error) toastErr('Error al actualizar paciente: '+error.message);
@@ -186,25 +191,27 @@ export async function savePatient() {
   state.patients.push({id:++state.patCounter,name,
     age:parseInt(document.getElementById('pm-age').value)||null,
     birth_date:document.getElementById('pm-birth').value||null,
+    sexo:document.getElementById('pm-sexo').value||null,
     cedula:document.getElementById('pm-cedula').value||'',
     tel:document.getElementById('pm-tel').value||'',
     email:document.getElementById('pm-email').value||'',
     dir:document.getElementById('pm-dir').value||'',
     diag:_diagNuevo.diag,
     cie10:getCie10Pm().cie10,cie10Desc:getCie10Pm().cie10Desc,
+    diagSec:getDiagSecPm().length?getDiagSecPm():null,
     therapistId:null,
     doctorId:document.getElementById('pm-doctor').value||null,
     protocolId:_diagNuevo.protocolId,
     sessions:parseInt(document.getElementById('pm-sessions').value)||12,
-    done:0,status:document.getElementById('pm-status').value,log:[],
+    done:0,status:document.getElementById('pm-status').value,log:[],ordenes:[],
     billing:{sesPerFactura:parseInt(document.getElementById('global-spf').value)||5,facturas:[]}
   });
   const _p=state.patients[state.patients.length-1];
   window._app.closeModal('patient-modal');
   try {
     const {data,error}=await supa.from('patients').insert({
-      name:_p.name,age:_p.age,birth_date:_p.birth_date,cedula:_p.cedula,tel:_p.tel,email:_p.email,dir:_p.dir,diag:_p.diag,
-      cie10:_p.cie10||null,cie10_desc:_p.cie10Desc||null,
+      name:_p.name,age:_p.age,birth_date:_p.birth_date,sexo:_p.sexo||null,cedula:_p.cedula,tel:_p.tel,email:_p.email,dir:_p.dir,diag:_p.diag,
+      cie10:_p.cie10||null,cie10_desc:_p.cie10Desc||null,diag_sec:_p.diagSec||null,
       doctor_id:_p.doctorId||null,protocol_id:_p.protocolId||null,sessions:_p.sessions,done:0,status:_p.status,
       billing_ses_per_factura:_p.billing.sesPerFactura
     }).select().single();
@@ -229,6 +236,7 @@ export async function savePatient() {
   // Incluye pm-age para que el reset post-guardado no deje la edad pegada al siguiente alta.
   ['pm-name','pm-cedula','pm-tel','pm-email','pm-dir','pm-age','pm-diag-sel'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm-birth').value='';
+  document.getElementById('pm-sexo').value='';
   state.editingPatientId=null;
   document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
 }
@@ -274,6 +282,7 @@ export function renderPatients() {
   const tbody=document.getElementById('patient-tbody');
   const canDelete = hasPermission('deletePatient');
   const canEval = hasPermission('evalInicial');
+  const canOrden = hasPermission('registrarOrden');
   if(!totalRows){
     tbody.innerHTML=`<tr><td colspan="6" class="empty-patient-row">
       No se encontraron pacientes con "${esc(q)}".
@@ -297,6 +306,7 @@ export function renderPatients() {
     const emailCell=p.email?highlightMatch(p.email,q):'<span class="pl-muted">—</span>';
     const delBtn = canDelete ? `<button class='th-btn del pl-act-btn' onclick='deletePatient(${esc(JSON.stringify(p.id))})'>Eliminar</button>` : '';
     const evalBtn = canEval && !hasEvalInicial(p) ? `<button class='th-btn pl-act-btn' onclick='openEvalInicial(${esc(JSON.stringify(p.id))})'>Eval. inicial</button>` : '';
+    const ordenBtn = canOrden ? `<button class='th-btn pl-act-btn' onclick='abrirOrdenes(${esc(JSON.stringify(p.id))})'>Orden médica</button>` : '';
     return`<tr>
       <td class="pl-name"><span class="pname-row"><span class="pl-pname" title="${esc(p.name)}">${highlightMatch(p.name,q)}</span>${statusBadge}${evalBadge}</span></td>
       <td class="pl-age" data-label="Edad">${ageCell}</td>
@@ -305,7 +315,7 @@ export function renderPatients() {
       <td class="pl-doc" data-label="Doctor">${dc}</td>
       <td class="pl-action-cell" data-label="Acciones">
         <div class="pl-actions">
-          <button class='th-btn pl-act-btn' onclick='openEditPatient(${esc(JSON.stringify(p.id))})'>Editar</button>${delBtn}${evalBtn}<button class="ver-btn pl-act-btn" onclick='verPaciente(${esc(JSON.stringify(p.id))})'>Ver</button>
+          <button class='th-btn pl-act-btn' onclick='openEditPatient(${esc(JSON.stringify(p.id))})'>Editar</button>${delBtn}${evalBtn}${ordenBtn}<button class="ver-btn pl-act-btn" onclick='verPaciente(${esc(JSON.stringify(p.id))})'>Ver</button>
         </div>
       </td>
     </tr>`;
@@ -340,6 +350,7 @@ export function openEditPatient(id) {
   document.getElementById('pm-name').value=p.name;
   document.getElementById('pm-age').value=p.age||'';
   document.getElementById('pm-birth').value=p.birth_date||'';
+  document.getElementById('pm-sexo').value=p.sexo||'';
   document.getElementById('pm-cedula').value=p.cedula||'';
   document.getElementById('pm-tel').value=p.tel||'';
   document.getElementById('pm-email').value=p.email||'';
@@ -352,6 +363,7 @@ export function openEditPatient(id) {
   if(_pmDiag) _pmDiag.value=p.protocolId?String(p.protocolId):'';
   renderDiagLegacy(p);
   resetCie10Pm(p);
+  resetDiagSecPm(p);
   document.querySelector('#patient-modal h3').textContent='Editar paciente';
   document.getElementById('patient-modal').classList.add('open');
 }

@@ -15,7 +15,7 @@ const ACCIONES = [
   'createAppt','deleteAppt','cycleStatus','createPatient','editPatient','deletePatient',
   'registerSession','deleteSession','evalInicial','createTherapist','deleteTherapist',
   'createDoctor','createProtocol','editProtocol','emitirFactura','viewAI','deleteInforme','apptPastDate',
-  'conciliarQB','manageBlocks','editAppt','newEpisode',
+  'conciliarQB','manageBlocks','editAppt','newEpisode','registrarOrden','borrarOrden',
 ];
 
 // true = el rol PUEDE. Escrita a mano, acción por acción.
@@ -25,21 +25,21 @@ const MATRIZ = {
     deletePatient:true, registerSession:true, deleteSession:true, evalInicial:true,
     createTherapist:true, deleteTherapist:true, createDoctor:true, createProtocol:true, editProtocol:true,
     emitirFactura:true, viewAI:true, deleteInforme:true, apptPastDate:true, conciliarQB:true,
-    manageBlocks:true, editAppt:true, newEpisode:true,
+    manageBlocks:true, editAppt:true, newEpisode:true, registrarOrden:true, borrarOrden:true,
   },
   secretaria: {
     createAppt:true, deleteAppt:true, cycleStatus:true, createPatient:true, editPatient:true,
     deletePatient:false, registerSession:false, deleteSession:false, evalInicial:false,
     createTherapist:true, deleteTherapist:false, createDoctor:true, createProtocol:false, editProtocol:false,
     emitirFactura:true, viewAI:false, deleteInforme:false, apptPastDate:true, conciliarQB:true,
-    manageBlocks:true, editAppt:true, newEpisode:false,
+    manageBlocks:true, editAppt:true, newEpisode:false, registrarOrden:true, borrarOrden:false,
   },
   terapeuta: {
     createAppt:false, deleteAppt:false, cycleStatus:true, createPatient:false, editPatient:true,
     deletePatient:false, registerSession:true, deleteSession:false, evalInicial:true,
     createTherapist:false, deleteTherapist:false, createDoctor:false, createProtocol:true, editProtocol:false,
     emitirFactura:false, viewAI:true, deleteInforme:true, apptPastDate:false, conciliarQB:false,
-    manageBlocks:false, editAppt:false, newEpisode:true,
+    manageBlocks:false, editAppt:false, newEpisode:true, registrarOrden:true, borrarOrden:false,
   },
 };
 

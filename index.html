@@ -648,9 +648,15 @@
 <div class="modal-bg" id="patient-modal">
 <div class="modal">
   <h3>Nuevo paciente</h3>
+  <div class="field"><label>Nombre completo</label><input type="text" id="pm-name" placeholder="María García"></div>
   <div class="field-row two">
-    <div class="field"><label>Nombre completo</label><input type="text" id="pm-name" placeholder="María García"></div>
     <div class="field"><label>Fecha de nacimiento</label><input type="date" id="pm-birth"></div>
+    <!-- CAMPOS-1: espejo del CHECK de patients.sexo (F/M o NULL). El informe imprime la fila solo si hay dato. -->
+    <div class="field"><label>Sexo</label><select id="pm-sexo">
+          <option value="">—</option>
+          <option value="F">Femenino</option>
+          <option value="M">Masculino</option>
+        </select></div>
   </div>
   <input type="hidden" id="pm-age">
   <div class="field-row two">
@@ -678,6 +684,14 @@
       <div class="cie-results" id="pm-cie10-results" style="display:none"></div>
     </div>
   </div>
+  <div class="field"><label>Diagnósticos secundarios <span style="text-transform:none;font-weight:400;color:#9c9a92">(opcional, hasta 5)</span></label>
+    <div class="cie-current" id="pm-diagsec-list"></div>
+    <div class="cie-combo" id="pm-diagsec-combo">
+      <input type="text" id="pm-diagsec-search" autocomplete="off" placeholder="Agregar por código o diagnóstico CIE-10"
+        oninput="cie10Search('pmsec')" onfocus="cie10Search('pmsec')">
+      <div class="cie-results" id="pm-diagsec-results" style="display:none"></div>
+    </div>
+  </div>
   <div class="field">
     <div class="field"><label>Doctor referente</label><select id="pm-doctor"><option value="">Independiente</option></select></div>
   </div>
@@ -700,6 +714,8 @@
     </div>
     <div class="field"><label>Descripción</label><input type="text" id="th-spec" placeholder="Ej. Fisioterapeuta deportivo"></div>
   </div>
+  <!-- CAMPOS-1: espejo del CHECK de therapists.registro (1..40). Sale bajo la firma del informe. -->
+  <div class="field"><label>Registro profesional <span style="text-transform:none;font-weight:400;color:#9c9a92">(opcional)</span></label><input type="text" id="th-registro" maxlength="40" placeholder="Ej. 1234-56-7890 (ACESS)"></div>
   <div class="field"><label>Modalidad</label>
     <!-- Espejo del CHECK de therapists.modalidad (ver MODALIDADES en js/utils.js). 'porcentaje' no tiene
          turno: nada suyo es extra y no tiene capacidad. Sábado y domingo de 'nomina' siempre es extra. -->
@@ -794,6 +810,28 @@
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal('doctor-modal')">Cancelar</button>
     <button class="btn-save" onclick="saveDoctor()">Guardar</button>
+  </div>
+</div>
+</div>
+
+<!-- ORD-1: órdenes del médico referente (tabla pedidos_medicos). Lista + alta; borrar solo admin.
+     Los límites espejan los CHECK de la base: sesiones 1..200, vigencia >= fecha, nota <= 300. -->
+<div class="modal-bg" id="orden-modal">
+<div class="modal">
+  <h3 id="orden-modal-title">Órdenes médicas</h3>
+  <div id="orden-list" class="orden-list"></div>
+  <div class="field-row two">
+    <div class="field"><label>Fecha de la orden</label><input type="date" id="or-fecha"></div>
+    <div class="field"><label>Médico</label><select id="or-doctor"><option value="">Sin médico</option></select></div>
+  </div>
+  <div class="field-row two">
+    <div class="field"><label>Sesiones autorizadas</label><input type="number" id="or-sesiones" min="1" max="200" value="10"></div>
+    <div class="field"><label>Vigente hasta <span style="text-transform:none;font-weight:400;color:#9c9a92">(opcional)</span></label><input type="date" id="or-vigencia"></div>
+  </div>
+  <div class="field"><label>Nota <span style="text-transform:none;font-weight:400;color:#9c9a92">(opcional)</span></label><input type="text" id="or-nota" maxlength="300" placeholder="Ej. Orden escaneada en la carpeta física"></div>
+  <div class="modal-actions">
+    <button class="btn-cancel" onclick="closeModal('orden-modal')">Cerrar</button>
+    <button class="btn-save" id="or-save-btn" onclick="guardarOrden()">Registrar orden</button>
   </div>
 </div>
 </div>

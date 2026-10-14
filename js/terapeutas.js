@@ -51,6 +51,7 @@ export function openTherapistModal(ed=null) {
     if(!th){toastErr('No se encontró el terapeuta.');return;}
     document.getElementById('th-name').value=th.name;
     document.getElementById('th-spec').value=th.spec;
+    document.getElementById('th-registro').value=th.registro||'';
     document.getElementById('th-specialty').value=especialidad(th.specialty);
     document.getElementById('th-modalidad').value=modalidad(th.modalidad);
     document.getElementById('th-start').value=th.startH;
@@ -61,6 +62,7 @@ export function openTherapistModal(ed=null) {
   } else {
     document.getElementById('th-name').value='';
     document.getElementById('th-spec').value='';
+    document.getElementById('th-registro').value='';
     document.getElementById('th-specialty').value=ESPECIALIDAD_DEFAULT;
     document.getElementById('th-modalidad').value=MODALIDAD_DEFAULT;
     document.getElementById('th-start').value=7;
@@ -89,6 +91,7 @@ export async function saveTherapist() {
   const lunch=Math.max(0,Math.min(180,parseInt(document.getElementById('th-lunch').value,10)||0));
   const init=name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
   const spec=document.getElementById('th-spec').value;
+  const registro=document.getElementById('th-registro').value.trim().slice(0,40);
   const specialty=especialidad(document.getElementById('th-specialty').value);
   const modal=modalidad(document.getElementById('th-modalidad').value);
   // Se congela acá: si el usuario reabre el modal mientras el upsert está en vuelo, el rollback
@@ -100,14 +103,14 @@ export async function saveTherapist() {
     const t=getTherapist(editing);
     if(!t){toastErr('No se encontró el terapeuta.');return;}
     prev={name:t.name,spec:t.spec,specialty:t.specialty,modalidad:t.modalidad,startH:t.startH,endH:t.endH,colorId:t.colorId,initials:t.initials,
-          displayOrder:t.displayOrder,lunchMinutes:t.lunchMinutes};
+          displayOrder:t.displayOrder,lunchMinutes:t.lunchMinutes,registro:t.registro};
     t.name=name;t.spec=spec;t.specialty=specialty;t.modalidad=modal;t.startH=s;t.endH=e;t.colorId=state.selectedColor;t.initials=init;
     // workStart/workEnd NO se tocan: este modal ya no los edita. Si la fila vino de la base con
     // valor, sigue tal cual en memoria; si no, queda undefined y todo cae a startH/endH.
-    t.displayOrder=ord;t.lunchMinutes=lunch;
+    t.displayOrder=ord;t.lunchMinutes=lunch;t.registro=registro;
   } else {
     state.therapists.push({id:++state.thCounter,name,initials:init,spec,specialty,modalidad:modal,startH:s,endH:e,colorId:state.selectedColor,
-      displayOrder:ord,lunchMinutes:lunch});
+      displayOrder:ord,lunchMinutes:lunch,registro});
   }
   const _th=editing?getTherapist(editing):state.therapists[state.therapists.length-1];
   window._app.closeModal('therapist-modal'); renderTherapistList(); window._app.renderGrid();
@@ -116,7 +119,7 @@ export async function saveTherapist() {
     // work_start/work_end NO van en el payload, y tampoco como null: un null en el upsert BORRARÍA
     // el valor que hay en la base. Omitir las claves deja el dato dormido por si hay que consultarlo.
     const payload={name:_th.name,initials:_th.initials,spec:_th.spec,specialty:_th.specialty,modalidad:_th.modalidad,start_h:_th.startH,end_h:_th.endH,color_id:_th.colorId,
-      display_order:_th.displayOrder,lunch_minutes:_th.lunchMinutes};
+      display_order:_th.displayOrder,lunch_minutes:_th.lunchMinutes,registro:_th.registro||null};
     if(typeof _th.id==='string') payload.id=_th.id;
     markLocalChange('therapists');
     const {data,error}=await supa.from('therapists').upsert(payload).select().single();

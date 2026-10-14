@@ -50,7 +50,8 @@ import {
   filterPatientRptSelect, selectRptPatient, rptSearchKeydown, exportarPDF,
   genSemanalAI, genMensualAI, genAnualAI, genPatientAI,
   guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado,
-  abrirFirmanteModal, confirmarExportarInforme, cambiarPedido, aplicarRangoInforme, cambiarModoRango
+  abrirFirmanteModal, confirmarExportarInforme, cambiarPedido, aplicarRangoInforme, cambiarModoRango,
+  refrescarResumenMedico
 } from './informes.js';
 import {
   renderFacturacion, emitirFactura, marcarTodosFacturados
@@ -76,6 +77,7 @@ import { globalSearch, selectGlobalResult, checkCitasPendientes } from './search
 import { initMobileMenu } from './mobile-menu.js';
 import { openBlockModal, saveBlock, deleteBlockFromModal, toggleBlockAllDay, onBlockTherapistChange } from './bloqueos.js';
 import { abrirRecordatorios, cambiarFechaRecordatorios, enviarRecordatorio } from './recordatorios.js';
+import { abrirOrdenes, guardarOrden, borrarOrden } from './ordenes.js';
 
 // ── Registro central de funciones para módulos cross-cutting ──
 window._app = {
@@ -116,6 +118,8 @@ window._app = {
   callAI,
   // informes guardados
   guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado,
+  // ORD-1: el modal de órdenes repinta el resumen para el médico del informe abierto
+  refrescarResumenMedico,
 };
 
 // ── Listener: citas recurrentes ──
@@ -260,6 +264,7 @@ Object.assign(window, {
   irAHistorial, setHistorialCorte, setHistorialMes, setHistorialEstado,
   exportarHistorialPDF, exportarHistorialCSV,
   cie10Search, cie10Pick, cie10Clear, setCie10Ev,
+  abrirOrdenes, guardarOrden, borrarOrden,
   planGuardarSesiones, planNuevoEpisodio,
   setAgendaView, setTherapistFilter, goToDateAndSelect,
   renderTherapistList, renderDoctorsList,

@@ -7,7 +7,7 @@
 
 ## Estado de RLS por tabla — verificado
 
-Las 10 tablas tienen **RLS activada (`relrowsecurity = true`)**. Sin esto, las policies de abajo se ignorarían:
+Las 12 tablas tienen **RLS activada (`relrowsecurity = true`)**. Sin esto, las policies de abajo se ignorarían:
 
 | Tabla | RLS activa |
 |---|---|
@@ -15,8 +15,10 @@ Las 10 tablas tienen **RLS activada (`relrowsecurity = true`)**. Sin esto, las p
 | audit_log | ✅ true |
 | cobros | ✅ true |
 | doctors | ✅ true |
+| episodios | ✅ true *(EPI-2a, `episodios.sql`)* |
 | informes | ✅ true |
 | patients | ✅ true |
+| pedidos_medicos | ✅ true *(ORD-1, `b1_orden_campos.sql`, verificado en producción el 2026-10-14)* |
 | profiles | ✅ true |
 | protocols | ✅ true |
 | session_log | ✅ true |
@@ -76,6 +78,21 @@ Las 10 tablas tienen **RLS activada (`relrowsecurity = true`)**. Sin esto, las p
 - INSERT/UPDATE — `is_admin() OR is_secretaria()` (la secretaria gestiona el equipo: alta, horarios, orden, color)
 - DELETE — `is_admin()`. ✅ La baja, única acción irreversible de la pantalla, no se delega.
 - ✅ **Aplicado y verificado en producción el 2026-08-14** con `rls_therapists_secretaria.sql` (versionado en el repo): quedan 4 policies y la `ALL = is_admin()` vieja fue eliminada. Espeja la partición del permiso de front (`createTherapist` vs `deleteTherapist`).
+
+**episodios** (EPI-2a) — 4 policies, `episodios.sql`
+- SELECT `episodios_select` — `true` (todo autenticado)
+- INSERT `episodios_insert` / UPDATE `episodios_update` — `is_admin() OR is_secretaria() OR is_terapeuta()`
+- DELETE `episodios_delete` — los mismos tres roles `AND desde IS NOT NULL`: el primer episodio (desde el inicio) no se borra.
+- `REVOKE ALL ... FROM anon`. Auditoría: `trg_audit` → `audit_log`. `REPLICA IDENTITY FULL` + publicación realtime.
+- Se crean/unen/mueven con las funciones `crear_episodio`, `unir_con_anterior`, `mover_inicio` (sin EXECUTE para anon).
+
+**pedidos_medicos** (ORD-1, orden del médico referente) — 4 policies, `b1_orden_campos.sql` (corrido y verificado en producción el 2026-10-14: columnas, 4 policies y `trg_audit`)
+- SELECT `pedidos_select` — `true` (todo autenticado; misma postura que `patients`, ver C-2)
+- INSERT `pedidos_insert` — `is_admin() OR is_secretaria() OR is_terapeuta()`
+- UPDATE `pedidos_update` — USING y WITH CHECK `is_admin() OR is_secretaria() OR is_terapeuta()` (el front todavía no edita órdenes: solo alta y baja)
+- DELETE `pedidos_delete` — `is_admin()`. Espeja el permiso de front `borrarOrden` (solo admin); `registrarOrden` = los tres roles.
+- `REVOKE ALL ... FROM anon`. Auditoría: `trg_audit` → `audit_log` (INSERT/UPDATE/DELETE). `REPLICA IDENTITY FULL` por si B2 suma realtime (hoy sin canal).
+- CHECK: `sesiones_autorizadas` 1..200 · `vigencia_hasta >= fecha` · `nota` ≤ 300. FK a `patients` ON DELETE CASCADE y a `doctors` ON DELETE SET NULL.
 
 **audit_log**
 - SELECT — solo admin

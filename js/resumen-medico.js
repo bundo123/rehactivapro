@@ -9,6 +9,7 @@
 // que falta no dispara reglas (undefined = desconocido, nunca "no"): el resumen sale igual, más corto.
 import { dmy, ddmm, tieneEva, dolorInicial } from './utils.js';
 import { romNormalizar, romPct, romMov, romValorTexto, romNormalTexto } from './rom.js';
+import { ordenVencida, ordenAgotada } from './orden-medica.js';
 
 export const UMBRALES = {
   MIN_MEDICIONES_DOLOR: 2,    // SIN DATOS: menos mediciones reales de dolor (evaluación + sesiones con EVA)
@@ -131,12 +132,14 @@ function _hitoInforme(done, plan) {
 function _signo(d) { return d > 0 ? `+${d}` : d < 0 ? `−${Math.abs(d)}` : 'sin cambio'; }
 function _minus(t) { return t ? t.charAt(0).toLowerCase() + t.slice(1) : t; }
 
-// Sugerencia automática del pedido: EMPEORA → reevaluar; plan completo → validar el alta; plan
-// ≥80 % sin MEJORA ("sin meta") → renovar la orden; si no, nada.
-export function pedidoSugerido(clave, met) {
+// Sugerencia automática del pedido: EMPEORA → reevaluar; plan completo → validar el alta; orden
+// médica vencida o agotada con el plan incompleto (ORD-1) → renovar; plan ≥80 % sin MEJORA
+// ("sin meta") → renovar la orden; si no, nada.
+export function pedidoSugerido(clave, met, orden, hoy = new Date()) {
   const done = Number(met?.done) || 0, plan = Number(met?.sessions) || 0;
   if (clave === 'EMPEORA') return { tipo: 'reevaluar' };
   if (plan > 0 && done >= plan) return { tipo: 'alta' };
+  if (orden && plan > 0 && done < plan && (ordenVencida(orden, hoy) || ordenAgotada(orden, done))) return { tipo: 'renovar' };
   if (plan > 0 && done / plan * 100 >= UMBRALES.PLAN_RENOVAR_PCT && clave !== 'MEJORA') return { tipo: 'renovar' };
   return { tipo: 'nada' };
 }
@@ -210,8 +213,8 @@ export function resumenMedico(m, hoy = new Date()) {
   // ── Medidas ──
   const medDolor = hayDolor ? `Dolor ${base} → ${actual}/10 (${_signo(dDolor)})` : 'Dolor: sin mediciones suficientes';
   const medRom = !rom ? 'sin goniometría'
-    : rom.ultima ? `ROM clave: ${rom.nombre} ${rom.baseTxt} → ${rom.ultimaTxt} / ${rom.normalTxt}`
-    : `ROM clave: ${rom.nombre} ${rom.baseTxt} / ${rom.normalTxt} (sin re-medición)`;
+    : rom.ultima ? `ROM clave: ${rom.nombre} ${rom.baseTxt} → ${rom.ultimaTxt} (normal ${rom.normalTxt})`
+    : `ROM clave: ${rom.nombre} ${rom.baseTxt} (normal ${rom.normalTxt}; sin re-medición)`;
   const nFaltas = Number(met.faltas) || 0;
   const medAsis = met.adh == null && met.faltas !== undefined ? 'Asistencia: sin citas pasadas'
     : `Asistencia a citas: ${met.asistidas ?? 0} de ${met.totalCitas ?? 0}` + (nFaltas > 0 ? ` (${nFaltas} falta${nFaltas === 1 ? '' : 's'})` : '');
@@ -232,13 +235,14 @@ export function resumenMedico(m, hoy = new Date()) {
     if (ultimaRacha) alertas.push(`"después" peor que "antes" en ${U.ALERTA_DESPUES_PEOR} sesiones seguidas (${ultimaRacha.map(s => ddmm(s.fecha)).join(' y ')})`);
   }
   if (romEmpeora) alertas.push(`${rom.nombre} bajó ${Math.abs(dRom)} puntos del normal`);
+  if (ordenVencida(m.orden, hoy)) alertas.push(`orden médica vencida el ${dmy(m.orden.vigenciaHasta)}`);
   if ((Number(met.faltas) || 0) >= U.ALERTA_INASISTENCIAS) alertas.push(`${met.faltas} inasistencias`);
   if (sinAlta) alertas.push('plan completo sin alta registrada');
   if ((Number(met.previas) || 0) > 0) alertas.push(`incluye ${met.previas} sesiones previas a RehactivaPro`);
-  const alertasTxt = alertas.length ? alertas.slice(0, U.MAX_ALERTAS).join(' · ') : 'ninguna regla disparada';
+  const alertasTxt = alertas.length ? alertas.slice(0, U.MAX_ALERTAS).join(' · ') : 'Ninguna';
 
   // ── Pedido (solo con médico referente) ──
-  const sugerido = pedidoSugerido(clave, { done, sessions: plan });
+  const sugerido = pedidoSugerido(clave, { done, sessions: plan }, m.orden, hoy);
   const pedido = m.pedido && m.pedido.tipo ? m.pedido : sugerido;
 
   // ── Próximo ──

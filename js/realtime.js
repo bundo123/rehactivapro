@@ -96,11 +96,14 @@ function _mapPatient(r) {
   return{
     id:r.id,createdAt:r.created_at||null,name:r.name,age:r.age||null,birth_date:r.birth_date||null,cedula:r.cedula||'',tel:r.tel||'',email:r.email||'',dir:r.dir||'',
     diag:r.diag||'Sin diagnóstico',cie10:r.cie10||null,cie10Desc:r.cie10_desc||null,
+    sexo:r.sexo||null,diagSec:Array.isArray(r.diag_sec)&&r.diag_sec.length?r.diag_sec:null,
     therapistId:r.therapist_id,doctorId:r.doctor_id,
     sessions:r.sessions||10,status:r.status||'active',protocolId:r.protocol_id||null,
     log:existing?existing.log:[],
     // EPI-2a: los episodios llegan por su propio canal; un UPDATE del paciente no los borra.
     episodios:existing?existing.episodios:[],
+    // ORD-1: pedidos_medicos no tiene canal realtime; un UPDATE del paciente no borra sus órdenes.
+    ordenes:existing?(existing.ordenes||[]):[],
     // done/pendientes NO se leen de columnas (vestigiales): derivan de session_log vía doneActual/pendientesActual.
     billing:{sesPerFactura:r.billing_ses_per_factura||5,
       facturas:existing&&existing.billing?existing.billing.facturas:[]}

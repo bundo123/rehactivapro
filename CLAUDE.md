@@ -13,7 +13,7 @@ App web de gestión clínica para fisioterapia (Quito, Ecuador). Dominio: rehact
 - La anon key es pública por diseño; la seguridad real es la RLS.
 
 ## Datos
-- 8 tablas: profiles, patients, appointments, therapists, doctors, protocols, cobros, session_log.
+- 12 tablas: profiles, patients, appointments, therapists, doctors, protocols, cobros, session_log, episodios, informes, audit_log, pedidos_medicos.
 - RLS estricta por rol (admin/secretaria/terapeuta); solo usuarios autenticados.
 - audit_log: bitácora append-only e INMUTABLE en 7 tablas (LOPDP). No tocar.
 
@@ -29,6 +29,7 @@ App web de gestión clínica para fisioterapia (Quito, Ecuador). Dominio: rehact
 - session_log.soap (jsonb, RESP-1): registro estructurado de la sesión respiratoria {v,llega,tol,inc,prox,casa,resp:{o2,sv,nomed,sec,med}}; técnicas en `tags`, dolor en pain_*; sin datos = null, nunca {} (CHECK). Toda lectura/escritura pasa por soapNormalizar (js/soap.js). La nota SOAPIE NO se guarda: notaSoapie() la arma sin IA. Fisio no manda `soap`.
 - therapists.modalidad: 'porcentaje' = sin turno ni extras; 'nomina' = turno start_h/end_h + sáb/dom siempre extra. Fuente: esPorcentaje/turnoDe/esExtra en utils.js.
 - session_log.note_original / note_ia_at (PULIR-1): nota pulida con IA. `note` = versión aceptada; `note_original` = PRIMER texto del terapeuta; las dos NULL si no se pulió (CHECK). Solo se mandan si la nota se pulió (js/pulir.js estadoPulir). Prompt fijo en el servidor (lib/pulir.js SYSTEM_PULIR).
+- pedidos_medicos (ORD-1): el informe cita la orden más reciente con fecha ≤ fin del período (ordenAplicable); sin vínculo a episodio. patients.diag_sec jsonb [{c,d}] 1..5, nunca []; patients.sexo F/M; therapists.registro bajo la firma.
 - IA: modelo = ANTHROPIC_MODEL || 'claude-sonnet-5-5' (lib/ia-modelo.js). Sonnet 5.5 rechaza temperature (400) y piensa por defecto: thinking 'between_tools' y leer solo los bloques `text`.
 
 ## Flujo

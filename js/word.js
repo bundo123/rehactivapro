@@ -213,6 +213,7 @@ export async function generarInformeWord(m) {
     body.push(par(run(''), { after: 80, keepNext: true, border: { top: linea(INK, 6) }, indent: { right: ANCHO - 4300 } }));
     if (m.firmante) body.push(par(run(m.firmante, { bold: true }), { after: 20, keepNext: true }));
     body.push(par(run([m.firmante ? (m.firmanteCargo || 'Fisioterapeuta') : '', 'Rehactiva'].filter(Boolean).join(' · '), { size: SZ.chico, color: MUT }), { after: 20, keepNext: true }));
+    if (m.firmanteRegistro) body.push(par(run(`Registro profesional: ${m.firmanteRegistro}`, { size: SZ.chico, color: MUT }), { after: 20, keepNext: true }));
     body.push(par(run(`Emitido el ${m.fechaLarga || ''}`, { size: SZ.chico, color: MUT }), { after: 140, keepNext: true }));
     const punteado = { style: BorderStyle.DASHED, size: 4, color: 'B8B8B0', space: 4 };
     body.push(par([run('Firmado electrónicamente con FirmaEC ', { size: SZ.etiqueta, color: RESERVA }), run('(espacio reservado)', { size: SZ.mini, color: RESERVA })],

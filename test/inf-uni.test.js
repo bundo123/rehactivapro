@@ -96,19 +96,19 @@ test('MEDIDAS — dolor base → actual con cambio, ROM clave base → última /
   const sesiones = modelo().sesiones.map((s, i) => i === 2 ? { ...s, rom: [{ j: 'hombro', m: 'abd', l: 'D', v: 100 }] }
     : i === 4 ? { ...s, rom: [{ j: 'hombro', m: 'abd', l: 'D', v: 125 }, { j: 'hombro', m: 'abd', l: 'I', v: 60 }] } : s);
   const rm = resumenMedico(modelo({ evalInicial: { fecha: '2026-09-01', pb: 7, partes: [], rom: evalRom }, sesiones, metricas: { asistidas: 6, totalCitas: 7, faltas: 1 } }), HOY);
-  assert.equal(linea(rm, 'Medidas'), 'Dolor 7 → 4/10 (−3) · ROM clave: Hombro D abducción 80° → 125° / 180° · Asistencia a citas: 6 de 7 (1 falta)');
+  assert.equal(linea(rm, 'Medidas'), 'Dolor 7 → 4/10 (−3) · ROM clave: Hombro D abducción 80° → 125° (normal 180°) · Asistencia a citas: 6 de 7 (1 falta)');
   assert.match(linea(resumenMedico(modelo({ metricas: { asistidas: 9, totalCitas: 9, faltas: 0 } }), HOY), 'Medidas'), / · Asistencia a citas: 9 de 9$/);
   assert.match(linea(resumenMedico(modelo({ metricas: { asistidas: 7, totalCitas: 10, faltas: 3 } }), HOY), 'Medidas'), /Asistencia a citas: 7 de 10 \(3 faltas\)$/);
   // Sin citas pasadas queda como estaba.
   assert.match(linea(resumenMedico(modelo({ metricas: { adh: null, asistidas: 0, totalCitas: 0, faltas: 0 } }), HOY), 'Medidas'), /Asistencia: sin citas pasadas$/);
   assert.equal(romClave(evalRom, []).ultima, null);
-  assert.match(linea(resumenMedico(modelo({ evalInicial: { fecha: '2026-09-01', pb: 7, partes: [], rom: evalRom } }), HOY), 'Medidas'), /80° \/ 180° \(sin re-medición\)/);
+  assert.match(linea(resumenMedico(modelo({ evalInicial: { fecha: '2026-09-01', pb: 7, partes: [], rom: evalRom } }), HOY), 'Medidas'), /80° \(normal 180°; sin re-medición\)/);
   assert.match(linea(resumenMedico(modelo(), HOY), 'Medidas'), / · sin goniometría · /);
 });
 
 // ── ALERTAS ──
 test('ALERTAS — solo por reglas, máximo 2, sin la coletilla de signos de alarma (INF-2)', () => {
-  assert.equal(linea(resumenMedico(modelo(), HOY), 'Alertas'), 'ninguna regla disparada');
+  assert.equal(linea(resumenMedico(modelo(), HOY), 'Alertas'), 'Ninguna');
   // "después" > "antes" en las 3; entre sesiones el dolor sube de a 1 (5 → 6): esa alerta no salta.
   const sesiones = [ses('2026-09-02', 3, 4), ses('2026-09-04', 4, 5), ses('2026-09-08', 3, 6)];
   const rm = resumenMedico(modelo({ sesiones, metricas: { done: 3, faltas: 3, previas: 2, evaInicial: 3, evaActual: 6 } }), HOY);
@@ -258,7 +258,7 @@ test('Datos del paciente — filas en orden, etiqueta y valor, diagnóstico con 
   const f = filasDatosPaciente(modeloDoc({ metricas: { previas: 2 } }));
   assert.deepEqual(f.map(x => `${x.k}: ${x.v}`), [
     'Nombre completo: María Ficticia', 'Identificación: 1700000000', 'Fecha de nacimiento: 14/05/1978 (48 años)',
-    'Diagnóstico principal: Lumbalgia (CIE-10 M54.5 — Lumbago no especificado)', 'Fisioterapeuta(s): Ana, Luis',
+    'Diagnóstico principal: Lumbalgia (CIE-10 M54.5 — Lumbago no especificado)', 'Fisioterapeutas: Ana, Luis',
     'Médico referente: Dra. Prueba (Traumatología)', 'Inicio del tratamiento: 01/09/2026',
     'Sesiones del plan: 6 de 12 (50 %) · incluye 2 previas a RehactivaPro', 'Protocolo: Lumbalgia mecánica', 'Tipo de terapia: Fisioterapia']);
   assert.deepEqual(f.filter(x => x.ancho).map(x => x.k), ['Diagnóstico principal']);
@@ -284,7 +284,7 @@ test('Datos del paciente — snapshot viejo: lo que trae se imprime, lo que falt
     metricas: { pct: 50, done: 5, sessions: 10, adh: 100, asistidas: 5, totalCitas: 5, evaHas: false },
     sesiones: [{ fecha: '2026-07-02', terapeuta: 'Ana', pb: 6, pa: 5 }], evalInicial: null, narrativa: [] };
   assert.deepEqual(filasDatosPaciente(viejo).map(x => x.k),
-    ['Nombre completo', 'Fecha de nacimiento', 'Diagnóstico principal', 'Fisioterapeuta(s)', 'Inicio del tratamiento', 'Sesiones del plan']);
+    ['Nombre completo', 'Fecha de nacimiento', 'Diagnóstico principal', 'Fisioterapeuta', 'Inicio del tratamiento', 'Sesiones del plan']);
   assert.equal(filasDatosPaciente(viejo)[2].v, 'Cervicalgia (CIE-10: M54.2)');
   const html = buildPdfHtml(viejo, { hoy: '2026-08-01' });
   assert.match(textoPlano(html), /1\. Datos del paciente .* 2\. Resumen para el médico .* 3\. Evolución del dolor \(EVA\) .* 4\. Detalle por sesión \(1\)/);
@@ -295,5 +295,5 @@ test('Secciones — numeradas entre las presentes; renglones de dos columnas con
   assert.deepEqual(sinGrafico.map(s => s.rotulo), ['1. Datos del paciente', '2. Evaluación inicial', '3. Detalle por sesión (0)']);
   const r = renglonesDatosPaciente(filasDatosPaciente(modeloDoc()));
   assert.deepEqual(r.map(x => x.map(f => f.k).join(' | ')), ['Nombre completo | Identificación', 'Fecha de nacimiento',
-    'Diagnóstico principal', 'Fisioterapeuta(s) | Médico referente', 'Inicio del tratamiento | Sesiones del plan', 'Protocolo | Tipo de terapia']);
+    'Diagnóstico principal', 'Fisioterapeutas | Médico referente', 'Inicio del tratamiento | Sesiones del plan', 'Protocolo | Tipo de terapia']);
 });

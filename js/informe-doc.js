@@ -12,6 +12,7 @@
 import { esc, dmy, buildEvaSvg, limpiarParte, textoPrevias, textoPeriodoRango, pieLegal, tipoCorto } from './utils.js';
 import { romGrupos } from './rom.js';
 import { resumenMedico, periodoInforme, tipoTerapiaDe } from './resumen-medico.js';
+import { textoOrden } from './orden-medica.js';
 import { LOGO_DATA_URI } from './pdf-logo.js';
 
 // «Fecha de nacimiento: dd/mm/aaaa (34 años)» si getDisplayAge trajo la fecha; «Edad: 34 años» con
@@ -34,6 +35,8 @@ function _diagnostico(pac) {
 
 // Filas del bloque «Datos del paciente»: [{k, v, ancho}] (ancho = ocupa las dos columnas). Regla
 // DOC-1: el dato que falta no se imprime (ni «No registrado» ni «—»). Sin dirección, teléfono ni correo.
+// B1: sexo, diagnósticos secundarios (CAMPOS-1) y orden médica (ORD-1); los snapshots viejos no los
+// traen y esas filas no salen.
 export function filasDatosPaciente(m) {
   const pac = m?.paciente || {};
   const met = m?.metricas || {};
@@ -43,13 +46,18 @@ export function filasDatosPaciente(m) {
   const sesiones = plan > 0
     ? `${met.done ?? 0} de ${plan} (${met.pct ?? 0} %)` + (Number(met.previas) > 0 ? ` · ${textoPrevias(met.previas)}` : '')
     : '';
+  const varios = (m?.terapeutas?.length || 0) > 1;
+  const diagSec = Array.isArray(pac.diagSec) ? pac.diagSec.filter(x => x?.c).map(x => `${x.c} — ${x.d || ''}`.replace(/ — $/, '')).join('; ') : '';
   const filas = [
     { k: 'Nombre completo', v: pac.nombre },
     { k: 'Identificación', v: pac.cedula },
     _filaEdad(pac.edad),
+    { k: 'Sexo', v: pac.sexo === 'F' ? 'Femenino' : pac.sexo === 'M' ? 'Masculino' : '' },
     { k: 'Diagnóstico principal', v: _diagnostico(pac), ancho: true },
-    { k: 'Fisioterapeuta(s)', v: ter },
+    { k: 'Diagnósticos secundarios', v: diagSec, ancho: true },
+    { k: varios ? 'Fisioterapeutas' : 'Fisioterapeuta', v: ter },
     { k: 'Médico referente', v: m?.doctor },
+    { k: 'Orden médica', v: textoOrden(m?.orden), ancho: true },
     { k: 'Inicio del tratamiento', v: m?.inicio && m.inicio !== '—' ? dmy(m.inicio) : '' },
     { k: 'Sesiones del plan', v: sesiones },
     { k: 'Protocolo', v: m?.protocolo },
@@ -168,6 +176,7 @@ export function buildPdfHtml(m, opts) {
   const firma = '<div class="firma keep"><div class="firma-linea"></div>'
     + (m.firmante ? '<div class="firma-nombre">' + esc(m.firmante) + '</div>' : '')
     + '<div class="firma-cargo">' + esc([m.firmante ? (m.firmanteCargo || 'Fisioterapeuta') : '', 'Rehactiva'].filter(Boolean).join(' · ')) + '</div>'
+    + (m.firmanteRegistro ? '<div class="firma-cargo">Registro profesional: ' + esc(m.firmanteRegistro) + '</div>' : '')
     + '<div class="firma-cargo">Emitido el ' + esc(m.fechaLarga) + '</div>'
     + '<div class="firma-ec">Firmado electrónicamente con FirmaEC <span>(espacio reservado)</span></div></div>';
 

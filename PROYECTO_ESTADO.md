@@ -4,6 +4,63 @@
 
 ---
 
+## 🗓️ Sesión 2026-10-14 (5) — BLOQUE B · LOTE B1: orden médica (ORD-1), sexo/diagnósticos secundarios/registro profesional (CAMPOS-1) y retoques INF-2b. Con SQL (`b1_orden_campos.sql`, ya corrido).
+
+Rama `feat/b1-orden-campos`. El SQL corrió en producción ANTES del lote (verificado: columnas, 4
+policies y `trg_audit`); acá solo se versiona. Aditivo: los snapshots viejos no traen nada de esto y
+el informe se ve igual que antes.
+- **SQL (`b1_orden_campos.sql`):** `patients.sexo` (F/M o NULL), `patients.diag_sec` (jsonb
+  `[{c,d}]` 1..5, nunca `[]`), `therapists.registro` (1..40) y tabla nueva `pedidos_medicos`
+  (`patient_id` CASCADE, `doctor_id` SET NULL, `fecha`, `sesiones_autorizadas` 1..200,
+  `vigencia_hasta` >= fecha, `nota` ≤ 300). RLS: lectura a todo autenticado; alta/edición admin,
+  secretaria y terapeuta; borrado solo admin. `trg_audit` y `REPLICA IDENTITY FULL`. Sin realtime.
+- **Carga:** `loadAll` trae `pedidos_medicos(*)` anidado en `patients`; `mapOrdenRow` /
+  `ordenarOrdenes` (utils.js) → `p.ordenes` por fecha asc. `p.sexo`, `p.diagSec` en la carga y en
+  `_mapPatient` (realtime), que además CONSERVA `ordenes` del objeto existente (un UPDATE remoto del
+  paciente no borra sus órdenes). `mapTherapistRow` suma `registro`.
+- **ORD-1 — `js/orden-medica.js` (puro):** `ordenAplicable(ordenes, fin)` (la de mayor fecha <= fin;
+  mismo día gana la cargada después), `ordenVencida` (el último día de vigencia todavía vale),
+  `textoOrden` («del 05/09/2026 · Dr. … (Traumatología) · 12 sesiones autorizadas · vigente hasta
+  05/12/2026»; lo ausente no sale), `validarOrden` (espejo de los CHECK) y `ordenAgotada`.
+- **ORD-1 — `js/ordenes.js` + `#orden-modal`:** «Órdenes médicas · {paciente}»: lista (la más reciente
+  arriba, VENCIDA en rojo, nota, Eliminar solo admin) y alta (fecha hoy, médico referente, sesiones del
+  plan, vigencia opcional, nota). Tras escribir repinta el resumen para el médico si el informe está
+  abierto (`window._app.refrescarResumenMedico`). Botones: «Orden médica» en la fila de Pacientes
+  (antes de Ver) y «Órdenes médicas» en la side-card Paciente del informe. Permisos nuevos
+  `registrarOrden` (admin, secretaria, terapeuta) y `borrarOrden` (admin). La columna Acciones de
+  Pacientes ahora deja bajar los botones de línea (con 4 se cortaba «Ver»).
+- **Informe:** el render-model suma `paciente.sexo`, `paciente.diagSec` (solo episodio actual o rango
+  que termina en él, misma regla que el CIE-10), `orden` (la aplicable al fin del período: el rango,
+  la última sesión de un episodio cerrado o hoy; con `usadas` = asistidas desde la fecha de la orden
+  hasta el fin) y `firmanteRegistro`. «Datos del paciente» (PDF y Word): Sexo después de la fecha de
+  nacimiento; Diagnósticos secundarios a lo ancho («M54.2 — Cervicalgia; …»); Orden médica a lo ancho
+  después de Médico referente. Firma: «Registro profesional: X» bajo el cargo.
+- **Resumen para el médico:** ALERTA «orden médica vencida el dd/mm/aaaa» (antes de inasistencias,
+  cuenta para el máximo de 2). `pedidoSugerido(clave, met, orden, hoy)`: nueva regla entre «alta» y
+  «≥80 %» → `renovar` si la orden está vencida o agotada y el plan incompleto. *Agotada* compara las
+  sesiones autorizadas con las usadas DESDE la orden (no con el total del episodio: si no, una orden
+  recién renovada pediría renovarse otra vez).
+- **CAMPOS-1 — formulario:** `#pm-sexo` (— / Femenino / Masculino) junto a Fecha de nacimiento (el
+  nombre pasa a ocupar su renglón). Diagnósticos secundarios: chips + buscador CIE-10 con el scope nuevo
+  `pmsec` (selección múltiple, máx. 5, sin repetidos, distinto del principal; helper puro
+  `agregarDiagSec`); se guarda `diag_sec: lista.length ? lista : null`. `#th-registro` en Terapeutas.
+- **Prompt IA:** con sexo F «La paciente es mujer: … concordancia femenina …» (y el destinatario dice «a
+  la paciente»); M «El paciente es hombre…»; sin sexo, el texto de siempre (probado igual byte a byte).
+- **INF-2b:** ALERTAS sin reglas → «Ninguna»; MEDIDAS «… 80° → 125° (normal 180°)» y «… (normal 180°;
+  sin re-medición)»; «Fisioterapeuta» con uno y «Fisioterapeutas» con varios.
+- **Docs:** `rls_policies.md` (episodios + pedidos_medicos; 12 tablas con RLS), `CLAUDE.md` (12
+  tablas + gotcha de B1), tabla de módulos de abajo. `.gitignore`: `.playwright-cli/` y `Claude outputs/`.
+
+620 → 637 pruebas (+17 en `test/b1.test.js`; `permissions.test.js` suma las 2 acciones; 5 de
+`inf-uni.test.js` ajustadas a los textos nuevos). `vite build` en verde. E2E con Playwright y el
+harness en memoria (datos ficticios; INSERT/DELETE de `pedidos_medicos` contestados por un stub, nada
+llega a Supabase; IA simulada): 39/39 — modal (validación, alta, baja), ficha (sexo, chips, repetido,
+principal, ×, móvil sin scroll horizontal), registro del terapeuta, prompt con «la paciente», PDF de 2
+páginas con las filas nuevas en la página 1 y el registro bajo la firma, Word con lo mismo, alerta de
+orden vencida y pedido «renovar». Ejemplos en `Claude outputs/` (fuera de la repo).
+
+---
+
 ## 🗓️ Sesión 2026-10-14 (4) — LOTE INF-2: datos del paciente primero; sin tarjetas de evolución ni datos administrativos (PDF y Word). Sin SQL.
 
 Pedido de Jefferson tras comparar el PDF de INF-UNI con el de otra clínica. Ninguna regla ni cálculo
@@ -2776,7 +2833,7 @@ lo carga con `import()` al primer uso (chunk aparte).
 
 | Módulo | Tablas |
 |--------|--------|
-| `auth.js` | `profiles`, `therapists`, `doctors`, `patients`, `appointments`, `protocols`, `cobros`, `session_log` |
+| `auth.js` | `profiles`, `therapists`, `doctors`, `patients`, `appointments`, `protocols`, `cobros`, `session_log`, `episodios`, `pedidos_medicos` (anidadas en `patients`) |
 | `agenda.js` | `appointments`, `patients` |
 | `pacientes.js` | `patients`, `session_log`, `cobros`, `appointments` |
 | `sesiones.js` | `session_log` |
@@ -2785,6 +2842,7 @@ lo carga con `import()` al primer uso (chunk aparte).
 | `doctores.js` | `doctors`, `patients` |
 | `protocolos.js` | `protocols` |
 | `cie10.js` | `patients` *(el CIE-10 es dato de la ficha, no de la cita)* |
+| `ordenes.js` | `pedidos_medicos` *(ORD-1: alta y baja de la orden médica; sin realtime)* |
 | `realtime.js` | `appointments`, `patients`, `session_log`, `cobros`, `therapists`, `doctors` |
 | `resumen.js`, `informes.js`, `search.js`, `historial.js` | *(solo leen de `state`, sin queries directas)* |
 

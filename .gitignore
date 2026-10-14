@@ -37,3 +37,7 @@ node_modules.zip
 
 # Directorio literal "~" creado por un cp con path Windows sin expandir
 ~/
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
+# Ejemplos y capturas generados por Claude (pueden tener datos de prueba; no van a la repo)
+Claude outputs/

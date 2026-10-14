@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, logDeEpisodio, dolorInicial, rotuloDolorInicial, textoCitas, diagConCie, orderedTherapists, dmy, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber, ctxEstado, tieneEva, textoDeltaEva, sesionesMostradas, textoPrevias, sesionesNumeradas, parseRangoInforme, valorRangoInforme, textoPeriodoRango, ddmm, numeroInforme, cargoFirmante, lugarSesion, horaSesion } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, logDeEpisodio, dolorInicial, rotuloDolorInicial, textoCitas, diagConCie, orderedTherapists, dmy, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber, ctxEstado, tieneEva, textoDeltaEva, sesionesMostradas, textoPrevias, sesionesNumeradas, parseRangoInforme, valorRangoInforme, textoPeriodoRango, ddmm, numeroInforme, cargoFirmante, lugarSesion, horaSesion, doneEnLog } from './utils.js';
 import { apptSlots } from './agenda.js';
 import { citasDeEpisodio, episodiosDePaciente, opcionesEpisodio, citasDePaciente, resumenHistorial } from './historial-calc.js';
 import { resumenMedico, PEDIDOS, PEDIDO_OTRO_MAX, tipoTerapiaDe } from './resumen-medico.js';
@@ -12,6 +12,7 @@ import { LOGO_DATA_URI } from './pdf-logo.js';
 import { generarInformeWord } from './word.js';
 import { romTexto, romNormalizar, romGrupos } from './rom.js';
 import { notaSoapie, resumenResp } from './soap.js';
+import { ordenAplicable } from './orden-medica.js';
 
 export { genSemanalAI, genMensualAI, genAnualAI, genPatientAI };
 
@@ -661,6 +662,8 @@ export function renderPatientReport() {
   // él). En un episodio cerrado el diagnóstico que se muestra es el de entonces, y etiquetarlo con
   // el código de ahora mentiría.
   const cieRpt=(isCurrentEpisode||epActualUltima)?(p.cie10||null):null;
+  // CAMPOS-1: los diagnósticos secundarios también son del paciente HOY: misma regla que el CIE-10.
+  const diagSecRpt=(isCurrentEpisode||epActualUltima)?(p.diagSec||null):null;
   const diagDisplay=diagConCie(epDiag||p.diag||'—',cieRpt);
   const th=getTherapist(p.therapistId);
   const doc=p.doctorId?getDoctor(p.doctorId):null;
@@ -841,6 +844,7 @@ export function renderPatientReport() {
           <button class="side-btn soft" onclick="agendarCitaParaPaciente('${esc(p.id)}')">+ Agendar cita</button>
           <button class="side-btn soft" onclick="irAHistorial('${esc(p.id)}')">Historial de citas</button>
           ${hasPermission('registerSession')?`<button class="side-btn soft" onclick="openSessionModalManual('${esc(p.id)}')">+ Sesión manual</button>`:''}
+          ${hasPermission('registrarOrden')?`<button class="side-btn soft" onclick="abrirOrdenes('${esc(p.id)}')">Órdenes médicas</button>`:''}
           ${(isCurrentEpisode&&hasPermission('newEpisode'))?`<button class="side-btn warn" onclick="nuevoEpisodio('${esc(p.id)}')">Nuevo episodio</button>`:''}
         </div>
       </div>
@@ -850,7 +854,10 @@ export function renderPatientReport() {
   </div>`;
 
   out.innerHTML=html;
-  _rptCtx={p,log,pct,adh,asistidas,faltas,totalCitas,ini,evaHas,lp,th,doc,epDiag,epDone,epPrevias,epSessions,inicio,rptNo,fechaLarga,thHeader,prot,cieRpt,rango:rango||null,
+  // ORD-1: fin del período para elegir la orden médica — el rango, o la última sesión de un
+  // episodio cerrado (null = episodio actual: hasta hoy).
+  const finEpisodio=isCurrentEpisode?null:(log.length?log[log.length-1].date:null);
+  _rptCtx={p,log,pct,adh,asistidas,faltas,totalCitas,ini,evaHas,lp,th,doc,epDiag,epDone,epPrevias,epSessions,inicio,rptNo,fechaLarga,thHeader,prot,cieRpt,rango:rango||null,finEpisodio,diagSecRpt,
     alta:p.status==='alta',epThIds,citasPac:citasDePaciente(state.appointments,p.id)};
   _pintarResumenMedico();
   renderInformesGuardados();
@@ -917,7 +924,7 @@ function _buildRenderModel(opts) {
     const n=document.getElementById('rpt-numero'); if(n) n.textContent='N.º '+_rptCtx.rptNo;
     const f=document.getElementById('rpt-fecha'); if(f) f.textContent=_rptCtx.fechaLarga;
   }
-  const {p,log,pct,adh,asistidas,faltas,totalCitas,ini,evaHas,lp,doc,inicio,rptNo,fechaLarga,thHeader,prot,epDiag,epDone,epPrevias,epSessions,cieRpt,firmante,rango,alta,epThIds,citasPac,pedido,emitido}=_rptCtx;
+  const {p,log,pct,adh,asistidas,faltas,totalCitas,ini,evaHas,lp,doc,inicio,rptNo,fechaLarga,thHeader,prot,epDiag,epDone,epPrevias,epSessions,cieRpt,firmante,rango,alta,epThIds,citasPac,pedido,emitido,finEpisodio,diagSecRpt}=_rptCtx;
   // Captura del gráfico EVA ya dibujado en pantalla — evita el canvas en blanco por timing.
   const evaCanvas=emitir?document.getElementById('eva-evolution-chart'):null;
   const evaImg=evaCanvas?evaCanvas.toDataURL('image/png'):'';
@@ -926,6 +933,13 @@ function _buildRenderModel(opts) {
   const tratRows=sesAsc.filter(s=>s.type!=='Evaluación inicial');
   const firmTh=firmante?state.therapists.find(t=>t.name===firmante):null;
   const hoy=fmtDate(new Date());
+  // ORD-1: la orden que rige al fin del período (la más reciente con fecha <= fin). usadas = sesiones
+  // asistidas desde la orden hasta el fin: lo que se compara con las autorizadas para pedir renovarla.
+  const finOrden=rango?.hastaFecha||finEpisodio||hoy;
+  const o=ordenAplicable(p?.ordenes,finOrden);
+  const oDoc=o?.doctorId?state.doctors.find(d=>d.id===o.doctorId):null;
+  const orden=o?{fecha:o.fecha,doctor:oDoc?oDoc.name+' ('+oDoc.spec+')':null,sesiones:o.sesiones,vigenciaHasta:o.vigenciaHasta||null,nota:o.nota||null,
+    usadas:doneEnLog((p?.log||[]).filter(s=>s.date>=o.fecha&&s.date<=finOrden))}:null;
   const model={
     numero:rptNo,
     fechaLarga,
@@ -935,11 +949,14 @@ function _buildRenderModel(opts) {
     // Mismo texto que la pantalla: el PDF que va al médico lleva el CIE-10 junto al diagnóstico.
     paciente:{nombre:p?.name||'',cedula:p?.cedula||'',edad:getDisplayAge(p,true),edadCorta:getDisplayAge(p),diagnostico:diagConCie(epDiag||p?.diag||'',cieRpt),
       // INF-2: diagnóstico y código por separado para «Diagnóstico principal» (con la descripción del CIE-10).
-      diag:epDiag||p?.diag||'',cie10:cieRpt||null,cie10Desc:cieRpt?(p?.cie10Desc||null):null},
+      diag:epDiag||p?.diag||'',cie10:cieRpt||null,cie10Desc:cieRpt?(p?.cie10Desc||null):null,
+      // CAMPOS-1: los snapshots viejos no los traen y sus filas no se imprimen.
+      sexo:p?.sexo||null,diagSec:diagSecRpt||null},
     terapeuta:thHeader,
     // DOC-1: terapeutas del episodio por nombre (datos administrativos al final del documento).
     terapeutas:(epThIds||[]).map(id=>getTherapist(id)?.name).filter(Boolean),
     doctor:doc?doc.name+' ('+doc.spec+')':null,
+    orden,
     protocolo:prot?.name||null,
     inicio,
     // MED-1: datos del resumen para el médico. alta y proximaCita (null = sin cita futura) no
@@ -980,6 +997,8 @@ function _buildRenderModel(opts) {
     // todavía no se confirmó ninguno para este informe en pantalla). Cargo según su especialidad.
     firmante:firmante||null,
     firmanteCargo:firmante?cargoFirmante(firmTh?.specialty):null,
+    // CAMPOS-1: registro profesional del firmante, bajo la firma.
+    firmanteRegistro:firmTh?.registro||null,
   };
   model.tipoTerapia=tipoTerapiaDe(model.sesiones);
   // MED-1: el resumen se calcula UNA vez y viaja en el snapshot (el guardado no se recalcula).
@@ -995,6 +1014,9 @@ function _pintarResumenMedico() {
   const rm=_buildRenderModel().resumenMedico;
   el.innerHTML=rm?`<div class="rpt-rm"><div class="rpt-rm-tit">Resumen para el médico</div>${htmlResumenMedico(rm,{identificacion:true,sugerido:!_rptCtx.pedido})}</div>`:'';
 }
+
+// ORD-1: el modal de órdenes médicas (ordenes.js) lo llama vía window._app tras registrar o borrar.
+export function refrescarResumenMedico() { _pintarResumenMedico(); }
 
 // Exportada: el Historial de citas abre su hoja imprimible con esta MISMA ventana (mismo aviso de
 // pop-ups bloqueados, mismo document.write) en vez de duplicar la mecánica.

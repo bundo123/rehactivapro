@@ -437,6 +437,19 @@ export function diagConCie(diag, cie){
   return c&&base?`${base} (CIE-10: ${c})`:base;
 }
 
+// CAMPOS-1: diagnósticos secundarios del paciente (patients.diag_sec, [{c,d}] 1..5). Suma `it` a la
+// lista sin repetidos, distinto del CIE-10 principal y con tope de 5 (CHECK de la base). Pura:
+// devuelve la lista nueva o el motivo por el que no se sumó (el modal lo muestra en un toast).
+export const DIAG_SEC_MAX=5;
+export function agregarDiagSec(lista, it, principal){
+  const cur=Array.isArray(lista)?lista:[];
+  if(!it?.c) return {lista:cur, error:null};
+  if(principal&&it.c===principal) return {lista:cur, error:`${it.c} ya es el diagnóstico principal`};
+  if(cur.some(x=>x.c===it.c)) return {lista:cur, error:`${it.c} ya está en la lista`};
+  if(cur.length>=DIAG_SEC_MAX) return {lista:cur, error:`Máximo ${DIAG_SEC_MAX} diagnósticos secundarios`};
+  return {lista:[...cur,{c:it.c,d:it.d||''}], error:null};
+}
+
 // ── DIAG-1: el diagnóstico es un CATÁLOGO CERRADO ──
 // El banco de diagnósticos es la tabla `protocols` (no se renombra en la base). El diagnóstico se
 // ELIGE de ahí, nunca se escribe, y `patients.diag` queda sincronizado con `protocols.name` para
@@ -547,6 +560,8 @@ export function mapTherapistRow(r){
     // capacidad todos los días hábiles sin que nadie tenga que marcarlo. 60 es el default de la
     // columna; el ?? cubre la fila vieja que todavía llega sin la columna en un caché.
     lunchMinutes:r.lunch_minutes ?? 60,
+    // CAMPOS-1: registro profesional (ACESS/SENESCYT); sale bajo la firma del informe.
+    registro:r.registro||'',
   };
 }
 
@@ -811,6 +826,23 @@ export function mapEpisodioRow(r) {
     sesionesPrevias: Number(r.sesiones_previas) || 0,
     createdAt: r.created_at || null,
   };
+}
+
+// ── ORD-1: órdenes del médico referente = tabla public.pedidos_medicos ──
+// Sin vínculo a episodio: el informe cita la más reciente con fecha <= fin del período
+// (ordenAplicable, orden-medica.js). Fila de la DB → objeto en memoria (carga inicial y altas).
+export function mapOrdenRow(r) {
+  return {
+    id: r.id, doctorId: r.doctor_id || null, fecha: r.fecha,
+    sesiones: r.sesiones_autorizadas, vigenciaHasta: r.vigencia_hasta || null,
+    nota: r.nota || '', createdAt: r.created_at || null,
+  };
+}
+
+// Órdenes por fecha asc y, el mismo día, por alta asc (la última cargada queda al final).
+export function ordenarOrdenes(list) {
+  return [...(list || [])].sort((a, b) => String(a.fecha || '').localeCompare(String(b.fecha || ''))
+    || String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
 }
 
 // Episodios del paciente del más viejo al más nuevo (desde null primero). Sin filas en la tabla

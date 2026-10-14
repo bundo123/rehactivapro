@@ -5,8 +5,8 @@
 // vive en el modal de paciente y en el de editar cita, y en este último se guarda al instante.
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, buscarCie10 } from './utils.js';
-import { toastOk, toastErr } from './toast.js';
+import { esc, buscarCie10, agregarDiagSec } from './utils.js';
+import { toastOk, toastErr, toastInfo } from './toast.js';
 import { hasPermission } from './permissions.js';
 
 let _cat = null;      // catálogo ya cargado
@@ -28,16 +28,20 @@ export function loadCie10() {
 //            en que el terapeuta tiene el caso delante, así que el código se guarda al instante.
 //  - 'pm'  : modal de paciente. Queda pendiente y lo escribe savePatient (el paciente nuevo
 //            todavía no tiene fila).
+//  - 'pmsec': diagnósticos secundarios del modal de paciente (CAMPOS-1). Selección MÚLTIPLE
+//            (hasta 5, sin repetidos, distinta del principal); también la escribe savePatient.
 const SCOPES = {
   appt: { search: 'cie-appt-search', results: 'cie-appt-results', current: 'cie-appt-current', persist: true },
   ev:   { search: 'ev-cie10-search', results: 'ev-cie10-results', current: 'ev-cie10-current', persist: true },
   pm:   { search: 'pm-cie10-search', results: 'pm-cie10-results', current: 'pm-cie10-current', persist: false },
+  pmsec:{ search: 'pm-diagsec-search', results: 'pm-diagsec-results', current: 'pm-diagsec-list', persist: false },
 };
 
 // Paciente abierto en cada scope que persiste (la cita y la evaluación pueden apuntar a pacientes
 // distintos, así que no puede ser una sola variable).
 let _scopePatientId = { appt: null, ev: null };
 let _pmSel = { c: null, d: null };  // selección pendiente del modal de paciente
+let _pmSecSel = [];                 // diagnósticos secundarios pendientes del modal de paciente
 
 const $ = id => document.getElementById(id);
 
@@ -51,6 +55,14 @@ function currentValue(scope) {
 function renderCurrent(scope) {
   const cfg = SCOPES[scope]; if (!cfg) return;
   const box = $(cfg.current); if (!box) return;
+  if (scope === 'pmsec') {
+    box.innerHTML = _pmSecSel.length
+      ? _pmSecSel.map(x => `<span class="cie-chip"><span class="cie-code">${esc(x.c)}</span>`
+          + `<span class="cie-desc">${esc(x.d || '')}</span>`
+          + `<button type="button" class="cie-clear" title="Quitar ${esc(x.c)}" onclick="cie10Clear('pmsec','${esc(x.c)}')">✕</button></span>`).join('')
+      : `<span class="cie-empty">Ninguno</span>`;
+    return;
+  }
   const { c, d } = currentValue(scope);
   box.innerHTML = c
     ? `<span class="cie-code">${esc(c)}</span><span class="cie-desc">${esc(d || '')}</span>`
@@ -90,11 +102,18 @@ export async function cie10Pick(scope, code) {
   const inp = $(cfg.search); if (inp) inp.value = '';
   hideResults(scope);
   if (cfg.persist) await persistCie(it.c, it.d, scope);
+  else if (scope === 'pmsec') {
+    const r = agregarDiagSec(_pmSecSel, it, _pmSel.c);
+    if (r.error) toastInfo(r.error);
+    _pmSecSel = r.lista; renderCurrent('pmsec');
+  }
   else { _pmSel = { c: it.c, d: it.d }; renderCurrent('pm'); }
 }
 
-export async function cie10Clear(scope) {
+// En 'pmsec' `code` dice cuál de la lista se quita; en los demás scopes se quita el único.
+export async function cie10Clear(scope, code) {
   if (!SCOPES[scope]) return;
+  if (scope === 'pmsec') { _pmSecSel = _pmSecSel.filter(x => x.c !== code); renderCurrent('pmsec'); return; }
   if (SCOPES[scope].persist) await persistCie(null, null, scope);
   else { _pmSel = { c: null, d: null }; renderCurrent('pm'); }
 }
@@ -158,9 +177,25 @@ export function getCie10Pm() {
   return { cie10: _pmSel.c || null, cie10Desc: _pmSel.d || null };
 }
 
+// CAMPOS-1: diagnósticos secundarios del modal de paciente — prefill al editar, vacío al crear.
+export function resetDiagSecPm(p) {
+  _pmSecSel = Array.isArray(p?.diagSec) ? p.diagSec.map(x => ({ c: x.c, d: x.d || '' })) : [];
+  const inp = $('pm-diagsec-search');
+  if (inp) inp.value = '';
+  hideResults('pmsec');
+  renderCurrent('pmsec');
+}
+
+// Lo que savePatient escribe en diag_sec: [{c,d}]. Un secundario igual al principal elegido después
+// se descarta acá (no se repite el mismo código en las dos filas del informe).
+export function getDiagSecPm() {
+  return _pmSecSel.filter(x => x.c !== _pmSel.c).map(x => ({ c: x.c, d: x.d }));
+}
+
 // Cerrar el desplegable al hacer click fuera del combo (espejo de informes.js/search.js).
 document.addEventListener('click', e => {
   if (!e.target.closest('#cie-appt-combo')) hideResults('appt');
   if (!e.target.closest('#ev-cie10-combo')) hideResults('ev');
   if (!e.target.closest('#pm-cie10-combo')) hideResults('pm');
+  if (!e.target.closest('#pm-diagsec-combo')) hideResults('pmsec');
 });

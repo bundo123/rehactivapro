@@ -1,6 +1,8 @@
 // Prompt de la narrativa IA del informe del paciente (genPatientAI en ia.js). Función PURA, sin DOM
 // ni state, para poder testear las reglas con node --test (ia.js importa el cliente de Supabase y no
 // carga fuera de Vite). Lo que depende de state (protocolo, médico) llega ya resuelto.
+// CAMPOS-1: con p.sexo la regla de cómo nombrar al paciente concuerda en género; sin sexo
+// registrado (null) el prompt queda exactamente como antes.
 import { getDisplayAge, diagParaPrompt, ctxParaPrompt, sesionesMostradas, textoPrevias, dmy } from './utils.js';
 import { resumenResp } from './soap.js';
 
@@ -45,8 +47,15 @@ export function promptInformePaciente({ p, log, epDiag, epSessions, epDone, esAc
   // PR-B: contexto del protocolo SOLO por link explícito (protocol_id), tope duro de 1.200 caracteres (D4).
   const protCtx = prot ? ctxParaPrompt(prot) : '';
   // Sin médico registrado no hay "médico que refirió": la IA no debe inventarlo.
-  const destinatario = tieneMedico ? 'dirigido al médico que refirió al paciente y que también puede leer el propio paciente'
-    : 'dirigido al paciente y a su equipo de salud';
+  const mujer = p.sexo === 'F';
+  const destinatario = tieneMedico
+    ? (mujer ? 'dirigido al médico que refirió a la paciente y que también puede leer la propia paciente'
+      : 'dirigido al médico que refirió al paciente y que también puede leer el propio paciente')
+    : (mujer ? 'dirigido a la paciente y a su equipo de salud' : 'dirigido al paciente y a su equipo de salud');
+  const reglaNombre = mujer
+    ? "- La paciente es mujer: escribe siempre 'la paciente' y usa concordancia femenina en todo el texto (ingresó, fue evaluada, …), nunca su nombre."
+    : p.sexo === 'M' ? "- El paciente es hombre: escribe siempre 'el paciente', nunca su nombre."
+    : "- Refiérete siempre al 'paciente', nunca con nombre propio.";
   return `Eres un fisioterapeuta colegiado redactando un informe de evolución clínica en Ecuador, ${destinatario}. Escribe con tono formal y profesional, pero claro. RESPETA estas reglas de redacción de forma estricta:
 - TEXTO PLANO: prohibido markdown, asteriscos, numerales (#), guiones de viñeta o cualquier símbolo de formato. Solo prosa en párrafos.
 - NO repitas cifras crudas que ya están en las tablas y el gráfico del informe (no listes los valores EVA de cada sesión ni el número de sesiones). En su lugar, INTERPRÉTALOS clínicamente.
@@ -54,7 +63,7 @@ export function promptInformePaciente({ p, log, epDiag, epSessions, epDone, esAc
 - Enfócate en la FUNCIÓN: dolor, rango de movimiento y fuerza.
 - Menciona actividades de la vida diaria SOLO si aparecen en los datos; no las supongas ni las deduzcas.
 - No reemplaces términos clínicos por otros parecidos (por ejemplo, 'sin complicaciones' no es 'sin compensaciones').
-- Refiérete siempre al 'paciente', nunca con nombre propio.${tieneMedico ? '' : `
+${reglaNombre}${tieneMedico ? '' : `
 - No menciones a ningún médico referente: este paciente no tiene uno registrado.`}
 - Basa todo en los datos provistos (evaluación inicial, técnicas aplicadas, observaciones, EVA). No inventes hallazgos que no estén en los datos.
 - Las fechas y el orden de los eventos salen del HISTORIAL POR SESIÓN; no digas 'segunda semana' si el dato dice día 4.${protCtx ? `

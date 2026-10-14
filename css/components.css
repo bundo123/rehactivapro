@@ -72,6 +72,17 @@
 .cie-empty{font-size:11.5px;color:#9c9a92;font-style:italic}
 .cie-clear{flex-shrink:0;border:1px solid rgba(226,75,74,.35);background:transparent;color:#c33a3a;border-radius:6px;font-size:11px;line-height:1;padding:4px 7px;cursor:pointer;font-family:inherit}
 .cie-clear:hover{background:rgba(226,75,74,.1)}
+/* CAMPOS-1: diagnósticos secundarios = varios chips en el mismo .cie-current */
+.cie-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;border:1px solid rgba(41,171,226,.3);border-radius:7px;padding:3px 3px 3px 4px;background:rgba(41,171,226,.06)}
+.cie-chip .cie-desc{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ORD-1: lista de órdenes médicas del modal */
+.orden-list{margin-bottom:14px}
+.orden-item{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.07)}
+.orden-item:last-child{border-bottom:none}
+.orden-txt{font-size:12px;color:#1a1917;line-height:1.45;min-width:0}
+.orden-nota{font-size:11px;color:#6b6a64;margin-top:2px}
+.orden-venc{font-size:10.5px;font-weight:700;color:#c33a3a;margin-left:4px}
+.orden-empty{font-size:12px;color:#9c9a92;font-style:italic;padding:4px 0 8px}
 .cie-combo{position:relative}
 .cie-combo input{width:100%;box-sizing:border-box;background:#fff;border:1px solid rgba(29,158,117,.25);border-radius:7px;padding:8px 11px;font-size:13px;color:#1a1917;outline:none;font-family:inherit}
 .cie-combo input:focus{border-color:rgba(29,158,117,.5)}
