@@ -20,7 +20,7 @@
 // al bundle inicial — solo la baja quien exporta un informe a Word.
 import { LOGO_DATA_URI } from './pdf-logo.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
-import { dmy, CONFIG_CLINICA, limpiarParte, inicioDesdeEval, rotuloDolorInicial, textoCitas, textoPrevias } from './utils.js';
+import { dmy, CONFIG_CLINICA, limpiarParte, inicioDesdeEval, rotuloDolorInicial, textoCitas, textoPrevias, textoPeriodoRango } from './utils.js';
 import { romGrupos } from './rom.js';
 
 // Data URI (base64) → Uint8Array. ImageRun no acepta el string 'data:...' con cabecera: quiere los
@@ -389,7 +389,7 @@ export async function generarInformeWord(m) {
             spacing: { before: 0, after: 140, line: 260, lineRule: 'auto' },
             children: [new TextRun({ text: m.paciente.nombre || '—', font: SERIF, size: SZ.h1, color: ACENTO, italics: true })],
           }),
-          new Paragraph({ style: 'Subline', text: `Emitido el ${emisionCorta} · Período ${periodo}` }),
+          new Paragraph({ style: 'Subline', text: m.rango ? `Emitido el ${emisionCorta} · ${textoPeriodoRango(m.rango)}` : `Emitido el ${emisionCorta} · Período ${periodo}` }),
 
           // ── Datos del paciente — una sola tabla 2×3 sin bordes, etiqueta encima del valor
           // (+ tercera línea CIE-10 en la celda Diagnóstico cuando hay código) ──

@@ -1,6 +1,41 @@
 # RehactivaPro — Estado del Proyecto
 
-> Generado: 2026-05-18 · Última actualización: 2026-10-08
+> Generado: 2026-05-18 · Última actualización: 2026-10-14
+
+---
+
+## 🗓️ Sesión 2026-10-14 (1) — BLOQUE A · LOTE EPI-2b: informe por rango de sesiones o de fechas. Sin SQL.
+
+**Deploy de EPI-2a verificado** (`3cf75ef`, en `main`): commit-status de Vercel `success` y deploy
+de **Production** en GitHub; 16/16 archivos de `dist/` iguales a lo servido en rehactivaec.com
+(`index-Bxj0BEEs.js`, `index-D8qrM566.css`; los HTML y `robots.txt` tras normalizar espacios).
+
+**EPI-2b** (este commit, rama `revision-bloque-a`):
+- **Selector:** «Rango de sesiones o fechas…» al final de `#patient-rpt-episode`. Abre una barra
+  encima del informe: «De la sesión N a la sesión M» o «Del … al …» (fechas) + «Aplicar», con la
+  numeración disponible a la vista. Aplicado, el selector queda en `rango:N-M` o
+  `rango:AAAA-MM-DD-AAAA-MM-DD` (con su etiqueta «Rango: sesiones N a M (dd/mm – dd/mm)»).
+- **Ordinal:** sobre TODAS las sesiones de tratamiento del paciente (regla de `doneEnLog`), en orden
+  de fecha y hora, de todos los episodios. Las previas a RehactivaPro del episodio ACTUAL corren el
+  número de las sesiones de ese episodio (como el badge X/N). `sesionesNumeradas` (utils.js).
+- **Recorte:** `logDeEpisodio(p, epVal, {rango})` → sesiones del rango + faltas entre la primera y
+  la última + la Evaluación inicial SOLO si precede directamente a la primera sesión (mismo día o
+  antes, sin otra sesión entre las dos); una evaluación a mitad de un rango que cruza episodios no
+  entra (el gráfico la ponía como punto de partida). `epDiag`/`epSessions` = los del episodio de la
+  ÚLTIMA sesión; `epDone` = sesiones del rango; `esActual` = false; `epPrevias` = 0.
+  `citasDeEpisodio(..., {rango})` = citas entre la primera y la última sesión del rango.
+- **Mismo recorte** en pantalla, PDF, Word (render-model `rango`) y la IA (`genPatientAI`: estado
+  «Informe parcial: sesiones N a M (del … al …)»; un rango que termina en el episodio actual lleva
+  el CIE-10 y el contexto del protocolo de hoy). Encabezado: «Período del informe: dd/mm – dd/mm ·
+  sesiones N a M». Rango vacío → aviso y no genera (ni informe, ni IA).
+- **Guardar informe:** `informes.episodio = 'rango:N-M'` (o de fechas); «Ver»/«PDF» usan el
+  snapshot. La lista de guardados muestra «· sesiones N a M».
+- Decisiones: previas solo del episodio actual (lo que pide el lote); la evaluación a mitad de
+  rango queda fuera; `informes.episodio` es texto libre (no hay CHECK documentado).
+
+575 → 587 pruebas según `node --test` (+12 en `test/epi2b.test.js`). E2E con Playwright (Vite dev, datos ficticios,
+sin login): selector, barra, rango vacío (aviso, no cambia la selección), rango 2–6 que cruza
+episodios (encabezado, 5 sesiones, diag del episodio de la última) y PDF por fechas.
 
 ---
 

@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { esc, dmy, fmtDate, semanaRango, citasEnFechas, citasEnPrefijo,
          nuevosEnPrefijo, resumenCitas, hastaHoy, MES_LARGO,
-         logDeEpisodio, getDoctor } from './utils.js';
+         logDeEpisodio, getDoctor, parseRangoInforme } from './utils.js';
 import { toastErr } from './toast.js';
 // Import circular a propósito: informes.js importa las tres gen*AI de acá y acá se importan sus
 // tres renders. Se usan SOLO dentro del cuerpo de las gen*AI (al hacer clic) y son declaraciones
@@ -256,12 +256,19 @@ export function genPatientAI() {
   // CTX-1b: la narrativa respeta el episodio elegido en el selector, con el MISMO recorte que la
   // pantalla/PDF/Word (logDeEpisodio). Antes mandaba todo p.log y el diagnóstico/sesiones de hoy.
   const epVal=document.getElementById('patient-rpt-episode')?.value||'current';
-  const {log,epDiag,epSessions,epDone,esActual,epPrevias}=logDeEpisodio(p,epVal);
+  // EPI-2b: un rango ('rango:N-M' / 'rango:fecha-fecha') usa el mismo recorte que la pantalla.
+  if(epVal==='rango'){toastErr('Elegí el rango y tocá «Aplicar» antes de generar.');return;}
+  const rangoSel=parseRangoInforme(epVal);
+  const {log,epDiag,epSessions,epDone,esActual:esAct,epPrevias,rango,epActualUltima}=logDeEpisodio(p,epVal,rangoSel?{rango:rangoSel}:undefined);
+  if(rango&&rango.vacio){toastErr('El rango elegido no tiene sesiones de tratamiento.');return;}
+  // Un rango cuya última sesión cae en el episodio actual se lee como el actual (diagnóstico con
+  // CIE-10 y contexto del protocolo de hoy); el rango en sí lo dice el prompt (estado).
+  const esActual=esAct||!!epActualUltima;
   // CTX-1b: protocolId y médico son los de HOY; en un episodio cerrado no se manda el protocolo.
   const prot=esActual&&p.protocolId?state.protocols.find(x=>x.id===p.protocolId):null;
   const tieneMedico=!!(p.doctorId&&getDoctor(p.doctorId));
   // MINI-1: el texto del prompt vive en prompt-informe.js (puro, testeable).
-  const prompt=promptInformePaciente({p,log,epDiag,epSessions,epDone,esActual,prot,tieneMedico,epPrevias});
+  const prompt=promptInformePaciente({p,log,epDiag,epSessions,epDone,esActual,prot,tieneMedico,epPrevias,rango:rango||null});
   const outputEl=document.getElementById('patient-rpt-ai-output');
   if(outputEl){outputEl.style.display='block';callAI(prompt,'patient-rpt-ai-output',_renderPatientNarrative);}
 }

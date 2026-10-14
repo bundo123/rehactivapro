@@ -352,6 +352,23 @@
     <select id="patient-rpt-episode" class="hdr-select" onchange="renderPatientReport()"></select>
   </div>
   <div class="main-body">
+    <!-- EPI-2b: informe por rango (se ve con la opción «Rango…» del selector de episodio) -->
+    <div id="patient-rpt-rango" class="rpt-rango" hidden>
+      <select id="rpt-rango-modo" class="hdr-select" onchange="cambiarModoRango()" aria-label="Tipo de rango">
+        <option value="ses">Por número de sesión</option>
+        <option value="fecha">Por fechas</option>
+      </select>
+      <span id="rpt-rango-ses" class="rpt-rango-campos">
+        <label>De la sesión <input type="number" id="rpt-rango-n" min="1" step="1" inputmode="numeric"></label>
+        <label>a la sesión <input type="number" id="rpt-rango-m" min="1" step="1" inputmode="numeric"></label>
+      </span>
+      <span id="rpt-rango-fechas" class="rpt-rango-campos" hidden>
+        <label>Del <input type="date" id="rpt-rango-d1"></label>
+        <label>al <input type="date" id="rpt-rango-d2"></label>
+      </span>
+      <button type="button" class="add-btn" onclick="aplicarRangoInforme()">Aplicar</button>
+      <span id="rpt-rango-total" class="rpt-rango-total"></span>
+    </div>
     <div id="patient-report-content"></div>
   </div>
 </div>

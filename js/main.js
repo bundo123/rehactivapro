@@ -50,7 +50,7 @@ import {
   filterPatientRptSelect, selectRptPatient, rptSearchKeydown, exportarPDF,
   genSemanalAI, genMensualAI, genAnualAI, genPatientAI,
   guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado,
-  abrirFirmanteModal, confirmarExportarWord
+  abrirFirmanteModal, confirmarExportarWord, aplicarRangoInforme, cambiarModoRango
 } from './informes.js';
 import {
   renderFacturacion, emitirFactura, marcarTodosFacturados
@@ -251,7 +251,7 @@ Object.assign(window, {
   skipSession, simWA, simEmail, emitirFactura,
   marcarTodosFacturados, exportarPDF, genSemanalAI, genMensualAI, genAnualAI, genResumenDiaAI,
   genPatientAI, guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado, globalSearch, selectGlobalResult,
-  abrirFirmanteModal, confirmarExportarWord,
+  abrirFirmanteModal, confirmarExportarWord, aplicarRangoInforme, cambiarModoRango,
   updateRecPreview, populateDiagSelects,
   goToPatientPage, toggleEvalFilter, setPatientStatusFilter, verPaciente,
   setSeguimientoFilter, toggleSeguimientoDetalle, verPacienteSeguimiento,

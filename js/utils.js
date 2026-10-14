@@ -890,7 +890,9 @@ export function enEpisodio(date, eps, i) {
 // la IA (genPatientAI). EPI-2a: el rango sale de la tabla episodios; en un episodio cerrado el
 // diagnóstico y el plan salen de su foto (si falta, los del paciente, como antes). epPrevias son
 // las sesiones previas a RehactivaPro de ese episodio: solo para MOSTRAR (nunca en epDone).
-export function logDeEpisodio(p, epVal) {
+// EPI-2b: opts.rango = {desdeN,hastaN} | {desdeFecha,hastaFecha} recorta por rango (ver _logDeRango).
+export function logDeEpisodio(p, epVal, opts) {
+  if (opts?.rango) return _logDeRango(p, opts.rango);
   const fullLog = (p?.log || []).filter(s => s && s.date && s.type !== 'Fin de episodio');
   const eps = episodiosOrdenados(p);
   const i = indiceEpisodio(eps, epVal);
@@ -909,6 +911,93 @@ export function logDeEpisodio(p, epVal) {
   log = [...log].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
   return { log, epDiag, epSessions, epDone, esActual, episodio: ep,
     epPrevias: ep?.sesionesPrevias || 0, epNombre: ep?.nombre || null };
+}
+
+// ── EPI-2b: informe por rango de sesiones o de fechas ──
+// Sesiones de tratamiento del paciente (la regla de doneEnLog: asistió, sin evaluación ni
+// marcadores) en orden de fecha y hora, con su ordinal sobre TODAS, de todos los episodios. Las
+// previas a RehactivaPro del episodio ACTUAL corren el número de las sesiones de ese episodio (como
+// el badge X/N de la agenda): con 5 previas, su primera sesión en RehactivaPro es la 6.
+export function sesionesNumeradas(p) {
+  const eps = episodiosOrdenados(p);
+  const iAct = eps.length - 1;
+  const previas = eps[iAct]?.sesionesPrevias || 0;
+  const trat = (p?.log || []).filter(s => s && s.date && s.status === 'asistió'
+    && s.type !== 'Evaluación inicial' && s.type !== 'Fin de episodio')
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)) || normHour(a.hour).localeCompare(normHour(b.hour)));
+  let k = 0, sumadas = false;
+  return trat.map(s => {
+    if (!sumadas && enEpisodio(s.date, eps, iAct)) { k += previas; sumadas = true; }
+    k++;
+    return { s, n: k };
+  });
+}
+
+// Valor del selector ('rango:3-8' o 'rango:2026-08-01-2026-09-15') ↔ rango. Es también lo que se
+// guarda en informes.episodio. null si no es un rango válido.
+export function parseRangoInforme(v) {
+  const s = String(v ?? '');
+  let m = /^rango:(\d+)-(\d+)$/.exec(s);
+  if (m) return { desdeN: parseInt(m[1], 10), hastaN: parseInt(m[2], 10) };
+  m = /^rango:(\d{4}-\d{2}-\d{2})-(\d{4}-\d{2}-\d{2})$/.exec(s);
+  return m ? { desdeFecha: m[1], hastaFecha: m[2] } : null;
+}
+export function valorRangoInforme(r) {
+  if (!r) return '';
+  if (r.desdeN != null) return `rango:${r.desdeN}-${r.hastaN}`;
+  return `rango:${r.desdeFecha}-${r.hastaFecha}`;
+}
+// "Período del informe: 03/08 – 21/08 · sesiones 3 a 8" (encabezado de pantalla, PDF y Word).
+export function textoPeriodoRango(r) {
+  if (!r || r.vacio) return '';
+  return `Período del informe: ${ddmm(r.desdeFecha)} – ${ddmm(r.hastaFecha)} · sesiones ${r.desdeN} a ${r.hastaN}`;
+}
+
+// Recorte por rango. Entran las sesiones de tratamiento del rango; las demás filas (faltas,
+// sesiones sin asistencia) que caen entre la primera y la última; y la Evaluación inicial solo si
+// es la que precede directamente a la primera sesión del rango (mismo día o antes, sin otra sesión
+// entre las dos). Diagnóstico y plan = los del episodio que contiene la ÚLTIMA sesión del rango; epDone =
+// sesiones del rango; esActual = false; epPrevias = 0 (el ordinal ya las cuenta).
+// rango.vacio = true cuando no hay ninguna sesión de tratamiento en el rango (el caller avisa).
+function _logDeRango(p, rango) {
+  const fullLog = (p?.log || []).filter(s => s && s.date && s.type !== 'Fin de episodio');
+  const nums = sesionesNumeradas(p);
+  let sel;
+  if (rango.desdeN != null) {
+    let a = Number(rango.desdeN), b = Number(rango.hastaN);
+    if (a > b) [a, b] = [b, a];
+    sel = nums.filter(x => x.n >= a && x.n <= b);
+  } else {
+    let a = String(rango.desdeFecha || ''), b = String(rango.hastaFecha || '');
+    if (a > b) [a, b] = [b, a];
+    sel = nums.filter(x => x.s.date >= a && x.s.date <= b);
+  }
+  if (!sel.length) return { log: [], epDiag: p?.diag, epSessions: p?.sessions, epDone: 0, esActual: false,
+    episodio: null, epPrevias: 0, epNombre: null, epActualUltima: false, rango: { vacio: true } };
+  const d1 = sel[0].s.date, d2 = sel[sel.length - 1].s.date;
+  const elegidas = new Set(sel.map(x => x.s));
+  const trat = new Set(nums.map(x => x.s));
+  const evalPrevia = fullLog.filter(s => s.type === 'Evaluación inicial' && s.date <= d1)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+  const evalOk = evalPrevia && !nums.some(x => x.s.date > evalPrevia.date && x.s.date < d1) ? evalPrevia : null;
+  // Una evaluación a MITAD del rango (rango que cruza episodios) no entra: el informe la tomaría
+  // como punto de partida del dolor y la pondría antes de sesiones que fueron anteriores.
+  const log = fullLog.filter(s => elegidas.has(s) || s === evalOk
+    || (!trat.has(s) && s.type !== 'Evaluación inicial' && s.date >= d1 && s.date <= d2))
+    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  const eps = episodiosOrdenados(p);
+  let iUlt = eps.length - 1;
+  eps.forEach((_, i) => { if (enEpisodio(d2, eps, i)) iUlt = i; });
+  const ep = eps[iUlt];
+  const actual = iUlt === eps.length - 1;
+  return {
+    log,
+    epDiag: actual ? p?.diag : (ep.diag || p?.diag),
+    epSessions: actual ? p?.sessions : (ep.sesionesPlan ?? p?.sessions),
+    epDone: sel.length, esActual: false, episodio: ep, epPrevias: 0, epNombre: ep?.nombre || null,
+    epActualUltima: actual,
+    rango: { desdeN: sel[0].n, hastaN: sel[sel.length - 1].n, desdeFecha: d1, hastaFecha: d2, vacio: false },
+  };
 }
 
 // Lo que se MUESTRA como sesiones hechas: las de RehactivaPro + las previas. Nunca entra en

@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, logDeEpisodio, dolorInicial, rotuloDolorInicial, textoCitas, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber, ctxEstado, tieneEva, textoDeltaEva, sesionesMostradas, textoPrevias } from './utils.js';
+import { esc, fmtDate, getPatient, getTherapist, getDoctor, getColor, ALL_HOURS, DAYS, getDisplayAge, doneActual, logDeEpisodio, dolorInicial, rotuloDolorInicial, textoCitas, diagConCie, orderedTherapists, dmy, CONFIG_CLINICA, buildEvaSvg, limpiarParte, MES_LARGO, MES_CORTO, semanaRango, citasEnFechas, citasEnPrefijo, resumenCitas, hastaHoy, findBlock, ocupacionTerapeuta, waNumber, ctxEstado, tieneEva, textoDeltaEva, sesionesMostradas, textoPrevias, sesionesNumeradas, parseRangoInforme, valorRangoInforme, textoPeriodoRango, ddmm } from './utils.js';
 import { apptSlots } from './agenda.js';
 import { citasDeEpisodio, episodiosDePaciente, opcionesEpisodio } from './historial-calc.js';
 import { htmlPanelEpisodios } from './episodios.js';
@@ -559,9 +559,83 @@ export function updateEpisodes() {
   const ep=document.getElementById('patient-rpt-episode');
   if(!p){ep.innerHTML='<option value="0">Episodio actual</option>';renderPatientReport();return;}
   const prev=ep.value;
-  const opciones=opcionesEpisodio(episodiosDePaciente(p));
+  // EPI-2b: al final, 'rango' (abre los campos) y, si hay uno aplicado, su opción 'rango:…'.
+  const opciones=[...opcionesEpisodio(episodiosDePaciente(p)),{value:'rango',label:'Rango de sesiones o fechas…'}];
+  const rPrev=parseRangoInforme(prev);
+  if(rPrev) opciones.push({value:prev,label:_labelRango(p,rPrev)});
   ep.innerHTML=opciones.map(o=>`<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('');
   if(opciones.some(o=>o.value===prev)) ep.value=prev;
+  renderPatientReport();
+}
+
+// ── EPI-2b: informe por rango ──
+// Lo elegido en el selector → argumentos de logDeEpisodio/citasDeEpisodio. 'rango' sin aplicar
+// todavía no recorta nada (renderPatientReport muestra solo los campos).
+function _seleccionInforme() {
+  const epVal=document.getElementById('patient-rpt-episode')?.value||'current';
+  const rango=parseRangoInforme(epVal);
+  return {epVal,opts:rango?{rango}:undefined,rango};
+}
+function _labelRango(p,r) {
+  const res=logDeEpisodio(p,valorRangoInforme(r),{rango:r}).rango;
+  if(!res||res.vacio) return 'Rango sin sesiones';
+  return `Rango: sesiones ${res.desdeN} a ${res.hastaN} (${ddmm(res.desdeFecha)} – ${ddmm(res.hastaFecha)})`;
+}
+// Barra de campos del rango: visible con 'rango' o un 'rango:…' elegido. Precarga lo aplicado o,
+// la primera vez, todas las sesiones del paciente.
+function _pintarBarraRango(p,epVal) {
+  const bar=document.getElementById('patient-rpt-rango');
+  if(!bar) return;
+  const ver=!!p&&(epVal==='rango'||!!parseRangoInforme(epVal));
+  bar.hidden=!ver;
+  if(!ver) return;
+  const nums=sesionesNumeradas(p);
+  const tot=document.getElementById('rpt-rango-total');
+  if(tot) tot.textContent=nums.length
+    ?`Sesiones numeradas de ${nums[0].n} a ${nums[nums.length-1].n} (${dmy(nums[0].s.date)} – ${dmy(nums[nums.length-1].s.date)})`
+    :'El paciente no tiene sesiones de tratamiento registradas.';
+  const r=parseRangoInforme(epVal);
+  const set=(id,v)=>{const el=document.getElementById(id);if(el&&(r||!el.value))el.value=v??'';};
+  const modo=document.getElementById('rpt-rango-modo');
+  if(r&&modo) modo.value=r.desdeN!=null?'ses':'fecha';
+  if(r&&r.desdeN!=null){set('rpt-rango-n',r.desdeN);set('rpt-rango-m',r.hastaN);}
+  else if(r){set('rpt-rango-d1',r.desdeFecha);set('rpt-rango-d2',r.hastaFecha);}
+  else if(nums.length){
+    set('rpt-rango-n',nums[0].n);set('rpt-rango-m',nums[nums.length-1].n);
+    set('rpt-rango-d1',nums[0].s.date);set('rpt-rango-d2',nums[nums.length-1].s.date);
+  }
+  cambiarModoRango();
+}
+export function cambiarModoRango() {
+  const fechas=document.getElementById('rpt-rango-modo')?.value==='fecha';
+  const a=document.getElementById('rpt-rango-ses'), b=document.getElementById('rpt-rango-fechas');
+  if(a) a.hidden=fechas;
+  if(b) b.hidden=!fechas;
+}
+// "Aplicar": arma el valor 'rango:…', lo deja elegido en el selector y redibuja. Un rango sin
+// sesiones de tratamiento avisa y no genera nada.
+export function aplicarRangoInforme() {
+  const id=document.getElementById('patient-rpt-select')?.value;
+  const p=state.patients.find(x=>String(x.id)===String(id));
+  if(!p){window._app.toastErr('Elegí primero un paciente');return;}
+  const fechas=document.getElementById('rpt-rango-modo')?.value==='fecha';
+  let r;
+  if(fechas){
+    const d1=document.getElementById('rpt-rango-d1')?.value||'', d2=document.getElementById('rpt-rango-d2')?.value||'';
+    if(!d1||!d2){window._app.toastErr('Elegí las dos fechas del rango');return;}
+    r=d1<=d2?{desdeFecha:d1,hastaFecha:d2}:{desdeFecha:d2,hastaFecha:d1};
+  } else {
+    const n=parseInt(document.getElementById('rpt-rango-n')?.value,10), m=parseInt(document.getElementById('rpt-rango-m')?.value,10);
+    if(!(n>=1)||!(m>=1)){window._app.toastErr('Escribí los dos números de sesión (desde 1)');return;}
+    r={desdeN:Math.min(n,m),hastaN:Math.max(n,m)};
+  }
+  const res=logDeEpisodio(p,valorRangoInforme(r),{rango:r}).rango;
+  if(!res||res.vacio){window._app.toastErr('No hay sesiones de tratamiento en ese rango: no se genera el informe.');return;}
+  const ep=document.getElementById('patient-rpt-episode');
+  const val=valorRangoInforme(r);
+  [...ep.options].filter(o=>/^rango:/.test(o.value)).forEach(o=>o.remove());
+  ep.insertAdjacentHTML('beforeend',`<option value="${esc(val)}">${esc(_labelRango(p,r))}</option>`);
+  ep.value=val;
   renderPatientReport();
 }
 
@@ -570,17 +644,21 @@ export function renderPatientReport() {
   const id=document.getElementById('patient-rpt-select').value;
   const p=state.patients.find(x=>String(x.id)===String(id));
   const out=document.getElementById('patient-report-content');
+  const {epVal,opts:selOpts}=_seleccionInforme();
+  _pintarBarraRango(p,epVal);
   if(!p){out.innerHTML='<div style="color:#6b6a64;padding:20px;text-align:center">Selecciona un paciente del buscador</div>';return;}
-  const epVal=document.getElementById('patient-rpt-episode')?.value||'current';
+  if(epVal==='rango'){_rptCtx=null;out.innerHTML='<div style="color:#6b6a64;padding:20px;text-align:center">Elegí el rango de sesiones o de fechas y tocá «Aplicar».</div>';return;}
   // CTX-1b: recorte por episodio (log ordenado, diagnóstico/sesiones del episodio) — fuente única
-  // compartida con la narrativa de la IA (genPatientAI).
-  const {log,epDiag,epSessions,epDone,epPrevias}=logDeEpisodio(p,epVal);
+  // compartida con la narrativa de la IA (genPatientAI). EPI-2b: o por rango.
+  const {log,epDiag,epSessions,epDone,epPrevias,rango,epActualUltima}=logDeEpisodio(p,epVal,selOpts);
+  if(rango&&rango.vacio){_rptCtx=null;out.innerHTML='<div style="color:#6b6a64;padding:20px;text-align:center">No hay sesiones de tratamiento en ese rango.</div>';return;}
   // EPI-2a: lo que se MUESTRA como hechas suma las previas a RehactivaPro (nunca en facturación).
   const epHechas=sesionesMostradas(epDone,epPrevias);
   const isCurrentEpisode=epVal==='current';
-  // El CIE-10 es del paciente HOY: se agrega solo al episodio actual. En un episodio cerrado el
-  // diagnóstico que se muestra es el de entonces, y etiquetarlo con el código de ahora mentiría.
-  const cieRpt=isCurrentEpisode?(p.cie10||null):null;
+  // El CIE-10 es del paciente HOY: se agrega solo al episodio actual (o a un rango que termina en
+  // él). En un episodio cerrado el diagnóstico que se muestra es el de entonces, y etiquetarlo con
+  // el código de ahora mentiría.
+  const cieRpt=(isCurrentEpisode||epActualUltima)?(p.cie10||null):null;
   const diagDisplay=diagConCie(epDiag||p.diag||'—',cieRpt);
   const th=getTherapist(p.therapistId);
   const doc=p.doctorId?getDoctor(p.doctorId):null;
@@ -591,7 +669,7 @@ export function renderPatientReport() {
   // MET-1: continuidad REAL desde la agenda — asistidas sobre citas ya decididas (conf+noas) del
   // episodio, hasta hoy. Antes era asistió/filas de session_log, que es 100 % por construcción.
   // null = sin citas decididas → '—' (nunca un 0 % ni un 100 % inventado).
-  const rc=resumenCitas(hastaHoy(citasDeEpisodio(state.appointments,p,epVal),new Date()));
+  const rc=resumenCitas(hastaHoy(citasDeEpisodio(state.appointments,p,epVal,selOpts),new Date()));
   const adh=rc.continuidad, asistidas=rc.conf, faltas=rc.noas, totalCitas=rc.conf+rc.noas;
   const pct=epSessions>0?Math.round(epHechas/epSessions*100):0;
   const lp=attendedTrat.slice(-1)[0];
@@ -703,12 +781,13 @@ export function renderPatientReport() {
     <div class="rpt-sheet">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #29ABE2;padding-bottom:14px;gap:16px;flex-wrap:wrap">
         <div><img src="${LOGO_DATA_URI}" alt="Rehactiva" style="width:190px;display:block"><div style="font-size:10.5px;color:#7a7a76;margin-top:4px">Rehabilitación y Fisioterapia · Quito, Ecuador · rehactivaec.com</div></div>
-        <div style="text-align:right;font-size:11px;color:#5a5a56;line-height:1.6;flex-shrink:0"><div style="font-size:13px;font-weight:700;color:#1a1917">Informe de evolución</div><div>N.º ${rptNo}</div><div>${fechaLarga}</div></div>
+        <div style="text-align:right;font-size:11px;color:#5a5a56;line-height:1.6;flex-shrink:0"><div style="font-size:13px;font-weight:700;color:#1a1917">Informe de evolución</div><div>N.º ${rptNo}</div><div>${fechaLarga}</div>${rango?`<div>${esc(textoPeriodoRango(rango))}</div>`:''}</div>
       </div>
       <div style="display:flex;align-items:baseline;gap:10px;margin-top:16px;flex-wrap:wrap">
         <div style="font-size:18px;font-weight:700;color:#1a1917">${esc(p.name)}</div>${sp}
         <span style="font-size:12px;color:#7a7a76">${getDisplayAge(p)}</span>
-        ${!isCurrentEpisode?'<span style="font-size:10.5px;background:rgba(245,166,35,.15);color:#a06a00;padding:1px 8px;border-radius:99px;font-weight:700">Episodio anterior</span>':''}
+        ${rango?`<span style="font-size:10.5px;background:rgba(41,171,226,.14);color:#155b7a;padding:1px 8px;border-radius:99px;font-weight:700">Rango · sesiones ${rango.desdeN} a ${rango.hastaN}</span>`
+          :!isCurrentEpisode?'<span style="font-size:10.5px;background:rgba(245,166,35,.15);color:#a06a00;padding:1px 8px;border-radius:99px;font-weight:700">Episodio anterior</span>':''}
       </div>
       <div class="rpt-meta-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 20px;margin-top:12px;padding:12px 14px;background:#faf6ef;border-radius:8px">
         ${cellG('Diagnóstico',diagDisplay)}
@@ -768,7 +847,7 @@ export function renderPatientReport() {
   </div>`;
 
   out.innerHTML=html;
-  _rptCtx={p,log,pct,adh,asistidas,faltas,totalCitas,ini,evaHas,lp,th,doc,epDiag,epDone,epPrevias,epSessions,inicio,rptNo,fechaLarga,thHeader,prot,cieRpt};
+  _rptCtx={p,log,pct,adh,asistidas,faltas,totalCitas,ini,evaHas,lp,th,doc,epDiag,epDone,epPrevias,epSessions,inicio,rptNo,fechaLarga,thHeader,prot,cieRpt,rango:rango||null};
   renderInformesGuardados();
 
   if(evaSes.length){
@@ -821,7 +900,7 @@ function gonioViewHtml(rom) {
 // Construye el render-model del PDF desde el informe en pantalla (_rptCtx + narrativa IA + canvas EVA).
 // Es el MISMO shape que se persiste como snapshot, para que el PDF guardado salga idéntico sin re-llamar a la IA.
 function _buildRenderModel() {
-  const {p,log,pct,adh,asistidas,faltas,totalCitas,ini,evaHas,lp,doc,inicio,rptNo,fechaLarga,thHeader,prot,epDiag,epDone,epPrevias,epSessions,cieRpt,firmante}=_rptCtx;
+  const {p,log,pct,adh,asistidas,faltas,totalCitas,ini,evaHas,lp,doc,inicio,rptNo,fechaLarga,thHeader,prot,epDiag,epDone,epPrevias,epSessions,cieRpt,firmante,rango}=_rptCtx;
   // Captura del gráfico EVA ya dibujado en pantalla — evita el canvas en blanco por timing.
   const evaCanvas=document.getElementById('eva-evolution-chart');
   const evaImg=evaCanvas?evaCanvas.toDataURL('image/png'):'';
@@ -831,6 +910,8 @@ function _buildRenderModel() {
   return {
     numero:rptNo,
     fechaLarga,
+    // EPI-2b: rango del informe ({desdeN,hastaN,desdeFecha,hastaFecha}) o null (episodio entero).
+    rango:rango||null,
     // Mismo texto que la pantalla: el PDF que va al médico lleva el CIE-10 en la celda Diagnóstico.
     paciente:{nombre:p?.name||'',cedula:p?.cedula||'',edad:getDisplayAge(p,true),diagnostico:diagConCie(epDiag||p?.diag||'',cieRpt)},
     terapeuta:thHeader,
@@ -992,7 +1073,7 @@ function buildPdfHtml(m) {
     +'<div class="header"><div><img src="'+LOGO_DATA_URI+'" alt="Rehactiva" style="height:44px;display:block"></div>'
     +'<div class="h-right"><div class="h-title">Informe de evolución</div>'
     +'<div class="h-meta">N.º '+esc(m.numero)+' · '+esc(m.fechaLarga)+'</div>'
-    +'<div class="h-meta">Período del informe: '+esc(periodo)+'</div>'
+    +'<div class="h-meta">'+(m.rango?esc(textoPeriodoRango(m.rango)):'Período del informe: '+esc(periodo))+'</div>'
     +'<button class="print-btn" onclick="window.print()">Imprimir / Guardar PDF</button></div></div>'
     +'<div class="rule"><div class="rule-a"></div><div class="rule-b"></div></div>'
     +'<h2>Datos del paciente</h2>'+datos
@@ -1067,7 +1148,7 @@ export function renderInformesGuardados() {
       const delBtn=hasPermission('deleteInforme')?`<button onclick="eliminarInformeGuardado('${idEsc}')" style="${btnBase};background:rgba(224,75,74,.08);color:#E24B4A;border:1px solid rgba(224,75,74,.3)">Eliminar</button>`:'';
       return `<div style="padding:8px 0;border-bottom:1px solid rgba(41,171,226,.1)">
         <div style="font-size:12px;font-weight:700;color:#1a1917">${esc(inf.numero||'INF')}</div>
-        <div style="font-size:10px;color:#7a7a76;margin:1px 0 6px">${esc(fecha)}</div>
+        <div style="font-size:10px;color:#7a7a76;margin:1px 0 6px">${esc(fecha)}${inf.snapshot?.rango?` · sesiones ${esc(inf.snapshot.rango.desdeN)} a ${esc(inf.snapshot.rango.hastaN)}`:''}</div>
         <div style="display:flex;gap:5px;flex-wrap:wrap">${verBtn}${expBtn}${delBtn}</div>
       </div>`;
     }).join('');
@@ -1084,6 +1165,7 @@ export async function guardarInforme() {
   const model=_buildRenderModel();
   if(!model.narrativa||!model.narrativa.length){window._app.toastErr('Generá la narrativa IA antes de guardar.');return;}
   const {narrativa,...snapshot}=model;
+  // EPI-2b: un rango se guarda como 'rango:N-M' / 'rango:fecha-fecha'; al verlo se usa el snapshot.
   const epVal=document.getElementById('patient-rpt-episode')?.value||'current';
   const pid=_rptCtx.p?.id;
   try{

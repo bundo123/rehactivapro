@@ -81,8 +81,14 @@ export function episodioDeCita(cita, episodios) {
 // MET-1: citas del paciente que caen en el episodio elegido en el selector del informe
 // ('current' | 'ep_N'). Misma frontera que logDeEpisodio (desde < date <= hasta). 'current', o un
 // paciente sin marcadores, es el último episodio; 'ep_N' es el episodio idx N+1.
-export function citasDeEpisodio(appointments, patient, epVal) {
+// EPI-2b: con opts.rango, las citas entre la fecha de la primera y la de la última sesión del rango.
+export function citasDeEpisodio(appointments, patient, epVal, opts) {
   if (!patient) return [];
+  if (opts?.rango) {
+    const r = logDeEpisodio(patient, epVal, opts).rango;
+    if (!r || r.vacio) return [];
+    return citasDePaciente(appointments, patient.id).filter(c => c.date >= r.desdeFecha && c.date <= r.hastaFecha);
+  }
   const eps = episodiosDePaciente(patient);
   const idx = indiceEpisodio(eps, epVal) + 1;   // misma lectura del selector que logDeEpisodio
   return citasDePaciente(appointments, patient.id).filter(c => episodioDeCita(c, eps) === idx);

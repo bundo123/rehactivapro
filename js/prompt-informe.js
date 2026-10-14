@@ -1,7 +1,7 @@
 // Prompt de la narrativa IA del informe del paciente (genPatientAI en ia.js). Función PURA, sin DOM
 // ni state, para poder testear las reglas con node --test (ia.js importa el cliente de Supabase y no
 // carga fuera de Vite). Lo que depende de state (protocolo, médico) llega ya resuelto.
-import { getDisplayAge, diagParaPrompt, ctxParaPrompt, sesionesMostradas, textoPrevias } from './utils.js';
+import { getDisplayAge, diagParaPrompt, ctxParaPrompt, sesionesMostradas, textoPrevias, dmy } from './utils.js';
 import { resumenResp } from './soap.js';
 
 // MINI-1: sin EVA en la evaluación → "no medido" (antes "?/10", que la IA leía como dato).
@@ -23,7 +23,7 @@ export function evalTextoPrompt(evalRow) {
  * @param {boolean} a.tieneMedico hay médico referente registrado
  * @param {number} [a.epPrevias] sesiones previas a RehactivaPro del episodio (EPI-2a)
  */
-export function promptInformePaciente({ p, log, epDiag, epSessions, epDone, esActual, prot, tieneMedico, epPrevias = 0 }) {
+export function promptInformePaciente({ p, log, epDiag, epSessions, epDone, esActual, prot, tieneMedico, epPrevias = 0, rango = null }) {
   const evalRow = log.find(s => s.type === 'Evaluación inicial');
   const evalText = evalTextoPrompt(evalRow);
   const trat = log.filter(s => s.type !== 'Evaluación inicial');
@@ -35,7 +35,9 @@ export function promptInformePaciente({ p, log, epDiag, epSessions, epDone, esAc
     const resp = s.soap ? resumenResp(s.soap) : '';
     return `- ${s.date}: EVA ${eva}; técnicas: ${tec};${resp ? ` registro respiratorio: ${resp};` : ''} observación: ${obs}`;
   }).join('\n') : 'Sin sesiones de tratamiento registradas aún';
-  const estado = !esActual ? 'Episodio cerrado'
+  // EPI-2b: un informe por rango lo dice, con las sesiones y las fechas que abarca.
+  const estado = rango ? `Informe parcial: sesiones ${rango.desdeN} a ${rango.hastaN} (del ${dmy(rango.desdeFecha)} al ${dmy(rango.hastaFecha)})`
+    : !esActual ? 'Episodio cerrado'
     : p.status === 'active' ? 'En tratamiento' : p.status === 'alta' ? 'Alta médica' : 'Inactivo';
   // El CIE-10 es del paciente HOY (misma regla que el informe): en un episodio cerrado va solo el
   // diagnóstico de entonces, leído de la nota del marcador.

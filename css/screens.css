@@ -260,6 +260,15 @@
 
 /* ===== INFORME PACIENTE — hoja membretada + sidebar de acciones ===== */
 .rpt-layout{display:flex;gap:16px;align-items:flex-start}
+/* EPI-2b: barra del informe por rango (encima del informe) */
+.rpt-rango{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-bottom:14px;padding:10px 14px;background:#fff;border:1px solid rgba(41,171,226,.25);border-radius:8px;font-size:12px;color:#3a3a36}
+.rpt-rango[hidden],.rpt-rango-campos[hidden]{display:none}
+.rpt-rango-campos{display:flex;flex-wrap:wrap;gap:8px 12px}
+.rpt-rango label{display:flex;align-items:center;gap:6px}
+.rpt-rango input{font:inherit;font-size:12px;padding:6px 8px;border:1px solid rgba(41,171,226,.3);border-radius:7px;background:#faf6ef;min-height:32px}
+.rpt-rango input[type=number]{width:70px}
+.rpt-rango .add-btn{height:32px;padding:0 14px;font-size:12px}
+.rpt-rango-total{font-size:11px;color:#7a7a76}
 .rpt-sheet{flex:1;min-width:0;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:4px;box-shadow:0 4px 18px rgba(0,0,0,.08);padding:30px 34px}
 .rpt-side{width:230px;flex-shrink:0;display:flex;flex-direction:column;gap:10px;position:sticky;top:76px}
 .side-card{background:#fff;border:1px solid rgba(41,171,226,.22);border-radius:10px;padding:14px}
