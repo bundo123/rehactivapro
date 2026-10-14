@@ -37,6 +37,13 @@ export function tipoSesion(v){
   return t?t.label:TIPO_SESION_DEFAULT;
 }
 
+// INF-UNI: tipo en la tabla por sesión del informe ('Fisioterapia' / 'Respiratoria'); '—' si la
+// sesión no trae tipo (snapshot previo a INF-UNI).
+export function tipoCorto(v){
+  if(!v) return '—';
+  return tipoSesion(v)==='Terapia respiratoria'?'Respiratoria':'Fisioterapia';
+}
+
 // Desglose de una lista de citas por tipo: {fisio, resp}. Pura, con las claves del catálogo.
 export function desgloseTipos(appts){
   const out={};
@@ -1327,13 +1334,60 @@ export function billingInfo(p, spf) {
 // export a PDF (informes.js) y el export a Word (word.js).
 export function dmy(d){ const p=String(d||'').split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:String(d||''); }
 
-// Datos de contacto de la clínica para el pie de los informes (PDF y Word). Los segmentos vacíos
-// se omiten del footer.
+// Datos de la clínica para el pie legal de los informes (PDF y Word, en todas las páginas). Los
+// segmentos vacíos se omiten (PERMISO_ACESS vacío = no se imprime).
 export const CONFIG_CLINICA = {
-  DIRECCION: 'Palmeras Shopping, Vía Intervalles OE-95 y primera transversal, Tumbaco',
+  RAZON_SOCIAL: 'REHACTIVA REHABILITACION Y FISIOTERAPIA S.A.',
+  RUC: '1793033970001',
+  PERMISO_ACESS: '',
+  DIRECCION: 'Mia Plaza (antes Palmeras Shopping), Vía Intervalles Oe-95 y Primera Transversal, Cumbayá',
   TELEFONO: '099 921 1258',
   EMAIL: '', // poner 'recepcion@rehactivaec.com' cuando se confirme que el buzón recibe
 };
+
+// INF-UNI: pie legal (una línea), el mismo en el PDF y en el Word.
+export function pieLegal(cfg = CONFIG_CLINICA) {
+  return [cfg.RAZON_SOCIAL, cfg.RUC ? 'RUC ' + cfg.RUC : '', cfg.PERMISO_ACESS ? 'Permiso ACESS ' + cfg.PERMISO_ACESS : '',
+    cfg.DIRECCION, cfg.TELEFONO ? 'Tel. ' + cfg.TELEFONO : '', cfg.EMAIL].filter(Boolean).join(' · ');
+}
+
+// INF-UNI (DOC-1): N.º de informe ÚNICO = INF-AAAAMMDD-HHMM-XXXX (fecha y hora de emisión + los 4
+// últimos caracteres del id del paciente). Antes era INF-AAAAMMDD-<4 dígitos del id>: el mismo
+// número para todos los informes del paciente en el día, y '0000' en ids sin dígitos al final.
+export function numeroInforme(fecha, patientId) {
+  const d = fecha instanceof Date ? fecha : new Date(fecha);
+  const p = n => String(n).padStart(2, '0');
+  const suf = (String(patientId ?? '').replace(/[^0-9a-zA-Z]/g, '').slice(-4) || '0000').toUpperCase().padStart(4, '0');
+  return `INF-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}-${suf}`;
+}
+
+// DOC-1: nombre del archivo exportado SIN el nombre del paciente (viaja por correo y queda en
+// descargas): "Informe INF-….docx" / ".pdf" (el PDF lo toma del título de la ventana).
+export function nombreArchivoInforme(numero, ext) {
+  const n = String(numero || '').replace(/[^0-9A-Za-z-]/g, '') || 'sin-numero';
+  return `Informe ${n}.${ext}`;
+}
+
+// INF-UNI: cargo del firmante según la especialidad del terapeuta (therapists.specialty).
+export function cargoFirmante(esp) {
+  return especialidad(esp) === 'respiratoria' ? 'Terapeuta respiratorio/a' : 'Fisioterapeuta';
+}
+
+// INF-UNI: lugar de una sesión = el de la cita del paciente ese mismo día ('Centro' / 'Domicilio');
+// con varias ese día, la de hora más cercana. null si no hay cita (el informe imprime '—').
+export function lugarSesion(sesion, citasPaciente) {
+  const mismas = (citasPaciente || []).filter(a => a && a.date === sesion?.date);
+  if (!mismas.length) return null;
+  const h = (() => { const t = String(sesion?.hour || '').split(':'); return (parseInt(t[0], 10) || 0) + (parseInt(t[1], 10) || 0) / 60; })();
+  const c = [...mismas].sort((a, b) => Math.abs((Number(a.hour) || 0) - h) - Math.abs((Number(b.hour) || 0) - h))[0];
+  return c.location === 'domicilio' ? 'Domicilio' : 'Centro';
+}
+
+// 'HH:MM:SS' (session_log.hour) → 'HH:MM'; vacío si no hay hora.
+export function horaSesion(h) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(String(h || ''));
+  return m ? `${m[1].padStart(2, '0')}:${m[2]}` : '';
+}
 
 // MET-1: lectura del valor EVA que muestra el modal ('—' o vacío = sin medir). El 0 es un valor
 // válido ("sin dolor"): nada de `|| 0`, que convertía un "sin medir" en un 0 inventado.

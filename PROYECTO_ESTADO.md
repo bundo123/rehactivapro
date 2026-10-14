@@ -4,6 +4,54 @@
 
 ---
 
+## 🗓️ Sesión 2026-10-14 (3) — BLOQUE A · LOTE INF-UNI: un solo diseño PDF/Word, resumen para el médico (MED-1) y datos para aseguradoras (DOC-1). Sin SQL.
+
+**INF-UNI** (este commit, rama `revision-bloque-a`):
+- **Un diseño.** La base es el PDF (`buildPdfHtml`: Arial, tinta negra, tablas, compacto; mismas
+  fuentes y colores, sin cajas tintadas ni semáforo). Orden único: encabezado · **Resumen para el
+  médico** · Resumen de evolución · gráfico EVA · Evaluación inicial y goniometría · Narrativa ·
+  Detalle por sesión · Datos administrativos · Firma. `word.js` se reescribió para sacar ese mismo
+  contenido y orden (el gráfico es el mismo SVG del PDF, rasterizado); pie: «Copia editable · el
+  documento oficial es el PDF». Deja de usar el diseño VERSION-FINAL (serif, paneles sombreados).
+- **MED-1** (`js/resumen-medico.js`, puro, `UMBRALES` exportados para que los valide Giovanni):
+  identificación (nombre · edad · diagnóstico con CIE-10 · tipo de terapia · período · N.º) +
+  ESTADO (○ SIN DATOS · ■ EMPEORA · ▲ INTERRUMPIDO · ▲ ATENCIÓN · ● MEJORA · ● EN CURSO, gana la
+  primera regla; «Mejoraba; …» si además mejoraba) · MEDIDAS (dolor base → actual, ROM clave =
+  menor % del normal en la evaluación vs su última medición del mismo lado, asistencia) · ALERTAS
+  (máx. 2, solo reglas; siempre «Signos de alarma: sin registro estructurado») · PEDIDO (solo con
+  médico referente) · PRÓXIMO (cita, hito 50 %/100 %, qué se medirá). En pantalla, PDF y Word, y
+  guardado en el snapshot (`resumenMedico`). El render-model suma `rom` por sesión, `alta`,
+  `proximaCita`, `pedido`, `tipoTerapia`, `terapeutas`, `firmanteCargo` y `emitido`.
+- **Pedido:** el modal del firmante se abre ahora también para el PDF y trae «Necesitamos del
+  médico» (nada · renovar/ampliar +N · reevaluar · medicación/analgesia · validar el alta ·
+  interconsulta · otro ≤100), con la sugerencia preseleccionada: EMPEORA → reevaluar; plan completo
+  → validar el alta; plan ≥80 % sin MEJORA → renovar. En pantalla se ve la sugerencia marcada.
+- **Narrativa IA:** 150–220 palabras, después de la evaluación inicial y la goniometría; regla nueva
+  de fechas («no digas 'segunda semana' si el dato dice día 4»).
+- **DOC-1:** N.º único `INF-AAAAMMDD-HHMM-XXXX` (se sella al exportar/guardar; XXXX = 4 últimos
+  caracteres del id); «CONFIDENCIAL · Historia clínica» + N.º arriba de cada página y pie legal
+  (razón social, RUC, ACESS si hay, dirección corregida a Mia Plaza/Cumbayá) abajo — en el PDF por
+  `thead`/`tfoot` de una tabla envolvente, que Chrome repite al imprimir; tabla por sesión con Fecha ·
+  Hora · Tipo · Lugar (de la cita del mismo día) · Terapeuta · Dolor · Técnicas · Observación; datos
+  administrativos al final (sin «No registrado»: lo que falta no se imprime); firma con cargo por
+  especialidad, fecha de emisión y el espacio reservado de FirmaEC en gris; archivo «Informe
+  INF-….pdf/.docx» sin el nombre del paciente; `@page{margin:0}` (sin about:blank ni fecha) y título
+  de la ventana = «Informe INF-…».
+- **Snapshots viejos** se siguen abriendo: el resumen se calcula al vuelo con la fecha de emisión
+  del informe guardado; lo que no tienen (alta, próxima cita, rom) no dispara reglas.
+- Decisiones: márgenes de impresión = padding lateral del body (15 mm) + alto del thead/tfoot
+  arriba/abajo (con margen 0 el padding vertical del body solo existiría en la 1.ª y última página);
+  «sin meta» = sin MEJORA; FirmaEC lleva «(espacio reservado)» para no leerse como firma hecha; la
+  firma viaja con los datos administrativos (no queda sola en una página).
+
+594 → 614 pruebas (+20 en `test/inf-uni.test.js`). E2E con Playwright (datos ficticios, IA simulada
+con una respuesta fija): resumen en pantalla, modal con pedido, PDF (3 páginas, encabezado y pie en
+cada una), Word abierto en Word real (3 páginas), paciente sin médico (sin línea de pedido, cargo
+respiratorio), informe guardado (snapshot con resumen, N.º nuevo) y snapshot viejo (resumen al
+vuelo). PDF y Word de ejemplo en `Claude outputs/` (fuera de la repo).
+
+---
+
 ## 🗓️ Sesión 2026-10-14 (2) — BLOQUE A · LOTE REC-0: recordatorios de citas por WhatsApp en un clic. Sin SQL.
 
 **REC-0** (este commit, rama `revision-bloque-a`):

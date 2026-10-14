@@ -1,27 +1,24 @@
 // ── Exportación de informes a Word (.docx) ──────────────────────────────────
-// Segundo canal de exportación del informe de paciente, junto al PDF (buildPdfHtml en
-// informes.js, que sigue intacto para el histórico). Recibe el MISMO render-model que el PDF
-// (_buildRenderModel en informes.js) más el campo `firmante`, que se pide en el modal de firmante
-// antes de llamar acá (abrirFirmanteModal/confirmarExportarWord en informes.js).
+// INF-UNI: el Word es una COPIA EDITABLE del PDF (buildPdfHtml en informes.js), con el mismo
+// contenido, el mismo orden y el mismo lenguaje visual: Arial, tinta negra 1A1A1A, etiquetas en gris
+// 6B6B66, filetes finos y tablas compactas — sin cajas tintadas ni colores semáforo. Antes tenía un
+// diseño propio (el de newdesign/…VERSION-FINAL.docx, serif y paneles sombreados) y el médico
+// recibía dos documentos distintos según el botón. El pie lo dice: «Copia editable · el documento
+// oficial es el PDF».
 //
-// Estilo: puerto LITERAL de newdesign/Informe-Rehactiva-VERSION-FINAL.docx (la versión definitiva
-// del handoff "menos líneas, más aire" — b57c395 había portado una intermedia). Tamaños, colores,
-// spacing, bordes, sombreados y anchos de tabla salen de descomprimir ese .docx y leer
-// word/document.xml + styles.xml + header1.xml + footer1.xml, no del HTML ni del PDF.
-//
-// Dos ajustes deliberados SOBRE la referencia (no está mal leído, es a propósito):
-//  · Arial en vez de Calibri en todo el documento — Arial es nativa en Word Y en Google Docs;
-//    Calibri se sustituye en Docs y el documento se corre.
-//  · El gráfico EVA recupera las dos líneas punteadas de referencia (EVA 3/6, sin etiqueta) que la
-//    referencia había quitado, y agrega marcador hueco + tramo punteado para sesiones sin ningún
-//    dato registrado (ni pb ni pa) — la referencia no tiene ese caso en su muestra.
+// Recibe el MISMO render-model que el PDF (_buildRenderModel en informes.js), con firmante y pedido
+// ya elegidos en el modal del firmante. Orden: encabezado · resumen para el médico · resumen de
+// evolución · gráfico EVA · evaluación inicial y goniometría · narrativa · detalle por sesión ·
+// datos administrativos · firma. En cada página: «CONFIDENCIAL · Historia clínica» + N.º arriba y el
+// pie legal abajo.
 //
 // La librería (docx v9) se carga por IMPORT DINÁMICO: pesa ~1 MB sin comprimir y no puede entrar
 // al bundle inicial — solo la baja quien exporta un informe a Word.
 import { LOGO_DATA_URI } from './pdf-logo.js';
 import { toastOk, toastErr, toastInfo } from './toast.js';
-import { dmy, CONFIG_CLINICA, limpiarParte, inicioDesdeEval, rotuloDolorInicial, textoCitas, textoPrevias, textoPeriodoRango } from './utils.js';
+import { dmy, limpiarParte, textoCitas, textoPrevias, textoPeriodoRango, buildEvaSvg, pieLegal, tipoCorto, nombreArchivoInforme } from './utils.js';
 import { romGrupos } from './rom.js';
+import { resumenMedico, periodoInforme } from './resumen-medico.js';
 
 // Data URI (base64) → Uint8Array. ImageRun no acepta el string 'data:...' con cabecera: quiere los
 // bytes. atob es suficiente acá porque las imágenes (logo, gráfico EVA) ya vienen en base64.
@@ -66,591 +63,218 @@ function descargar(blob, nombre) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-// ── Gráfico EVA — versión propia (no la de utils.js, que sigue alimentando el PDF con
-// ejes/grilla/bandas). Lienzo lógico fijo 605×211 (proporción 1210×422 de la referencia,
-// rasterizado 2x más abajo). Sin ejes, sin grilla, sin leyenda.
-//
-// Recorre TODAS las sesiones de tratamiento (no solo las que tienen pb) para que la posición de
-// cada punto coincida con su número de fila en "Detalle por sesión". Una sesión sin pb NI pa (sin
-// ningún dato registrado) no se omite: hereda el último valor conocido para no cortar la línea, se
-// dibuja con marcador hueco, y los dos tramos que tocan ese punto van punteados — mismo lenguaje
-// visual que el "5 → —" del detalle por sesión.
-function buildEvaSvgWord(m) {
-  const met = m.metricas || {};
-  const rows = m.sesiones || [];
-  const startVal = met.evaInicial != null ? met.evaInicial : (rows.find(s => s.pb != null || s.pa != null)?.pb ?? null);
-  if (startVal == null) return '';
-
-  const pts = [{ v: startVal, lbl: rotuloDolorInicial(inicioDesdeEval(m) ? 'eval' : 'sesion'), hollow: false }];
-  let last = startVal;
-  rows.forEach((s, i) => {
-    const real = s.pb != null || s.pa != null;
-    const v = real ? (s.pa != null ? s.pa : s.pb) : last;
-    last = v;
-    pts.push({ v, lbl: 'Sesión ' + (i + 1), hollow: !real });
-  });
-  if (met.evaActual != null) pts[pts.length - 1].v = met.evaActual;
-
-  const W = 605, H = 130;
-  const L = 26, R = W - 10;
-  const n = pts.length;
-  const x = i => n > 1 ? L + i * (R - L) / (n - 1) : (L + R) / 2;
-
-  const vals = pts.map(p => p.v);
-  const vMax = Math.max(...vals, 6), vMin = Math.min(...vals, 3); // 3/6 quedan visibles si hay dato cerca
-  const TOP = 22, LABEL_Y = H - 9;
-  // AREA_FLOOR (borde inferior de la forma rellena) queda FIJO cerca del piso del viewBox, sin
-  // relación con LABEL_Y — antes lo derivaba de LABEL_Y (BASE = LABEL_Y - 11), así que cada vez
-  // que H bajaba por paginación el "colchón" se achicaba con él, y al final el margen efectivo
-  // (colchón menos el radio del marcador) quedaba en unos pocos px con una tinta al 6% de opacidad
-  // — visualmente indistinguible de "tocando". Ahora CUSHION empuja el MAPEO de valores lejos de
-  // AREA_FLOOR, que no se mueve.
-  const AREA_FLOOR = H - 4;
-  const CUSHION = 14;
-  const range = Math.max(1, vMax - vMin);
-  const pxPerEva = (AREA_FLOOR - CUSHION - TOP) / range;
-  const y = v => AREA_FLOOR - CUSHION - (v - vMin) * pxPerEva;
-
-  let g = '';
-  // Referencias leve/moderado/severo — discretas, sin etiqueta (ajuste sobre la referencia, que
-  // las había quitado; color D8D2C6 tal como pide el handoff).
-  [3, 6].forEach(v => {
-    if (v < vMin - 0.5 || v > vMax + 0.5) return;
-    const yy = y(v).toFixed(1);
-    g += `<line x1="${L}" y1="${yy}" x2="${R}" y2="${yy}" stroke="#d8d2c6" stroke-width="1" stroke-dasharray="4 3"/>`;
-  });
-
-  const areaPts = pts.map((p, i) => `${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
-  g += `<path d="M${areaPts.split(' ')[0]} L${areaPts.split(' ').join(' L')} L${x(n - 1).toFixed(1)},${AREA_FLOOR.toFixed(1)} L${x(0).toFixed(1)},${AREA_FLOOR.toFixed(1)} Z" fill="#145b6d" opacity="0.06"/>`;
-
-  for (let i = 1; i < n; i++) {
-    const dashed = pts[i].hollow || pts[i - 1].hollow;
-    g += `<line x1="${x(i - 1).toFixed(1)}" y1="${y(pts[i - 1].v).toFixed(1)}" x2="${x(i).toFixed(1)}" y2="${y(pts[i].v).toFixed(1)}" stroke="#145b6d" stroke-width="2" stroke-linecap="round"${dashed ? ' stroke-dasharray="5 4"' : ''}/>`;
-  }
-
-  // Con muchos puntos las etiquetas del eje X se pisan: por arriba de ~8 se muestra una cada
-  // `step` (siempre la primera y la última), nunca todas. Los extremos además cambian de anchor
-  // (start/end en vez de middle) para que el texto no se salga del viewBox por ninguno de los dos
-  // lados — a la primera le sobra ancho a la derecha, a la última a la izquierda.
-  const step = n > 8 ? Math.ceil((n - 1) / 7) : 1;
-  pts.forEach((p, i) => {
-    const xi = x(i);
-    const px_ = xi.toFixed(1), py = y(p.v);
-    const last_ = i === n - 1;
-    const r = last_ ? 6 : 4.5;
-    g += p.hollow
-      ? `<circle cx="${px_}" cy="${py.toFixed(1)}" r="${r}" fill="#ffffff" stroke="#145b6d" stroke-width="2"/>`
-      : `<circle cx="${px_}" cy="${py.toFixed(1)}" r="${r}" fill="#145b6d"/>`;
-    if (!p.hollow) {
-      // Con el valor en 0 (o varios 0 seguidos) el número queda casi pegado al marcador si usa el
-      // mismo offset que el resto — un poco más de aire ahí.
-      const numOffset = p.v === 0 ? 16 : 11;
-      g += `<text x="${px_}" y="${(py - numOffset).toFixed(1)}" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="${last_ ? '#145b6d' : '#22201d'}">${p.v}</text>`;
-    }
-    if (i === 0 || last_ || i % step === 0) {
-      const anchor = i === 0 ? 'start' : (last_ ? 'end' : 'middle');
-      g += `<text x="${px_}" y="${LABEL_Y}" text-anchor="${anchor}" font-family="Arial, sans-serif" font-size="10" fill="#a09889">${p.lbl}</text>`;
-    }
-  });
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${g}</svg>`;
-}
-
-// "Esguince de tobillo grado II (CIE-10: S93.4)" (diagConCie en utils.js, texto único compartido
-// con el PDF) → { diag, cie }. El diseño nuevo pone el código en su propia línea chica; el modelo
-// no lo trae aparte, así que se separa acá nomás para Word, sin tocar utils.js/informes.js.
-function splitDiagCie(texto) {
-  const s = String(texto || '');
-  const m = /^(.*?)\s*\(CIE-10:\s*([^)]+)\)\s*$/.exec(s);
-  return m ? { diag: m[1].trim(), cie: m[2].trim() } : { diag: s, cie: null };
-}
-
-// "Ant. familiares: … | Zonas: Miembro inferior | Inspección: …" (evalRow.note, partido por
-// ' | ' en informes.js → m.evalInicial.partes) → separa la parte "Zonas: …" del resto. NO es un
-// campo inventado: sale del mismo formulario de evaluación inicial (pacientes.js saveEvalInicial),
-// solo que viaja mezclado en `partes` en vez de aparte.
-function extraerZona(partes) {
-  const list = partes || [];
-  const idx = list.findIndex(p => /^Zonas:\s*/i.test(p));
-  if (idx === -1) return { zona: null, resto: list };
-  return { zona: list[idx].replace(/^Zonas:\s*/i, '').trim(), resto: list.slice(0, idx).concat(list.slice(idx + 1)) };
-}
-
-// Genera y descarga el .docx del informe a partir del render-model (mismo shape que consume
-// buildPdfHtml, más `firmante`). No toca state/_rptCtx/DOM — recibe todo lo que necesita en `m`.
+// Genera y descarga el .docx del informe a partir del render-model. No toca state/_rptCtx/DOM.
 export async function generarInformeWord(m) {
   try {
     toastInfo('Generando .docx…');
     const {
       Document, Packer, Paragraph, TextRun, ImageRun, Header, Footer,
-      Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, VerticalAlign,
+      Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, VerticalAlign, HeightRule,
     } = await import('docx');
 
-    // ── Design tokens (word/styles.xml + document.xml de la referencia, valores tal cual) ──
-    const TITULO = '191C1D';     // primera línea del H1 ("Informe de evolución")
-    const INK = '22201D';        // H2 de sección, valor de dato, nombre del firmante
-    const PARRAFO = '3C3832';    // cuerpo de párrafo — también el color/tamaño por defecto del doc
-    const ACENTO = '145B6D';     // nombre del paciente en cursiva, cifras del panel, EVA "antes → después"
-    const SECUNDARIO = '6F6A62'; // etiqueta bajo la cifra grande del panel de métricas
-    const TERCIARIO = '7A746B';  // subline del título, id de documento en el membrete
-    const ETIQUETA = 'A09889';   // etiquetas de dato, CIE-10, metadato de sesión/evaluación inicial
-    const VACIO = 'B5ADA0';      // "No registrado/a", sesión sin ningún dato registrado
-    const SESION_NUM = 'D8D2C6'; // numeración de sesión, línea de firma
-    const REGLA = 'E2DED6';      // filete del membrete y de los H2 de sección
-    const PANEL_BG = 'F6F4EF';   // fondo del panel de métricas, caja de evaluación inicial, filas pares
-    const FADED = '9B948A';      // parte secundaria de las cifras del panel ("/ 12", "%"), pie de página
+    // ── Tokens: los del PDF (buildPdfHtml) ──
+    const INK = '1A1A1A', MUT = '6B6B66', REGLA = 'D8D8D2', FILA = 'EAEAE4', RESERVA = '9A9A94';
+    const NARANJA = 'F09028', CELESTE = '28A8C8';
+    const SANS = 'Arial';
+    // Tamaños en medios puntos (px del PDF × 0,75 × 2).
+    const SZ = { cuerpo: 18, chico: 16, tabla: 15, etiqueta: 14, h2: 17, titulo: 24, cifra: 33, cifraSub: 14, mini: 12 };
 
-    const SERIF = 'Georgia';     // reemplaza Newsreader — garantizada en Word/Google Docs sin incrustar
-    const SANS = 'Arial';        // reemplaza Calibri (ajuste sobre la referencia — ver cabecera del archivo)
+    const PAGE_W = 12240, PAGE_H = 15840;   // carta
+    const MARGIN = { top: 1300, bottom: 1150, left: 850, right: 850, header: 500, footer: 450, gutter: 0 };
+    const ANCHO = PAGE_W - MARGIN.left - MARGIN.right;   // 10540
 
-    // Tamaños en medios punto (size = pt × 2). Un nombre por cada tamaño distinto visto en el XML.
-    const SZ = {
-      h1: 44, subline: 19, etiquetaDato: 16, valorDato: 23, cie10: 18, h2: 26,
-      cifraPanel: 52, cifraPanelSec: 30, etqMetrica: 17, cuerpo: 21, zonaEval: 18,
-      subtituloNarr: 17, metadatoSesion: 18, numSesion: 40, evaSesion: 26,
-      firmaNombre: 21, firmaRol: 18, docId: 16, pie: 16,
-    };
-    const TRACK_CAPS = 24; // characterSpacing de TODO run en versalitas (únicos con letter-spacing en el doc)
+    const nada = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
+    const sinBordes = { top: nada, bottom: nada, left: nada, right: nada, insideHorizontal: nada, insideVertical: nada };
+    const linea = (color, size = 4) => ({ style: BorderStyle.SINGLE, size, color });
 
-    const sinBorde = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
-    const bordesInvisibles = { top: sinBorde, bottom: sinBorde, left: sinBorde, right: sinBorde, insideHorizontal: sinBorde, insideVertical: sinBorde };
-    const FILETE_H2 = { style: BorderStyle.SINGLE, size: 6, color: REGLA, space: 14 };
-    const FILETE_HEADER = { style: BorderStyle.SINGLE, size: 6, color: REGLA, space: 6 };
-    const FILETE_FIRMA = { style: BorderStyle.SINGLE, size: 6, color: SESION_NUM, space: 1 };
-
-    // Página carta (12240×15840 twips) con los márgenes exactos de sectPr — no A4, no 0.7in parejo.
-    const PAGE_W = 12240, PAGE_H = 15840;
-    const MARGIN = { top: 1800, bottom: 1440, left: 1008, right: 1008, header: 720, footer: 576, gutter: 0 };
-    const IND_FIRMA = 6100; // ind.right de la línea de firma (twips) — acorta el filete, no lo mueve
-
-    // ── Datos derivados del modelo ──
     const met = m.metricas || {};
     const ses = m.sesiones || [];
     const narr = m.narrativa;
     const gonio = m.evalInicial ? romGrupos(m.evalInicial.rom) : [];
-    const GONIO_COLS = [4600, 1500, 1500];  // Movimiento | Der. | Izq. — compacta, no a todo el ancho
+    const rm = m.resumenMedico || resumenMedico(m, m.emitido || new Date());
+    const periodo = m.rango ? textoPeriodoRango(m.rango) : `Período del informe: ${periodoInforme(m) || m.fechaLarga || ''}`;
 
-    // Un solo formato de fecha en todo el documento (DD/MM/YYYY vía dmy) — la fecha de emisión se
-    // calcula acá mismo en vez de usar m.fechaLarga (que viene pre-formateada en prosa larga).
-    const emisionCorta = dmy(new Date().toISOString().slice(0, 10));
-    const periodoInicio = (m.evalInicial && m.evalInicial.fecha) || (ses[0] && ses[0].fecha) || null;
-    const periodoFin = ses.length ? ses[ses.length - 1].fecha : null;
-    const periodo = !periodoInicio ? emisionCorta
-      : (periodoFin && periodoFin !== periodoInicio) ? `${dmy(periodoInicio)} – ${dmy(periodoFin)}` : dmy(periodoInicio);
+    const run = (text, o = {}) => new TextRun({ text: String(text ?? ''), font: SANS, size: o.size || SZ.cuerpo, color: o.color || INK, bold: o.bold, allCaps: o.caps, characterSpacing: o.caps ? 16 : undefined, italics: o.italics });
+    const par = (children, o = {}) => new Paragraph({ children: Array.isArray(children) ? children : [children], alignment: o.align,
+      spacing: { before: o.before ?? 0, after: o.after ?? 60, line: o.line ?? 260, lineRule: 'auto' }, keepNext: o.keepNext, keepLines: o.keepLines, border: o.border, indent: o.indent });
+    const h2 = text => par(run(text, { size: SZ.h2, bold: true, caps: true }), { before: 340, after: 140, keepNext: true, border: { bottom: { ...linea(REGLA), space: 4 } } });
+    const celda = (children, w, o = {}) => new TableCell({
+      width: { size: w, type: WidthType.DXA }, columnSpan: o.span, verticalAlign: o.vAlign || VerticalAlign.TOP,
+      borders: { top: o.top || nada, bottom: o.bottom || nada, left: nada, right: nada },
+      shading: o.fill ? { fill: o.fill } : undefined,
+      margins: { top: o.mt ?? 70, bottom: o.mb ?? 70, left: o.ml ?? 0, right: o.mr ?? 120 },
+      children: Array.isArray(children) ? children : [children],
+    });
+    const tabla = (anchos, rows) => new Table({ width: { size: anchos.reduce((a, b) => a + b, 0), type: WidthType.DXA }, columnWidths: anchos, borders: sinBordes, rows });
 
-    // Campo vacío: nunca se oculta ni se pone '—' — "No registrada/o" en VACIO, con la concordancia
-    // de género de cada etiqueta (tal como lo fija el diseño para Cédula/Edad/Doctor referente).
-    function campo(etiqueta, valor, vacioTexto) {
-      const t = valor == null ? '' : String(valor).trim();
-      const ok = t && t !== 'Sin edad';
-      return { etiqueta, texto: ok ? t : vacioTexto, vacio: !ok };
+    // ── Gráfico EVA: el MISMO SVG del PDF (buildEvaSvg, 760×240), rasterizado; si no hay serie, la
+    // imagen del canvas que traen los snapshots viejos.
+    const evaSvg = buildEvaSvg(m);
+    let evaPng = null, evaW = 640, evaH = 202;
+    if (evaSvg) evaPng = await svgToPngDataUri(evaSvg, 760, 240, 2);
+    else if (m.evaChartImg) { evaPng = m.evaChartImg; evaH = 190; }
+
+    const body = [];
+
+    // ── Encabezado de la primera página: logo + título, N.º, fecha y período ──
+    body.push(tabla([5270, 5270], [new TableRow({ cantSplit: true, children: [
+      celda(par(new ImageRun({ type: 'png', data: dataUriToBytes(LOGO_DATA_URI), transformation: { width: 155, height: 44 } }), { after: 0 }), 5270, { mt: 0 }),
+      celda([
+        par(run('Informe de evolución', { size: SZ.titulo, bold: true, caps: true }), { align: AlignmentType.RIGHT, after: 40 }),
+        par(run(`N.º ${m.numero || ''} · ${m.fechaLarga || ''}`, { size: SZ.chico, color: MUT }), { align: AlignmentType.RIGHT, after: 20 }),
+        par(run(periodo, { size: SZ.chico, color: MUT }), { align: AlignmentType.RIGHT, after: 0 }),
+      ], 5270, { mt: 0, mr: 0 }),
+    ] })]));
+    // Filete naranja + celeste (el .rule del PDF)
+    body.push(tabla([1000, ANCHO - 1000], [new TableRow({ height: { value: 50, rule: HeightRule.EXACT }, children: [
+      celda(par(run('', { size: 2 }), { after: 0, line: 40 }), 1000, { fill: NARANJA, mt: 0, mb: 0, mr: 0 }),
+      celda(par(run('', { size: 2 }), { after: 0, line: 40 }), ANCHO - 1000, { fill: CELESTE, mt: 0, mb: 0, mr: 0 }),
+    ] })]));
+
+    // ── Resumen para el médico (MED-1) ──
+    if (rm) {
+      body.push(h2('Resumen para el médico'));
+      body.push(par(run(rm.identificacion, { bold: true }), { after: 80, keepNext: true }));
+      body.push(tabla([1300, ANCHO - 1300], rm.lineas.map(l => new TableRow({ cantSplit: true, children: [
+        celda(par(run(l.k, { size: SZ.etiqueta, bold: true, caps: true, color: MUT }), { after: 0 }), 1300, { bottom: linea(FILA) }),
+        celda(par(run(l.t, { size: SZ.chico }), { after: 0 }), ANCHO - 1300, { bottom: linea(FILA), mr: 0 }),
+      ] }))));
     }
-    const { diag, cie } = splitDiagCie(m.paciente.diagnostico);
-    const campoDiag = campo('Diagnóstico', diag, 'No registrado');
-    if (!campoDiag.vacio && cie) campoDiag.cie10 = cie;
-    // Orden de campos tal cual el diseño: Diagnóstico, Terapeuta, Inicio de tratamiento / Edad,
-    // Cédula, Doctor referente (la fila 2 invierte Edad↔Cédula respecto al orden PDF/pantalla).
-    const camposFila1 = [
-      campoDiag,
-      campo('Terapeuta', m.terapeuta, 'No registrado'),
-      campo('Inicio de tratamiento', m.inicio ? dmy(m.inicio) : null, 'No registrado'),
+
+    // ── Resumen de evolución (3 cifras) ──
+    body.push(h2('Resumen de evolución'));
+    const cont = met.faltas === undefined
+      ? [`${met.adh ?? 0}%`, `${met.asistidas ?? 0}/${met.totalCitas ?? 0} citas asistidas`]
+      : met.adh == null ? ['—', 'sin citas pasadas'] : [`${met.adh}%`, textoCitas(met.asistidas, met.totalCitas, met.faltas)];
+    const cifras = [
+      ['Sesiones', `${met.done ?? 0} de ${met.sessions ?? 0}`, `${met.pct ?? 0}% del plan${met.previas ? ' · ' + textoPrevias(met.previas) : ''}`],
+      ['Continuidad', cont[0], cont[1]],
+      ['Dolor EVA', met.evaHas ? `${met.evaInicial} → ${met.evaActual != null ? met.evaActual : '?'}` : '—', met.evaHas ? 'inicial → actual' : 'sin datos registrados'],
     ];
-    const camposFila2 = [
-      campo('Edad', m.paciente.edad, 'No registrada'),
-      campo('Cédula', m.paciente.cedula, 'No registrada'),
-      campo('Doctor referente', m.doctor, 'No registrado'),
-    ];
+    const tercio = Math.floor(ANCHO / 3);
+    body.push(tabla([tercio, tercio, ANCHO - 2 * tercio], [new TableRow({ cantSplit: true, children: cifras.map(([l, v, s], i) =>
+      celda([
+        par(run(l, { size: SZ.etiqueta, bold: true, caps: true, color: MUT }), { align: AlignmentType.CENTER, after: 40 }),
+        par(run(v, { size: SZ.cifra, bold: true }), { align: AlignmentType.CENTER, after: 20 }),
+        par(run(s, { size: SZ.cifraSub, color: MUT }), { align: AlignmentType.CENTER, after: 0 }),
+      ], i < 2 ? tercio : ANCHO - 2 * tercio, { top: linea(REGLA), bottom: linea(REGLA), mt: 160, mb: 160, mr: 0 })) })]));
 
-    // Cifra del panel de métricas — solo la celda EVA es un único run grande (sin sufijo chico):
-    // "7 → 4" completo en ACENTO, o VACIO si no hay serie.
-    const evaFig = met.evaHas ? `${met.evaInicial} → ${met.evaActual != null ? met.evaActual : '—'}` : '—';
-    const evaSub = met.evaHas ? 'dolor EVA · inicial a actual' : 'sin datos registrados';
+    // ── Evolución del dolor ──
+    if (evaPng) {
+      body.push(h2('Evolución del dolor (EVA)'));
+      body.push(par(new ImageRun({ type: 'png', data: dataUriToBytes(evaPng), transformation: { width: evaW, height: evaH } }), { after: 60 }));
+    }
 
-    // Gráfico EVA: propio del diseño nuevo. Si no hay serie construible, cae al PNG ya capturado
-    // del canvas en pantalla (snapshots viejos, con el estilo de ejes/bandas anterior); si tampoco
-    // hay eso, se omite la sección entera.
-    const evaSvg = buildEvaSvgWord(m);
-    let evaPng = null, evaPngW = 605, evaPngH = 130;
-    if (evaSvg) {
-      // 1210×260 rasterizado (2x de 605×130) — sigue bajando (1210×422 -> 1210×300 -> 1210×260)
-      // para dejar más margen a la caja de "Evaluación inicial" en lo que queda de página 1.
-      evaPng = await svgToPngDataUri(evaSvg, 605, 130, 2);
-    } else if (m.evaChartImg) { evaPng = m.evaChartImg; evaPngW = 605; evaPngH = 191; }
+    // ── Evaluación inicial + goniometría (ANTES de la narrativa) ──
+    if (m.evalInicial) {
+      body.push(h2('Evaluación inicial'));
+      body.push(par(run(`${dmy(m.evalInicial.fecha)}${m.evalInicial.pb != null ? ` · EVA ${m.evalInicial.pb}/10` : ''}`, { bold: true }), { after: 80, keepNext: true }));
+      (m.evalInicial.partes || []).forEach(x => body.push(par(run(limpiarParte(x)), { after: 50 })));
+      if (gonio.length) {
+        const GC = [4200, 1300, 1300];
+        body.push(par(run('Goniometría (AAOS)', { bold: true }), { before: 200, after: 60, keepNext: true }));
+        body.push(tabla(GC, [
+          new TableRow({ tableHeader: true, cantSplit: true, children: ['Movimiento', 'Der.', 'Izq.'].map((t, c) =>
+            celda(par(run(t, { size: SZ.etiqueta, bold: true, caps: true, color: MUT }), { after: 0, align: c ? AlignmentType.CENTER : undefined }), GC[c], { bottom: linea(INK) })) }),
+          ...gonio.flatMap(g => [
+            new TableRow({ cantSplit: true, children: [celda(par(run(g.articulacion, { bold: true, size: SZ.chico }), { after: 0, keepNext: true }), GC[0] + GC[1] + GC[2], { span: 3, bottom: linea(REGLA), mt: 120 })] }),
+            ...g.filas.map((f, k) => {
+              const keepNext = k < g.filas.length - 1;
+              const v = t => par(run(t, { size: SZ.chico }), { after: 0, align: AlignmentType.CENTER, keepNext });
+              return new TableRow({ cantSplit: true, children: [
+                celda(par(run(f.movimiento, { size: SZ.chico }), { after: 0, keepNext }), GC[0], { bottom: linea(FILA), mt: 40, mb: 40 }),
+                ...(g.lados
+                  ? [celda(v(f.d), GC[1], { bottom: linea(FILA), mt: 40, mb: 40 }), celda(v(f.i), GC[2], { bottom: linea(FILA), mt: 40, mb: 40 })]
+                  : [celda(v(f.valor), GC[1] + GC[2], { span: 2, bottom: linea(FILA), mt: 40, mb: 40 })]),
+              ] });
+            }),
+          ]),
+        ]));
+      }
+    }
 
-    // ── Estilos de párrafo ──
+    // ── Narrativa clínica (IA) ──
+    if (narr && narr.length) {
+      body.push(h2('Narrativa clínica'));
+      narr.forEach(s => {
+        body.push(par(run(s.title, { bold: true }), { before: 120, after: 40, keepNext: true }));
+        String(s.body || '').split('\n').filter(Boolean).forEach(l => body.push(par(run(l), { after: 60, line: 300 })));
+      });
+    }
+
+    // ── Detalle por sesión (DOC-1) ──
+    body.push(h2(`Detalle por sesión (${ses.length})`));
+    if (ses.length) {
+      const SC = [1000, 620, 1050, 900, 1150, 900, 2200, 2720];
+      const cab = ['Fecha', 'Hora', 'Tipo', 'Lugar', 'Terapeuta', 'Dolor (antes→después)', 'Técnicas', 'Observación'];
+      const t = (txt, o = {}) => par(run(txt, { size: SZ.tabla, color: o.color }), { after: 0, align: o.align });
+      body.push(tabla(SC, [
+        new TableRow({ tableHeader: true, cantSplit: true, children: cab.map((c, i) =>
+          celda(par(run(c, { size: SZ.mini, bold: true, caps: true, color: MUT }), { after: 0, align: i === 5 ? AlignmentType.CENTER : undefined }), SC[i], { bottom: linea(INK), mr: 80 })) }),
+        ...ses.map(s => {
+          const eva = s.pb != null ? `${s.pb}→${s.pa != null ? s.pa : '?'}` : s.pa != null ? `—→${s.pa}` : '—';
+          const obs = [...(s.soapie || []).map(l => `${l.k} ${l.t}`), ...(s.obs ? [s.obs] : [])];
+          const o = { bottom: linea(FILA), mr: 80 };
+          return new TableRow({ cantSplit: true, children: [
+            celda(t(dmy(s.fecha)), SC[0], o), celda(t(s.hora || '—'), SC[1], o), celda(t(tipoCorto(s.tipo)), SC[2], o),
+            celda(t(s.lugar || '—'), SC[3], o), celda(t(s.terapeuta || '—'), SC[4], o),
+            celda(t(eva, { align: AlignmentType.CENTER }), SC[5], o),
+            celda(t(s.tecnicas || '—', { color: MUT }), SC[6], o),
+            celda(obs.length ? obs.map(x => t(x, { color: MUT })) : t('—', { color: MUT }), SC[7], { ...o, mr: 0 }),
+          ] });
+        }),
+      ]));
+    } else {
+      body.push(par(run('Sin sesiones de tratamiento registradas.', { color: MUT })));
+    }
+
+    // ── Datos administrativos: el dato que falta no se imprime ──
+    const adm = [['Cédula', m.paciente?.cedula], ['Médico referente', m.doctor],
+      ['Terapeutas del episodio', (m.terapeutas && m.terapeutas.length) ? m.terapeutas.join(', ') : (m.terapeuta && m.terapeuta !== 'Varios' && m.terapeuta !== '—' ? m.terapeuta : '')],
+      ['Protocolo', m.protocolo], ['Inicio de tratamiento', m.inicio && m.inicio !== '—' ? dmy(m.inicio) : '']]
+      .filter(([, v]) => String(v ?? '').trim());
+    if (adm.length) {
+      body.push(h2('Datos administrativos'));
+      const filasAdm = [];
+      for (let i = 0; i < adm.length; i += 3) filasAdm.push(adm.slice(i, i + 3));
+      body.push(tabla([tercio, tercio, ANCHO - 2 * tercio], filasAdm.map(f => new TableRow({ cantSplit: true, children: [0, 1, 2].map(c => {
+        const d = f[c];
+        // keepNext: la firma no queda sola en una página — viaja con los datos administrativos.
+        return celda(d ? [par(run(d[0], { size: SZ.etiqueta, bold: true, caps: true, color: MUT }), { after: 20, keepNext: true }), par(run(d[1]), { after: 0, keepNext: true })] : par(run(''), { after: 0, keepNext: true }),
+          c < 2 ? tercio : ANCHO - 2 * tercio);
+      }) }))));
+    }
+
+    // ── Firma ──
+    body.push(par(run(''), { before: 500, after: 0, keepNext: true }));
+    body.push(par(run(''), { after: 80, keepNext: true, border: { top: linea(INK, 6) }, indent: { right: ANCHO - 4300 } }));
+    if (m.firmante) body.push(par(run(m.firmante, { bold: true }), { after: 20, keepNext: true }));
+    body.push(par(run([m.firmante ? (m.firmanteCargo || 'Fisioterapeuta') : '', 'Rehactiva'].filter(Boolean).join(' · '), { size: SZ.chico, color: MUT }), { after: 20, keepNext: true }));
+    body.push(par(run(`Emitido el ${m.fechaLarga || ''}`, { size: SZ.chico, color: MUT }), { after: 140, keepNext: true }));
+    const punteado = { style: BorderStyle.DASHED, size: 4, color: 'B8B8B0', space: 4 };
+    body.push(par([run('Firmado electrónicamente con FirmaEC ', { size: SZ.etiqueta, color: RESERVA }), run('(espacio reservado)', { size: SZ.mini, color: RESERVA })],
+      { after: 0, border: { top: punteado, bottom: punteado, left: punteado, right: punteado }, indent: { right: ANCHO - 4300 } }));
+
     const doc = new Document({
-      styles: {
-        default: {
-          document: { run: { font: SANS, size: SZ.cuerpo, color: PARRAFO }, paragraph: { spacing: { after: 120, line: 276, lineRule: 'auto' } } },
-        },
-        paragraphStyles: [
-          { id: 'Subline', name: 'Subline', basedOn: 'Normal', quickFormat: true,
-            run: { size: SZ.subline, color: TERCIARIO },
-            paragraph: { spacing: { before: 0, after: 400, line: 240, lineRule: 'auto' } } },
-          { id: 'H2', name: 'H2', basedOn: 'Normal', quickFormat: true,
-            run: { font: SERIF, size: SZ.h2, color: INK },
-            // keepNext (no está en la referencia, es un ajuste: "Detalle por sesión" quedaba solo
-            // al pie de página) — pega el título con lo que sigue, sea imagen, tabla o párrafo.
-            paragraph: { border: { top: FILETE_H2 }, spacing: { before: 320, after: 140, line: 240, lineRule: 'auto' }, keepNext: true } },
-          { id: 'EtiquetaDato', name: 'Etiqueta Dato', basedOn: 'Normal', quickFormat: true,
-            run: { size: SZ.etiquetaDato, allCaps: true, color: ETIQUETA, characterSpacing: TRACK_CAPS },
-            paragraph: { spacing: { before: 0, after: 20, line: 240, lineRule: 'auto' } } },
-          { id: 'ValorDato', name: 'Valor Dato', basedOn: 'Normal', quickFormat: true,
-            run: { size: SZ.valorDato, bold: true, color: INK },
-            paragraph: { spacing: { before: 0, after: 0, line: 240, lineRule: 'auto' } } },
-          { id: 'Cie10Line', name: 'Cie10 Line', basedOn: 'Normal', quickFormat: true,
-            run: { size: SZ.cie10, color: ETIQUETA },
-            paragraph: { spacing: { before: 0, after: 0, line: 240, lineRule: 'auto' } } },
-          { id: 'MetricLabel', name: 'Metric Label', basedOn: 'Normal', quickFormat: true,
-            run: { size: SZ.etqMetrica, color: SECUNDARIO },
-            paragraph: { spacing: { before: 0, after: 60, line: 240, lineRule: 'auto' } } },
-          { id: 'Cuerpo', name: 'Cuerpo', basedOn: 'Normal', quickFormat: true,
-            run: { size: SZ.cuerpo, color: PARRAFO },
-            paragraph: { spacing: { before: 0, after: 0, line: 340, lineRule: 'auto' } } },
-          { id: 'ZonaEval', name: 'Zona Eval', basedOn: 'Normal', quickFormat: true,
-            run: { size: SZ.zonaEval, color: ETIQUETA },
-            paragraph: { spacing: { before: 140, after: 0, line: 240, lineRule: 'auto' } } },
-          { id: 'SubtituloNarr', name: 'Subtitulo Narr', basedOn: 'Normal', quickFormat: true,
-            run: { bold: true, allCaps: true, size: SZ.subtituloNarr, color: ACENTO, characterSpacing: TRACK_CAPS },
-            paragraph: { spacing: { before: 280, after: 60, line: 240, lineRule: 'auto' } } },
-          { id: 'MetadatoSesion', name: 'Metadato Sesion', basedOn: 'Normal', quickFormat: true,
-            run: { size: SZ.metadatoSesion, color: ETIQUETA },
-            paragraph: { spacing: { before: 0, after: 60, line: 240, lineRule: 'auto' } } },
-          { id: 'ObsSesion', name: 'Obs Sesion', basedOn: 'Normal', quickFormat: true,
-            run: { size: SZ.cuerpo, color: PARRAFO },
-            paragraph: { spacing: { before: 0, after: 0, line: 300, lineRule: 'auto' } } },
-          { id: 'ObsSesionVacia', name: 'Obs Sesion Vacia', basedOn: 'ObsSesion', quickFormat: true,
-            run: { color: VACIO } },
-          { id: 'NumSesion', name: 'Num Sesion', basedOn: 'Normal', quickFormat: true,
-            run: { font: SERIF, size: SZ.numSesion, color: SESION_NUM },
-            paragraph: { spacing: { before: 0, after: 0, line: 240, lineRule: 'auto' } } },
-          { id: 'EvaSesion', name: 'Eva Sesion', basedOn: 'Normal', quickFormat: true,
-            run: { font: SERIF, size: SZ.evaSesion, color: ACENTO },
-            paragraph: { alignment: AlignmentType.RIGHT, spacing: { before: 0, after: 0, line: 240, lineRule: 'auto' } } },
-          { id: 'FirmaNombre', name: 'Firma Nombre', basedOn: 'Normal', quickFormat: true,
-            run: { bold: true, size: SZ.firmaNombre, color: INK },
-            paragraph: { spacing: { before: 0, after: 20, line: 240, lineRule: 'auto' } } },
-          { id: 'FirmaRol', name: 'Firma Rol', basedOn: 'Normal', quickFormat: true,
-            run: { size: SZ.firmaRol, color: ETIQUETA },
-            paragraph: { spacing: { before: 0, after: 0, line: 240, lineRule: 'auto' } } },
-          { id: 'DocId', name: 'Doc Id', basedOn: 'Normal', quickFormat: true,
-            run: { size: SZ.docId, allCaps: true, color: TERCIARIO, characterSpacing: TRACK_CAPS },
-            paragraph: { alignment: AlignmentType.RIGHT, spacing: { before: 0, after: 0, line: 240, lineRule: 'auto' } } },
-          { id: 'Pie', name: 'Pie', basedOn: 'Normal', quickFormat: true,
-            run: { size: SZ.pie, color: FADED },
-            paragraph: { spacing: { before: 0, after: 0, line: 260, lineRule: 'auto' } } },
-        ],
-      },
+      styles: { default: { document: { run: { font: SANS, size: SZ.cuerpo, color: INK } } } },
       sections: [{
         properties: { page: { size: { width: PAGE_W, height: PAGE_H }, margin: MARGIN } },
-
-        // Membrete: logo (218×62, PNG original 562×160) a la izquierda + id de documento a la
-        // derecha en una tabla de 2 celdas (5200/4700 dxa, tal como header1.xml), con el filete
-        // E2DED6 en un párrafo VACÍO aparte debajo — no un borde de tabla. Se repite por página.
         headers: { default: new Header({ children: [
-          new Table({
-            width: { size: 9900, type: WidthType.DXA },
-            columnWidths: [5200, 4700],
-            borders: bordesInvisibles,
-            rows: [new TableRow({ cantSplit: true, children: [
-              new TableCell({
-                width: { size: 5200, type: WidthType.DXA },
-                borders: bordesInvisibles, verticalAlign: VerticalAlign.TOP,
-                margins: { top: 0, bottom: 0, left: 0, right: 140 },
-                children: [new Paragraph({ spacing: { before: 0, after: 120, line: 240, lineRule: 'auto' }, children: [new ImageRun({
-                  type: 'png', data: dataUriToBytes(LOGO_DATA_URI),
-                  transformation: { width: 218, height: 62 },
-                })] })],
-              }),
-              new TableCell({
-                width: { size: 4700, type: WidthType.DXA },
-                borders: bordesInvisibles, verticalAlign: VerticalAlign.TOP,
-                margins: { top: 0, bottom: 0, left: 0, right: 0 },
-                children: [new Paragraph({ style: 'DocId', text: `Informe de evolución · ${m.numero || '—'}` })],
-              }),
-            ] })],
-          }),
-          new Paragraph({ border: { bottom: FILETE_HEADER }, spacing: { before: 0, after: 0, line: 240, lineRule: 'auto' }, children: [] }),
+          tabla([5270, 5270], [new TableRow({ cantSplit: true, children: [
+            celda(par(run('Confidencial · Historia clínica', { size: SZ.mini, bold: true, caps: true, color: MUT }), { after: 0 }), 5270, { bottom: linea(REGLA), mb: 90 }),
+            celda(par(run(`Informe de evolución · N.º ${m.numero || ''}`, { size: SZ.mini, bold: true, caps: true, color: MUT }), { after: 0, align: AlignmentType.RIGHT }), 5270, { bottom: linea(REGLA), mb: 90, mr: 0 }),
+          ] })]),
         ] }) },
-
-        // Pie: una sola línea de dirección, sin filete propio. Se repite por página.
         footers: { default: new Footer({ children: [
-          new Paragraph({ style: 'Pie', text: piePagina() }),
+          par(run(pieLegal(), { size: SZ.mini, color: MUT }), { after: 20, border: { top: { ...linea(REGLA), space: 4 } } }),
+          par(run('Copia editable · el documento oficial es el PDF · Generado por RehactivaPro', { size: SZ.mini, color: MUT }), { after: 0 }),
         ] }) },
-
-        children: [
-          // ── Título — dos párrafos separados (no un salto de línea dentro de uno solo), tal
-          // como los arma la referencia ──
-          new Paragraph({
-            spacing: { before: 0, after: 0, line: 260, lineRule: 'auto' },
-            children: [new TextRun({ text: 'Informe de evolución', font: SERIF, size: SZ.h1, color: TITULO })],
-          }),
-          new Paragraph({
-            spacing: { before: 0, after: 140, line: 260, lineRule: 'auto' },
-            children: [new TextRun({ text: m.paciente.nombre || '—', font: SERIF, size: SZ.h1, color: ACENTO, italics: true })],
-          }),
-          new Paragraph({ style: 'Subline', text: m.rango ? `Emitido el ${emisionCorta} · ${textoPeriodoRango(m.rango)}` : `Emitido el ${emisionCorta} · Período ${periodo}` }),
-
-          // ── Datos del paciente — una sola tabla 2×3 sin bordes, etiqueta encima del valor
-          // (+ tercera línea CIE-10 en la celda Diagnóstico cuando hay código) ──
-          new Table({
-            width: { size: 10200, type: WidthType.DXA },
-            columnWidths: [3400, 3400, 3400],
-            borders: bordesInvisibles,
-            rows: [
-              new TableRow({ cantSplit: true, children: camposFila1.map(campoCelda) }),
-              new TableRow({ cantSplit: true, children: camposFila2.map(campoCelda) }),
-            ],
-          }),
-          new Paragraph({ spacing: { before: 0, after: 220, line: 240, lineRule: 'auto' }, children: [] }),
-
-          // ── Panel de métricas — 1 fila × 3 columnas, fondo F6F4EF, sin bordes ──
-          new Table({
-            width: { size: 10200, type: WidthType.DXA },
-            columnWidths: [3400, 3400, 3400],
-            borders: bordesInvisibles,
-            rows: [new TableRow({ cantSplit: true, children: [
-              panelCelda([
-                new TextRun({ text: `${met.done ?? 0}`, font: SERIF, size: SZ.cifraPanel, color: ACENTO }),
-                new TextRun({ text: ` / ${met.sessions ?? 0}`, font: SERIF, size: SZ.cifraPanelSec, color: FADED }),
-              ], `sesiones · ${met.pct ?? 0}% del plan${met.previas ? ` · ${textoPrevias(met.previas)}` : ''}`),
-              // MET-1: adh null (sin citas decididas) → '—', nunca un 0 % inventado. Un snapshot
-              // viejo (sin `faltas`) sale igual que antes.
-              met.faltas !== undefined && met.adh == null
-                ? panelCelda([
-                  new TextRun({ text: '—', font: SERIF, size: SZ.cifraPanel, color: VACIO }),
-                ], 'continuidad · sin citas pasadas')
-                : panelCelda([
-                  new TextRun({ text: `${met.adh ?? 0}`, font: SERIF, size: SZ.cifraPanel, color: ACENTO }),
-                  new TextRun({ text: '%', font: SERIF, size: SZ.cifraPanelSec, color: FADED }),
-                ], met.faltas === undefined
-                  ? `continuidad · ${met.asistidas ?? 0} de ${met.totalCitas ?? 0} citas`
-                  : `continuidad · ${textoCitas(met.asistidas, met.totalCitas, met.faltas)}`),
-              panelCelda([
-                new TextRun({ text: evaFig, font: SERIF, size: SZ.cifraPanel, color: met.evaHas ? ACENTO : VACIO }),
-              ], evaSub),
-            ] })],
-          }),
-
-          // ── Gráfico EVA ──
-          ...(evaPng ? [
-            new Paragraph({ style: 'H2', text: 'Evolución del dolor' }),
-            new Paragraph({ spacing: { before: 0, after: 120, line: 240, lineRule: 'auto' }, children: [new ImageRun({
-              type: 'png', data: dataUriToBytes(evaPng),
-              transformation: { width: evaPngW, height: evaPngH },
-            })] }),
-            new Paragraph({ spacing: { before: 0, after: 180, line: 240, lineRule: 'auto' }, children: [] }),
-          ] : []),
-
-          // ── Evaluación inicial — caja sombreada F6F4EF (mismo tratamiento que el panel de
-          // métricas), título+metadato en una línea, cuerpo, y "Zona evaluada" si el formulario
-          // trajo una parte "Zonas: …" ──
-          ...(m.evalInicial ? [(() => {
-            const { zona, resto } = extraerZona(m.evalInicial.partes);
-            return new Table({
-              width: { size: 9900, type: WidthType.DXA },
-              columnWidths: [9900],
-              borders: bordesInvisibles,
-              // cantSplit false a propósito (a diferencia del resto de tablas del documento): si
-              // no cabe entera en lo que deja el gráfico, que continúe en la página siguiente en
-              // vez de saltar la caja completa y dejar un hueco grande al pie de la página 1.
-              rows: [new TableRow({ cantSplit: false, children: [new TableCell({
-                width: { size: 9900, type: WidthType.DXA },
-                borders: bordesInvisibles, shading: { fill: PANEL_BG }, verticalAlign: VerticalAlign.TOP,
-                margins: { top: 260, bottom: 260, left: 260, right: 140 },
-                children: [
-                  new Paragraph({
-                    spacing: { before: 0, after: 120, line: 240, lineRule: 'auto' },
-                    children: [
-                      new TextRun({ text: 'Evaluación inicial  ', font: SERIF, size: SZ.h2, color: INK }),
-                      new TextRun({ text: `${dmy(m.evalInicial.fecha)} · EVA ${m.evalInicial.pb != null ? m.evalInicial.pb : '—'}/10`, allCaps: true, size: SZ.etqMetrica, color: ETIQUETA, characterSpacing: TRACK_CAPS }),
-                    ],
-                  }),
-                  // keepNext en el ÚLTIMO párrafo de cuerpo (el penúltimo de la caja) cuando hay
-                  // "Zona evaluada": la pega a esa línea para que nunca arranque sola una página —
-                  // cantSplit:false de la tabla sigue permitiendo partir ANTES de ese punto.
-                  ...(resto.length
-                    ? resto.map((x, i) => new Paragraph({ style: 'Cuerpo', text: limpiarParte(x), keepNext: !!zona && i === resto.length - 1 }))
-                    : [new Paragraph({ style: 'Cuerpo', keepNext: !!zona, children: [new TextRun({ text: 'Sin detalle registrado', size: SZ.cuerpo, color: VACIO })] })]),
-                  ...(zona ? [new Paragraph({ style: 'ZonaEval', text: `Zona evaluada: ${zona.toLowerCase()}` })] : []),
-                ],
-              })] })],
-            });
-          })(), new Paragraph({ spacing: { before: 0, after: 0, line: 240, lineRule: 'auto' }, children: [] })] : []),
-
-          // ── Goniometría de la evaluación inicial — agrupada por articulación: fila de articulación
-          // (negrita, fondo F6F4EF, ocupa las 3 columnas) y debajo sus movimientos con SOLO los valores
-          // medidos (sin normal ni %). Encabezado repetible; keepNext en todas las filas de un grupo
-          // menos la última, para que una articulación no se parta entre páginas. Sin mediciones (o
-          // snapshot previo a ROM-2a) → no se agrega nada. ──
-          ...(gonio.length ? [
-            new Paragraph({ style: 'SubtituloNarr', keepNext: true, text: 'Goniometría (AAOS)' }),
-            new Table({
-              width: { size: GONIO_COLS.reduce((a, b) => a + b, 0), type: WidthType.DXA },
-              columnWidths: GONIO_COLS,
-              borders: bordesInvisibles,
-              rows: [
-                new TableRow({ tableHeader: true, cantSplit: true, children: ['Movimiento', 'Der.', 'Izq.'].map((t, c) =>
-                  gonioCelda(c, 1, [new Paragraph({ style: 'EtiquetaDato', alignment: c ? AlignmentType.CENTER : undefined, text: t })])) }),
-                ...gonio.flatMap(g => [
-                  new TableRow({ cantSplit: true, children: [gonioCelda(0, 3, [new Paragraph({ style: 'ObsSesion', keepNext: true,
-                    children: [new TextRun({ text: g.articulacion, bold: true, color: INK })] })], { fill: PANEL_BG })] }),
-                  ...g.filas.map((f, k) => {
-                    const keepNext = k < g.filas.length - 1;
-                    const valor = t => [new Paragraph({ style: 'ObsSesion', keepNext, alignment: AlignmentType.CENTER,
-                      children: [new TextRun({ text: t, color: t === '—' ? VACIO : ACENTO })] })];
-                    return new TableRow({ cantSplit: true, children: [
-                      gonioCelda(0, 1, [new Paragraph({ style: 'ObsSesion', keepNext, text: f.movimiento })]),
-                      ...(g.lados ? [gonioCelda(1, 1, valor(f.d)), gonioCelda(2, 1, valor(f.i))] : [gonioCelda(1, 2, valor(f.valor))]),
-                    ] });
-                  }),
-                ]),
-              ],
-            }),
-          ] : []),
-
-          // ── Narrativa clínica — subtítulo (versalitas, ACENTO) + párrafo, repetido por cada
-          // una de las subsecciones (Condición inicial / Evolución del tratamiento / Resultados
-          // obtenidos / Recomendaciones). Sin bordes ni fondo. ──
-          ...(narr && narr.length ? [
-            new Paragraph({ style: 'H2', text: 'Narrativa clínica' }),
-            ...narr.flatMap(s => [
-              new Paragraph({ style: 'SubtituloNarr', text: s.title }),
-              ...String(s.body || '').split('\n').filter(Boolean).map((linea, i, arr) =>
-                new Paragraph({ style: 'Cuerpo', spacing: { before: 0, after: i === arr.length - 1 ? 0 : 60, line: 340, lineRule: 'auto' }, text: linea })),
-            ]),
-          ] : []),
-
-          // ── Detalle por sesión — tabla sin bordes, filas pares con fondo F6F4EF ──
-          new Paragraph({ style: 'H2', text: 'Detalle por sesión' }),
-          ...(ses.length ? [(() => {
-            let carryEva = met.evaInicial;
-            const filas = ses.map((s, i) => {
-              const row = filaSesion(s, i, carryEva);
-              if (s.pb != null || s.pa != null) carryEva = s.pa != null ? s.pa : s.pb;
-              return row;
-            });
-            return new Table({
-              width: { size: 9900, type: WidthType.DXA },
-              columnWidths: [700, 7800, 1400],
-              borders: bordesInvisibles,
-              rows: filas,
-            });
-          })()] : [new Paragraph({ style: 'Cuerpo', children: [new TextRun({ text: 'Sin sesiones de tratamiento registradas.', color: VACIO })] })]),
-
-          // ── Firma ──
-          new Paragraph({ spacing: { before: 0, after: 700, line: 240, lineRule: 'auto' }, children: [] }),
-          new Paragraph({ indent: { right: IND_FIRMA }, border: { bottom: FILETE_FIRMA }, spacing: { before: 0, after: 140, line: 240, lineRule: 'auto' }, children: [] }),
-          new Paragraph({ style: 'FirmaNombre', text: m.firmante || '—' }),
-          new Paragraph({ style: 'FirmaRol', text: 'Fisioterapeuta · Rehactiva' }),
-        ],
+        children: body,
       }],
     });
 
-    // ── Helpers de tabla/celda ──
-
-    // Celda de "Datos del paciente": etiqueta (allCaps ETIQUETA) + valor (INK o VACIO) + tercera
-    // línea CIE-10 (ETIQUETA, chica) cuando el campo la trae. Márgenes uniformes (tblCellMar de la
-    // referencia no distingue primera/última columna).
-    function campoCelda(c) {
-      const children = [
-        new Paragraph({ style: 'EtiquetaDato', text: c.etiqueta }),
-        new Paragraph({ style: 'ValorDato', children: [new TextRun({ text: c.texto, size: SZ.valorDato, bold: true, color: c.vacio ? VACIO : INK })] }),
-      ];
-      if (c.cie10) children.push(new Paragraph({ style: 'Cie10Line', text: `CIE-10 ${c.cie10}` }));
-      return new TableCell({
-        width: { size: 3400, type: WidthType.DXA },
-        borders: bordesInvisibles, verticalAlign: VerticalAlign.TOP,
-        margins: { top: 140, bottom: 140, left: 0, right: 140 },
-        children,
-      });
-    }
-
-    // Celda del panel de métricas / evaluación inicial: cifra grande (runs con distinto
-    // tamaño/color) + etiqueta chica debajo. Márgenes uniformes (200/200/200/140, tal como
-    // tblCellMar del panel — no hay variante primera/última).
-    function panelCelda(runs, etiqueta) {
-      return new TableCell({
-        width: { size: 3400, type: WidthType.DXA },
-        borders: bordesInvisibles, shading: { fill: PANEL_BG }, verticalAlign: VerticalAlign.TOP,
-        margins: { top: 200, bottom: 200, left: 200, right: 140 },
-        children: [
-          new Paragraph({ spacing: { before: 60, after: 20, line: 240, lineRule: 'auto' }, children: runs }),
-          new Paragraph({ style: 'MetricLabel', text: etiqueta }),
-        ],
-      });
-    }
-
-    // Fila de "Detalle por sesión": número con cero inicial / metadato+observación / EVA
-    // antes→después. Filas pares con fondo F6F4EF. Una sesión sin pb (ningún dato registrado)
-    // hereda el último EVA conocido (`carryEva`) para el lado izquierdo de la flecha y muestra
-    // "—" del lado derecho, todo en VACIO — igual criterio que el gráfico.
-    function filaSesion(s, i, carryEva) {
-      const n = i + 1;
-      const par = n % 2 === 0;
-      const shading = par ? { fill: PANEL_BG } : undefined;
-      const meta = [dmy(s.fecha), s.terapeuta || null, s.tecnicas ? s.tecnicas.toLowerCase() : null].filter(Boolean).join(' · ');
-      // MET-1: con EVA "sin medir" puede haber solo el después ("— → 3"): es un dato real, no se oculta.
-      const registrada = s.pb != null || s.pa != null;
-      const evaTxt = s.pb != null ? `${s.pb} → ${s.pa != null ? s.pa : '?'}`
-        : s.pa != null ? `— → ${s.pa}`
-        : (carryEva != null ? `${carryEva} → —` : '—');
-      // Sin observación: el texto depende de si HAY técnicas registradas o no — una sesión con
-      // técnicas (ej. "kinesiotape, electroterapia") pero sin nota no es lo mismo que una sesión
-      // sin ningún dato. La frase larga es solo para el caso "nada registrado".
-      const obsTexto = s.tecnicas ? 'Sin observación registrada.' : 'Sesión sin observación ni técnicas registradas.';
-      return new TableRow({ cantSplit: true, children: [
-        new TableCell({
-          width: { size: 700, type: WidthType.DXA }, borders: bordesInvisibles, shading, verticalAlign: VerticalAlign.TOP,
-          margins: { top: 180, bottom: 180, left: 0, right: 140 },
-          children: [new Paragraph({ style: 'NumSesion', text: String(n).padStart(2, '0') })],
-        }),
-        new TableCell({
-          width: { size: 7800, type: WidthType.DXA }, borders: bordesInvisibles, shading, verticalAlign: VerticalAlign.TOP,
-          margins: { top: 180, bottom: 180, left: 0, right: 140 },
-          children: [
-            new Paragraph({ style: 'MetadatoSesion', text: meta }),
-            // RESP-1: la sesión respiratoria lleva su nota SOAPIE (armada sin IA); la nota libre va
-            // debajo solo si existe, sin el texto de "vacía" (lo hecho ya está en la nota).
-            ...(s.soapie && s.soapie.length
-              ? [...s.soapie.map(l => new Paragraph({ style: 'ObsSesion', children: [
-                  new TextRun({ text: `${l.k}  `, bold: true }), new TextRun({ text: l.t })] })),
-                 ...(s.obs ? [new Paragraph({ style: 'ObsSesion', text: s.obs })] : [])]
-              : [s.obs
-                  ? new Paragraph({ style: 'ObsSesion', text: s.obs })
-                  : new Paragraph({ style: 'ObsSesionVacia', text: obsTexto })]),
-          ],
-        }),
-        new TableCell({
-          width: { size: 1400, type: WidthType.DXA }, borders: bordesInvisibles, shading, verticalAlign: VerticalAlign.TOP,
-          margins: { top: 180, bottom: 180, left: 0, right: 140 },
-          children: [new Paragraph({ style: 'EvaSesion', children: [new TextRun({ text: evaTxt, font: SERIF, size: SZ.evaSesion, color: registrada ? ACENTO : VACIO })] })],
-        }),
-      ] });
-    }
-
-    // Celda de la tabla de goniometría: compacta en vertical (son muchas filas cortas).
-    // c = primera columna que ocupa, span = cuántas (la fila de articulación ocupa 3; el valor de una
-    // articulación sin lados, 2).
-    function gonioCelda(c, span, children, shading) {
-      const ancho = GONIO_COLS.slice(c, c + span).reduce((a, b) => a + b, 0);
-      return new TableCell({
-        width: { size: ancho, type: WidthType.DXA }, columnSpan: span > 1 ? span : undefined,
-        borders: bordesInvisibles, shading, verticalAlign: VerticalAlign.TOP,
-        margins: { top: 60, bottom: 60, left: shading ? 100 : 0, right: 140 },
-        children,
-      });
-    }
-
-    function piePagina() {
-      return ['Rehactiva', 'Centro de rehabilitación y fisioterapia', CONFIG_CLINICA.DIRECCION,
-        CONFIG_CLINICA.TELEFONO ? 'Tel. ' + CONFIG_CLINICA.TELEFONO : '', CONFIG_CLINICA.EMAIL]
-        .filter(Boolean).join(' · ');
-    }
-
     const blob = await Packer.toBlob(doc);
-    const nombreArchivo = `informe-${(m.paciente?.nombre || 'paciente').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'paciente'}-${m.numero || ''}.docx`;
-    descargar(blob, nombreArchivo);
+    descargar(blob, nombreArchivoInforme(m.numero, 'docx'));
     toastOk(`✓ .docx generado (${Math.round(blob.size / 1024)} KB)`);
   } catch (e) {
     console.error('[word]', e);

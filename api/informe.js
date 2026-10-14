@@ -135,7 +135,7 @@ export default async function handler(req, res) {
   const safePrompt = scrubPII(prompt);
   try {
     // MINI-1: 2.048 tokens. Con 1.024 un informe real de Sonnet 5.5 salió cortado a media palabra
-    // en RECOMENDACIONES (pide 280-380 palabras en español, más los rótulos).
+    // en RECOMENDACIONES (pedía 280-380 palabras; desde INF-UNI pide 150-220: el tope queda con margen).
     const data = await llamarAnthropic({
       model,
       max_tokens: INFORME_MAX_TOKENS,

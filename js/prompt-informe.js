@@ -56,7 +56,8 @@ export function promptInformePaciente({ p, log, epDiag, epSessions, epDone, esAc
 - No reemplaces términos clínicos por otros parecidos (por ejemplo, 'sin complicaciones' no es 'sin compensaciones').
 - Refiérete siempre al 'paciente', nunca con nombre propio.${tieneMedico ? '' : `
 - No menciones a ningún médico referente: este paciente no tiene uno registrado.`}
-- Basa todo en los datos provistos (evaluación inicial, técnicas aplicadas, observaciones, EVA). No inventes hallazgos que no estén en los datos.${protCtx ? `
+- Basa todo en los datos provistos (evaluación inicial, técnicas aplicadas, observaciones, EVA). No inventes hallazgos que no estén en los datos.
+- Las fechas y el orden de los eventos salen del HISTORIAL POR SESIÓN; no digas 'segunda semana' si el dato dice día 4.${protCtx ? `
 - BARRERA: más abajo se incluye un CONTEXTO DEL PROTOCOLO. Es una PLANTILLA DE REFERENCIA (objetivos e hitos típicos de este tipo de tratamiento), NO la historia clínica de este paciente. Jamás afirmes que algo de esa plantilla se le aplicó, se le encontró o le ocurrió al paciente: SOLO lo listado en DATOS CLÍNICOS ocurrió realmente. Úsala únicamente para enmarcar objetivos y recomendaciones.` : ''}
 
 DATOS CLÍNICOS (anonimizado):
@@ -81,5 +82,5 @@ RESULTADOS OBTENIDOS: Compara el estado funcional ACTUAL con el inicial. Detalla
 
 RECOMENDACIONES: Plan a seguir de forma concreta: tipo de ejercicios o fortalecimiento sugerido, continuidad del tratamiento, manejo o cuidados en casa, y signos de alerta a vigilar si aplica. Adapta las recomendaciones al diagnóstico, y a la ocupación o actividad del paciente solo si aparecen en los datos.
 
-Extensión total del informe: entre 280 y 380 palabras (completo, que llene aproximadamente dos páginas con el resto del documento, pero SIN relleno). Cada sección de 2 a 4 frases sustanciales.`;
+Extensión total del informe: entre 150 y 220 palabras (el informe ya trae un resumen para el médico, las tablas y el gráfico: la narrativa completa, SIN relleno). Cada sección de 1 a 3 frases sustanciales.`;
 }

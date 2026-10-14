@@ -1151,18 +1151,32 @@
 </div>
 </div>
 
-<!-- MODAL FIRMANTE (exportar informe a Word) -->
+<!-- MODAL FIRMANTE (exportar informe a PDF o Word) + pedido al médico (MED-1) -->
 <div class="modal-bg" id="firmante-modal">
-<div class="modal" style="max-width:380px">
+<div class="modal" style="max-width:400px">
   <h3>Firmante del informe</h3>
   <div style="font-size:13px;color:#6b6a64;margin-bottom:16px">¿Quién firma este informe? Se imprime al pie del documento.</div>
   <div class="field">
-    <label>Terapeuta que firma</label>
+    <label for="fw-nombre">Terapeuta que firma</label>
     <select id="fw-nombre"><option value="">Seleccioná un terapeuta…</option></select>
+  </div>
+  <div id="fw-pedido-box" hidden>
+    <div class="field">
+      <label for="fw-pedido">Necesitamos del médico</label>
+      <select id="fw-pedido" onchange="cambiarPedido()"></select>
+    </div>
+    <div class="field" id="fw-pedido-n-box" hidden>
+      <label for="fw-pedido-n">Sesiones a sumar a la orden</label>
+      <input type="number" id="fw-pedido-n" min="1" max="60" step="1" inputmode="numeric" placeholder="+N sesiones">
+    </div>
+    <div class="field" id="fw-pedido-txt-box" hidden>
+      <label for="fw-pedido-txt">¿Qué necesitan? (máx. 100 caracteres)</label>
+      <input type="text" id="fw-pedido-txt" maxlength="100">
+    </div>
   </div>
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal('firmante-modal')">Cancelar</button>
-    <button class="btn-save" onclick="confirmarExportarWord()">Exportar Word</button>
+    <button class="btn-save" id="fw-ok" onclick="confirmarExportarInforme()">Exportar Word</button>
   </div>
 </div>
 </div>
