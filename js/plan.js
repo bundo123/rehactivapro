@@ -30,10 +30,11 @@ function renderPlan() {
   // EPI-2a: las sesiones previas a RehactivaPro se suman (solo se muestran). `over` sigue siendo
   // por sesiones registradas; el N.º de cita va aparte y solo avisa si él mismo supera el plan.
   const { x, n, over, cita } = planResumen(p, _planAppt, state.appointments);
+  const ses = x === 1 ? 'sesión registrada' : 'sesiones registradas';
   box.innerHTML = (n
-    ? `<span class="plan-count${over ? ' plan-over' : ''}">Lleva <b>${esc(String(x))}</b> sesiones registradas de <b>${esc(String(n))}</b> del plan</span>`
+    ? `<span class="plan-count${over ? ' plan-over' : ''}">Lleva <b>${esc(String(x))}</b> ${ses} de <b>${esc(String(n))}</b> del plan</span>`
       + (over ? '<span class="plan-hint">Supera el plan — ampliálo o iniciá un episodio nuevo</span>' : '')
-    : `<span class="plan-count">Lleva <b>${esc(String(x))}</b> sesiones registradas · sin plan definido</span>`)
+    : `<span class="plan-count">Lleva <b>${esc(String(x))}</b> ${ses} · sin plan definido</span>`)
     + (cita
       ? `<span class="plan-cita">Esta cita es la <b>${esc(String(cita.x))}</b> del episodio${cita.n && cita.x > cita.n ? ' · supera el plan' : ''}</span>`
       : '');

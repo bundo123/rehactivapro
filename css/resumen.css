@@ -64,6 +64,9 @@
 .resd-sess{flex:0 0 160px}
 .resd-eval{flex:0 0 170px}
 .resd-sess>*,.resd-eval>*{width:100%;justify-content:center}
+/* PUL-1: noas/pend ocupan lo mismo que sesión + evaluación (160 + 12 + 170), así la pastilla del
+   médico arranca en la misma x en las tres cajas. */
+.resd-cols>.resd-actions{flex:0 0 342px;justify-content:flex-end}
 
 /* Botones de acción */
 .resd-btn-wa,.resd-btn-em,.resd-btn-rep,.resd-btn-sess,.resd-btn-eval{padding:7px 13px;font-size:11.5px;border-radius:7px;cursor:pointer;font-weight:600;font-family:inherit;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;transition:filter .12s;line-height:1.2;box-sizing:border-box}

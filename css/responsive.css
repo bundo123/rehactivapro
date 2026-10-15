@@ -767,6 +767,12 @@
     min-height: 44px;
   }
 
+  /* PUL-1: en escritorio noas/pend llevan flex-basis 342px, que le gana a su width:100%; aquí
+     vuelven a ocupar la línea entera. */
+  #tab-resumen .resd-cols > .resd-actions {
+    flex: 1 1 100%;
+  }
+
   /* ── Informe paciente: una columna, sin desbordes ──
      .rpt-layout es flex column con align-items:flex-start, así que la hoja se
      dimensionaba a max-content (472px en un viewport de 390) y desbordaba. */

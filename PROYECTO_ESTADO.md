@@ -4,6 +4,24 @@
 
 ---
 
+## 🗓️ Sesión 2026-10-15 (6) — LOTE PUL-1: pulido, singular en el plan y pastilla alineada en noas/pend. Sin SQL.
+
+Rama `pul-1-pulido`, desde `main` = `d00fbd1` (deploy de SES-1 ya verificado).
+- **Plan del modal** (`plan.js` `renderPlan`): la línea 1 concuerda en número, «Lleva **1** sesión
+  registrada de **10** del plan» / «· sin plan definido»; con 0 o ≥ 2 sigue en plural. La línea de la
+  cita no cambia.
+- **Resumen del día** (`resumen.css`, bloque RES-2): `.resd-cols>.resd-actions{flex:0 0 342px}` =
+  sesión + evaluación (160 + 12 + 170), botones a la derecha; la pastilla del médico de noas/pend
+  arranca en la misma x que la de conf. En móvil (`responsive.css`, RES-2 ≤ 768 px)
+  `#tab-resumen .resd-cols > .resd-actions{flex:1 1 100%}`, porque el flex-basis le ganaba al `width:100%`.
+
+683 pruebas, 0 fail. `vite build` en verde. E2E con stubs (datos ficticios): a 1280 la pastilla de conf,
+noas y pend en la misma x (767 px), `.resd-actions` = 342 px con los 3 botones en una línea; a 375 los 3
+botones de noas/pend se reparten la línea entera con 44 px de alto; modal con 4 registradas (plural), 1
+con plan y 1 sin plan (singular); sin scroll horizontal.
+
+---
+
 ## 🗓️ Sesión 2026-10-15 (5) — LOTE SES-1: etiquetas claras, «cita N.º X» (agenda) vs «sesiones registradas» (modal). Sin SQL.
 
 Rama `ses-1-etiquetas`, desde `main` = `41f2d31` (deploy de RES-2 verificado por Jefferson).
