@@ -4,6 +4,56 @@
 
 ---
 
+## 🗓️ Sesión 2026-10-15 (3) — LOTE EXP-2: ajustes del Expediente tras la prueba en producción (documentos en lista, Resumen = pendientes + datos por completar + episodios para todos los roles, botón Expediente en Pacientes). Sin SQL.
+
+Rama `feat/exp-2-ajustes`, desde `main` = `e95b749`. Antes del lote se verificó el deploy de B2b-1:
+commit-status de Vercel `success`, `index-*.js/css` de producción = los del build local y la CSP
+servida con `frame-src` del host de Supabase.
+- **Pacientes:** acciones de la fila = Editar · Eliminar (admin) · **Expediente** (`th-btn
+  pl-act-btn`, `abrirExpediente`). El nombre sigue siendo enlace.
+- **Documentos en lista** (`documentos.js`): la zona de subida es una barra de una línea (~44 px):
+  «Arrastra aquí un PDF o foto, o toca para elegir · PDF, JPG o PNG · máx. 10 MB»; a ≤ 768 px dice
+  «Toca para elegir un PDF o foto · máx. 10 MB». El formulario en línea no cambia. Las tarjetas
+  pasan a filas `.exp-doc-row` (línea fina, como `.orden-item`): miniatura 40×40 (foto firmada con
+  la misma `createSignedUrls`; PDF = «PDF» en texto) · nombre con elipsis y `title` · pill del tipo ·
+  «dd/mm/aaaa · 135 KB» · Ver · Descargar · Quitar a la derecha. A ≤ 768 px la fila es un grid:
+  miniatura + nombre arriba, tipo/fecha y acciones debajo. Contenedor `#exp-doc-lista`.
+- **Visor:** `.exp-visor-cuerpo` es una columna flexible (`flex:1; min-height:0`) y el `<iframe>`/`<img>`
+  van con `flex:1; width/height:100%` (`object-fit:contain` en la foto), sin depender de alturas en %;
+  `padding-bottom` con `env(safe-area-inset-bottom)` y la barra con `safe-area-inset-top` (iOS).
+- **Resumen** (`expediente.js`): fuera «Evaluación inicial», «Últimas sesiones» y «Próximas citas».
+  Quedan, en orden:
+  · **Pendientes** — `pendientesExpediente(p, citas, hoy, {puede})` (puro) → `{clave, texto, accion}`
+    en orden fijo: `sin_eval` («Registrar», `evalInicial`) · `orden_vencida` y `orden_agotada` sobre
+    la orden que rige hoy (`ordenAplicable`; usadas = `doneEnLog` desde la fecha de la orden, como el
+    informe) · `sin_orden` (con médico referente y sin órdenes) — las tres con «Ver órdenes», que
+    cambia a la pestaña Órdenes · `plan_sin_alta` («Editar») · `inasistencias` (≥ 2 `noas` del
+    episodio actual, `citasDeEpisodio`; «Historial de citas») · `sin_cita` (activo, plan incompleto y
+    sin cita futura; «Agendar», `createAppt`) · `sin_diagnostico` (sin protocolo y diag vacío o «Sin
+    diagnóstico»; «Editar»). Sin permiso, el pendiente se lista sin acción. Vacío: «Nada pendiente.»
+  · **Datos por completar** — `datosFaltantes(p)` (puro): fecha de nacimiento, sexo, cédula, teléfono,
+    correo, médico referente, en ese orden; una sola fila con «Editar» (`editPatient`). Sin faltantes
+    no se pinta.
+  · **Episodios para todos los roles** — `htmlListaEpisodios(p, {acciones})` (episodios.js) sobre
+    `listaEpisodiosExp` (puro, usa `filasEpisodios`): una fila por episodio (nombre o «Episodio N» ·
+    diagnóstico · desde–hasta · «Sesiones X de N (incl. K previas)»), el actual arriba con su marca;
+    con dos o más anteriores van plegados en «Ver episodios anteriores (N)». Editar/Unir y «Nuevo
+    episodio» solo con `newEpisode` (misma regla que hoy). `htmlPanelEpisodios` del informe no cambia.
+  · «+ Sesión manual» pasa a la pestaña Sesiones (vivía en «Últimas sesiones»).
+- **CSS:** fuera `.exp-doc-grid/.exp-doc-card` y las reglas `.exp-eps`; nuevas `.exp-doc-row`,
+  `.exp-doc-sub`, `.exp-link`, `.exp-pend`, `.exp-ep*`, `.exp-drop-pc/-movil/-tipos`.
+- **Docs:** `CLAUDE.md` › Arquitectura (Resumen = funciones puras).
+
+663 → 677 pruebas (+14 en `test/expediente.test.js`: cada regla de pendientes sola y su caso que no
+dispara, orden estable, vacío; `datosFaltantes`; `listaEpisodiosExp`). `vite build` en verde. E2E con el
+harness de stubs (datos ficticios): 100/100 a 1280 px y 100/100 a 375 px — botón Expediente en la fila,
+Resumen con Pendientes («Ver órdenes» cambia de pestaña), Datos por completar en una fila, episodios
+para la secretaria sin acciones, anteriores plegados con 3 episodios, documentos en filas (miniatura
+40×40, una línea en 1280 y dos en 375), barra de subida de ≤ 48 px, soltar una foto y verla arriba de
+la lista, visor con el PDF llenando el alto, Descargar, Quitar, sin scroll horizontal.
+
+---
+
 ## 🗓️ Sesión 2026-10-15 (2) — BLOQUE B · LOTE B2b-1: Expediente del paciente (pantalla única con Resumen · Órdenes · Documentos · Sesiones), visor interno de documentos, lista de Pacientes adelgazada. Sin SQL.
 
 Rama `feat/b2b1-expediente`, desde `main` = `10ddbdb` (B1 + B2a en producción). No toca la base ni
@@ -2996,9 +3046,9 @@ resumen.js      ← pacientes (hasEvalInicial), informes (hasEvalInicial), searc
 agenda.js       ← facturacion (updateFacturaBadge), terapeutas (updateFacturaBadge),
                    informes (apptSlots, re-exportado desde utils por retrocompatibilidad)
 ia.js           ← informes (genSemanalAI, genPatientAI, callAI)
-expediente-calc ← expediente, documentos (ordenarDocsRecientes, esImagen)   [B2b-1, puro]
+expediente-calc ← expediente, documentos (ordenarDocsRecientes, esImagen), episodios (listaEpisodiosExp)   [puro]
 expediente.js   ← main (abrirExpediente, refrescarExpediente vía window._app); importa episodios
-                   (htmlPanelEpisodios), ordenes (htmlOrdenes, pintarOrdenes), documentos
+                   (htmlListaEpisodios), ordenes (htmlOrdenes, pintarOrdenes), documentos
                    (htmlDocumentos, pintarDocumentos), patient-combo, historial-calc
 main.js         ← importa todos los módulos anteriores
 ```

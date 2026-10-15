@@ -1,8 +1,9 @@
 // ── DOC-2: documentos del paciente (tabla public.documentos + bucket privado `documentos`) ──
 // B2b-1: pestaña «Documentos» del Expediente (ya no hay modal). El paciente es state.expedienteId.
 // Carga PEREZOSA: la lista se pide al abrir la pestaña; no va en el select de pacientes ni en realtime.
-// Arriba, la zona de subida (arrastrar o tocar); debajo, tarjetas con miniatura. Las miniaturas de
-// las fotos salen de UNA llamada createSignedUrls (300 s); si falla, queda el ícono del tipo.
+// Arriba, la barra de subida de una línea (arrastrar o tocar); debajo, la LISTA (EXP-2: filas, no
+// tarjetas) con miniatura de 40 px. Las miniaturas de las fotos salen de UNA llamada
+// createSignedUrls (300 s); si falla, queda el ícono del tipo.
 // «Ver» abre el visor dentro de la app (#doc-visor) con la URL firmada de 300 s: <img> para fotos,
 // <iframe> para PDF (la CSP tiene frame-src del host de Supabase solo para esto).
 // «Quitar» es borrado LÓGICO (la RLS solo deja eso): el objeto queda en Storage y el cambio en la
@@ -17,7 +18,10 @@ import { TIPOS_DOC, MIMES_DOC, labelTipoDoc, validarArchivo, rutaDocumento, text
 import { ordenarDocsRecientes, esImagen } from './expediente-calc.js';
 
 const BUCKET = 'documentos';
-const DROP_TXT = 'Arrastra aquí un PDF o foto, o toca para elegir';
+// Una línea. En el celular no se arrastra: el CSS cambia el texto por «Toca para elegir…» y acorta el pie.
+const DROP_HTML = '<span class="exp-drop-pc">Arrastra aquí un PDF o foto, o toca para elegir</span>'
+  + '<span class="exp-drop-movil">Toca para elegir un PDF o foto</span>'
+  + '<span class="exp-drop-sub"> · <span class="exp-drop-tipos">PDF, JPG o PNG · </span>máx. 10 MB</span>';
 let _pid = null;      // paciente de la pestaña abierta
 let _docs = [];       // documentos visibles (deleted=false) del paciente, el más reciente primero
 let _subiendo = false;
@@ -33,9 +37,8 @@ const _mimeDe = (mime, path) => mime || (/\.pdf$/i.test(path || '') ? 'applicati
 // ── Pestaña ──
 export function htmlDocumentos() {
   const zona = hasPermission('subirDocumento') ? `
-    <div id="exp-drop" class="exp-drop" role="button" tabindex="0" aria-describedby="exp-drop-sub">
-      <span id="exp-drop-txt" class="exp-drop-txt">${DROP_TXT}</span>
-      <span id="exp-drop-sub" class="exp-drop-sub">PDF, JPG o PNG · máx. 10 MB</span>
+    <div id="exp-drop" class="exp-drop" role="button" tabindex="0" aria-label="Subir un documento: PDF, JPG o PNG, máximo 10 MB">
+      <span id="exp-drop-txt" class="exp-drop-txt">${DROP_HTML}</span>
     </div>
     <input type="file" id="exp-doc-file" accept="application/pdf,image/jpeg,image/png" hidden>
     <div id="exp-doc-pend" class="exp-doc-pend" hidden>
@@ -48,14 +51,14 @@ export function htmlDocumentos() {
         <button type="button" class="btn-save" id="exp-doc-subir" onclick="subirDocPendiente()">Subir</button>
       </div>
     </div>` : '';
-  return `${zona}<div id="exp-doc-grid" class="exp-doc-grid" aria-live="polite"></div>`;
+  return `${zona}<div id="exp-doc-lista" class="orden-list exp-doc-lista" aria-live="polite"></div>`;
 }
 
 // Se llama con el HTML de htmlDocumentos ya en el DOM: cablea la zona y carga la lista.
 export function pintarDocumentos() {
   const pid = state.expedienteId;
   const p = pid == null ? null : state.patients.find(x => String(x.id) === String(pid));
-  const box = $('exp-doc-grid'); if (!box || !p) return;
+  const box = $('exp-doc-lista'); if (!box || !p) return;
   if (!hasPermission('subirDocumento')) { box.innerHTML = '<div class="orden-empty">No tienes permisos para ver documentos.</div>'; return; }
   if (typeof p.id !== 'string') { box.innerHTML = '<div class="orden-empty">Guarda primero el paciente.</div>'; return; }
   if (_pid !== p.id) { _pid = p.id; _docs = []; }
@@ -102,7 +105,7 @@ export function cancelarSubidaDoc() {
 function _zonaOcupada(on) {
   const zona = $('exp-drop'), btn = $('exp-doc-subir'), canc = $('exp-doc-cancelar');
   if (zona) { zona.classList.toggle('ocupada', on); zona.setAttribute('aria-disabled', String(on)); }
-  const t = $('exp-drop-txt'); if (t) t.textContent = on ? 'Subiendo…' : DROP_TXT;
+  const t = $('exp-drop-txt'); if (t) { if (on) t.textContent = 'Subiendo…'; else t.innerHTML = DROP_HTML; }
   if (btn) { btn.disabled = on; btn.textContent = on ? 'Subiendo…' : 'Subir'; }
   if (canc) canc.disabled = on;
 }
@@ -122,11 +125,11 @@ export async function subirDocPendiente() {
   if (pid !== _pid) return;
   cancelarSubidaDoc();
   _docs = ordenarDocsRecientes([..._docs, doc]);
-  _pintarGrid();
+  _pintarLista();
 }
 
 async function _cargar(pid) {
-  const box = $('exp-doc-grid');
+  const box = $('exp-doc-lista');
   if (box && !_docs.length) box.innerHTML = '<div class="orden-empty">Cargando…</div>';
   try {
     const { data, error } = await supa.from('documentos').select('*')
@@ -134,28 +137,29 @@ async function _cargar(pid) {
     if (pid !== _pid) return;   // se cambió de paciente mientras cargaba
     if (error) { _docs = []; if (box) box.innerHTML = '<div class="orden-empty">No se pudieron cargar los documentos.</div>'; return; }
     _docs = ordenarDocsRecientes((data || []).map(mapDocumentoRow));
-    _pintarGrid();
+    _pintarLista();
   } catch (e) {
     if (pid === _pid && box) box.innerHTML = '<div class="orden-empty">Error de conexión al cargar los documentos.</div>';
   }
 }
 
-// Tarjetas: miniatura (ícono del tipo hasta que llegue la foto firmada), nombre, tipo, fecha y peso.
-function _pintarGrid() {
-  const box = $('exp-doc-grid'); if (!box) return;
+// Una fila por documento (como .orden-item): miniatura de 40 px (ícono del tipo hasta que llegue la
+// foto firmada) · nombre · tipo · fecha y peso · Ver/Descargar/Quitar a la derecha.
+function _pintarLista() {
+  const box = $('exp-doc-lista'); if (!box) return;
   const ctx = { esAdmin: hasPermission('quitarDocumento'), userId: state.currentUserId };
   const id = d => esc(JSON.stringify(d.id));
-  box.innerHTML = _docs.length ? _docs.map(d => `<div class="exp-doc-card"${d.nota ? ` title="${esc(d.nota)}"` : ''}>
+  box.innerHTML = _docs.length ? _docs.map(d => `<div class="exp-doc-row"${d.nota ? ` title="${esc(d.nota)}"` : ''}>
       <button type="button" class="exp-doc-thumb"${esImagen(d.mime) ? ` data-thumb="${esc(d.storagePath)}"` : ''} onclick='verDocumento(${id(d)})' aria-label="Ver ${esc(d.nombre)}">
         <span class="exp-doc-ico">${esc((MIMES_DOC[d.mime] || 'doc').toUpperCase())}</span></button>
-      <div class="exp-doc-nombre" title="${esc(d.nombre)}">${esc(d.nombre)}</div>
-      <div><span class="pill pgr">${esc(labelTipoDoc(d.tipo))}</span></div>
-      <div class="exp-doc-meta">${esc(dmy(_fechaDoc(d)))} · ${esc(textoBytes(d.bytes))}</div>
-      <div class="exp-doc-acts">
+      <span class="exp-doc-nombre" title="${esc(d.nombre)}">${esc(d.nombre)}</span>
+      <span class="exp-doc-sub"><span class="pill pgr">${esc(labelTipoDoc(d.tipo))}</span>
+        <span class="exp-mute">${esc(dmy(_fechaDoc(d)))} · ${esc(textoBytes(d.bytes))}</span></span>
+      <span class="exp-doc-acts">
         <button type="button" class="exp-doc-act" onclick='verDocumento(${id(d)})'>Ver</button>
         <button type="button" class="exp-doc-act" onclick='descargarDocumento(${id(d)})'>Descargar</button>
         ${puedeQuitarDoc(d, ctx) ? `<button type="button" class="exp-doc-act del" onclick='quitarDocumento(${id(d)})'>Quitar</button>` : ''}
-      </div>
+      </span>
     </div>`).join('')
     : '<div class="orden-empty">Sin documentos.</div>';
   _firmarMiniaturas();
@@ -169,7 +173,7 @@ async function _firmarMiniaturas() {
     const { data, error } = await supa.storage.from(BUCKET).createSignedUrls(fotos.map(d => d.storagePath), 300);
     if (error || !Array.isArray(data) || pid !== _pid) return;
     const porRuta = new Map(data.filter(r => r && !r.error && r.signedUrl).map(r => [r.path, r.signedUrl]));
-    document.querySelectorAll('#exp-doc-grid .exp-doc-thumb[data-thumb]').forEach(el => {
+    document.querySelectorAll('#exp-doc-lista .exp-doc-thumb[data-thumb]').forEach(el => {
       const url = porRuta.get(el.getAttribute('data-thumb'));
       if (!url) return;
       const img = document.createElement('img');
@@ -226,7 +230,7 @@ export async function quitarDocumento(docId) {
     _docs = _docs.filter(d => d.id !== doc.id);
     if (_visor?.path === doc.storagePath) cerrarVisor();
     toastOk('Documento quitado');
-    _pintarGrid();
+    _pintarLista();
   } catch (e) {
     toastErr('Error de conexión al quitar el documento.');
   }

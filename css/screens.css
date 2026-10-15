@@ -403,9 +403,9 @@
 .util-bar{height:6px;border-radius:99px;overflow:hidden;background:#f0e8d8;margin-top:5px}
 .util-fill{height:100%;border-radius:99px}
 
-/* ===== EXPEDIENTE (B2b-1) =====
-   Plano a propósito: encabezado sin caja, títulos .rpt-sec-title y filas con línea fina. Las únicas
-   tarjetas son las miniaturas de documentos. (.exp-btn es OTRA cosa: el botón de exportar.) */
+/* ===== EXPEDIENTE (B2b-1, EXP-2) =====
+   Plano a propósito: encabezado sin caja, títulos .rpt-sec-title y filas con línea fina, también los
+   documentos (EXP-2: lista, no tarjetas). (.exp-btn es OTRA cosa: el botón de exportar.) */
 .exp-vacio{color:#6b6a64;padding:28px 0;text-align:center;font-size:13px}
 .exp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px 20px;flex-wrap:wrap;padding:2px 0 14px;margin-bottom:14px;border-bottom:2px solid #29ABE2}
 .exp-head-txt{flex:1 1 420px;min-width:0}
@@ -425,56 +425,63 @@
 .exp-sec-acc{display:flex;gap:6px;flex-wrap:wrap;text-transform:none;letter-spacing:0;font-weight:400}
 .exp-fila{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.07);font-size:12.5px;color:#1a1917}
 .exp-fila:last-child{border-bottom:none}
-.exp-f-fecha{min-width:84px;font-weight:600;font-variant-numeric:tabular-nums}
-.exp-f-eva{font-variant-numeric:tabular-nums}
-/* Episodios: el bloque de htmlPanelEpisodios tal cual, sin su caja ni la de cada episodio */
-.exp-eps .side-card{background:none;border:0;border-radius:0;padding:0}
-.exp-eps .side-title{font-size:11px;font-weight:700;color:#1a1917;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid rgba(41,171,226,.2);padding-bottom:5px;margin-bottom:0}
-.exp-eps .ep-list{gap:0}
-.exp-eps .ep-item,.exp-eps .ep-item.actual{border:0;border-bottom:1px solid rgba(0,0,0,.07);border-radius:0;padding:8px 0;background:none}
-.exp-eps .ep-item:last-child{border-bottom:none}
-.exp-eps-nuevo{margin-top:6px}
+/* Enlace en texto (acciones de un pendiente que solo llevan a otra pantalla) */
+.exp-link{padding:4px 0;border:0;background:none;font:inherit;font-size:12px;font-weight:600;color:#1d8fbf;cursor:pointer}
+.exp-link:hover{text-decoration:underline}
+/* Resumen: pendientes y datos por completar (texto a la izquierda, acción a la derecha) */
+.exp-pend{justify-content:space-between}
+.exp-pend-txt{flex:1 1 220px;min-width:0}
+/* Resumen: episodios (htmlListaEpisodios) */
+.exp-ep{justify-content:space-between}
+.exp-ep-txt{flex:1 1 260px;min-width:0;line-height:1.45}
+.exp-ep-meta{display:block;font-size:11.5px;color:#6b6a64}
+.exp-ep-acc{display:flex;gap:6px;flex-wrap:wrap}
+.exp-ep-mas>summary{padding:8px 0;font-size:12px;font-weight:600;color:#1d8fbf;cursor:pointer;border-top:1px solid rgba(0,0,0,.07)}
+.exp-ep-mas[open]>summary{border-bottom:1px solid rgba(0,0,0,.07)}
 /* Formularios en línea (nueva orden, documento por subir) */
 .exp-nueva{margin-bottom:10px}
 .exp-form{max-width:640px;padding:6px 0 14px;margin-bottom:8px;border-bottom:1px solid rgba(41,171,226,.2)}
 .exp-form-acc{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 .exp-body .field label .ep-opc{text-transform:none;letter-spacing:0}
 .exp-lista{margin-bottom:0}
-/* Documentos: zona de subida + grid de tarjetas */
-.exp-drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:96px;padding:16px;border:2px dashed rgba(41,171,226,.45);border-radius:10px;background:#fbfdfe;color:#1d8fbf;font-size:13px;font-weight:600;text-align:center;cursor:pointer;transition:background .12s,border-color .12s}
+/* Documentos: barra de subida de una línea + lista */
+.exp-drop{display:flex;align-items:center;justify-content:center;min-height:44px;padding:6px 14px;box-sizing:border-box;border:2px dashed rgba(41,171,226,.45);border-radius:8px;background:#fbfdfe;color:#1d8fbf;font-size:13px;font-weight:600;text-align:center;cursor:pointer;transition:background .12s,border-color .12s}
 .exp-drop:hover,.exp-drop:focus-visible,.exp-drop.sobre{background:rgba(41,171,226,.07);border-color:#29ABE2;outline:none}
 .exp-drop.ocupada{opacity:.6;cursor:progress;pointer-events:none}
-.exp-drop-sub{font-size:11px;font-weight:400;color:#7a7a76}
+.exp-drop-sub{font-weight:400;color:#7a7a76}
+.exp-drop-movil{display:none}
 .exp-doc-pend{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 12px;padding:12px 0;border-bottom:1px solid rgba(41,171,226,.2)}
 .exp-doc-pend[hidden]{display:none}
 .exp-doc-pend .field{flex:1 1 150px;min-width:0;margin-bottom:0}
 .exp-doc-pend .exp-doc-pend-nota{flex:2 1 220px}
 .exp-doc-pend-nombre{flex:1 1 100%;font-size:12.5px;font-weight:600;color:#1a1917;overflow-wrap:anywhere}
 .exp-doc-pend .exp-form-acc{flex:0 0 auto;margin-left:auto}
-.exp-doc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:16px}
-.exp-doc-grid .orden-empty{grid-column:1/-1}
-.exp-doc-card{display:flex;flex-direction:column;gap:5px;min-width:0;padding:8px;border:1px solid rgba(41,171,226,.22);border-radius:10px;background:#fff}
-.exp-doc-thumb{position:relative;display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:4/3;padding:0;border:0;border-radius:7px;background:#f3f1ea;cursor:pointer;overflow:hidden}
+.exp-doc-lista{margin-top:8px}
+.exp-doc-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.07);font-size:12.5px;color:#1a1917}
+.exp-doc-row:last-child{border-bottom:none}
+.exp-doc-thumb{position:relative;flex:0 0 40px;display:flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;border:0;border-radius:6px;background:#f3f1ea;cursor:pointer;overflow:hidden}
 .exp-doc-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.exp-doc-ico{font-size:20px;font-weight:800;letter-spacing:.04em;color:#9c9a92}
+.exp-doc-ico{font-size:10px;font-weight:800;letter-spacing:.04em;color:#9c9a92}
 .exp-doc-thumb.con-foto .exp-doc-ico{visibility:hidden}
-.exp-doc-nombre{font-size:12.5px;font-weight:600;color:#1a1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.exp-doc-meta{font-size:11px;color:#6b6a64;font-variant-numeric:tabular-nums}
-.exp-doc-acts{display:flex;flex-wrap:wrap;gap:0 12px}
+.exp-doc-nombre{flex:1 1 auto;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exp-doc-sub{display:flex;align-items:center;gap:8px;flex:0 0 auto;white-space:nowrap;font-size:11.5px;font-variant-numeric:tabular-nums}
+.exp-doc-acts{display:flex;gap:0 12px;flex:0 0 auto}
 .exp-doc-act{padding:4px 0;border:0;background:none;font:inherit;font-size:12px;font-weight:600;color:#1d8fbf;cursor:pointer}
 .exp-doc-act:hover{text-decoration:underline}
 .exp-doc-act.del{color:#c33a3a}
-/* Visor de documentos (overlay, encima de los modales y debajo de los toasts) */
+/* Visor de documentos (overlay, encima de los modales y debajo de los toasts). El cuerpo es una
+   columna flexible: el <iframe>/<img> llena el alto sin depender de alturas en % (iOS). */
 .exp-visor{position:fixed;inset:0;z-index:3000;display:flex;flex-direction:column;background:rgba(15,15,14,.97)}
 .exp-visor[hidden]{display:none}
-.exp-visor-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;color:#fff}
+.exp-visor-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;padding-top:max(10px,env(safe-area-inset-top));color:#fff}
 .exp-visor-nombre{flex:1;min-width:0;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .exp-visor-btn{min-height:40px;padding:8px 14px;border:1px solid rgba(255,255,255,.35);border-radius:8px;background:transparent;color:#fff;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
 .exp-visor-btn:hover{background:rgba(255,255,255,.1)}
-.exp-visor-cuerpo{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:0 14px 14px}
-.exp-visor-cuerpo img{max-width:100%;max-height:100%;object-fit:contain;background:#fff}
-.exp-visor-cuerpo iframe{width:100%;height:100%;border:0;border-radius:4px;background:#fff}
-.exp-visor-msg{color:#ddd;font-size:13px}
+.exp-visor-cuerpo{flex:1;min-height:0;display:flex;flex-direction:column;padding:0 14px 14px;padding-bottom:calc(14px + env(safe-area-inset-bottom))}
+.exp-visor-cuerpo img,.exp-visor-cuerpo iframe{flex:1 1 auto;min-height:0;width:100%;height:100%;border:0}
+.exp-visor-cuerpo img{object-fit:contain}
+.exp-visor-cuerpo iframe{border-radius:4px;background:#fff}
+.exp-visor-msg{margin:auto;color:#ddd;font-size:13px}
 body.exp-visor-abierto{overflow:hidden}
 /* Sesiones del episodio */
 .exp-tabla{width:100%;border-collapse:collapse}
@@ -491,10 +498,18 @@ body.exp-visor-abierto{overflow:hidden}
   .exp-acts{width:100%}
   .exp-acts .side-btn{flex:1 1 auto}
   .exp-tabs .sub-tab{flex-shrink:0;white-space:nowrap}
-  .exp-doc-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .exp-doc-pend .exp-form-acc{flex:1 1 100%}
+  .exp-drop{font-size:12.5px}
+  .exp-drop-pc,.exp-drop-tipos{display:none}
+  .exp-drop-movil{display:inline}
+  /* Documento en dos líneas: miniatura + nombre arriba; tipo, fecha y acciones debajo */
+  .exp-doc-row{display:grid;grid-template-columns:40px minmax(0,1fr);grid-template-areas:"thumb nombre" "thumb sub" ". acts";column-gap:12px;row-gap:2px}
+  .exp-doc-thumb{grid-area:thumb;align-self:start}
+  .exp-doc-nombre{grid-area:nombre}
+  .exp-doc-sub{grid-area:sub;flex-wrap:wrap;white-space:normal}
+  .exp-doc-acts{grid-area:acts;flex-wrap:wrap}
 }
 @media (pointer:coarse){
-  .exp-doc-act,.exp-visor-btn{min-height:44px}
+  .exp-doc-act,.exp-visor-btn,.exp-link{min-height:44px}
   .pl-link{min-height:44px}
 }

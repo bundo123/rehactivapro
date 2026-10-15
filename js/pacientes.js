@@ -305,6 +305,7 @@ export function renderPatients() {
     const emailCell=p.email?highlightMatch(p.email,q):'<span class="pl-muted">—</span>';
     const delBtn = canDelete ? `<button class='th-btn del pl-act-btn' onclick='deletePatient(${esc(JSON.stringify(p.id))})'>Eliminar</button>` : '';
     // B2b-1: el nombre abre el Expediente (evaluación, órdenes, documentos y «Ver» viven ahí).
+    // EXP-2: y además un botón «Expediente» explícito (el enlace del nombre no se descubría).
     return`<tr>
       <td class="pl-name"><span class="pname-row"><button type="button" class="pl-link pl-pname" title="${esc(p.name)}" onclick='abrirExpediente(${esc(JSON.stringify(p.id))})'>${highlightMatch(p.name,q)}</button>${statusBadge}${evalBadge}</span></td>
       <td class="pl-age" data-label="Edad">${ageCell}</td>
@@ -313,7 +314,7 @@ export function renderPatients() {
       <td class="pl-doc" data-label="Doctor">${dc}</td>
       <td class="pl-action-cell" data-label="Acciones">
         <div class="pl-actions">
-          <button class='th-btn pl-act-btn' onclick='openEditPatient(${esc(JSON.stringify(p.id))})'>Editar</button>${delBtn}
+          <button class='th-btn pl-act-btn' onclick='openEditPatient(${esc(JSON.stringify(p.id))})'>Editar</button>${delBtn}<button class='th-btn pl-act-btn' onclick='abrirExpediente(${esc(JSON.stringify(p.id))})'>Expediente</button>
         </div>
       </td>
     </tr>`;

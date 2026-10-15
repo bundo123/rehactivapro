@@ -1,18 +1,19 @@
 // ── B2b-1: EXPEDIENTE del paciente — una pantalla con todo lo suyo ──
 // Encabezado plano (datos, diagnóstico, episodio, sesiones, próxima cita) + sub-pestañas Resumen ·
 // Órdenes · Documentos · Sesiones. Sin tarjetas ni paneles por sección: títulos .rpt-sec-title y
-// filas separadas por línea fina; las únicas tarjetas son las miniaturas de documentos.
+// filas separadas por línea fina (EXP-2: también los documentos, sin tarjetas).
 // El cálculo vive en expediente-calc.js (puro, probado en node); acá solo se pinta. Órdenes y
 // documentos se pintan con sus propios módulos (ordenes.js, documentos.js): ya no hay modales.
+// EXP-2: Resumen = Pendientes + Datos por completar + Episodios (para todos los roles).
 // Puerta de entrada: abrirExpediente(id) (lista de Pacientes, Informe paciente) o el buscador.
 import { state } from './state.js';
-import { esc, dmy, fmtDate, fmtTime, getTherapist, waNumber, tipoSesion } from './utils.js';
-import { citasDePaciente, estadoHistorial } from './historial-calc.js';
-import { resumenExpediente, proximasCitas, sesionesEpisodioExp } from './expediente-calc.js';
+import { esc, dmy, fmtDate, waNumber } from './utils.js';
+import { citasDePaciente } from './historial-calc.js';
+import { resumenExpediente, sesionesEpisodioExp, pendientesExpediente, datosFaltantes } from './expediente-calc.js';
 import { crearComboPaciente } from './patient-combo.js';
 import { canAccessTab, hasPermission } from './permissions.js';
 import { toastErr } from './toast.js';
-import { htmlPanelEpisodios } from './episodios.js';
+import { htmlListaEpisodios } from './episodios.js';
 import { htmlOrdenes, pintarOrdenes } from './ordenes.js';
 import { htmlDocumentos, pintarDocumentos } from './documentos.js';
 
@@ -142,44 +143,45 @@ const _sec = (titulo, acc, cuerpo) => `<section class="exp-sec">
     ${cuerpo}
   </section>`;
 
+// Acción de un pendiente (tipo de pendientesExpediente) → botón o enlace. El permiso ya lo filtró
+// expediente-calc (ctx.puede): una acción null es solo texto.
+function _accionPendiente(p, a) {
+  if (!a) return '';
+  const id = _js(p.id);
+  const on = {
+    evalInicial: `openEvalInicial(${id})`, editar: `openEditPatient(${id})`, agendar: `agendarCitaParaPaciente(${id})`,
+    historial: `irAHistorial(${id})`, ordenes: `cambiarTabExpediente("ordenes")`,
+  }[a.tipo];
+  if (!on) return '';
+  const enlace = a.tipo === 'ordenes' || a.tipo === 'historial';
+  return `<button type="button" class="${enlace ? 'exp-link' : 'th-btn'}" onclick='${on}'>${esc(a.label)}</button>`;
+}
+
 function _htmlResumen(p) {
   const citas = citasDePaciente(state.appointments, p.id);
-  const hoy = fmtDate(new Date());
-  const r = resumenExpediente(p, citas, hoy, state.doctors);
-  // Episodios: el bloque del informe tal cual (htmlPanelEpisodios); el CSS de .exp-eps le quita la caja.
-  const eps = htmlPanelEpisodios(p);
-  const epsHtml = eps ? `<section class="exp-sec exp-eps">${eps}
-      ${hasPermission('newEpisode') ? `<button type="button" class="th-btn exp-eps-nuevo" onclick='nuevoEpisodio(${_js(p.id)})'>Nuevo episodio</button>` : ''}
-    </section>` : '';
+  const pend = pendientesExpediente(p, citas, fmtDate(new Date()), { puede: hasPermission });
+  const pendHtml = pend.length ? `<div class="exp-filas">${pend.map(x => `<div class="exp-fila exp-pend" data-clave="${esc(x.clave)}">
+      <span class="exp-pend-txt">${esc(x.texto)}</span>${_accionPendiente(p, x.accion)}</div>`).join('')}</div>`
+    : '<div class="orden-empty">Nada pendiente.</div>';
 
-  const ev = r.evalInicial
-    ? `<div class="exp-fila">${esc(r.evalInicial.fecha ? dmy(r.evalInicial.fecha) : '—')} · EVA ${r.evalInicial.eva != null ? esc(String(r.evalInicial.eva)) + '/10' : 'sin medir'}</div>`
-    : `<div class="exp-fila exp-mute">Sin evaluación inicial.${hasPermission('evalInicial')
-      ? ` <button type="button" class="th-btn" onclick='openEvalInicial(${_js(p.id)})'>Registrar evaluación inicial</button>` : ''}</div>`;
+  const faltan = datosFaltantes(p);
+  const datosHtml = faltan.length ? _sec('Datos por completar', '', `<div class="exp-fila exp-pend">
+      <span class="exp-pend-txt">Datos por completar: ${esc(faltan.join(', '))}</span>
+      ${hasPermission('editPatient') ? `<button type="button" class="th-btn" onclick='openEditPatient(${_js(p.id)})'>Editar</button>` : ''}</div>`) : '';
 
-  const ult = sesionesEpisodioExp(p, { citas, therapists: state.therapists }).slice(0, 5);
-  const ultHtml = ult.length ? `<div class="exp-filas">${ult.map(s => `<div class="exp-fila">
-      <span class="exp-f-fecha">${esc(dmy(s.fecha))}</span><span>${esc(s.tipo)}</span>
-      <span class="exp-f-eva">EVA ${esc(s.eva)}</span><span class="exp-mute">${esc(s.terapeuta)}</span></div>`).join('')}</div>`
-    : '<div class="orden-empty">Sin sesiones en el episodio actual.</div>';
-
-  const prox = proximasCitas(citas, hoy, 3);
-  const proxHtml = prox.length ? `<div class="exp-filas">${prox.map(a => `<div class="exp-fila">
-      <span class="exp-f-fecha">${esc(dmy(a.date))}</span><span>${esc(fmtTime(a.hour))}</span>
-      <span>${esc(getTherapist(a.therapistId)?.name || '—')}</span><span class="exp-mute">${esc(tipoSesion(a.type))} · ${esc(estadoHistorial(a, hoy).label)}</span></div>`).join('')}</div>`
-    : '<div class="orden-empty">Sin citas próximas.</div>';
-
-  return epsHtml
-    + _sec('Evaluación inicial', '', ev)
-    + _sec('Últimas sesiones', hasPermission('registerSession')
-      ? `<button type="button" class="th-btn" onclick='openSessionModalManual(${_js(p.id)})'>+ Sesión manual</button>` : '', ultHtml)
-    + _sec('Próximas citas', `<button type="button" class="th-btn" onclick='irAHistorial(${_js(p.id)})'>Historial de citas</button>`, proxHtml);
+  const nuevoEp = hasPermission('newEpisode')
+    ? `<button type="button" class="th-btn" onclick='nuevoEpisodio(${_js(p.id)})'>Nuevo episodio</button>` : '';
+  return _sec('Pendientes', '', pendHtml)
+    + datosHtml
+    + _sec('Episodios', nuevoEp, htmlListaEpisodios(p, { acciones: true }));
 }
 
 function _htmlSesiones(p) {
   const citas = citasDePaciente(state.appointments, p.id);
   const filas = sesionesEpisodioExp(p, { citas, therapists: state.therapists });
-  const acc = `<button type="button" class="th-btn" onclick='irAHistorial(${_js(p.id)})'>Historial de citas</button>
+  // EXP-2: «+ Sesión manual» vivía en «Últimas sesiones» del Resumen, que ya no existe.
+  const acc = `${hasPermission('registerSession') ? `<button type="button" class="th-btn" onclick='openSessionModalManual(${_js(p.id)})'>+ Sesión manual</button>` : ''}
+    <button type="button" class="th-btn" onclick='irAHistorial(${_js(p.id)})'>Historial de citas</button>
     <button type="button" class="th-btn" onclick='verPaciente(${_js(p.id)})'>Informe</button>`;
   const tabla = filas.length ? `<div class="rpt-table-wrap"><table class="exp-tabla">
       <thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Lugar</th><th>EVA</th><th>Terapeuta</th><th>Técnicas</th></tr></thead>

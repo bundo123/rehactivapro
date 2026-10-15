@@ -9,6 +9,7 @@ import { state } from './state.js';
 import { esc, dmy, getPatient, mapEpisodioRow, episodiosOrdenados, validarInicio, fechasParaInicio,
          diagOptionsHtml, diagSync, textoPrevias } from './utils.js';
 import { filasEpisodios } from './historial-calc.js';
+import { listaEpisodiosExp } from './expediente-calc.js';
 import { toastOk, toastErr } from './toast.js';
 import { hasPermission } from './permissions.js';
 
@@ -70,6 +71,31 @@ export function htmlPanelEpisodios(p) {
     </div>`;
   }).join('');
   return `<div class="side-card"><div class="side-title">Episodios</div><div class="ep-list">${items}</div></div>`;
+}
+
+// EXP-2: lista de episodios del Resumen del Expediente, para TODOS los roles. Una fila por episodio
+// (título · diagnóstico · desde–hasta · sesiones); el actual arriba y marcado, los anteriores plegados
+// si son más de uno (listaEpisodiosExp). Editar/Unir solo con opts.acciones Y el permiso newEpisode,
+// con la misma regla que el panel del informe (filas reales de la tabla).
+export function htmlListaEpisodios(p, { acciones = false } = {}) {
+  if (!p) return '';
+  const { actual, anteriores, plegar } = listaEpisodiosExp(p);
+  const conAcc = acciones && hasPermission('newEpisode') && (p.episodios || []).length > 0;
+  const fila = e => {
+    const ses = e.plan != null ? `Sesiones ${e.hechasMostradas} de ${e.plan}` : `${e.hechasMostradas} ${e.hechasMostradas === 1 ? 'sesión' : 'sesiones'}`;
+    const prev = e.previas ? ` (incl. ${e.previas} previa${e.previas === 1 ? '' : 's'})` : '';
+    const acc = conAcc && e.id ? `<span class="exp-ep-acc">
+        <button type="button" class="th-btn" onclick="editarEpisodio('${esc(p.id)}',${e.i})">Editar</button>
+        ${e.i > 0 ? `<button type="button" class="th-btn" onclick="pedirUnirEpisodio('${esc(p.id)}',${e.i})">Unir con el anterior</button>` : ''}
+      </span>` : '';
+    return `<div class="exp-fila exp-ep${e.actual ? ' actual' : ''}">
+      <span class="exp-ep-txt"><b>${esc(e.titulo)}</b>${e.actual ? ' <span class="ep-tag">actual</span>' : ''}
+        <span class="exp-ep-meta">${esc(e.diag)} · ${esc(_rango(e))} · ${esc(ses + prev)}</span></span>${acc}
+    </div>`;
+  };
+  const ant = anteriores.map(fila).join('');
+  return `<div class="exp-filas">${actual ? fila(actual) : ''}${!anteriores.length ? ''
+    : plegar ? `<details class="exp-ep-mas"><summary>Ver episodios anteriores (${anteriores.length})</summary>${ant}</details>` : ant}</div>`;
 }
 
 // ── Editar ──
