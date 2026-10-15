@@ -4,16 +4,18 @@
 // Existe acá porque la pregunta "¿cuántas lleva?" aparece justo cuando se está agendando la
 // siguiente: sin esto hay que salir de la agenda, entrar al informe del paciente y volver.
 //
-// Lo que muestra es lo MISMO que la agenda pinta en el badge X/N (doneActual + p.sessions): una
-// sola fuente, session_log, sin contadores paralelos.
+// SES-1: la agenda pinta en el badge X/N el ORDEN de la cita en el episodio (citaOrdinal); este
+// modal pinta las sesiones REGISTRADAS (doneActual + previas, de session_log) y, en otra línea, el
+// N.º de esta cita. Son medidas distintas que comparten N (p.sessions); planResumen las arma.
 import { state } from './state.js';
 import { supa } from './supabase-client.js';
-import { esc, doneActual, previasActual } from './utils.js';
+import { esc, planResumen } from './utils.js';
 import { toastOk, toastErr } from './toast.js';
 import { hasPermission } from './permissions.js';
 import { nuevoEpisodio } from './pacientes.js';
 
 let _planPatientId = null;   // paciente de la cita abierta (null = sección oculta)
+let _planAppt = null;        // la cita abierta (null al crear): para su N.º dentro del episodio
 
 const $ = id => document.getElementById(id);
 
@@ -25,14 +27,16 @@ function renderPlan() {
   const p = paciente();
   const box = $('plan-appt-current');
   if (!box || !p) return;
-  // EPI-2a: las sesiones previas a RehactivaPro se suman como en el badge (solo se muestran).
-  const x = doneActual(p) + previasActual(p), n = p.sessions || 0;
-  // Sin plan definido el conteo sigue siendo útil (es lo que la agenda muestra como "X" a secas).
-  const over = n > 0 && x > n;
-  box.innerHTML = n
-    ? `<span class="plan-count${over ? ' plan-over' : ''}">Lleva <b>${esc(String(x))}</b> de <b>${esc(String(n))}</b> sesiones</span>`
+  // EPI-2a: las sesiones previas a RehactivaPro se suman (solo se muestran). `over` sigue siendo
+  // por sesiones registradas; el N.º de cita va aparte y solo avisa si él mismo supera el plan.
+  const { x, n, over, cita } = planResumen(p, _planAppt, state.appointments);
+  box.innerHTML = (n
+    ? `<span class="plan-count${over ? ' plan-over' : ''}">Lleva <b>${esc(String(x))}</b> sesiones registradas de <b>${esc(String(n))}</b> del plan</span>`
       + (over ? '<span class="plan-hint">Supera el plan — ampliálo o iniciá un episodio nuevo</span>' : '')
-    : `<span class="plan-count">Lleva <b>${esc(String(x))}</b> sesiones · sin plan definido</span>`;
+    : `<span class="plan-count">Lleva <b>${esc(String(x))}</b> sesiones registradas · sin plan definido</span>`)
+    + (cita
+      ? `<span class="plan-cita">Esta cita es la <b>${esc(String(cita.x))}</b> del episodio${cita.n && cita.x > cita.n ? ' · supera el plan' : ''}</span>`
+      : '');
   const inp = $('plan-appt-sessions');
   if (inp) inp.value = n ? String(n) : '';
 }
@@ -80,8 +84,9 @@ export function planNuevoEpisodio() {
 
 // Enganche del modal de cita: sin paciente asignado la sección no se muestra (el dato es del
 // paciente). El editor rápido de N se oculta sin permiso 'editPatient'; el conteo se ve igual.
-export function setPlanAppt(patientId) {
+export function setPlanAppt(patientId, appt) {
   _planPatientId = patientId || null;
+  _planAppt = appt || null;
   const sec = $('plan-appt-section');
   if (sec) sec.hidden = !_planPatientId;
   const edit = $('plan-appt-edit');

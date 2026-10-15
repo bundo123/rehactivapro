@@ -1172,6 +1172,17 @@ export function ordinalTexto(ord) {
   return ord.n ? `${ord.x}/${ord.n}` : String(ord.x);
 }
 
+// SES-1: lo que muestra el plan del modal de cita. Son DOS medidas distintas y las dos valen:
+//  · x = sesiones REGISTRADAS del episodio actual (session_log: doneActual + previas). Manda `over`.
+//  · cita = N.º de orden de ESTA cita en el episodio (lo mismo que el badge X/N de la agenda);
+//    null si no entra a la secuencia (no-asistió, sin paciente, episodio cerrado) o si no hay cita.
+// Comparten n = plan del paciente. Pura: recibe las citas, no lee state.
+export function planResumen(p, appt, appointments) {
+  if (!p) return { x: 0, n: 0, over: false, cita: null };
+  const x = doneActual(p) + previasActual(p), n = p.sessions || 0;
+  return { x, n, over: n > 0 && x > n, cita: appt ? citaOrdinal(appointments, p, appt) : null };
+}
+
 // ── Seguimiento: auditoría día a día de lo atendido contra lo registrado ──
 // La pestaña es de SOLO LECTURA y responde una pregunta concreta: de los pacientes ACTIVOS, qué
 // DÍAS se atendió y no quedó nada escrito en la historia. Todo se deriva de lo que ya está en

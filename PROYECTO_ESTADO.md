@@ -4,6 +4,35 @@
 
 ---
 
+## 🗓️ Sesión 2026-10-15 (5) — LOTE SES-1: etiquetas claras, «cita N.º X» (agenda) vs «sesiones registradas» (modal). Sin SQL.
+
+Rama `ses-1-etiquetas`, desde `main` = `41f2d31` (deploy de RES-2 verificado por Jefferson).
+**Diagnóstico (no era bug):** la tarjeta de la agenda decía «8/10» y el modal de la misma cita «Lleva 4
+de 10». Son dos medidas distintas y las dos estaban bien: el badge es el N.º de ORDEN de esa cita dentro
+del episodio actual (`citaOrdinal`/`ordinalesDeCitas`, cuenta citas agendadas no-asistió excluidas,
+tengan o no sesión registrada); el modal cuenta las sesiones REGISTRADAS en `session_log`
+(`doneActual` + previas). Faltaba que cada número dijera qué es. Ningún cálculo cambia.
+- **Badge** (`agenda.js` `ordBadge`): sigue «8/10» (9 px, no hay sitio); el tooltip pasa a «Cita 8 de 10
+  del plan — es el número de cita del episodio, no las sesiones registradas» (+ « · supera el plan»); sin
+  plan, «Cita X del episodio».
+- **`planResumen(p, appt, appointments)`** (`utils.js`, pura): `{ x, n, over, cita }` con x = sesiones
+  registradas, n = plan, over = n > 0 && x > n, cita = `citaOrdinal` de la cita abierta o null
+  (no-asistió, sin cita). Sin paciente → ceros.
+- **Modal** (`plan.js`): `setPlanAppt(patientId, appt)` guarda la cita (`openEditApptModal` la pasa;
+  «Nueva cita» sigue con null). Línea 1: «Lleva **X** sesiones registradas de **N** del plan» / «· sin plan
+  definido»; línea 2 (`.plan-cita`, gris 11 px, ancho completo): «Esta cita es la **X'** del episodio» (+
+  « · supera el plan» si la cita sola se pasa). `plan-over` y el hint siguen dependiendo de las
+  registradas. Comentario de cabecera corregido (antes decía que el modal mostraba lo mismo que el badge).
+
+683 pruebas (677 + 6 nuevas en `test/plan-resumen.test.js`: 4 de 10 con 8.ª cita, sin plan, 11 de 10,
+solo cuenta asistió, no-asistió/sin cita, sin paciente), 0 fail. `vite build` en verde. E2E con stubs
+(datos ficticios) a 1280 y 375 px: tooltip del badge con y sin plan; modal de la 8.ª cita con 4
+registradas = las dos líneas, la segunda debajo y dentro de la caja; paciente sin plan; cita no-asistió
+sin segunda línea; plan bajado a 3 = ámbar + hint + «· supera el plan» en la línea de la cita; sin scroll
+horizontal.
+
+---
+
 ## 🗓️ Sesión 2026-10-15 (4) — LOTE RES-2: columnas fijas en las filas del Resumen del día (médico referente · sesión · evaluación). Sin SQL.
 
 Rama `res-2-resumen-columnas`, desde `main` = `7b271b6` (deploy de EXP-2 ya verificado). Solo markup y

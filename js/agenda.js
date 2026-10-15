@@ -79,7 +79,9 @@ function buildNoasStrip(appt, i) {
 function ordBadge(ord) {
   if(!ord) return '';
   const over=!!ord.n&&ord.x>ord.n;
-  const title=ord.n?`Sesión ${ord.x} de ${ord.n} del episodio${over?' — supera el plan':''}`:`Sesión ${ord.x} del episodio`;
+  // SES-1: el badge cuenta CITAS (incluye las que todavía no tienen sesión registrada); el modal de
+  // la cita es el que dice cuántas sesiones hay registradas. El tooltip lo aclara.
+  const title=ord.n?`Cita ${ord.x} de ${ord.n} del plan — es el número de cita del episodio, no las sesiones registradas${over?' · supera el plan':''}`:`Cita ${ord.x} del episodio`;
   return `<div class="appt-ord${over?' over':''}" title="${esc(title)}">${esc(ordinalTexto(ord))}</div>`;
 }
 
@@ -649,7 +651,7 @@ export function openEditApptModal(id) {
   document.getElementById('recurrencia-panel').style.display='none';
   setApptRptShortcut(pt ? a.patientId : null);
   setCie10Appt(pt ? a.patientId : null);   // dato del paciente: sin paciente, no hay sección
-  setPlanAppt(pt ? a.patientId : null);
+  setPlanAppt(pt ? a.patientId : null, a);   // con la cita: el modal dice qué N.º de cita es
   filterApptPatient();
   document.getElementById('m-therapist').innerHTML=orderedTherapists().map(t=>`<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.startH)}-${fmtTime(t.endH)})</option>`).join('');
   document.getElementById('m-therapist').value=String(a.therapistId);

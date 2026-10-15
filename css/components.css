@@ -113,6 +113,9 @@
 /* Mismo ámbar que el badge X/N de la agenda cuando el ordinal se pasa del plan. */
 .plan-count.plan-over,.plan-count.plan-over b{color:#BA7517}
 .plan-hint{font-size:10.5px;color:#BA7517}
+/* SES-1: el N.º de esta cita en el episodio, en su propia línea (.plan-current hace wrap). */
+.plan-cita{flex-basis:100%;font-size:11px;color:#7a7a76}
+.plan-cita b{font-variant-numeric:tabular-nums;color:#3a3934}
 .plan-row{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .plan-edit{display:flex;align-items:center;gap:6px}
 /* plan.js oculta el editor con [hidden] cuando falta el permiso 'editPatient': sin esta regla, el
