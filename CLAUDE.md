@@ -20,6 +20,7 @@ App web de gestión clínica para fisioterapia (Quito, Ecuador). Dominio: rehact
 ## Arquitectura
 - Estado global en state.js; helpers compartidos en utils.js (getInitials, getDisplayAge, esc).
 - Permisos por rol en permissions.js; toasts en toast.js; realtime en realtime.js.
+- Expediente (js/expediente.js + expediente-calc.js puro): pantalla por paciente; órdenes (ordenes.js) y documentos (documentos.js) se pintan ahí, ya no hay modales. Visor de documentos en overlay con URL firmada; la CSP tiene frame-src del host de Supabase solo para eso.
 
 ## Gotchas
 - birth_date: type date, nullable. pm-age queda hidden por retrocompatibilidad.

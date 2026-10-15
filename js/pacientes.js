@@ -171,6 +171,7 @@ export async function savePatient() {
     window._app.closeModal('patient-modal');
     if (!_cedula) toastInfo('Paciente guardado sin cédula. No podrás emitir facturas electrónicas hasta agregarla.');
     renderPatients();
+    window._app.refrescarExpediente?.(p.id);
     document.querySelector('#patient-modal h3').textContent='Nuevo paciente';
     state.editingPatientId=null;
     if(typeof p.id==='string'){
@@ -281,9 +282,6 @@ export function renderPatients() {
   const paginated=f.slice(start,start+PATIENTS_PER_PAGE);
   const tbody=document.getElementById('patient-tbody');
   const canDelete = hasPermission('deletePatient');
-  const canEval = hasPermission('evalInicial');
-  const canOrden = hasPermission('registrarOrden');
-  const canDocs = hasPermission('subirDocumento');
   if(!totalRows){
     tbody.innerHTML=`<tr><td colspan="6" class="empty-patient-row">
       No se encontraron pacientes con "${esc(q)}".
@@ -306,18 +304,16 @@ export function renderPatients() {
     const ageCell=ageStr==='Sin edad'?'<span class="pl-muted">Sin edad</span>':esc(ageStr);
     const emailCell=p.email?highlightMatch(p.email,q):'<span class="pl-muted">—</span>';
     const delBtn = canDelete ? `<button class='th-btn del pl-act-btn' onclick='deletePatient(${esc(JSON.stringify(p.id))})'>Eliminar</button>` : '';
-    const evalBtn = canEval && !hasEvalInicial(p) ? `<button class='th-btn pl-act-btn' onclick='openEvalInicial(${esc(JSON.stringify(p.id))})'>Eval. inicial</button>` : '';
-    const ordenBtn = canOrden ? `<button class='th-btn pl-act-btn' onclick='abrirOrdenes(${esc(JSON.stringify(p.id))})'>Orden médica</button>` : '';
-    const docsBtn = canDocs ? `<button class='th-btn pl-act-btn' onclick='abrirDocumentos(${esc(JSON.stringify(p.id))})'>Documentos</button>` : '';
+    // B2b-1: el nombre abre el Expediente (evaluación, órdenes, documentos y «Ver» viven ahí).
     return`<tr>
-      <td class="pl-name"><span class="pname-row"><span class="pl-pname" title="${esc(p.name)}">${highlightMatch(p.name,q)}</span>${statusBadge}${evalBadge}</span></td>
+      <td class="pl-name"><span class="pname-row"><button type="button" class="pl-link pl-pname" title="${esc(p.name)}" onclick='abrirExpediente(${esc(JSON.stringify(p.id))})'>${highlightMatch(p.name,q)}</button>${statusBadge}${evalBadge}</span></td>
       <td class="pl-age" data-label="Edad">${ageCell}</td>
       <td class="pl-ced" data-label="Cédula">${highlightMatch(p.cedula||'—',q)}</td>
       <td class="pl-email" data-label="Email"${p.email?` title="${esc(p.email)}"`:''}>${emailCell}</td>
       <td class="pl-doc" data-label="Doctor">${dc}</td>
       <td class="pl-action-cell" data-label="Acciones">
         <div class="pl-actions">
-          <button class='th-btn pl-act-btn' onclick='openEditPatient(${esc(JSON.stringify(p.id))})'>Editar</button>${delBtn}${evalBtn}${ordenBtn}${docsBtn}<button class="ver-btn pl-act-btn" onclick='verPaciente(${esc(JSON.stringify(p.id))})'>Ver</button>
+          <button class='th-btn pl-act-btn' onclick='openEditPatient(${esc(JSON.stringify(p.id))})'>Editar</button>${delBtn}
         </div>
       </td>
     </tr>`;
@@ -471,6 +467,7 @@ export async function guardarNuevoEpisodio() {
   window._app.closeModal('nuevo-episodio-modal');
   toastOk('✓ Nuevo episodio iniciado — '+newDiag);
   renderPatients();
+  window._app.refrescarExpediente?.(pid);
   window._app.renderPatientReportSelect();
   setTimeout(()=>{
     const sel=document.getElementById('patient-rpt-select');
@@ -613,5 +610,6 @@ export async function saveEvalInicial() {
   window._app.closeModal('eval-modal');
   renderPatients();
   window._app.renderResumen();
+  window._app.refrescarExpediente?.(_evalPatientId);
   toastOk('✓ Evaluación inicial guardada');
 }

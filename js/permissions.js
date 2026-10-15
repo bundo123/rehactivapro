@@ -5,10 +5,12 @@ import { state } from './state.js';
 // 'historial' lo ven los TRES roles: son las mismas citas que ya ven en la agenda, ordenadas por
 // paciente. La secretaria lo necesita para contestar el teléfono y el terapeuta para saber en qué
 // sesión va; no hay dato clínico nuevo en esa pantalla.
+// 'expediente' (B2b-1) lo ven los TRES roles: junta lo que cada uno ya veía del paciente (episodios,
+// órdenes, documentos, sesiones). Lo que se puede HACER ahí sigue gateado por ROLE_ACTIONS.
 const ROLE_TABS = {
-  admin:     ['agenda','historial','resumen','pacientes','seguimiento','paciente_rpt','protocolos','informes','facturacion','terapeutas','doctores'],
-  secretaria:['agenda','historial','resumen','pacientes','seguimiento','paciente_rpt','protocolos','facturacion','terapeutas','doctores'],
-  terapeuta: ['agenda','historial','resumen','pacientes','seguimiento','paciente_rpt','protocolos'],
+  admin:     ['agenda','historial','resumen','pacientes','expediente','seguimiento','paciente_rpt','protocolos','informes','facturacion','terapeutas','doctores'],
+  secretaria:['agenda','historial','resumen','pacientes','expediente','seguimiento','paciente_rpt','protocolos','facturacion','terapeutas','doctores'],
+  terapeuta: ['agenda','historial','resumen','pacientes','expediente','seguimiento','paciente_rpt','protocolos'],
 };
 
 // 'createTherapist' = alta y edición del terapeuta; 'deleteTherapist' = baja definitiva. Van

@@ -113,6 +113,15 @@ const _mapTherapist = mapTherapistRow;   // misma fila → mismo objeto que la c
 function _mapDoctor(r){return{id:r.id,name:r.name,spec:r.spec||'',email:r.email||'',tel:r.tel||'',color:r.color||'#E24B4A'};}
 function _mapSession(s){return{id:s.id,date:s.date,type:s.type,hour:s.hour,status:s.status,pb:s.pain_before,pa:s.pain_after,note:s.note||'',tags:s.tags||[],therapistId:s.therapist_id||null,rom:romNormalizar(s.rom),soap:soapNormalizar(s.soap),noteOriginal:s.note_original||null,noteIaAt:s.note_ia_at||null};}
 
+// B2b-1: el Expediente abierto se repinta solo si el evento es de SU paciente (pid null = cualquiera:
+// una cita cambia la próxima cita y la última sesión del encabezado). refrescarExpediente no toca
+// los formularios a medio llenar (nueva orden, subida de documento).
+function _refrescarExpediente(pid){
+  if(state.currentTab!=='expediente')return;
+  if(pid!=null&&String(pid)!==String(state.expedienteId))return;
+  const fn=window._app?.refrescarExpediente; if(fn)_scheduleRender(fn);
+}
+
 function _refreshTabAfterAppt() {
   const {renderGrid,renderResumen,renderFacturacion,renderSeguimiento,renderHistorial,updateResumenBadge,updateFacturaBadge}=window._app;
   if(state.currentTab==='agenda')_scheduleRender(renderGrid);
@@ -122,6 +131,7 @@ function _refreshTabAfterAppt() {
   // El Historial se arma sobre las citas: si la secretaria mueve una desde otra PC, la pantalla
   // abierta acá tiene que reflejarlo (si no, se contesta el teléfono con un conteo viejo).
   else if(state.currentTab==='historial')_scheduleRender(renderHistorial);
+  else _refrescarExpediente(null);
   updateResumenBadge();updateFacturaBadge();
 }
 
@@ -172,6 +182,7 @@ function _onPatient(payload) {
   // La cabecera del Historial muestra diagnóstico, plan y terapeuta del paciente: si los editan en
   // otra PC, hay que repintar.
   else if(state.currentTab==='historial')_scheduleRender(renderHistorial);
+  else _refrescarExpediente((payload.new||payload.old)?.id);
   updateFacturaBadge();
 }
 
@@ -204,6 +215,7 @@ function _onSessionLog(payload) {
   // El Historial se repinta aunque el paciente abierto sea otro (barato: es un render sobre datos
   // que ya están en memoria). La frontera de episodio ya no vive acá: ver _onEpisodio (EPI-2a).
   if(state.currentTab==='historial')_scheduleRender(renderHistorial);
+  _refrescarExpediente(pid);
 }
 
 // EPI-2a: un episodio nuevo, editado o unido mueve la frontera, y con ella los cortes, ordinales y
@@ -229,6 +241,7 @@ function _onEpisodio(payload) {
   if(state.currentTab==='agenda')_scheduleRender(renderGrid);
   if(state.currentTab==='seguimiento')_scheduleRender(renderSeguimiento);
   if(state.currentTab==='historial')_scheduleRender(renderHistorial);
+  _refrescarExpediente(p.id);
   window._app.updateResumenBadge?.();
   window._app.updateFacturaBadge?.();
 }

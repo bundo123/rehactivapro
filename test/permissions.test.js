@@ -47,20 +47,20 @@ const MATRIZ = {
   },
 };
 
-const TABS = ['agenda','historial','resumen','pacientes','seguimiento','paciente_rpt','protocolos',
+const TABS = ['agenda','historial','resumen','pacientes','expediente','seguimiento','paciente_rpt','protocolos',
               'informes','facturacion','terapeutas','doctores'];
 
 const TABS_ESPERADOS = {
   admin: {
-    agenda:true, historial:true, resumen:true, pacientes:true, seguimiento:true, paciente_rpt:true,
+    agenda:true, historial:true, resumen:true, pacientes:true, expediente:true, seguimiento:true, paciente_rpt:true,
     protocolos:true, informes:true, facturacion:true, terapeutas:true, doctores:true,
   },
   secretaria: {
-    agenda:true, historial:true, resumen:true, pacientes:true, seguimiento:true, paciente_rpt:true,
+    agenda:true, historial:true, resumen:true, pacientes:true, expediente:true, seguimiento:true, paciente_rpt:true,
     protocolos:true, informes:false, facturacion:true, terapeutas:true, doctores:true,
   },
   terapeuta: {
-    agenda:true, historial:true, resumen:true, pacientes:true, seguimiento:true, paciente_rpt:true,
+    agenda:true, historial:true, resumen:true, pacientes:true, expediente:true, seguimiento:true, paciente_rpt:true,
     protocolos:true, informes:false, facturacion:false, terapeutas:false, doctores:false,
   },
 };

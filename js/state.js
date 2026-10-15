@@ -60,4 +60,8 @@ export const state = {
   // resetea al cambiar de paciente — un corte por episodio no significa nada en otro paciente.
   historialPatientId: null,
   historialFiltro: { corte: 'all', mes: 'all', estado: 'all' },
+  // B2b-1: paciente abierto en Expediente (String del id, o null) y su sub-pestaña. Sobreviven al
+  // cambio de pestaña, como el Historial: volver por el menú no pierde el paciente.
+  expedienteId: null,
+  expedienteTab: 'resumen',
 };

@@ -77,8 +77,10 @@ import { globalSearch, selectGlobalResult, checkCitasPendientes } from './search
 import { initMobileMenu } from './mobile-menu.js';
 import { openBlockModal, saveBlock, deleteBlockFromModal, toggleBlockAllDay, onBlockTherapistChange } from './bloqueos.js';
 import { abrirRecordatorios, cambiarFechaRecordatorios, enviarRecordatorio } from './recordatorios.js';
-import { abrirOrdenes, guardarOrden, borrarOrden, adjuntarOrden, onArchivoOrdenAdj } from './ordenes.js';
-import { abrirDocumentos, subirDocumentoModal, quitarDocumento, abrirDocumento, verDocumentoPorId } from './documentos.js';
+import { guardarOrden, borrarOrden, adjuntarOrden, onArchivoOrdenAdj, nuevaOrdenToggle } from './ordenes.js';
+import { quitarDocumento, verDocumento, verDocumentoPorId, descargarDocumento, descargarVisor, cerrarVisor,
+         subirDocPendiente, cancelarSubidaDoc } from './documentos.js';
+import { setupExpediente, renderExpediente, abrirExpediente, cambiarTabExpediente, refrescarExpediente } from './expediente.js';
 
 // ── Registro central de funciones para módulos cross-cutting ──
 window._app = {
@@ -119,8 +121,10 @@ window._app = {
   callAI,
   // informes guardados
   guardarInforme, exportarInformeGuardado, verInformeGuardado, eliminarInformeGuardado,
-  // ORD-1: el modal de órdenes repinta el resumen para el médico del informe abierto
+  // ORD-1: registrar/borrar una orden repinta el resumen para el médico del informe abierto
   refrescarResumenMedico,
+  // B2b-1: sesiones, ficha, episodios, órdenes y realtime repintan el Expediente abierto
+  refrescarExpediente, abrirExpediente,
 };
 
 // ── Listener: citas recurrentes ──
@@ -142,6 +146,8 @@ export function showTab(tab) {
   document.querySelector(`.nav-item[onclick*="showTab('${tab}')"]`)?.classList.add('active');
   if(tab==='agenda')renderGrid();
   if(tab==='pacientes')renderPatients();
+  // Como el Historial: conserva el paciente abierto al volver por el menú.
+  if(tab==='expediente')renderExpediente();
   if(tab==='seguimiento')renderSeguimiento();
   // Historial NO resetea el paciente elegido: se puede haber llegado desde una cita o desde el
   // informe, y perder la consulta al volver por el menú sería justo el peor momento.
@@ -173,6 +179,8 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
+  // B2b-1: el visor de documentos va encima de todo; Escape lo cierra primero.
+  if (document.getElementById('doc-visor')?.hidden === false) { cerrarVisor(); return; }
   const open = document.querySelector('.modal-bg.open');
   if (open) closeModal(open.id);
 });
@@ -265,8 +273,10 @@ Object.assign(window, {
   irAHistorial, setHistorialCorte, setHistorialMes, setHistorialEstado,
   exportarHistorialPDF, exportarHistorialCSV,
   cie10Search, cie10Pick, cie10Clear, setCie10Ev,
-  abrirOrdenes, guardarOrden, borrarOrden, adjuntarOrden, onArchivoOrdenAdj,
-  abrirDocumentos, subirDocumentoModal, quitarDocumento, abrirDocumento, verDocumentoPorId,
+  guardarOrden, borrarOrden, adjuntarOrden, onArchivoOrdenAdj, nuevaOrdenToggle,
+  quitarDocumento, verDocumento, verDocumentoPorId, descargarDocumento, descargarVisor, cerrarVisor,
+  subirDocPendiente, cancelarSubidaDoc,
+  abrirExpediente, cambiarTabExpediente,
   planGuardarSesiones, planNuevoEpisodio,
   setAgendaView, setTherapistFilter, goToDateAndSelect,
   renderTherapistList, renderDoctorsList,
@@ -286,6 +296,7 @@ initProtocolValidation();
 setupPatientSearch();
 setupSeguimientoSearch();
 setupHistorial();
+setupExpediente();
 renderGrid();
 updateFacturaBadge();
 initApp();

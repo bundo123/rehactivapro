@@ -4,6 +4,79 @@
 
 ---
 
+## 🗓️ Sesión 2026-10-15 (2) — BLOQUE B · LOTE B2b-1: Expediente del paciente (pantalla única con Resumen · Órdenes · Documentos · Sesiones), visor interno de documentos, lista de Pacientes adelgazada. Sin SQL.
+
+Rama `feat/b2b1-expediente`, desde `main` = `10ddbdb` (B1 + B2a en producción). No toca la base ni
+Storage: todo lo que muestra ya existía (patients, episodios, pedidos_medicos, documentos, session_log,
+appointments). Diseño plano a pedido de Jefferson: sin tarjetas ni paneles por sección; las únicas
+tarjetas son las miniaturas de documentos.
+- **Pestaña `expediente`** (nav «Expediente» bajo PACIENTES, después de «Pacientes»; `allTabs`,
+  `ROLE_TABS` de los tres roles, `showTab`). Buscador en el `main-header` con `crearComboPaciente`
+  (`exp-search/exp-results/exp-select`). `state.expedienteId` (String del id) y `state.expedienteTab`
+  sobreviven al cambio de pestaña, como el Historial; un paciente nuevo arranca en Resumen. Sin paciente:
+  «Busca un paciente o ábrelo desde la lista de Pacientes». Entrada única `abrirExpediente(id)` (lista
+  de Pacientes, Informe paciente; queda en `window._app` para Agenda/Resumen del día).
+- **`js/expediente-calc.js` (puro):** `resumenExpediente(p, citas, hoy, doctors)` → edad, sexo,
+  diagnóstico con CIE-10 + secundarios («C — desc», separados por «; »), médico o «Independiente»,
+  inicio del episodio actual, hechas (`sesionesMostradas`: con las previas) / plan, próxima cita
+  (`resumenHistorial`), última sesión (la más nueva entre la agenda y session_log: una sesión manual
+  no tiene cita), `sinEval` y la evaluación inicial (fecha, EVA). `proximasCitas`,
+  `ordenarDocsRecientes` (`fechaDoc` o la de subida; empate por subida), `esImagen`, `textoEvaFila`,
+  `sesionesEpisodioExp` (episodio actual vía `logDeEpisodio`, sin evaluación ni marcadores, de la más
+  reciente a la más vieja, con hora, lugar desde la cita, terapeuta y técnicas).
+- **`js/expediente.js` (UI):** encabezado plano (nombre 18 px + estado + «Sin eval.»; edad · sexo ·
+  cédula · teléfono con enlace wa.me · correo; diagnóstico, médico, episodio «desde dd/mm/aaaa»,
+  «Sesiones X de N», próxima cita, última sesión) con Editar (`editPatient`) · Informe · Agendar cita
+  (`createAppt`). Sub-pestañas `.sub-tabs` (scroll horizontal en 375 px):
+  · **Resumen:** `htmlPanelEpisodios(p)` tal cual (el CSS `.exp-eps` le quita la caja a él y a cada
+    episodio) + «Nuevo episodio»; Evaluación inicial (fecha y EVA, o «Registrar evaluación inicial»
+    con `evalInicial`); últimas 5 sesiones + «+ Sesión manual» (`registerSession`); próximas 3 citas +
+    «Historial de citas».
+  · **Órdenes** (`ordenes.js`, sin modal): «+ Nueva orden» despliega el formulario debajo, con los
+    mismos ids `or-*` (`guardarOrden` sin cambios de lógica); al registrar se repliega y se repinta la
+    lista. Una línea por orden, la más reciente arriba: texto + VENCIDA + «Ver escaneo» o «Adjuntar» +
+    «Eliminar» (`borrarOrden`). `_pid` = `state.expedienteId`; `abrirOrdenes` y `#orden-modal` fuera
+    (`#or-archivo-adj` vive ahora dentro de la pestaña).
+  · **Documentos** (`documentos.js`, sin modal): zona punteada `.exp-drop` (arrastrar y soltar, o tocar
+    → `<input type=file>` oculto, sin `capture`); el archivo se valida al elegirlo (un WebP no llega a
+    pedir datos) y aparece la fila Tipo («Otro» por defecto) · Fecha · Nota · Subir/Cancelar; mientras
+    sube, «Subiendo…» y zona deshabilitada. Grid `.exp-doc-grid` (4 columnas; 2 en ≤ 768 px): miniatura
+    (fotos con UNA `createSignedUrls(paths, 300)`; PDF o error = ícono del tipo en texto), nombre con
+    elipsis, pill del tipo, «dd/mm/aaaa · 1,2 MB», Ver · Descargar · Quitar (`puedeQuitarDoc`). Carga
+    perezosa al abrir la pestaña. `abrirDocumentos`/`subirDocumentoModal`/`#doc-modal` fuera.
+  · **Sesiones:** tabla simple del episodio actual (fecha · hora · tipo · lugar · EVA · terapeuta ·
+    técnicas truncadas), arriba «Historial de citas» e «Informe».
+- **Visor interno `#doc-visor`** (overlay oscuro, nombre arriba, Descargar y Cerrar; Escape cierra):
+  `<img>` para fotos, `<iframe>` para PDF, `src` = URL firmada de 300 s. Reemplaza la pestaña nueva
+  (`_abrir`); «Ver escaneo» de una orden también abre el visor. **Descargar** = `createSignedUrl(path,
+  300, { download: nombre })` + `<a download>`. **CSP (`vercel.json`):** una sola directiva nueva,
+  `frame-src https://cgilpnjgrnxqmrkhaxkx.supabase.co`; `frame-ancestors 'none'` y X-Frame-Options no
+  cambian (son sobre quién nos incrusta a nosotros).
+- **Repintado:** `refrescarExpediente(pid)` (en `window._app`) repinta encabezado y Resumen/Sesiones
+  tras sesión manual/editar/eliminar, ficha, evaluación, episodio nuevo/editado/unido, orden y
+  realtime (citas, pacientes, session_log, episodios) — solo si es el paciente abierto. No toca los
+  formularios a medio llenar: en Órdenes solo la lista; en Documentos nada.
+- **Lista de Pacientes adelgazada:** el nombre es un `<button class="pl-link">` (se ve como texto,
+  subrayado al pasar) que abre el Expediente; acciones solo Editar y Eliminar (admin). Fuera «Eval.
+  inicial», «Orden médica», «Documentos» y «Ver» de la fila. Informe paciente, side-card «Paciente»:
+  un solo botón «Expediente» en lugar de «Órdenes médicas» y «Documentos».
+- **Docs:** `CLAUDE.md` › Arquitectura (Expediente + visor/CSP); tabla de módulos de abajo.
+  `rls_policies.md` sin cambios (no hay SQL).
+
+650 → 663 pruebas (+13 en `test/expediente.test.js`; `permissions.test.js` suma la pestaña
+`expediente` a la matriz de los tres roles). `vite build` en verde. E2E con Playwright y el harness en
+memoria (datos ficticios; `supa.from` y `supa.storage` contestados por stubs, red a supabase.co
+abortada): 85/85 a 1280 px y 85/85 a 375 px — lista con solo Editar/Eliminar y el nombre como enlace,
+Expediente desde la lista, encabezado completo, las 4 sub-pestañas, nueva orden inline con adjunto
+(se repliega y repinta), «Ver escaneo» en el visor, «Adjuntar» a una orden vieja, WebP soltado
+rechazado sin subir, foto soltada con `DataTransfer` (ruta `<pid>/<uuid>.png` sin el nombre original),
+elegir con el input y Cancelar, UNA `createSignedUrls(300)` solo con fotos, visor con `<iframe>` (PDF)
+y con `<img>` (foto), Descargar con `{ download }`, Quitar lógico, refrescar sin plegar un formulario
+abierto, secretaria sin episodios ni «Quitar» ajeno, botón «Expediente» del informe, sin scroll
+horizontal de página.
+
+---
+
 ## 🗓️ Sesión 2026-10-15 (1) — BLOQUE B · LOTE B2a: documentos del paciente en Storage (DOC-2) y orden médica con adjunto. Con SQL (`b2a_documentos.sql`, ya corrido).
 
 Rama `feat/b2a-documentos`. El SQL corrió en producción ANTES del lote (verificado: bucket, 3+3
@@ -2896,7 +2969,7 @@ lo carga con `import()` al primer uso (chunk aparte).
 | `protocolos.js` | `protocols` |
 | `cie10.js` | `patients` *(el CIE-10 es dato de la ficha, no de la cita)* |
 | `ordenes.js` | `pedidos_medicos` *(ORD-1: alta y baja de la orden médica; DOC-2: UPDATE de `documento_id` al adjuntar; sin realtime)* |
-| `documentos.js` | `documentos` + Storage bucket `documentos` *(DOC-2: carga perezosa al abrir el modal, alta, borrado lógico; URL firmada para ver; sin realtime)* |
+| `documentos.js` | `documentos` + Storage bucket `documentos` *(DOC-2: carga perezosa al abrir la pestaña Documentos del Expediente, alta, borrado lógico; URL firmada para ver en el visor, miniaturas con createSignedUrls y descargar; sin realtime)* |
 | `realtime.js` | `appointments`, `patients`, `session_log`, `cobros`, `therapists`, `doctors` |
 | `resumen.js`, `informes.js`, `search.js`, `historial.js` | *(solo leen de `state`, sin queries directas)* |
 
@@ -2923,6 +2996,10 @@ resumen.js      ← pacientes (hasEvalInicial), informes (hasEvalInicial), searc
 agenda.js       ← facturacion (updateFacturaBadge), terapeutas (updateFacturaBadge),
                    informes (apptSlots, re-exportado desde utils por retrocompatibilidad)
 ia.js           ← informes (genSemanalAI, genPatientAI, callAI)
+expediente-calc ← expediente, documentos (ordenarDocsRecientes, esImagen)   [B2b-1, puro]
+expediente.js   ← main (abrirExpediente, refrescarExpediente vía window._app); importa episodios
+                   (htmlPanelEpisodios), ordenes (htmlOrdenes, pintarOrdenes), documentos
+                   (htmlDocumentos, pintarDocumentos), patient-combo, historial-calc
 main.js         ← importa todos los módulos anteriores
 ```
 

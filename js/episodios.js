@@ -39,6 +39,7 @@ function _repintar() {
   else if (state.currentTab === 'agenda') a.renderGrid?.();
   else if (state.currentTab === 'historial') a.renderHistorial?.();
   a.renderPatients?.();
+  a.refrescarExpediente?.();
   a.updateResumenBadge?.(); a.updateFacturaBadge?.();
 }
 

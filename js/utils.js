@@ -105,7 +105,7 @@ export function validarPassNueva(pass, pass2){
   return null;
 }
 
-export const allTabs = ['agenda','historial','pacientes','seguimiento','informes','paciente_rpt','protocolos','resumen','terapeutas','doctores','facturacion'];
+export const allTabs = ['agenda','historial','pacientes','expediente','seguimiento','informes','paciente_rpt','protocolos','resumen','terapeutas','doctores','facturacion'];
 
 export function escapeHtml(v){
   if(v==null) return '';

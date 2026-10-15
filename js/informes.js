@@ -844,8 +844,7 @@ export function renderPatientReport() {
           <button class="side-btn soft" onclick="agendarCitaParaPaciente('${esc(p.id)}')">+ Agendar cita</button>
           <button class="side-btn soft" onclick="irAHistorial('${esc(p.id)}')">Historial de citas</button>
           ${hasPermission('registerSession')?`<button class="side-btn soft" onclick="openSessionModalManual('${esc(p.id)}')">+ Sesión manual</button>`:''}
-          ${hasPermission('registrarOrden')?`<button class="side-btn soft" onclick="abrirOrdenes('${esc(p.id)}')">Órdenes médicas</button>`:''}
-          ${hasPermission('subirDocumento')?`<button class="side-btn soft" onclick="abrirDocumentos('${esc(p.id)}')">Documentos</button>`:''}
+          <button class="side-btn soft" onclick="abrirExpediente('${esc(p.id)}')">Expediente</button>
           ${(isCurrentEpisode&&hasPermission('newEpisode'))?`<button class="side-btn warn" onclick="nuevoEpisodio('${esc(p.id)}')">Nuevo episodio</button>`:''}
         </div>
       </div>

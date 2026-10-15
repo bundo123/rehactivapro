@@ -342,6 +342,7 @@ async function saveSessionManual() {
     window._app.closeModal('session-modal');
     _manualMode=false; _manualPatientId=null;
     window._app.renderPatientReport?.();
+    window._app.refrescarExpediente?.(pt.id);
     window._app.updateResumenBadge();
     updateFacturaBadge();
     toastOk('Sesión manual guardada en historial clínico ✓');
@@ -427,6 +428,7 @@ async function saveSessionEdit() {
     window._app.closeModal('session-modal');
     _editMode=false; _editRef=null;
     window._app.renderPatientReport?.();
+    window._app.refrescarExpediente?.(pt.id);
     window._app.updateResumenBadge();
     updateFacturaBadge();
     toastOk('Sesión actualizada ✓');
@@ -450,6 +452,7 @@ export async function deleteSession(patientId, id) {
   // Quitar la fila del log basta: doneActual/pendientesActual se recalculan solos (fuente única).
   pt.log.splice(idx,1);
   window._app.renderPatientReport?.();
+  window._app.refrescarExpediente?.(pt.id);
   window._app.updateResumenBadge();
   updateFacturaBadge();
   toastOk('Sesión eliminada del historial ✓');
