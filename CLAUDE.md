@@ -1,6 +1,6 @@
 # RehactivaPro
 
-App web de gestión clínica para fisioterapia (Quito, Ecuador). Dominio: rehactivaec.com.
+App web de gestión clínica para fisioterapia (Quito, Ecuador). Dominio: app.rehactivaec.com (sitio público en rehactivaec.com).
 
 ## Stack
 - Frontend: Vite + JavaScript vanilla modular (ES6 modules, ~18 módulos en /js).

@@ -56,8 +56,20 @@
 .resd-meta{font-size:11px;color:#7a7a76;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .resd-actions{display:flex;gap:6px;flex-shrink:0;justify-content:flex-end;align-items:center;flex-wrap:wrap}
 
+/* RES-2: columnas fijas (médico referente · sesión · evaluación), iguales en todas las filas.
+   Las celdas vacías se emiten igual para que la siguiente arranque en la misma x. */
+.resd-cols{display:flex;align-items:center;gap:12px;flex-shrink:0;margin-left:auto}
+.resd-ref{flex:0 0 120px;min-width:0;display:flex;align-items:center}
+.resd-ref .resd-ref-tag{flex:0 1 auto;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.resd-sess{flex:0 0 160px}
+.resd-eval{flex:0 0 170px}
+.resd-sess>*,.resd-eval>*{width:100%;justify-content:center}
+
 /* Botones de acción */
-.resd-btn-wa,.resd-btn-em,.resd-btn-rep,.resd-btn-sess,.resd-btn-eval{padding:7px 13px;font-size:11.5px;border-radius:7px;cursor:pointer;font-weight:600;font-family:inherit;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;transition:filter .12s}
+.resd-btn-wa,.resd-btn-em,.resd-btn-rep,.resd-btn-sess,.resd-btn-eval{padding:7px 13px;font-size:11.5px;border-radius:7px;cursor:pointer;font-weight:600;font-family:inherit;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;transition:filter .12s;line-height:1.2;box-sizing:border-box}
+/* RES-2: el <span> «✓ Sesión registrada» y los <button> miden lo mismo. Con :where() (especificidad 0)
+   porque este archivo carga después de responsive.css y si no pisaría sus 44 px táctiles. */
+:where(.resd-btn-wa,.resd-btn-em,.resd-btn-rep,.resd-btn-sess,.resd-btn-eval){min-height:32px}
 .resd-btn-wa:hover,.resd-btn-em:hover,.resd-btn-rep:hover,.resd-btn-sess:hover,.resd-btn-eval:hover{filter:brightness(.94)}
 .resd-btn-wa{background:#25a05a;color:#fff;border:none;font-weight:700}
 .resd-btn-em{background:rgba(41,171,226,.1);color:#1d8fbf;border:1px solid rgba(41,171,226,.3)}

@@ -739,6 +739,34 @@
     text-overflow: clip;
   }
 
+  /* RES-2: las columnas fijas se sueltan; la pastilla del médico va en su propia línea y los
+     botones debajo. .resd-actions (noas/pend) sigue con su width:100% de arriba. Con #tab-resumen
+     porque resumen.css carga después y a igual especificidad ganarían sus anchos fijos. */
+  #tab-resumen .resd-cols {
+    width: 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+
+  #tab-resumen .resd-ref {
+    flex: 1 1 100%;
+  }
+
+  #tab-resumen .resd-ref:empty,
+  #tab-resumen .resd-eval:empty {
+    display: none;
+  }
+
+  #tab-resumen .resd-sess,
+  #tab-resumen .resd-eval {
+    flex: 1 1 auto;
+  }
+
+  #tab-resumen .resd-sess > *,
+  #tab-resumen .resd-eval > * {
+    min-height: 44px;
+  }
+
   /* ── Informe paciente: una columna, sin desbordes ──
      .rpt-layout es flex column con align-items:flex-start, así que la hoja se
      dimensionaba a max-content (472px en un viewport de 390) y desbordaba. */

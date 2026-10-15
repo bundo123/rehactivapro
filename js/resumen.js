@@ -95,12 +95,13 @@ function row(a, kind) {
   const doc    = pt?.doctorId ? getDoctor(pt.doctorId) : null;
   const dcol   = doc ? safeColor(doc.color) : '';
   const refTag = doc
-    ? `<span class="resd-ref-tag" style="background:${dcol}18;color:${dcol};border-color:${dcol}44">${esc(doc.name)}</span>`
+    ? `<span class="resd-ref-tag" style="background:${dcol}18;color:${dcol};border-color:${dcol}44" title="${esc(doc.name)}">${esc(doc.name)}</span>`
     : '';
   const metaParts = [esc(a.type || ''), th ? esc(th.name) : null];
   if (kind === 'noas' && pt?.tel) metaParts.push(esc(pt.tel));
   const meta = metaParts.filter(Boolean).join(' · ');
-  let actions;
+  // RES-2: en conf la sesión y la evaluación/diagnóstico van en celdas propias de ancho fijo.
+  let actions, sessBtn, evalCell;
   if (kind === 'conf') {
     const hasSession = a.hasSession || false;
     const tieneEval  = pt ? hasEvalInicial(pt) : true;
@@ -115,9 +116,11 @@ function row(a, kind) {
     const diagBtn    = sinDiag && tieneEval
       ? `<button class="resd-btn-eval" onclick="openEditPatient(${esc(JSON.stringify(a.patientId))})">Sin diagnóstico</button>`
       : '';
-    actions = hasSession
-      ? `<span class="resd-btn-sess done">✓ Sesión registrada</span>${evalBtn}${diagBtn}`
-      : `<button class="resd-btn-sess" onclick="openSessionModal(window._app.appointments.find(x=>x.id===${esc(JSON.stringify(a.id))}))">Completar sesión</button>${evalBtn}${diagBtn}`;
+    sessBtn  = hasSession
+      ? `<span class="resd-btn-sess done">✓ Sesión registrada</span>`
+      : `<button class="resd-btn-sess" onclick="openSessionModal(window._app.appointments.find(x=>x.id===${esc(JSON.stringify(a.id))}))">Completar sesión</button>`;
+    // evalBtn y diagBtn son excluyentes (uno pide !tieneEval, el otro tieneEval): 0 o 1 botón.
+    evalCell = `${evalBtn}${diagBtn}`;
   } else {
     // Sin teléfono no hay chat posible: botón deshabilitado (antes abría un número fijo de la clínica).
     const waBtn = pt?.tel
@@ -133,10 +136,15 @@ function row(a, kind) {
       <span class="resd-time">${fmtTime(a.hour)}</span>
       <span class="resd-avatar" style="background:${c.bg};color:${c.text}">${esc(getInitials(pt?.name || ''))}</span>
       <div class="resd-info">
-        <div class="resd-name">${esc(pt?.name || 'Paciente')} ${refTag}</div>
+        <div class="resd-name">${esc(pt?.name || 'Paciente')}</div>
         <div class="resd-meta">${meta}</div>
       </div>
-      <div class="resd-actions">${actions}</div>
+      <div class="resd-cols">
+        <div class="resd-ref">${refTag}</div>
+        ${kind === 'conf'
+          ? `<div class="resd-sess">${sessBtn}</div><div class="resd-eval">${evalCell}</div>`
+          : `<div class="resd-actions">${actions}</div>`}
+      </div>
     </div>`;
 }
 

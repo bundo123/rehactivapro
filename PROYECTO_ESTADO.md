@@ -4,6 +4,35 @@
 
 ---
 
+## 🗓️ Sesión 2026-10-15 (4) — LOTE RES-2: columnas fijas en las filas del Resumen del día (médico referente · sesión · evaluación). Sin SQL.
+
+Rama `res-2-resumen-columnas`, desde `main` = `7b271b6` (deploy de EXP-2 ya verificado). Solo markup y
+CSS: cero cambios de lógica ni de datos.
+- **`row()`** (`resumen.js`): la pastilla del médico sale de `.resd-name` (el nombre queda solo) y lleva
+  `title` con el nombre completo. A la derecha, `.resd-cols` = `.resd-ref` (pastilla) + en `conf`
+  `.resd-sess` («Completar sesión» o «✓ Sesión registrada») y `.resd-eval` («Eval. inicial pendiente» o
+  «Sin diagnóstico», excluyentes: 0 o 1 botón); en `noas`/`pend` `.resd-actions` con sus 3 botones sin
+  cambios. Las celdas vacías se emiten igual para alinear.
+- **CSS** (`resumen.css`): `.resd-ref` 120 px (con 150 px, a 1024 px el nombre quedaba en 128 px; con 120
+  queda en 158), pastilla con elipsis; `.resd-sess` 160 px; `.resd-eval` 170 px; botones a todo el ancho
+  de su celda. Botones con `line-height:1.2; box-sizing:border-box` y `min-height:32px` en una regla
+  `:where()` aparte: `resumen.css` carga después de `responsive.css` y a igual especificidad pisaba los
+  44 px táctiles de `@media (pointer: coarse)`. El `<span>` de sesión registrada mide lo mismo que los
+  `<button>`.
+- **≤ 768 px** (`responsive.css`, con `#tab-resumen` por la misma razón de orden): las columnas se
+  sueltan — línea 1 hora + avatar + nombre, línea 2 la pastilla (oculta si no hay médico), línea 3 los
+  botones (≥ 44 px; `.resd-eval` vacía oculta).
+- **Docs:** `CLAUDE.md` › dominio = `app.rehactivaec.com` (sitio público en `rehactivaec.com`).
+
+677 pruebas sin cambios (es markup y CSS). `vite build` en verde. E2E con stubs (datos ficticios; 4 filas
+conf — con sesión, sin evaluación, sin diagnóstico, sin nada pendiente — con y sin médico, más una noas y
+una pend) a 1280, 1024, 1024 táctil y 375 px: en escritorio `.resd-ref`, `.resd-sess` y `.resd-eval`
+arrancan en la misma x en todas las filas conf y los botones de cada columna miden igual (160×32 /
+170×32; 44 de alto en táctil); ningún texto se corta; nombre largo del médico truncado dentro de su
+columna; a 375 el orden de tres líneas, botones ≥ 44 px; sin scroll horizontal en ninguno.
+
+---
+
 ## 🗓️ Sesión 2026-10-15 (3) — LOTE EXP-2: ajustes del Expediente tras la prueba en producción (documentos en lista, Resumen = pendientes + datos por completar + episodios para todos los roles, botón Expediente en Pacientes). Sin SQL.
 
 Rama `feat/exp-2-ajustes`, desde `main` = `e95b749`. Antes del lote se verificó el deploy de B2b-1:
