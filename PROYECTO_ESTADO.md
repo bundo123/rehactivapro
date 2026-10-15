@@ -4,6 +4,13 @@
 
 ---
 
+## 🗓️ Sesión 2026-10-15 (7) — LOTE DEP-0: Dependabot sin PRs semanales de versiones. Sin SQL, sin código.
+
+Rama `dep-0-dependabot`, desde `main` = `da243eb` (deploy de PUL-1 ya verificado). `.github/dependabot.yml`:
+`open-pull-requests-limit: 5` → `0` (solo seguimiento); las alertas de seguridad de GitHub siguen activas aparte.
+
+---
+
 ## 🗓️ Sesión 2026-10-15 (6) — LOTE PUL-1: pulido, singular en el plan y pastilla alineada en noas/pend. Sin SQL.
 
 Rama `pul-1-pulido`, desde `main` = `d00fbd1` (deploy de SES-1 ya verificado).
